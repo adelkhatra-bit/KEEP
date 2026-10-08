@@ -2495,6 +2495,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
             {visibleLokiPulseItems.map((item) => (
               <TouchableOpacity
                 key={item.track.id}
+                testID={`profile-pulse-track-${item.track.id}`}
                 style={s.lokiPulseCard}
                 onPress={() => {
                   unlockWebAudioForGesture();
@@ -2563,6 +2564,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
     <MusicSwipeDeckModal
       visible={lokiPulseSwipeOpen}
+      pulseProfileId={user?.id}
       tracks={visibleLokiPulseItems.map((item) => item.track)}
       initialTrackId={lokiPulseSelectedTrackId}
       title="Loki Pulse"

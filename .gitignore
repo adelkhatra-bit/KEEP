@@ -17,6 +17,7 @@ next-env.d.ts
 # Robot de parcours (packages/mobile/e2e/journeys) : export web local + rapport/captures, jamais commités.
 **/dist-journeys/
 artifacts/journeys/
+artifacts/dual-viewport/event-story/
 .expo/
 .expo-shared/
 

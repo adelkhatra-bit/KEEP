@@ -14,12 +14,14 @@ on:
       - 'config/platform-parity-contract.json'
       - 'scripts/verify-source-of-truth.cjs'
       - 'scripts/verify-platform-behavior-parity.cjs'
+      - 'scripts/event-story-browser.cjs'
       - '.github/workflows/keep-dual-viewport-guardian.yml'
   pull_request:
     branches: ['reconcile/claude-main-20260825']
     paths:
       - 'packages/mobile/**'
       - 'packages/music/**'
+      - 'scripts/event-story-browser.cjs'
       - '.github/workflows/keep-dual-viewport-guardian.yml'
   workflow_dispatch:
   schedule:
@@ -53,6 +55,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Fetch canonical source for branch guards
+        run: git fetch --no-tags --depth=1 origin reconcile/claude-main-20260825:refs/remotes/origin/reconcile/claude-main-20260825
       - name: Verify shared Mobile/Desktop source
         run: node scripts/verify-source-of-truth.cjs
       - name: Verify Mobile/Web behavior parity
@@ -61,8 +65,15 @@ jobs:
         run: npm run type-check
       - name: Install Chromium
         run: |
-          npm install --no-save playwright@1.55.0
+          npm install --no-save --package-lock=false playwright@1.55.1
           npx playwright install chromium --with-deps
+      - name: Export shared app for isolated event stories
+        working-directory: packages/mobile
+        run: |
+          npx expo export --platform web --output-dir dist-event-story
+          node scripts/fix-web-export.cjs dist-event-story
+      - name: Test event story and Pulse — mobile + desktop, isolated fixtures
+        run: node scripts/event-story-browser.cjs packages/mobile/dist-event-story
       - name: Start KEEP Web runtime
         working-directory: packages/mobile
         run: |

@@ -16,6 +16,7 @@ import { hasFeature } from './entitlementService';
 import { supabase } from './supabaseClient';
 import { APP_NAME } from '../config/brand';
 import { appendReferralToLink, loadMyReferralCode } from './referralService';
+import { isStoryAccountEligible } from './storyEligibility';
 
 const WEB_URL = (process.env.EXPO_PUBLIC_WEB_URL || 'https://adelkhatra-bit.github.io/KEEP').replace(/\/$/, '');
 export const KEEP_SHARE_SLOGAN = `${APP_NAME} — Tes goûts te ressemblent.`;
@@ -39,6 +40,7 @@ type ShareCopy = {
   eventName: ShareEvent;
   channel: string;
   ownProfile?: boolean;
+  onShared?: () => void;
 };
 
 function cleanUsername(value?: string | null): string {
@@ -98,8 +100,13 @@ async function attachReferral(copy: ShareCopy): Promise<ShareCopy> {
 }
 
 async function trackShare(eventName: ShareEvent, channel: string) {
-  if (!supabase) return;
+  const state = useUserStore.getState();
+  if (!supabase || !state.user || state.isDemoMode || state.isLocalGuest) return;
   try {
+    const { data, error } = await supabase.auth.getSession();
+    if (error || data.session?.user.id !== state.user.id || !isStoryAccountEligible(data.session?.user)) return;
+    const current = useUserStore.getState();
+    if (current.isDemoMode || current.isLocalGuest || current.user?.id !== state.user.id) return;
     await supabase.rpc('track_keep_event', {
       p_event_name: eventName,
       p_channel: channel,
@@ -113,7 +120,8 @@ async function trackShare(eventName: ShareEvent, channel: string) {
 async function shareSystem(copy: ShareCopy): Promise<void> {
   const result = await Share.share({ title: copy.subject, message: copy.message });
   if (!result?.action || result.action === Share.sharedAction) {
-    await trackShare(copy.eventName, `${copy.channel}_${Platform.OS === 'web' ? 'web' : 'native'}`);
+    if (!(copy.kind === 'event' && copy.onShared)) await trackShare(copy.eventName, `${copy.channel}_${Platform.OS === 'web' ? 'web' : 'native'}`);
+    copy.onShared?.();
   }
 }
 
@@ -131,14 +139,16 @@ async function shareEmail(copy: ShareCopy): Promise<void> {
       anchor.click();
       anchor.remove();
     }
-    await trackShare('profile_share_email', `${copy.channel}_email_web`);
+    if (!(copy.kind === 'event' && copy.onShared)) await trackShare('profile_share_email', `${copy.channel}_email_web`);
+    copy.onShared?.();
     return;
   }
 
   const canOpen = await Linking.canOpenURL(mailto).catch(() => false);
   if (canOpen) {
     await Linking.openURL(mailto);
-    await trackShare('profile_share_email', `${copy.channel}_email_native`);
+    if (!(copy.kind === 'event' && copy.onShared)) await trackShare('profile_share_email', `${copy.channel}_email_native`);
+    copy.onShared?.();
     return;
   }
 
@@ -270,6 +280,7 @@ function showWebShareSheet(copy: ShareCopy): Promise<void> {
       void copyShareText(copy)
         .then((copied) => {
           if (copied) {
+            copy.onShared?.();
             copyButton.textContent = '✓ COPIÉ';
             status.textContent = `Copié. Le texte contient ${APP_NAME}, le slogan, le contexte et le lien.`;
           } else {
@@ -303,7 +314,7 @@ function showNativeShareSheet(copy: ShareCopy): Promise<void> {
     const doCopy = async () => {
       try {
         const copied = await copyShareText(copy);
-        if (copied) Alert.alert('Copié', `Le texte ${APP_NAME}, le slogan et le lien ont bien été copiés.`);
+        if (copied) { copy.onShared?.(); Alert.alert('Copié', `Le texte ${APP_NAME}, le slogan et le lien ont bien été copiés.`); }
       } finally { resolve(); }
     };
     Alert.alert(
@@ -469,8 +480,8 @@ export async function shareCompareInvite(username: string): Promise<void> {
   return presentShare(await attachReferral(buildContextCopy('compare', cleanUsername(username))));
 }
 
-export async function shareEvent(eventId: string, eventName: string): Promise<void> {
-  return presentShare(await attachReferral(buildContextCopy('event', eventName, eventId)));
+export async function shareEvent(eventId: string, eventName: string, onShared?: () => void): Promise<void> {
+  return presentShare(await attachReferral({ ...buildContextCopy('event', eventName, eventId), onShared }));
 }
 
 export async function shareBattleResult(resultLabel: string): Promise<void> {

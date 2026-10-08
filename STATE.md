@@ -1,5 +1,7 @@
 # STATE — Loki Music (ce qui est FAIT)
 
+| 08/10/2026 | copilot/add-soirees-story-et-carte → PR #53 vers reconcile/claude-main-20260825 | 467cb48, cb45a2d (COMMITTED_LOCAL) | Décision d'Adel : branches de revue autorisées, nettoyage compatible et gardes/tests CI de l'issue #52 | 4 tests Node de contrat réussis, base main refusée ; implementation SQL/mobile en cours, aucun déploiement |
+
 > **Point d'entrée court pour toute IA / tout développeur.** Il n'y a **pas de deuxième mémoire** : ce fichier renvoie aux fichiers existants et tient le **journal daté des actions** (une ligne par action : date · branche · commit · fonction · preuve). Règle : à la fin de chaque action, ajouter une ligne ici (jamais d'effacement).
 
 ## Où lire (ordre)

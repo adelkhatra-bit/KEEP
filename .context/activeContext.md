@@ -1,5 +1,10 @@
 # KEEP — Contexte actif
 
+## Issue #52 — soirées story/Pulse (08/10/2026, reprise autorisée)
+- PR #53 vers `reconcile/claude-main-20260825` vérifiée ; branche `copilot/add-soirees-story-et-carte` autorisée explicitement par Adel. Commits locaux `467cb48` / `cb45a2d` : garde PR/branche, tests et contrats produit ; 4/4 tests Node réussis, `main` refusée.
+- Intégration en cours : pins événement idempotents, styles persistés, story/Pulse partagés, RSVP existant et statistiques pays. Tests PostgreSQL isolés/Jest/navigateur à consolider après la dernière correction d'API.
+- Aucun déploiement SQL/Edge/OTA, aucune écriture de données utilisateur réelles. Accès au schéma vivant indisponible par réseau dans ce sandbox ; CI initiale de PR nécessite une approbation (`action_required`). Échec navigateur préexistant de la base : run `37711629482`, conversation de profil.
+
 ## IDEA-189 — versions / preuves / contrôles (07/10/2026, LOCAL_ONLY)
 - Branche de revue conservée, HEAD `08a116e7`, base canonique `0138b4e5f93e8271735857fe3f9b885802e6ee61` confirmée après fetch + approfondissement de l’historique superficiel. Aucun commit/push/deploiement/report_progress ni écriture production. Aucun changement mobile App/Navigation/Stories, dépendances du dépôt inchangées.
 - `/home/runner/work/KEEP/KEEP/packages/admin/pages/operations.tsx` étendu par `/home/runner/work/KEEP/KEEP/packages/admin/components/ReleaseEvidence.tsx` : version.json canonique observé, dernière app native signalée, compteurs exacts ou indisponibles, correctifs bornés à 100 avec liens SHA/test et registre existant. Aucun export public de signalements. Les compteurs push existants ne retombent plus à zéro sur erreur.

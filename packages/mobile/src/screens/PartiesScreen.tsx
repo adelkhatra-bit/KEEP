@@ -7,6 +7,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Alert } from '../utils/keepAlert';
 import { createCreatorEvent, loadMyRsvps, loadUpcomingEvents, loadMyEventInvitationIds, loadPendingEventInvitePreviews, setEventRsvp, CreatorEvent, EventAudienceMode, EventRsvpStatus, loadMyPendingEventReviews, submitEventReview, loadEventReviewSummary, PendingEventReview, EventReviewSummary, loadEventRsvpCounts, EventRsvpCounts, updateCreatorEvent, disableCreatorEvent, loadEventParticipants, EventParticipant, pickAndUploadEventImage, loadMyEventTicket, EventTicket, checkinEventTicketByCode, toggleEventCheckin, buildGoogleCalendarUrl, buildEventIcs, loadMyEventOrganizerContact, EVENT_TICKET_PRESET_PRICES_CENTS, setEventTicketPrice, requestEventTicketPurchase, EventTicketPurchaseRequest, markEventTicketPaid, loadMyEventTicketSales, EventTicketTransaction, loadEventPlaylist, EventTrack } from '../services/creatorEventService';
 import { shareEvent } from '../services/sharingService';
+import { loadMyEventDiscoveryStats, recordEventDiscoveryEngagement } from '../services/eventDiscoveryService';
+import type { EventDiscoveryStats } from '../services/eventDiscoveryPolicy';
+import EventMusicGenrePicker from '../components/EventMusicGenrePicker';
 import { getCommercialRules, getEventCreationAccess, getGrowthRewardStatus, QuotaAccess } from '../services/growthAccessService';
 import { useUserStore } from '../store/useUserStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
@@ -507,6 +510,7 @@ export default function PartiesScreen({ navigation, route }: any) {
   const [includeRsvpButtons, setIncludeRsvpButtons] = useState(true);
   const [audienceMode, setAudienceMode] = useState<EventAudienceMode>('GENERAL');
   const [rsvpCounts, setRsvpCounts] = useState<EventRsvpCounts | null>(null);
+  const [discoveryStats, setDiscoveryStats] = useState<EventDiscoveryStats | null>(null);
   // Adel (17-18/09/2026) : "construis tout ce qui manque ... entrée
   // payante" -- l'organisateur confirme ici les billets payés (même
   // principe que le marketplace : lien de paiement personnel, confirmation
@@ -555,6 +559,7 @@ export default function PartiesScreen({ navigation, route }: any) {
   // Adel (08/09/2026) : "un numero de telephone ... je souhaite montrer mon
   // numero de telephone ou pas" -- optionnel, masque par defaut.
   const [organizerPhone, setOrganizerPhone] = useState('');
+  const [eventMusicGenres, setEventMusicGenres] = useState<string[]>([]);
   const [showOrganizerPhone, setShowOrganizerPhone] = useState(false);
   const [myTicket, setMyTicket] = useState<EventTicket | null>(null);
   const [ticketModalOpen, setTicketModalOpen] = useState(false);
@@ -691,6 +696,15 @@ export default function PartiesScreen({ navigation, route }: any) {
     return events;
   }, [events, eventViewMode, invitedEventIds, pendingInvitePreviews, user?.id]);
   const currentEvent = visibleEvents.length ? visibleEvents[eventIndex % visibleEvents.length] : null;
+  useEffect(() => {
+    let live = true;
+    setDiscoveryStats(null);
+    if (!currentEvent || currentEvent.creatorId !== user?.id || isLocalGuest || isDemoMode) return undefined;
+    const refresh = () => { void loadMyEventDiscoveryStats(currentEvent.id).then((stats) => { if (live) setDiscoveryStats(stats); }).catch(() => {}); };
+    refresh();
+    const unsubscribe = navigation?.addListener?.('focus', refresh);
+    return () => { live = false; unsubscribe?.(); };
+  }, [currentEvent?.id, currentEvent?.creatorId, user?.id, isLocalGuest, isDemoMode, navigation]);
 
   // Découvertes peut ouvrir directement une soirée sans nouvelle route.
   // On réutilise Parties et son vrai état métier : aucun écran événement dupliqué.
@@ -902,6 +916,7 @@ export default function PartiesScreen({ navigation, route }: any) {
     setDescription(''); setIncludeRsvpButtons(true); setAudienceMode('GENERAL');
     setEventImageUrls([]); setRequireQrCode(false); setTicketPriceCents(null);
     setOrganizerPhone(''); setShowOrganizerPhone(false);
+    setEventMusicGenres([]);
   };
 
   const openEdit = (event: CreatorEvent) => {
@@ -920,6 +935,7 @@ export default function PartiesScreen({ navigation, route }: any) {
     setVenueName(event.venueName || '');
     setVenueCoords(null);
     setCountryCode(event.countryCode || 'FR');
+    setEventMusicGenres(event.musicGenres ?? []);
     setDescription(event.description || '');
     setEventImageUrls(event.imageUrls || []);
     setRequireQrCode(event.requireQrCode);
@@ -1051,9 +1067,10 @@ export default function PartiesScreen({ navigation, route }: any) {
     const iso = parseDate();
     if (name.trim().length < 3) return Alert.alert('Événement', 'Indique un nom pour l’événement.');
     if (!iso) return Alert.alert('Événement', 'Indique la date au format AAAA-MM-JJTHH:MM.');
+    if (!eventMusicGenres.length) return Alert.alert('Styles de la soirée', 'Choisis au moins un style musical.');
     setCreateBusy(true);
     try {
-      const payload = { name: name.trim(), description: description.trim(), venueName: venueName.trim(), startsAt: iso, countryCode: countryCode.trim().toUpperCase().slice(0,2), imageUrls: eventImageUrls, requireQrCode, audienceMode, organizerPhone: organizerPhone.trim() || undefined, showOrganizerPhone, lat: venueCoords?.lat, lng: venueCoords?.lng };
+      const payload = { name: name.trim(), description: description.trim(), venueName: venueName.trim(), startsAt: iso, countryCode: countryCode.trim().toUpperCase().slice(0,2), musicGenres: eventMusicGenres, imageUrls: eventImageUrls, requireQrCode, audienceMode, organizerPhone: organizerPhone.trim() || undefined, showOrganizerPhone, lat: venueCoords?.lat, lng: venueCoords?.lng };
       if (editingEventId) {
         await updateCreatorEvent(editingEventId, payload);
         await setEventTicketPrice(editingEventId, ticketPriceCents).catch(() => {});
@@ -1076,6 +1093,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           startsAt: payload.startsAt,
           endsAt: null,
           countryCode: payload.countryCode || null,
+          musicGenres: payload.musicGenres,
           externalTicketUrl: null,
           djArtistNames: user?.username ? [user.username] : [],
           youtubeUrl: null,
@@ -1645,6 +1663,9 @@ export default function PartiesScreen({ navigation, route }: any) {
                 {!isPendingPreview && currentEvent.ticketPriceCents ? <Text style={styles.rsvpCountsText}>🎟 Entrée : {(currentEvent.ticketPriceCents / 100).toFixed(2)}€</Text> : null}
                 {!isPendingPreview && currentEventReviewSummary && currentEventReviewSummary.reviewCount > 0 ? <Text style={styles.reviewSummary}>⭐ {currentEventReviewSummary.averageRating.toFixed(1)} · {currentEventReviewSummary.reviewCount} avis</Text> : null}
                 {user?.id === currentEvent.creatorId && rsvpCounts && (rsvpCounts.going + rsvpCounts.maybe + rsvpCounts.notGoing) > 0 ? <Text style={styles.rsvpCountsText}>✓ {rsvpCounts.going} participent · {rsvpCounts.maybe} peut-être · {rsvpCounts.notGoing} ne viennent pas</Text> : null}
+                {isOwnEvent ? <Text style={{ color: colors.textPrimary, fontSize: 12, lineHeight: 18 }} testID="event-organizer-discovery-stats">
+                  {discoveryStats ? `👁 ${discoveryStats.views} vues · ✓ ${discoveryStats.going} J’Y VAIS · ↗ ${discoveryStats.shares} partages · ${discoveryStats.countryCode || currentEvent.countryCode || ''}` : 'Statistiques de découverte indisponibles'}
+                </Text> : null}
                 {user?.id === currentEvent.creatorId && ticketSales.filter((s) => s.status === 'PENDING').length > 0 ? (
                   <View style={{ marginTop: 10 }}>
                     <Text style={styles.rsvpToggleLabel}>💳 Billets à confirmer</Text>
@@ -1690,7 +1711,7 @@ export default function PartiesScreen({ navigation, route }: any) {
             </View>
             <View style={styles.rsvpMaybeRow}><TouchableOpacity style={[styles.maybeAction,currentRsvp==='MAYBE'&&styles.maybeActionOn]} onPress={()=>void chooseRsvp(currentEvent.id,'MAYBE')}><Text style={styles.maybeText}>PEUT-ÊTRE</Text></TouchableOpacity></View>
           </> : null}
-          <View style={styles.secondaryRow}><TouchableOpacity style={styles.secondary} onPress={nextEvent}><Text style={styles.secondaryText}>Suivant</Text></TouchableOpacity>{!isPendingPreview ? <TouchableOpacity style={styles.secondary} onPress={()=>shareEvent(currentEvent.id,currentEvent.name).catch(()=>{})}><Text style={styles.secondaryText}>↗ Partager</Text></TouchableOpacity> : null}</View>
+          <View style={styles.secondaryRow}><TouchableOpacity style={styles.secondary} onPress={nextEvent}><Text style={styles.secondaryText}>Suivant</Text></TouchableOpacity>{!isPendingPreview ? <TouchableOpacity style={styles.secondary} onPress={()=>shareEvent(currentEvent.id,currentEvent.name,()=>{void recordEventDiscoveryEngagement(currentEvent.id,'SHARE','PARTIES').catch(()=>{});}).catch(()=>{})}><Text style={styles.secondaryText}>↗ Partager</Text></TouchableOpacity> : null}</View>
           {/* Adel (08/09/2026) : "il pourra dire que je telecharge mon QR
               code ou un bouton QR code" -- reserve a qui participe a un
               evenement qui impose le QR. */}
@@ -1759,6 +1780,7 @@ export default function PartiesScreen({ navigation, route }: any) {
         ) : null}
       </View>
       {!eventImageUrls.length ? <Text style={styles.photoGalleryHint}>Affiche + le style musical · jusqu’à 3 photos</Text> : null}
+      {createOpen ? <EventMusicGenrePicker selected={eventMusicGenres} onChange={setEventMusicGenres} /> : null}
       {/* Adel (08/09/2026) : "mets un systeme de roulette pour la date et
           l'heure ... je veux pouvoir selectionner une heure et 45 minutes,
           2h14, etc." -- trois roulettes (date / heure / minute), aucune

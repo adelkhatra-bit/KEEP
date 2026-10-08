@@ -103,6 +103,7 @@ Source : `PartiesScreen.tsx`.
 - la consommation du quota Solo est idempotente : retry réseau/double effet React = une seule partie ;
 - classement Battle séparé/repliable ;
 - événements, RSVP, participants, playlist et lobby restent dans la même architecture.
+- Décision d'Adel du 08/10/2026 (issue #52) : soirée approuvée automatiquement en story 24 h, carte partagée affiche/date/lieu/**J'Y VAIS** via `event_rsvps` ; carte sobre **Soirée** dans Loki Pulse après dix titres distincts, uniquement goûts correspondants et même zone/pays/devise. Statistiques vues/présences/partages pour l'organisateur et son pays ; Démo sans écriture. Détails UI : §14 de `docs/KEEP_CAHIER_DES_CHARGES_UI.md`.
 
 Catalogue Battle/Solo :
 - le catalogue grandit côté serveur, sans nouvelle version App Store ;

@@ -14,6 +14,7 @@ export type CreatorEvent = {
   startsAt: string;
   endsAt?: string | null;
   countryCode?: string | null;
+  musicGenres?: string[];
   djArtistNames: string[];
   externalTicketUrl?: string | null;
   youtubeUrl?: string | null;
@@ -71,7 +72,7 @@ export async function loadProfileEventSpotlight(profileId: string): Promise<Prof
 
 
 
-const EVENT_COLUMNS = 'id,creator_id,name,description,venue_name,starts_at,ends_at,country_code,dj_artist_names,external_ticket_url,youtube_url,image_url,image_urls,require_qr_code,audience_mode,ticket_price_cents,organizer_phone_public,moderation_status,photo_status,photo_note,text_status,text_note';
+const EVENT_COLUMNS = 'id,creator_id,name,description,venue_name,starts_at,ends_at,country_code,music_genres,dj_artist_names,external_ticket_url,youtube_url,image_url,image_urls,require_qr_code,audience_mode,ticket_price_cents,organizer_phone_public,moderation_status,photo_status,photo_note,text_status,text_note';
 
 function mapEventRow(row: any): CreatorEvent {
   return {
@@ -83,6 +84,7 @@ function mapEventRow(row: any): CreatorEvent {
     startsAt: row.starts_at,
     endsAt: row.ends_at,
     countryCode: row.country_code,
+    musicGenres: Array.isArray(row.music_genres) ? row.music_genres.map(String) : [],
     djArtistNames: Array.isArray(row.dj_artist_names) ? row.dj_artist_names : [],
     externalTicketUrl: row.external_ticket_url,
     youtubeUrl: row.youtube_url,
@@ -351,6 +353,7 @@ export async function createCreatorEvent(input: {
   startsAt: string;
   endsAt?: string;
   countryCode?: string;
+  musicGenres?: string[];
   ticketUrl?: string;
   djArtistNames?: string[];
   youtubeUrl?: string;
@@ -387,6 +390,7 @@ export async function updateCreatorEvent(eventId: string, input: {
   startsAt: string;
   endsAt?: string;
   countryCode?: string;
+  musicGenres?: string[];
   ticketUrl?: string;
   youtubeUrl?: string;
   imageUrl?: string;

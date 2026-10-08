@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, LayoutAnimation, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../theme/colors';
-import { isDormantMember, orderStoriesForBar, type MusicStory } from '../services/musicStoriesService';
+import { hasStoryContent, isDormantMember, orderStoriesForBar, type MusicStory } from '../services/musicStoriesService';
 import { rankBadgeFor } from '../services/storyActivity';
 
 /**
@@ -86,7 +86,7 @@ export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, 
   //  3. suggestions d'amis (liens par reprise/abonnement, puis style musical) avec le bouton « suivre » intégré ;
   //  4. les stories DÉJÀ VUES tout au bout : dès qu'une story est vue, sa bulle disparaît d'ici et part au fond de la ligne.
   const scrollRef = useRef<ScrollView | null>(null);
-  const hasStory = (story: MusicStory) => story.tracks.length > 0;
+  const hasStory = hasStoryContent;
   const isUnseen = (story: MusicStory) => hasStory(story) && (seen[story.profileId] || '') < story.latestAt;
   const byLastSeen = (a: MusicStory, b: MusicStory) => (b.lastSeenAt || '').localeCompare(a.lastSeenAt || '');
   const unseenFollowed = orderStoriesForBar(stories.filter((story) => story.followed && isUnseen(story)), seen);

@@ -272,7 +272,7 @@ describe('Stories des autres + suggestions « reprise » (Adel 05/10/2026)', () 
     expect(svc).toContain('loadStoryRelations');
     expect(svc).toContain(".eq('source_user_id', viewerId)");
     expect(rail).toContain('testID={`story-follow-${story.profileId}`}');
-    expect(bar).toContain('if (story.suggestion || story.tracks.length === 0)');
+    expect(bar).toContain('if (story.suggestion || !hasStoryContent(story))');
   });
   it('une story vue reste visible (grisée) dans les 24 h', () => {
     expect(rail).toContain('déjà vue');

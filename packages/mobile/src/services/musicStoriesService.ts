@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabaseClient';
 import { loadMyOfferedTrackIds, loadPlaylistSaleProfilePreviewSampler } from './playlistSaleService';
 import { startStoryWatch } from './storyWatchService';
+import type { EventDiscoveryItem } from './eventDiscoveryPolicy';
 
 /**
  * Stories musicales Loki (Adel, 05/10/2026).
@@ -34,6 +35,8 @@ export type MusicStory = {
   followed: boolean;
   sameStyle: boolean;
   tracks: CanonicalTrack[];
+  /** Soirées approuvées : jamais converties en morceaux ni envoyées au lecteur audio. */
+  events?: EventDiscoveryItem[];
   /** Date d'ajout de chaque musique (ISO) : « ajoutée il y a 2 h 03 · encore visible 21 h 57 ». */
   addedAt?: Record<string, string>;
   /** Dernière connexion connue (ISO) : à égalité de dernière story, le dernier connecté passe devant. */
@@ -47,6 +50,27 @@ export type MusicStory = {
   /** Musiques mises en story SANS propriétaire connu : marquées « Gratuit · non certifié » (Adel, 06/10/2026). */
   freeTrackIds?: string[];
 };
+
+export function hasStoryContent(story: MusicStory): boolean {
+  return story.tracks.length > 0 || Boolean(story.events?.length);
+}
+
+export function mergeEventStories(stories: MusicStory[], events: EventDiscoveryItem[], followedIds: string[] = []): MusicStory[] {
+  const byProfile = new Map(stories.map((story) => [story.profileId, { ...story, events: [...(story.events ?? [])] }]));
+  for (const event of events) {
+    let story = byProfile.get(event.creatorId);
+    if (!story) {
+      story = { profileId: event.creatorId, username: event.username, avatarUrl: event.avatarUrl, latestAt: event.pinnedAt,
+        followed: followedIds.includes(event.creatorId), sameStyle: false, tracks: [], events: [] };
+      byProfile.set(event.creatorId, story);
+    }
+    if (!story.events.some((existing) => existing.id === event.id)) story.events.push(event);
+    story.latestAt = story.latestAt > event.pinnedAt ? story.latestAt : event.pinnedAt;
+    story.suggestion = false;
+    story.styleMatch = false;
+  }
+  return Array.from(byProfile.values());
+}
 
 export type SaleStoryInfo = { count: number; priceLabel: string; mode: 'MONEY' | 'FREE' | 'BOTH' };
 

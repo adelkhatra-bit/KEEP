@@ -102,6 +102,12 @@ Arrêt micro = arrêt immédiat + libération de la ressource + retour état ina
 
 Une création doit apparaître immédiatement en état local puis être réconciliée avec Supabase.
 
+Soirées en story/Pulse (issue #52) : `musicStoriesService.ts` / `ProfileStoryBar.tsx`
+→ `MusicSwipeDeckModal.tsx` → carte partagée `EventDiscoveryCard.tsx`
+→ `eventDiscoveryService.ts` / `eventDiscoveryPolicy.ts`.
+Le serveur publie les pins approuvés et filtre goûts/pays/devise ; la présence reste dans `event_rsvps`.
+Tests : `scripts/event-story-data.test.cjs`, `scripts/event-story-browser.cjs` et Jest mobile.
+
 ### Découvertes
 `DiscoverScreen.tsx`
 → profils publics / follow / localisation

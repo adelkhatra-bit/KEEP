@@ -152,6 +152,8 @@ agent) et messages des sessions de chat (non versionnés).
 
 ## 4. Points ouverts
 
+- **08/10/2026 — issue #52 / PR #53** : reprise autorisée des branches `copilot/*` uniquement vers la branche canonique. Gardes de revue/contrat et tests CI préparés (`467cb48`, `cb45a2d`, commits locaux) ; soirées en story/Pulse en cours. Migration et fonction Edge non déployées ; test navigateur connecté sur fixtures, CI distante et preuve iPhone restent à consolider. Aucun accès en écriture production.
+
 - **07/10/2026 — IDEA-189, LOCAL_ONLY** : tableau versions/preuves dans Opérations existant, SHA/test obligatoires pour les nouveaux « Corrigé », compteurs exacts avec erreurs honnêtes, actionlint épinglé et synthèse GitHub lecture seule. Typechecks admin/mobile, build admin, 1377 tests mobile, PostgreSQL isolé et navigateur fixtures 390/1440 réussis. Migration `/home/runner/work/KEEP/KEEP/supabase/migrations/20261006235000_problem_report_evidence.sql` non appliquée ; intégration/CI/livraison restent à faire par le parent, sans PASS global. Actionlint global hérité rouge, version publique DNS indisponible, TestFlight inconnu. Détails dans `/home/runner/work/KEEP/KEEP/.context/activeContext.md` et `/home/runner/work/KEEP/KEEP/AGENT_MESSAGES.md`.
 
 - **06/10/2026 — Déblocage des intégrations en revue Copilot** : arbre produit `0138b4e5` préservé, contrôles Stories/provenance/empreintes protégées corrigés sans modifier le design ni le runtime. Preuves : 282 suites / 1 377 tests, typechecks mobile/admin/music, gardes et export + navigateur Chromium (PC/tablette/Android, direct + refresh). Reste l'intégration produit et la revalidation CI distante ; aucun déploiement ni vérification iPhone/Firefox/WebKit. Détails : `.context/activeContext.md`.

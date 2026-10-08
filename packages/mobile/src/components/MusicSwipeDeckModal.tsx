@@ -7,7 +7,7 @@ import { pushReportSurface } from '../services/reportSurface';
 import ChatDockHost from './ChatDockHost';
 import KeepVisibilityChoiceModal, { KeepSuccessModal } from './KeepVisibilityChoiceModal';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Image, Linking, Platform, SafeAreaView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Animated, AppState, Image, Linking, Platform, SafeAreaView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import type { CanonicalTrack } from '@keep/music';
 import SwipeDeck from './SwipeDeck';
@@ -32,6 +32,10 @@ import { recordProfileSwipeListen } from '../services/profileSwipeListenService'
 import { colors } from '../theme/colors';
 import { minTouchTarget } from '../theme/spacing';
 import KeepModal from './KeepModal';
+import EventDiscoveryCard from './EventDiscoveryCard';
+import { PulseEventQuota, type EventDiscoveryItem } from '../services/eventDiscoveryPolicy';
+import { loadEventDiscovery } from '../services/eventDiscoveryService';
+import { strongKeepTrackIdentity } from '../services/keepTrackIdentity';
 
 function shuffle<T>(input: T[]): T[] {
   const next = [...input];
@@ -48,6 +52,9 @@ type AlreadyKeptState = 'checking' | 'yes' | 'no';
 type Props = {
   visible: boolean;
   tracks: CanonicalTrack[];
+  storyEvents?: EventDiscoveryItem[];
+  onStoryEventShown?: () => void;
+  pulseProfileId?: string;
   /** When opened from a tapped rail/card, keep that exact track first instead of shuffling it away. */
   initialTrackId?: string | null;
   title?: string;
@@ -108,6 +115,9 @@ type Props = {
 export default function MusicSwipeDeckModal({
   visible,
   tracks,
+  storyEvents = [],
+  onStoryEventShown,
+  pulseProfileId,
   initialTrackId,
   title = 'Découverte musicale',
   subtitle,
@@ -152,6 +162,17 @@ export default function MusicSwipeDeckModal({
   const [deckTracks, setDeckTracks] = useState<CanonicalTrack[]>([]);
   const [processing, setProcessing] = useState(false);
   const [preparingDeck, setPreparingDeck] = useState(false);
+  const [storyEventIndex, setStoryEventIndex] = useState(0);
+  const [pulseEvents, setPulseEvents] = useState<EventDiscoveryItem[]>([]);
+  const [pulseEvent, setPulseEvent] = useState<EventDiscoveryItem | null>(null);
+  const pulseQuota = useRef(new PulseEventQuota());
+  useEffect(() => { pulseQuota.current = new PulseEventQuota(); setPulseEvents([]); setPulseEvent(null); }, [pulseProfileId]);
+  useEffect(() => {
+    let live = true;
+    if (!visible || !pulseProfileId) return undefined;
+    void loadEventDiscovery('PULSE').then((items) => { if (live) setPulseEvents(items); }).catch(() => {});
+    return () => { live = false; };
+  }, [visible, pulseProfileId]);
   const [prefilterRemovedCount, setPrefilterRemovedCount] = useState(0);
   const [prefilterVerified, setPrefilterVerified] = useState(false);
   const [keepPromptOpen, setKeepPromptOpen] = useState(false);
@@ -179,26 +200,49 @@ export default function MusicSwipeDeckModal({
   const preparedTracksRef = useRef<CanonicalTrack[]>(tracks);
   tracksRef.current = tracks;
   const current = deckTracks[index];
+  const storyEvent = visible && !preparingDeck && !current ? storyEvents[storyEventIndex] : undefined;
+  const activeEvent = pulseEvent ?? storyEvent;
+  useEffect(() => { if (storyEvent) onStoryEventShown?.(); }, [storyEvent?.id, onStoryEventShown]);
+  useEffect(() => {
+    if (!visible || preparingDeck || !pulseProfileId || pulseEvent) return;
+    const next = pulseQuota.current.take(pulseEvents);
+    if (next) setPulseEvent(next);
+  }, [visible, preparingDeck, pulseProfileId, current?.id, pulseEvents]);
+  useEffect(() => {
+    if (!visible || !pulseProfileId || !current || activeEvent || preparingDeck) return undefined;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const cancel = () => { if (timer) clearTimeout(timer); timer = null; };
+    const start = () => {
+      cancel();
+      if (AppState.currentState !== 'active' || (Platform.OS === 'web' && typeof document !== 'undefined' && document.hidden)) return;
+      timer = setTimeout(() => pulseQuota.current.observeTrack(strongKeepTrackIdentity(current)), 2000);
+    };
+    const sub = AppState.addEventListener('change', (state) => { if (state === 'active') start(); else cancel(); });
+    const visibility = () => { if (document.hidden) cancel(); else start(); };
+    if (Platform.OS === 'web' && typeof document !== 'undefined') document.addEventListener('visibilitychange', visibility);
+    start();
+    return () => { cancel(); sub.remove(); if (Platform.OS === 'web' && typeof document !== 'undefined') document.removeEventListener('visibilitychange', visibility); };
+  }, [visible, pulseProfileId, current?.id, activeEvent?.id, preparingDeck]);
   // Secousse (06/10/2026) : la fenêtre déclare où on est (titre du lecteur, @source, musique en cours) pour localiser exactement le signalement.
   const reportSurfaceRef = useRef<ReturnType<typeof pushReportSurface> | null>(null);
   useEffect(() => {
     if (!visible) { reportSurfaceRef.current?.remove(); reportSurfaceRef.current = null; return undefined; }
-    const surface = { label: `${title}${sourceUsername ? ` · @${sourceUsername}` : ''}`, trackId: current?.id ?? null, trackTitle: current?.title ?? null, trackArtist: current?.artist ?? null, index };
+    const surface = { label: activeEvent ? `${title} · Soirée ${activeEvent.name}` : `${title}${sourceUsername ? ` · @${sourceUsername}` : ''}`, trackId: activeEvent ? null : current?.id ?? null, trackTitle: activeEvent ? null : current?.title ?? null, trackArtist: activeEvent ? null : current?.artist ?? null, index };
     if (reportSurfaceRef.current) reportSurfaceRef.current.update(surface);
     else reportSurfaceRef.current = pushReportSurface(surface);
     return undefined;
-  }, [visible, title, sourceUsername, current?.id, current?.title, current?.artist, index]);
+  }, [visible, title, sourceUsername, current?.id, current?.title, current?.artist, index, activeEvent?.id, activeEvent?.name]);
   useEffect(() => () => { reportSurfaceRef.current?.remove(); reportSurfaceRef.current = null; }, []);
   // Adel (05/10/2026) : « à chaque fois que je swipe ça passe automatiquement à l'autre utilisateur » -- la file terminée prévient le parent une seule fois par ouverture.
   const onFinishedRef = useRef(onFinished);
   onFinishedRef.current = onFinished;
   const finishedRound = useRef(-1);
   useEffect(() => {
-    if (!visible || preparingDeck || current || !deckTracks.length || finishedRound.current === round) return undefined;
+    if (!visible || preparingDeck || current || activeEvent || (!deckTracks.length && !storyEvents.length) || storyEventIndex < storyEvents.length || finishedRound.current === round) return undefined;
     finishedRound.current = round;
     const timer = setTimeout(() => { onFinishedRef.current?.(); }, 450);
     return () => clearTimeout(timer);
-  }, [visible, preparingDeck, current, deckTracks.length, round]);
+  }, [visible, preparingDeck, current, deckTracks.length, round, activeEvent, storyEvents.length, storyEventIndex]);
   // ERR-FIRST-DISCOVERER-097 : « Découvert par » = toujours le PREMIER découvreur (serveur), jamais le propriétaire du profil ouvert.
   const [firstOrigins, setFirstOrigins] = useState<Record<string, TrackOrigin>>({});
   const deckTrackIdsKey = deckTracks.map((track) => track.id).join(',');
@@ -215,7 +259,7 @@ export default function MusicSwipeDeckModal({
     : (current ? sourceByTrack?.[current.id] : undefined);
   const currentSourceUsername = currentSource?.username || sourceUsername;
   const currentSourceProfileId = currentSource?.profileId || sourceProfileId;
-  const shownTrackId = visible ? current?.id : undefined;
+  const shownTrackId = visible && !activeEvent ? current?.id : undefined;
   useEffect(() => {
     if (shownTrackId) onWatchEventRef.current?.({ type: 'shown', trackId: shownTrackId, index, total: deckTracks.length });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -440,6 +484,8 @@ export default function MusicSwipeDeckModal({
     setPreviewInfoOpen(false);
     setAlreadyKeepInfoOpen(false);
     setIndex(0);
+    setStoryEventIndex(0);
+    setPulseEvent(null);
     setPrefilterRemovedCount(0);
     setPrefilterVerified(false);
 
@@ -507,7 +553,7 @@ export default function MusicSwipeDeckModal({
     setPreviewEnded(false);
     setResolvedPreviewUrl(current?.previewUrl?.trim() || null);
 
-    if (!visible || preparingDeck || !current) {
+    if (!visible || preparingDeck || !current || activeEvent) {
       setPreviewResolving(false);
       void stopTrackPreview();
       return () => { alive = false; };
@@ -680,7 +726,7 @@ export default function MusicSwipeDeckModal({
       // interrompre l'écoute d'un autre compte en plein extrait.
       if (playbackKey && (!visible || current?.id !== deckTracks[index]?.id)) void stopTrackPreview(playbackKey);
     };
-  }, [visible, preparingDeck, current?.id, current?.previewUrl, index]);
+  }, [visible, preparingDeck, current?.id, current?.previewUrl, index, activeEvent?.id]);
 
   const manualPlay = async () => {
     if (!current || !resolvedPreviewUrl) return;
@@ -952,7 +998,7 @@ export default function MusicSwipeDeckModal({
     ? '↑ suivant · ← passer'
     : `↑ suivant · ← passer · → garder${keepDebitAmount && keepDebitAmount > 0 ? ` · ${keepDebitAmount} FREE` : ''}`;
 
-  const controlsLocked = processing || preparingDeck || keepPromptOpen || !!keepSuccess || previewInfoOpen || alreadyKeepInfoOpen;
+  const controlsLocked = processing || preparingDeck || Boolean(activeEvent) || keepPromptOpen || !!keepSuccess || previewInfoOpen || alreadyKeepInfoOpen;
   // Musique d'une story d'un autre : EN VENTE (payante) ou GRATUITE (disponible pour ton profil, FREE annoncés dans l'indication). Jamais sur ma propre story.
   const priceBadge: { label: string; paid: boolean } | null = !current || previewOnly || !trackAddedAt
     ? null
@@ -978,7 +1024,7 @@ export default function MusicSwipeDeckModal({
   const myUsername = useUserStore((state) => state.user?.username);
   const likeDemo = useUserStore((state) => state.isDemoMode);
   const likeGuest = useUserStore((state) => state.isLocalGuest);
-  const likesActive = visible && Boolean(likeMeId) && !likeDemo && !likeGuest && likeMode !== 'off';
+  const likesActive = visible && !activeEvent && Boolean(likeMeId) && !likeDemo && !likeGuest && likeMode !== 'off';
   const trackLikes = useTrackLikes(likeMeId, deckTracks.map((track) => track.id), likesActive, true);
   // Petits messages d'encouragement (Adel 05/10/2026) : pendant l'écoute, à la fin sans réaction, après un j'aime / pas aimé. Jamais les mêmes.
   const [nudge, setNudge] = useState<string | null>(null);
@@ -1059,11 +1105,11 @@ export default function MusicSwipeDeckModal({
           <Text style={s.eyebrow}>Loki Music SWIPE</Text>
           <View style={s.titleRow}>{onTitlePress ? <TouchableOpacity onPress={onTitlePress} accessibilityRole="button" accessibilityLabel={`Voir la fiche : ${title}`} testID="deck-title-profile" style={{ flexShrink: 1 }}><Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title} ›</Text></TouchableOpacity> : <Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title}</Text>}{titleBadge ? <View style={s.titleBadge}>{titleBadge}</View> : null}</View>
           {resolvedSubtitle ? <ClampedText style={s.subtitle} text={resolvedSubtitle} /> : null}
-          {storyAgeLine ? <Text style={s.storyAge} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} testID="deck-story-age">⏱ {storyAgeLine}</Text> : null}
+          {storyAgeLine && !activeEvent ? <Text style={s.storyAge} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} testID="deck-story-age">⏱ {storyAgeLine}</Text> : null}
         </View>
         <TouchableOpacity style={s.close} onPress={() => { void close(); }} accessibilityLabel="Fermer le swipe"><Text style={s.closeText}>✕</Text></TouchableOpacity>
       </View>
-      {headerExtra || (likesActive && current && isUuidKey(likeKey(current.id))) ? (
+      {!activeEvent && (headerExtra || (likesActive && current && isUuidKey(likeKey(current.id)))) ? (
             <View style={s.headerLikeRow} testID="deck-like-bar">
               {ask ? <Animated.View pointerEvents="none" style={[s.askBubble, { opacity: askFade, transform: [{ translateY: askFade.interpolate({ inputRange: [0, 1], outputRange: [-6, 0] }) }] }]} testID="deck-like-ask"><View style={s.askArrow} /><Text style={s.askText} numberOfLines={1}>{ask}</Text></Animated.View> : null}
               <View style={[{ flexShrink: 0, maxWidth: '100%' }, compactDeck ? s.headerExtraCompact : null]}>{headerExtra}</View>
@@ -1083,7 +1129,7 @@ export default function MusicSwipeDeckModal({
           ) : null}
 
       <View style={s.body}>
-        {preparingDeck ? <View style={s.empty}><ActivityIndicator color={colors.primaryLight} size="large" /><Text style={s.emptyTitle}>Préparation des nouvelles musiques…</Text><Text style={s.preparingHint}>Loki Music prépare les extraits de ce profil.</Text></View> : !current ? <View style={s.empty}><Text style={s.emptyIcon}>♪</Text><Text style={s.emptyTitle}>{resolvedEmptyTitle}</Text>{endExtra}<TouchableOpacity style={s.backButton} onPress={() => { void close(); }}><Text style={s.backText}>{resolvedBackLabel}</Text></TouchableOpacity></View> : <>
+        {preparingDeck ? <View style={s.empty}><ActivityIndicator color={colors.primaryLight} size="large" /><Text style={s.emptyTitle}>Préparation des nouvelles musiques…</Text><Text style={s.preparingHint}>Loki Music prépare les extraits de ce profil.</Text></View> : activeEvent ? <EventDiscoveryCard key={activeEvent.id} event={activeEvent} surface={pulseEvent ? 'PULSE' : 'STORY'} onNext={() => { if (pulseEvent) setPulseEvent(null); else setStoryEventIndex((value) => value + 1); }} /> : !current ? <View style={s.empty}><Text style={s.emptyIcon}>♪</Text><Text style={s.emptyTitle}>{resolvedEmptyTitle}</Text>{endExtra}<TouchableOpacity style={s.backButton} onPress={() => { void close(); }}><Text style={s.backText}>{resolvedBackLabel}</Text></TouchableOpacity></View> : <>
           <View style={s.deckArea}>
             {nudge ? <View pointerEvents="none" style={s.nudgePill} testID="deck-like-nudge"><Text style={s.nudgeText} numberOfLines={3}>{nudge}</Text></View> : null}
             <SwipeDeck
@@ -1102,7 +1148,7 @@ export default function MusicSwipeDeckModal({
               hint={swipeHint}
               fill
             >
-              <View style={[s.card, compactDeck && s.cardCompact]}>
+              <View style={[s.card, compactDeck && s.cardCompact]} testID={`deck-music-${current.id}`}>
                 {ownerMasked ? <View style={[s.cover,s.coverFallback]}><MysteryArtwork caption="Titre masqué · aperçu de tes abonnés" /></View> : current.artworkUrl ? <Image source={{ uri: current.artworkUrl }} style={s.cover as any} resizeMode="cover" /> : <View style={[s.cover,s.coverFallback]}>{isSaleStoryTrack(current) ? <MysteryArtwork caption={priceBadge ? '' : 'Titre masqué · garde pour révéler'} /> : <Text style={s.coverK}>K</Text>}</View>}
                 {currentSourceUsername ? <TouchableOpacity style={s.sourceOverlay} onPress={() => setSourceQuick(currentSourceUsername.replace(/^@/, ''))} disabled={!onOpenSourceProfile} accessibilityLabel={`Découvert par ${currentSourceUsername.replace(/^@/, '')}. Ouvrir son profil`}><GlowRing radius={14} testID="deck-source-glow" /><Text style={s.sourceOverlayText}>Découvert par @{currentSourceUsername.replace(/^@/, '')}</Text></TouchableOpacity> : null}
                 {/* Adel 05/10/2026 : « il faut que ce soit très lisible, que les utilisateurs ne se fassent pas tromper » -- PAYANT (PayPal) ou GRATUIT, toujours dit en clair sur la carte. */}
@@ -1127,7 +1173,7 @@ export default function MusicSwipeDeckModal({
           {renderStoryAdd('main')}
                     <View style={s.decisionBand}>
             <View style={s.decisionRow}>
-              <TouchableOpacity style={[s.decisionButton, s.passButton]} onPress={() => { void pass(); }} disabled={controlsLocked} accessibilityLabel="Passer cette musique">
+              <TouchableOpacity style={[s.decisionButton, s.passButton]} onPress={() => { void pass(); }} disabled={controlsLocked} accessibilityLabel="Passer cette musique" testID="deck-pass-track">
                 <Text style={s.passButtonText}>PASSER</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[s.decisionButton, s.backDecisionButton]} onPress={() => { void close(); }} disabled={controlsLocked} accessibilityLabel="Arrêter l’écoute et revenir">

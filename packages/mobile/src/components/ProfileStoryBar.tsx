@@ -52,6 +52,8 @@ import { buildViewerDetail } from '../services/storyViewerDetail';
 import { loadMyLikesAmong, likeKey } from '../services/trackLikesService';
 import { navigationRef } from '../navigation/navigationRef';
 import KeepModal from './KeepModal';
+import { loadEventDiscovery } from '../services/eventDiscoveryService';
+import { hasStoryContent, mergeEventStories } from '../services/musicStoriesService';
 
 /**
  * Bulles de stories du PROFIL, à côté de la photo (Adel, 05/10/2026).
@@ -86,10 +88,11 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const [ownStoryOpening, setOwnStoryOpening] = useState(false);
   const ownStoryLoadRef = React.useRef<Promise<MusicStory | null> | null>(null);
   const reloadOwnStory = useCallback((): Promise<MusicStory | null> => {
-    const job = loadOwnStory(viewer).then((mine) => {
-      setOwnStory(mine);
-      writeProfileMemory(viewer.id, 'own-story', mine ? { ...mine, tracks: mine.tracks.slice(0, 20) } : null);
-      return mine;
+    const job = Promise.all([loadOwnStory(viewer), loadEventDiscovery('STORY').catch(() => [])]).then(([mine, events]) => {
+      const withEvents = mergeEventStories(mine ? [mine] : [], events.filter((event) => event.creatorId === viewer.id))[0] ?? null;
+      setOwnStory(withEvents);
+      writeProfileMemory(viewer.id, 'own-story', withEvents ? { ...withEvents, tracks: withEvents.tracks.slice(0, 20) } : null);
+      return withEvents;
     });
     ownStoryLoadRef.current = job;
     job.catch(() => {}).finally(() => { if (ownStoryLoadRef.current === job) ownStoryLoadRef.current = null; });
@@ -99,7 +102,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   useEffect(() => {
     let live = true;
     void readProfileMemory<MusicStory | null>(viewer.id, 'own-story').then((cached) => {
-      if (!live || !cached?.tracks?.length) return;
+      if (!live || !cached || !hasStoryContent(cached)) return;
       const fresh = Date.now() - new Date(cached.latestAt).getTime() < STORY_WINDOW_HOURS * 3600 * 1000;
       if (fresh) setOwnStory((current) => current ?? cached);
     }).catch(() => {});
@@ -163,7 +166,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     const merge = (list: MusicStory[]) => {
       for (const story of list) {
         const known = collected.get(story.profileId);
-        if (!known || story.tracks.length > known.tracks.length) collected.set(story.profileId, story);
+        if (!known || story.tracks.length > known.tracks.length || (story.events?.length ?? 0) > (known.events?.length ?? 0)) collected.set(story.profileId, story);
       }
       if (live) setStories(display());
     };
@@ -193,15 +196,19 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
       const storiesPromise = (async () => {
         try {
           const relations = await relationsPromise;
-          const base = await loadMusicStories(viewer.id, relations);
+          const [base, eventStories] = await Promise.all([
+            loadMusicStories(viewer.id, relations),
+            loadEventDiscovery('STORY', [...relations.following, ...relations.others]).catch(() => { degraded = true; return []; }),
+          ]);
           merge(base);
           const [withSales, saleOnly] = await Promise.all([
             enrichStoriesWithSales(base).catch(() => base),
             loadSaleOnlyStories(viewer.id, base).catch(() => [] as MusicStory[]),
           ]);
           storiesLoaded = true;
-          merge([...withSales, ...saleOnly]);
-          return [...withSales, ...saleOnly];
+          const combined = mergeEventStories([...withSales, ...saleOnly], eventStories.filter((event) => event.creatorId !== viewer.id), relations.following);
+          merge(combined);
+          return combined;
         } catch { storiesLoaded = true; degraded = true; return [] as MusicStory[]; /* Réseau indisponible : la rangée garde ce qui est déjà affiché */ }
       })();
       // Certifications + activité réelle : deux appels serveur en parallèle, lancés dès que des profils sont connus
@@ -298,7 +305,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     // Suggestion « a repris ta musique » : pas de story à lire, on va sur son profil.
     // Suggestion ou ami sans story du jour : pas de story à lire, on va sur son profil.
     // Story d'abord (même à revoir) ; sans story, une fiche rapide s'ouvre par-dessus (suivre / voir le profil) : jamais une page qui s'ouvre d'office.
-    if (story.suggestion || story.tracks.length === 0) { setQuickUsername(story.username); return; }
+    if (story.suggestion || !hasStoryContent(story)) { setQuickUsername(story.username); return; }
     // Cercle allumé → on repart de la dernière musique ; cercle éteint (déjà vue) → de la première.
     const unseenNow = (seen[story.profileId] || '') < story.latestAt;
     const ordered = orderTracksForPlayback(story.tracks, unseenNow);
@@ -311,7 +318,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     if (story.profileId === viewer.id) {
       setViewers(null);
       loadMyStoryViewers().then(setViewers).catch(() => setViewers([]));
-    } else {
+    } else if (ordered.length > 0) {
       // Façon Instagram : la vue ne compte qu'après quelques secondes de présence réelle ; durée, musiques vues, écoute et départ sont suivis.
       watchRef.current = watchStoryOf(story.profileId, ordered.length);
     }
@@ -399,7 +406,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const isOwnOpen = openStory?.profileId === viewer.id;
   // Enchaînement (Adel 05/10/2026) : la story terminée, on propose tout de suite la suivante (non vues d'abord, la story vue repasse derrière).
   const nextStories = openStory
-    ? stories.filter((story) => story.profileId !== openStory.profileId && story.profileId !== viewer.id && !story.suggestion && story.tracks.length > 0)
+    ? stories.filter((story) => story.profileId !== openStory.profileId && story.profileId !== viewer.id && !story.suggestion && hasStoryContent(story))
         .sort((a, b) => Number((seen[a.profileId] || '') < a.latestAt) === Number((seen[b.profileId] || '') < b.latestAt) ? 0 : ((seen[a.profileId] || '') < a.latestAt ? -1 : 1))
     : [];
   const nextStory = nextStories[0] ?? null;
@@ -526,6 +533,8 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
       <MusicSwipeDeckModal
         visible={Boolean(openStory)}
         tracks={openStory?.tracks ?? []}
+        storyEvents={openStory?.events}
+        onStoryEventShown={stopWatch}
         initialTrackId={openStory?.tracks[0]?.id ?? null}
         resetKey={openStory?.profileId ?? null}
         trackAddedAt={openStory?.addedAt}
@@ -599,7 +608,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         onFinished={() => {
           // Enchaînement façon Instagram : la story finie, on passe tout de suite à la prochaine NON vue (la plus récente d'abord).
           if (!openStory) return;
-          const upcoming = orderStoriesForBar(stories.filter((story) => !story.suggestion && story.tracks.length > 0 && story.profileId !== openStory.profileId && story.profileId !== viewer.id && (seen[story.profileId] || '') < story.latestAt), seen)[0];
+          const upcoming = orderStoriesForBar(stories.filter((story) => !story.suggestion && hasStoryContent(story) && story.profileId !== openStory.profileId && story.profileId !== viewer.id && (seen[story.profileId] || '') < story.latestAt), seen)[0];
           if (upcoming) void open(upcoming);
         }}
         endExtra={nextStory ? (
