@@ -733,7 +733,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
 
     Alert.alert(
       'Validation irréversible',
-      `Vérifie d’abord TON compte PayPal. La capture jointe n’est qu’une preuve envoyée par l’acheteur. Confirme uniquement si ${amountLabel}${buyerUsername ? ` de @${buyerUsername}` : ''} sont réellement crédités. Après validation, la Pépite est débloquée immédiatement et cette action ne peut pas être annulée. En validant à tort ou en détournant le système, tu engages ta responsabilité et Loki Music pourra appliquer les sanctions prévues au règlement : avertissement, retrait de Free, suspension ou bannissement.`,
+      `Vérifie d’abord TON compte PayPal. La capture jointe n’est qu’une preuve envoyée par l’acheteur. Confirme uniquement si ${amountLabel}${buyerUsername ? ` de ${displayUsername(buyerUsername)}` : ''} sont réellement crédités. Après validation, la Pépite est débloquée immédiatement et cette action ne peut pas être annulée. En validant à tort ou en détournant le système, tu engages ta responsabilité et Loki Music pourra appliquer les sanctions prévues au règlement : avertissement, retrait de Free, suspension ou bannissement.`,
       [
         { text: 'RETOUR', style: 'cancel' },
         {
@@ -1172,7 +1172,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
                 {(item.type === 'EVENT_INVITE' || item.type === 'EVENT_REMINDER') && eventIdOf(item) ? <TouchableOpacity onPress={() => void openEventDetail(item)}><Text style={styles.cardMoreLink}>En savoir plus ›</Text></TouchableOpacity> : null}
                 <View style={styles.cardBottomRow}>
                   <Text style={styles.cardDate}>{new Date(item.createdAt).toLocaleString('fr-FR')}</Text>
-                  {profileUsername ? <Text style={styles.cardProfileLink}>Actions avec @{profileUsername} ›</Text> : null}
+                  {profileUsername ? <Text style={styles.cardProfileLink}>Actions avec {displayUsername(profileUsername)} ›</Text> : null}
                 </View>
               </TouchableOpacity>
               {isNewKeepNotification(item) ? (
@@ -1196,7 +1196,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
                       disabled={followBusyProfileId === notificationProfileId(item) || followingProfileIds.has(notificationProfileId(item) as string)}
                       onPress={() => { void followFromNotification(item); }}
                       accessibilityRole="button"
-                      accessibilityLabel={followingProfileIds.has(notificationProfileId(item) as string) ? 'Profil déjà suivi' : `Suivre @${profileUsername}`}
+                      accessibilityLabel={followingProfileIds.has(notificationProfileId(item) as string) ? 'Profil déjà suivi' : `Suivre ${displayUsername(profileUsername)}`}
                     >
                       <Text style={styles.notificationActionButtonText}>
                         {followingProfileIds.has(notificationProfileId(item) as string)
@@ -1216,7 +1216,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
                     accessibilityRole="button"
                     accessibilityLabel={`Voir le profil de ${profileUsername}`}
                   >
-                    <Text style={styles.notificationActionButtonText}>VOIR LE PROFIL · @{profileUsername}</Text>
+                    <Text style={styles.notificationActionButtonText}>VOIR LE PROFIL · {displayUsername(profileUsername)}</Text>
                   </TouchableOpacity>
                 </View>
               ) : null}
@@ -1432,7 +1432,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
                       disabled={followBusyProfileId === notificationProfileId(genericDetailItem) || followingProfileIds.has(notificationProfileId(genericDetailItem) as string)}
                       onPress={() => { void followFromNotification(genericDetailItem); }}
                       accessibilityRole="button"
-                      accessibilityLabel={followingProfileIds.has(notificationProfileId(genericDetailItem) as string) ? 'Profil déjà suivi' : `Suivre @${genericDetailProfileUsername}`}
+                      accessibilityLabel={followingProfileIds.has(notificationProfileId(genericDetailItem) as string) ? 'Profil déjà suivi' : `Suivre ${displayUsername(genericDetailProfileUsername)}`}
                     >
                       <Text style={styles.notificationActionButtonText}>
                         {followingProfileIds.has(notificationProfileId(genericDetailItem) as string) ? '✓ DÉJÀ SUIVI' : followBusyProfileId === notificationProfileId(genericDetailItem) ? 'SUIVI…' : '+ SUIVRE'}
@@ -1450,7 +1450,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
                     accessibilityRole="button"
                     accessibilityLabel={`Voir le profil de ${genericDetailProfileUsername}`}
                   >
-                    <Text style={styles.notificationActionButtonText}>VOIR LE PROFIL · @{genericDetailProfileUsername}</Text>
+                    <Text style={styles.notificationActionButtonText}>VOIR LE PROFIL · {displayUsername(genericDetailProfileUsername)}</Text>
                   </TouchableOpacity>
                 </View>
               ) : null}
@@ -1641,3 +1641,4 @@ const styles = StyleSheet.create({
   muted: { color:colors.white, fontSize: 12, textAlign: 'center' },
   error: { color: colors.danger, fontSize: 12, marginTop: spacing.sm },
 });
+import { displayUsername } from '../utils/displayUsername';

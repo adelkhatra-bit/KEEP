@@ -1,5 +1,12 @@
 {
-  "version": "2026-10-07.01",
+  "version": "2026-10-08.01",
+  "usernameDisplay": {
+    "leadingAtForbidden": true,
+    "helper": "packages/mobile/src/utils/displayUsername.ts",
+    "surfaces": ["mobile", "web", "admin", "email", "push"],
+    "emailAddressesUnaffected": true,
+    "decidedBy": "Adel, 08/10/2026 — issue #74"
+  },
   "adminReleaseEvidence": {
     "siteVersionUrl": "https://adelkhatra-bit.github.io/KEEP/version.json",
     "appVersionSource": "Dernier signalement natif app_problem_reports, jamais parc installé global",
@@ -971,7 +978,12 @@
     "viewersListShowsViewProfileNotFollowBadge": true,
     "badgeUnlockRule": "Badge/classement des stories : offert 30 jours (comptes existants : à partir du 05/10/2026), ensuite 1 parrainage validé OU une formule payante active ; appliqué au badge et au classement UNIQUEMENT, jamais au droit de poster une story (Adel 05/10/2026, IDEA-104). Fonction serveur keep_story_badge_eligible.",
     "storyViewCountsOnlyAfterPresenceMs": 2000,
-    "storyViewTracking": "Une vue de story (story_watch_sessions) ne s'écrit qu'après 2 s de présence réelle ; on suit secondes, musiques vues, écoute, départ (ping 10 s + fermeture/arrière-plan). Le propriétaire voit « regarde maintenant » / « parti il y a … » + durée + x/y musiques + écouté/pas écouté. Jamais d'enregistrement à l'ouverture immédiate.",
+    "storyViewTracking": "Une vue de story (story_watch_sessions) ne s'écrit qu'après 2 s de présence réelle ; on suit secondes, musiques vues, écoute, départ (ping 10 s + fermeture/arrière-plan). Une ligne par spectateur pendant 24 h, avec sa meilleure progression : « Vue entière ✓ · X/X musiques · touché X fois · il y a … », sinon « X/Y musiques · touché X fois · il y a … ». Une réouverture courte ne remplace jamais la meilleure progression.",
+    "viewersRpc": "keep_my_story_viewers_v4",
+    "viewersRetentionHours": 24,
+    "viewersBestProgressNeverRegresses": true,
+    "viewersExtraColumns": ["touches", "saw_all", "first_viewed_at"],
+    "ownStoryCompletionMessage": "Bravo, <username> a vu ta story en entier",
     "decidedBy": "Adel, 05/10/2026 (CANONIQUE : toute IA doit la respecter, la modifier seulement sur demande explicite d'Adel)",
     "spec": "docs/KEEP_CAHIER_DES_CHARGES_UI.md §14",
     "storyWindowHours": 24,

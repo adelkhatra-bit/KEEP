@@ -55,7 +55,7 @@ export function maskedNewKeepCopy(notification: KeepNotification): { title: stri
   const { username } = newKeepNotificationOwner(notification);
   return {
     // Adel (05/10/2026) : peu d'informations, on donne envie d'aller voir la story.
-    title: username ? `@${username.replace(/^@+/, '')} a une nouvelle story` : 'Nouvelle story',
+    title: username ? `${displayUsername(username)} a une nouvelle story` : 'Nouvelle story',
     body: 'Viens écouter avant qu’elle disparaisse.',
   };
 }
@@ -116,3 +116,4 @@ export async function keepFromNewKeepNotification(
     return { ok: false, alreadyKept: false, error: 'Impossible d’ajouter ce morceau pour le moment.' };
   }
 }
+import { displayUsername } from '../utils/displayUsername';

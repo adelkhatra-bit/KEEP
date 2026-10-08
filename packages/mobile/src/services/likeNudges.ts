@@ -111,22 +111,21 @@ export function nextNudge(kind: NudgeKind, opts: { audience?: NudgeAudience; ton
   return line;
 }
 
-// Remerciement PAR SON NOM (Adel 05/10/2026) : « @bruno te remercie pour ton ❤ 🙌 » — signe de politesse ; sans partageur connu : « Merci @toi ».
+// Remerciement par son nom ; sans partageur connu : « Merci toi ».
 const THANKS: Record<'LIKE' | 'MEH' | 'DISLIKE', string[]> = {
-  LIKE: ['@{n} te remercie pour ton ❤ 🙌', 'Un grand merci de @{n} 💜', '@{n} est trop content de ton ❤ 🔥', 'Merci de la part de @{n}, ton ❤ compte !', '@{n} te dit merci pour ton ❤ ✨'],
-  MEH: ['@{n} te remercie pour ton avis honnête 🙂', 'Merci pour ta franchise, dit @{n} 🤝', '@{n} note ton bof et te remercie 🎧', '@{n} apprécie ton avis, merci 🙏'],
-  DISLIKE: ['@{n} te remercie pour ta franchise 🤝', 'Merci pour ton avis sincère, dit @{n} ✌️', '@{n} prend note et te remercie 🙏', '@{n} te dit merci, ça aide à s’améliorer 🎧'],
+  LIKE: ['{n} te remercie pour ton ❤ 🙌', 'Un grand merci de {n} 💜', '{n} est trop content de ton ❤ 🔥', 'Merci de la part de {n}, ton ❤ compte !', '{n} te dit merci pour ton ❤ ✨'],
+  MEH: ['{n} te remercie pour ton avis honnête 🙂', 'Merci pour ta franchise, dit {n} 🤝', '{n} note ton bof et te remercie 🎧', '{n} apprécie ton avis, merci 🙏'],
+  DISLIKE: ['{n} te remercie pour ta franchise 🤝', 'Merci pour ton avis sincère, dit {n} ✌️', '{n} prend note et te remercie 🙏', '{n} te dit merci, ça aide à s’améliorer 🎧'],
 };
 const SELF_THANKS: Record<'LIKE' | 'MEH' | 'DISLIKE', string[]> = {
-  LIKE: ['Merci @{n} pour ton ❤ 🙌', 'Gros merci @{n} ! Ton ❤ nous aide 🔥', 'Merci @{n}, on t’en cherche d’autres comme ça 🚀'],
-  MEH: ['Merci @{n} pour ton avis 🙂', 'Merci @{n}, on affine ton goût 🎧'],
-  DISLIKE: ['Merci @{n} pour ta franchise 🤝', 'Merci @{n}, on t’en trouve de meilleures ✌️'],
+  LIKE: ['Merci {n} pour ton ❤ 🙌', 'Gros merci {n} ! Ton ❤ nous aide 🔥', 'Merci {n}, on t’en cherche d’autres comme ça 🚀'],
+  MEH: ['Merci {n} pour ton avis 🙂', 'Merci {n}, on affine ton goût 🎧'],
+  DISLIKE: ['Merci {n} pour ta franchise 🤝', 'Merci {n}, on t’en trouve de meilleures ✌️'],
 };
 export function composeThanks(reaction: 'LIKE' | 'MEH' | 'DISLIKE', seed: string, from: string | null | undefined, me: string | null | undefined, recent: string[] = []): string {
-  const clean = (value?: string | null) => String(value ?? '').trim().replace(/^@+/, '');
-  const sharer = clean(from);
+  const sharer = displayUsername(from);
   const list = sharer ? THANKS[reaction] : SELF_THANKS[reaction];
-  const name = sharer || clean(me) || 'toi';
+  const name = sharer || displayUsername(me) || 'toi';
   let line = '';
   for (let attempt = 0; attempt < list.length; attempt += 1) {
     line = list[(hash(`${seed}:t`) + attempt) % list.length].replace('{n}', name);
@@ -140,3 +139,4 @@ export function nextThanks(reaction: 'LIKE' | 'MEH' | 'DISLIKE', from: string | 
   if (recentShown.length > 60) recentShown.shift();
   return line;
 }
+import { displayUsername } from '../utils/displayUsername';

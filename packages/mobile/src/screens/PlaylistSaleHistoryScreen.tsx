@@ -76,7 +76,7 @@ export default function PlaylistSaleHistoryScreen({ navigation }: any) {
               <View style={s.rowTop}>
                 <View style={s.rowInfo}>
                   <Text style={s.rowPlaylist} numberOfLines={1}>{item.playlistName}</Text>
-                  <Text style={s.rowBuyer}>@{item.buyerUsername || 'acheteur'}</Text>
+                  <Text style={s.rowBuyer}>{displayUsername(item.buyerUsername) || 'acheteur'}</Text>
                 </View>
                 <Text style={s.rowAmount}>{(item.amountCents / 100).toFixed(2)} {item.currencyCode === 'EUR' ? '€' : item.currencyCode}</Text>
               </View>
@@ -129,3 +129,4 @@ const s = StyleSheet.create({
   rowDate: { color: colors.textMuted, fontSize: 11, fontWeight: '700' },
   rowMeta: { color: colors.textMuted, fontSize: 10, fontWeight: '600', marginTop: 4 },
 });
+import { displayUsername } from '../utils/displayUsername';

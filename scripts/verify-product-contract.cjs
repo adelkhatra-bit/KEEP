@@ -27,6 +27,14 @@ const chatOwnership = fs.readFileSync(path.join(root, 'supabase/migrations/20261
 const failures = [];
 const must = (condition, message) => { if (!condition) failures.push(message); };
 
+must(contract.usernameDisplay?.leadingAtForbidden === true, 'noms : le préfixe @ est interdit sur toutes les surfaces');
+must(contract.usernameDisplay?.helper === 'packages/mobile/src/utils/displayUsername.ts', 'noms : helper unique displayUsername requis');
+try {
+  require('./verify-username-display.cjs').verifyUsernameDisplay();
+} catch (error) {
+  failures.push(`NOMS : ${error.message}`);
+}
+
 must(contract.repository === 'adelkhatra-bit/KEEP', 'wrong repository');
 must(contract.canonicalBranch === 'reconcile/claude-main-20260825', 'wrong canonical branch');
 must(contract.supabaseProjectRef === 'rrhqsqzcplvmwxizqnla', 'wrong Supabase project');
@@ -374,6 +382,12 @@ const storyService = fs.readFileSync(path.join(root, 'packages/mobile/src/servic
 const storyDeck = fs.readFileSync(path.join(root, 'packages/mobile/src/components/MusicSwipeDeckModal.tsx'), 'utf8');
 const storyEligibility = fs.readFileSync(path.join(root, 'packages/mobile/src/services/storyEligibility.ts'), 'utf8');
 const se = contract.storiesExperience;
+must(se?.viewersRpc === 'keep_my_story_viewers_v4' && se?.viewersRetentionHours === 24
+  && se?.viewersBestProgressNeverRegresses === true, 'stories: vues v4 gardées 24 h avec meilleure progression obligatoire');
+must(JSON.stringify(se?.viewersExtraColumns) === JSON.stringify(['touches', 'saw_all', 'first_viewed_at']),
+  'stories: le bilan spectateur doit conserver touches, saw_all et first_viewed_at');
+must(se?.ownStoryCompletionMessage === 'Bravo, <username> a vu ta story en entier',
+  'stories: message de fin de ma story absent du contrat');
 // Règle d'Adel (05/10/2026) : on ne se désabonne QUE depuis la page profil de la personne ; la liste des vues propose « Voir le profil », pas un badge « Abonné ».
 const quickViewSrc = fs.readFileSync(path.join(root, 'packages/mobile/src/components/SourceProfileQuickView.tsx'), 'utf8');
 must(se && se.unfollowOnlyFromProfilePage === true && se.viewersListShowsViewProfileNotFollowBadge === true, 'storiesExperience: règle « désabonnement uniquement depuis le profil » absente du contrat');

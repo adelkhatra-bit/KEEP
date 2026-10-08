@@ -1,5 +1,11 @@
 # MASTER PLAN — Loki Music (ce qui RESTE à faire)
 
+## Issue #74 — plan demandé par Adel le 08/10/2026
+- Centraliser l'affichage des noms sans « @ » et couvrir mobile/Web, Super Admin et messages avec une garde CI.
+- Adapter le contrat v4 des vues de story et le bilan complet/partiel sans modifier le design hors demande.
+- Recopier la migration serveur exacte si accessible ; sinon demander son fichier, sans inventer sa définition.
+- Valider tests ciblés, types, rendu aux deux viewports et sécurité ; distinguer preuves locales et CI distante dans le rapport TEST MODE RÉEL.
+
 > Complète `STATE.md` (ce qui est fait). **Règle de travail : plan écrit → validation d'Adel → code.** Une étape à la fois. Aucune IA ne touche `main`, ni au design validé sans accord. Chaque étape finit par : tests + 7 gardes + preuve mobile 390 / ordinateur 1440 + ligne dans `STATE.md`. Audit **ciblé** (seulement le module touché).
 > Statuts : ✅ fait · 🟡 partiel · ⛔ pas fait · ❓ cause non établie. Tout ce qui n'est pas vérifié sur iPhone est marqué « non vérifié iPhone ».
 

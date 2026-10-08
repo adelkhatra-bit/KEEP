@@ -48,7 +48,8 @@ import {
 import { colors } from '../theme/colors';
 import { ownBadgeFor, ownBadgeMessage } from '../services/storyActivity';
 import { shareReferralLink } from '../services/referralShare';
-import { buildViewerDetail } from '../services/storyViewerDetail';
+import { buildViewerDetail, formatStoryViewerSummary, ownStoryCompletionMessage } from '../services/storyViewerDetail';
+import { displayUsername } from '../utils/displayUsername';
 import { loadMyLikesAmong, likeKey } from '../services/trackLikesService';
 import { navigationRef } from '../navigation/navigationRef';
 import KeepModal from './KeepModal';
@@ -114,6 +115,8 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const [openStory, setOpenStory] = useState<MusicStory | null>(null);
   const [viewers, setViewers] = useState<StoryViewer[] | null>(null);
   const [viewersOpen, setViewersOpen] = useState(false);
+  const [ownLastTrackShown, setOwnLastTrackShown] = useState(false);
+  useEffect(() => { setViewers(null); setDetailFor(null); setDetailLikes({}); }, [viewer.id]);
   // « En savoir plus » d'un spectateur : musique par musique (temps, ❤, endroit où il est parti).
   const [detailFor, setDetailFor] = useState<string | null>(null);
   const [detailLikes, setDetailLikes] = useState<Record<string, Set<string>>>({});
@@ -278,12 +281,15 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     };
   }, [viewer.id, isFocused]);
 
-  // Liste des vues ouverte : on la rafraîchit toutes les 8 s pour voir « regarde maintenant » puis « parti il y a … » sans quitter l'écran.
+  // Le serveur fournit le bilan conservé 24 h, même après une réouverture courte.
   useEffect(() => {
-    if (!viewersOpen) return;
-    const timer = setInterval(() => { loadMyStoryViewers().then(setViewers).catch(() => {}); }, 8000);
-    return () => clearInterval(timer);
-  }, [viewersOpen]);
+    if (openStory?.profileId !== viewer.id) return;
+    let live = true;
+    const refresh = () => { void loadMyStoryViewers().then((rows) => { if (live) setViewers(rows); }).catch(() => {}); };
+    refresh();
+    const timer = setInterval(refresh, 8000);
+    return () => { live = false; clearInterval(timer); };
+  }, [openStory?.profileId, viewer.id]);
 
   // Départ : fermeture de la story, app mise en arrière-plan ou écran quitté -> le propriétaire voit tout de suite « parti ».
   const stopWatch = useCallback(() => { watchRef.current?.stop(); watchRef.current = null; }, []);
@@ -306,12 +312,10 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     if (ordered[0]?.previewUrl) void preloadTrackPreview(ordered[0].previewUrl).catch(() => {});
     setOpenStory({ ...story, tracks: ordered });
     setViewersOpen(false);
+    setOwnLastTrackShown(false);
     watchRef.current?.stop();
     watchRef.current = null;
-    if (story.profileId === viewer.id) {
-      setViewers(null);
-      loadMyStoryViewers().then(setViewers).catch(() => setViewers([]));
-    } else {
+    if (story.profileId !== viewer.id) {
       // Façon Instagram : la vue ne compte qu'après quelques secondes de présence réelle ; durée, musiques vues, écoute et départ sont suivis.
       watchRef.current = watchStoryOf(story.profileId, ordered.length);
     }
@@ -350,7 +354,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const showAlreadyInOtherStory = (track: PinnableTrack) => {
     const holder = track.inOtherStory;
     if (!holder) return;
-    Alert.alert('Déjà en story', `Chez @${holder.username}. Va la voir et repartage-la.`, [
+    Alert.alert('Déjà en story', `Chez ${displayUsername(holder.username)}. Va la voir et repartage-la.`, [
       { text: 'OK', style: 'cancel' },
       {
         text: 'Voir sa story',
@@ -397,6 +401,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     } finally { setPinBusy(''); }
   };
   const isOwnOpen = openStory?.profileId === viewer.id;
+  const completionMessage = isOwnOpen ? ownStoryCompletionMessage(viewers ?? [], viewer.id) : null;
   // Enchaînement (Adel 05/10/2026) : la story terminée, on propose tout de suite la suivante (non vues d'abord, la story vue repasse derrière).
   const nextStories = openStory
     ? stories.filter((story) => story.profileId !== openStory.profileId && story.profileId !== viewer.id && !story.suggestion && story.tracks.length > 0)
@@ -420,7 +425,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         <StoryRing size={avatarSize} unseen={Boolean(ownStory && (seen[viewer.id] || '') < ownStory.latestAt)} plain={!ownStory} tone={gender === 'FEMALE' ? 'PINK' : gender === 'MALE' ? 'BLUE' : undefined}>
           {viewer.avatarUrl
             ? <Image source={{ uri: viewer.avatarUrl }} style={[styles.photo, { width: ownStory ? avatarSize - 16 : avatarSize, height: ownStory ? avatarSize - 16 : avatarSize, borderRadius: avatarSize / 2 }]} />
-            : <View style={[styles.photo, styles.photoFallback, { width: ownStory ? avatarSize - 16 : avatarSize, height: ownStory ? avatarSize - 16 : avatarSize, borderRadius: avatarSize / 2 }]}><Text style={styles.photoInitial}>{(viewer.username || 'K').slice(0, 1).toUpperCase()}</Text></View>}
+            : <View style={[styles.photo, styles.photoFallback, { width: ownStory ? avatarSize - 16 : avatarSize, height: ownStory ? avatarSize - 16 : avatarSize, borderRadius: avatarSize / 2 }]}><Text style={styles.photoInitial}>{(displayUsername(viewer.username) || 'K').slice(0, 1).toUpperCase()}</Text></View>}
         </StoryRing>
       </TouchableOpacity>
       {(() => {
@@ -497,7 +502,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
                   </TouchableOpacity>
                   {!inStoryIds.has(track.trackId) && track.inOtherStory ? (
                     // Anti-doublon entre stories (Adel, 06/10/2026) : déjà en story chez un autre membre → cadenas ; on va la repartager chez lui.
-                    <TouchableOpacity style={[styles.addBtn, styles.addBtnLocked]} onPress={() => showAlreadyInOtherStory(track)} accessibilityRole="button" accessibilityLabel={`${track.title} est déjà en story chez ${track.inOtherStory.username}`} testID={`story-pin-locked-${track.trackId}`}>
+                    <TouchableOpacity style={[styles.addBtn, styles.addBtnLocked]} onPress={() => showAlreadyInOtherStory(track)} accessibilityRole="button" accessibilityLabel={`${track.title} est déjà en story chez ${displayUsername(track.inOtherStory.username)}`} testID={`story-pin-locked-${track.trackId}`}>
                       <Text style={[styles.addBtnText, styles.addBtnTextDone]}>🔒</Text>
                     </TouchableOpacity>
                   ) : (
@@ -534,9 +539,12 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         onTitlePress={!isOwnOpen && openStory ? () => { const username = openStory.username; setOpenStory(null); setTimeout(() => setQuickUsername(username), 350); } : undefined}
         // Adel 05/10/2026 : « tu écris trop » -- plus de phrase d'accroche sur la story d'un autre (elle nommait à tort le diffuseur comme crédité).
         headerExtra={isOwnOpen ? (
+          <View>
           <TouchableOpacity style={styles.viewsChip} onPress={() => setViewersOpen(true)} accessibilityRole="button" accessibilityLabel="Voir qui a vu ta story" testID="story-views-chip">
             <Text style={styles.viewsChipText}>👁 {viewers ? `${viewers.length} vue${viewers.length > 1 ? 's' : ''}` : '… vues'} · Voir qui ›</Text>
           </TouchableOpacity>
+          {ownLastTrackShown && completionMessage ? <Text style={styles.teaser} testID="story-completed-viewer">{completionMessage}</Text> : null}
+          </View>
         ) : null}
         overlay={isOwnOpen && viewersOpen ? (
           <SafeAreaView style={styles.backdrop}>
@@ -546,22 +554,23 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
                 <TouchableOpacity onPress={() => setViewersOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer la liste" style={styles.sheetClose}><Text style={styles.sheetCloseText}>✕</Text></TouchableOpacity>
               </View>
               {viewers && viewers.length === 0 ? <Text style={styles.viewsEmpty}>Aucune vue</Text> : null}
+              {viewers === null ? <Text style={styles.viewsEmpty}>Chargement des vues…</Text> : null}
               {/* Vues façon Instagram (Adel, 06/10/2026) : une bulle par spectateur, indépendante ; on touche une bulle → ce qu'il a vu.
-                  Pastille : ✓ = toute la story, sinon « vues / total ». Aucun texte long, aucune durée. */}
+                  Bilan serveur : meilleure progression et nombre de touches sur 24 h. */}
               <ScrollView contentContainerStyle={styles.viewerGrid}>
                 {(viewers ?? []).map((v) => {
-                  const total = openStory?.tracks.length || v.tracksTotal || 0;
-                  const detail = openStory ? buildViewerDetail(openStory.tracks.map((track) => ({ id: track.id, title: track.title, artist: track.artist })), v, detailLikes[v.viewerId] ?? new Set<string>(), likeKey) : null;
-                  const seenN = detail ? detail.rows.length : Math.min(v.tracksSeen, total);
-                  const full = total > 0 && seenN >= total;
+                  const total = v.tracksTotal;
+                  const seenN = v.tracksSeen;
+                  const full = v.sawAll;
+                  const summary = formatStoryViewerSummary(v);
                   const selected = detailFor === v.viewerId;
                   return (
-                    <TouchableOpacity key={v.viewerId} style={[styles.viewerBubble, selected && styles.viewerBubbleOn]} onPress={() => toggleViewerDetail(v.viewerId)} accessibilityRole="button" accessibilityState={{ expanded: selected }} accessibilityLabel={`${v.username} : ${seenN} sur ${total}`} testID={`story-viewer-${v.viewerId}`}>
+                    <TouchableOpacity key={v.viewerId} style={[styles.viewerBubble, selected && styles.viewerBubbleOn]} onPress={() => toggleViewerDetail(v.viewerId)} accessibilityRole="button" accessibilityState={{ expanded: selected }} accessibilityLabel={summary} testID={`story-viewer-${v.viewerId}`}>
                       <View>
-                        {v.avatarUrl ? <Image source={{ uri: v.avatarUrl }} style={styles.bubbleAvatar} /> : <View style={[styles.bubbleAvatar, styles.rowAvatarFallback]}><Text style={styles.rowInitial}>{v.username.slice(0, 1).toUpperCase()}</Text></View>}
+                        {v.avatarUrl ? <Image source={{ uri: v.avatarUrl }} style={styles.bubbleAvatar} /> : <View style={[styles.bubbleAvatar, styles.rowAvatarFallback]}><Text style={styles.rowInitial}>{displayUsername(v.username).slice(0, 1).toUpperCase()}</Text></View>}
                         <View style={[styles.bubbleBadge, full ? styles.bubbleBadgeFull : null, v.watching ? styles.bubbleBadgeLive : null]}><Text style={styles.bubbleBadgeText}>{v.watching ? '●' : full ? '✓' : `${seenN}/${total}`}</Text></View>
                       </View>
-                      <Text style={styles.bubbleName} numberOfLines={1}>{v.username}</Text>
+                      <View style={styles.rowCopy}><Text style={styles.detailMeta}>{summary}</Text></View>
                     </TouchableOpacity>
                   );
                 })}
@@ -573,8 +582,8 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
                 return (
                   <View style={styles.detailBox} testID={`story-viewer-detail-${v.viewerId}`}>
                     <View style={styles.detailHead}>
-                      <Text style={styles.detailName} numberOfLines={1}>@{v.username}{v.isReprise ? ' ⟳' : ''}</Text>
-                      <TouchableOpacity style={styles.detailProfileBtn} onPress={() => { setViewersOpen(false); setOpenStory(null); onOpenProfile?.(v.username); }} accessibilityRole="button" accessibilityLabel={`Voir le profil de ${v.username}`} testID={`story-viewer-profile-${v.viewerId}`}>
+                      <Text style={styles.detailName} numberOfLines={1}>{displayUsername(v.username)}{v.isReprise ? ' ⟳' : ''}</Text>
+                      <TouchableOpacity style={styles.detailProfileBtn} onPress={() => { setViewersOpen(false); setOpenStory(null); onOpenProfile?.(v.username); }} accessibilityRole="button" accessibilityLabel={`Voir le profil de ${displayUsername(v.username)}`} testID={`story-viewer-profile-${v.viewerId}`}>
                         <Text style={styles.detailProfileText}>Profil ›</Text>
                       </TouchableOpacity>
                     </View>
@@ -598,30 +607,30 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         titleBadge={openTier && openTier !== 'UNVERIFIED' ? <ProfileCertificationBadge tier={openTier} compact /> : null}
         onFinished={() => {
           // Enchaînement façon Instagram : la story finie, on passe tout de suite à la prochaine NON vue (la plus récente d'abord).
-          if (!openStory) return;
+          if (!openStory || isOwnOpen) return;
           const upcoming = orderStoriesForBar(stories.filter((story) => !story.suggestion && story.tracks.length > 0 && story.profileId !== openStory.profileId && story.profileId !== viewer.id && (seen[story.profileId] || '') < story.latestAt), seen)[0];
           if (upcoming) void open(upcoming);
         }}
         endExtra={nextStory ? (
           <View style={styles.nextBox}>
-            <TouchableOpacity style={styles.nextButton} onPress={() => { void open(nextStory); }} accessibilityRole="button" accessibilityLabel={`Voir la story de ${nextStory.username}`} testID="story-next">
-              <Text style={styles.nextButtonText} numberOfLines={1}>STORY SUIVANTE · @{nextStory.username}</Text>
+            <TouchableOpacity style={styles.nextButton} onPress={() => { void open(nextStory); }} accessibilityRole="button" accessibilityLabel={`Voir la story de ${displayUsername(nextStory.username)}`} testID="story-next">
+              <Text style={styles.nextButtonText} numberOfLines={1}>STORY SUIVANTE · {displayUsername(nextStory.username)}</Text>
             </TouchableOpacity>
             {nextStories.length > 1 ? (
               <View style={styles.nextBubbles}>
                 {nextStories.slice(1, 5).map((story) => (
-                  <TouchableOpacity key={story.profileId} onPress={() => { void open(story); }} accessibilityRole="button" accessibilityLabel={`Story de ${story.username}`} style={styles.nextBubble}>
+                  <TouchableOpacity key={story.profileId} onPress={() => { void open(story); }} accessibilityRole="button" accessibilityLabel={`Story de ${displayUsername(story.username)}`} style={styles.nextBubble}>
                     {story.avatarUrl
                       ? <Image source={{ uri: story.avatarUrl }} style={styles.nextBubbleImg} />
-                      : <View style={[styles.nextBubbleImg, styles.rowAvatarFallback]}><Text style={styles.rowInitial}>{story.username.slice(0, 1).toUpperCase()}</Text></View>}
-                    <Text style={styles.nextBubbleName} numberOfLines={1}>@{story.username}</Text>
+                      : <View style={[styles.nextBubbleImg, styles.rowAvatarFallback]}><Text style={styles.rowInitial}>{displayUsername(story.username).slice(0, 1).toUpperCase()}</Text></View>}
+                    <Text style={styles.nextBubbleName} numberOfLines={1}>{displayUsername(story.username)}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
             ) : null}
           </View>
         ) : null}
-        title={isOwnOpen ? 'Ta story' : `Story de @${openStory?.username ?? ''}`}
+        title={isOwnOpen ? 'Ta story' : `Story de ${displayUsername(openStory?.username)}`}
         subtitle={isOwnOpen ? 'Tes musiques partagées ou en vente' : undefined}
         previewOnly={isOwnOpen}
         sourceUsername={isOwnOpen ? undefined : openStory?.username}
@@ -648,7 +657,10 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         }}
         onPass={() => true}
         onOpenSourceProfile={(username) => { setOpenStory(null); onOpenProfile?.(username); }}
-        onWatchEvent={(event) => watchRef.current?.event(event)}
+        onWatchEvent={(event) => {
+          if (isOwnOpen && event.type === 'shown') setOwnLastTrackShown(event.index === (openStory?.tracks.length ?? 0) - 1);
+          watchRef.current?.event(event);
+        }}
         likeMode={isOwnOpen ? 'count-only' : 'auto'}
         onClose={() => setOpenStory(null)}
       />
@@ -716,7 +728,7 @@ const styles = StyleSheet.create({
   ownBadgeOn: { backgroundColor: '#3A2A00', borderColor: '#FFD166', shadowColor: '#FFD166', shadowOpacity: 0.9, shadowRadius: 8, shadowOffset: { width: 0, height: 0 }, elevation: 8 },
   ownBadgeText: { fontSize: 13, lineHeight: 16 },
   viewerGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingVertical: 8 },
-  viewerBubble: { width: 72, alignItems: 'center', paddingVertical: 4, borderRadius: 14 },
+  viewerBubble: { width: '100%', flexDirection: 'row', gap: 12, alignItems: 'center', paddingVertical: 4, borderRadius: 14 },
   viewerBubbleOn: { backgroundColor: 'rgba(124,92,252,0.22)' },
   bubbleAvatar: { width: 56, height: 56, borderRadius: 28 },
   bubbleBadge: { position: 'absolute', right: -6, bottom: -4, minWidth: 26, height: 22, paddingHorizontal: 5, borderRadius: 11, backgroundColor: '#2A2140', borderWidth: 2, borderColor: colors.backgroundCard, alignItems: 'center', justifyContent: 'center' },

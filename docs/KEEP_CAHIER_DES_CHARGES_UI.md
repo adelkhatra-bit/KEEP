@@ -157,7 +157,7 @@ Les bandelettes lumineuses (accueil au repos et écran d'écoute) **ne sont jama
 
 ## 16. Bulles de stories, robot et bandelette — compléments (décision d'Adel, 05/10/2026)
 
-- **Un appui sur une bulle** : story d'abord (même déjà vue, pour la revoir) ; **sans story**, une **fiche rapide** s'ouvre par-dessus (suivre, voir le profil complet) — jamais une page de profil qui s'ouvre d'office. Dans le lecteur de story, toucher « Story de @x › » ouvre la même fiche.
+- **Un appui sur une bulle** : story d'abord (même déjà vue, pour la revoir) ; **sans story**, une **fiche rapide** s'ouvre par-dessus (suivre, voir le profil complet) — jamais une page de profil qui s'ouvre d'office. Dans le lecteur de story, toucher « Story de x › » ouvre la même fiche.
 - **Le robot du Tchat parle** (bulle à côté de lui, jamais une notification) : sessions en attente (+ vibration courte et son discret) ; plus de FREE / plus de Solo (au plus 2 fois par jour, 6 h d'écart, phrases variées) avec un appui qui mène aux sessions ou aux offres. Code : `robotCoachMessages.ts`, `robotCoachService.ts`, `useRobotMessageStore.ts`, `GlobalChatDock.tsx`.
 - **Bandelettes** : toujours à l'intérieur des marges de l'écran, avec un contour arrondi complet (jamais collées au bord).
 
@@ -169,7 +169,7 @@ Les bandelettes lumineuses (accueil au repos et écran d'écoute) **ne sont jama
 
 ### §14 ter — Désabonnement et liste des vues (Adel, 05/10/2026)
 - **Un utilisateur ne se désabonne d'un autre que depuis la PAGE PROFIL de celui-ci.** Jamais depuis une bulle de story, la fiche rapide, la liste des vues ou la liste « Reprises » (elles affichent « Voir le profil » / « ✓ Tu le suis »). Contrôle bloquant : `verify-product-contract.cjs`.
-- La liste « Vues de ta story » conserve l'accès au profil, sans badge « Abonné ». Depuis le 06/10/2026 (ERR-210), ses bulles ouvrent le détail avec le bouton court **Profil ›**, nommé **Voir le profil de @pseudo** pour l'accessibilité.
+- La liste « Vues de ta story » conserve l'accès au profil, sans badge « Abonné ». Depuis le 06/10/2026 (ERR-210), ses bulles ouvrent le détail avec le bouton court **Profil ›**, nommé **Voir le profil de pseudo** pour l'accessibilité.
 
 ### §14 quater — Lecteur de story : règles de lecture (Adel, 05/10/2026)
 - **Ancienneté** (décision d'Adel du 05/10, remplace « reste 24 h ») : une seule ligne verte « ⏱ il y a 29 min » / « il y a 2 h », SEULEMENT depuis quand la musique est en ligne ; jamais la durée restante (l'utilisateur sait qu'une story dure 24 h) ; rien d'autre en vert.
@@ -181,14 +181,14 @@ Les bandelettes lumineuses (accueil au repos et écran d'écoute) **ne sont jama
 ### §14 quinquies — Vues de story façon Instagram (Adel, 05/10/2026)
 - Une vue ne compte qu'après 2 s de présence réelle ; ouverture/fermeture immédiate = aucune vue.
 - Suivi : secondes passées, musiques vues (x/y), écoute démarrée, instant du départ (ping 10 s, fermeture, arrière-plan).
-- Propriétaire : liste « Vues de ta story » = `@pseudo`, `● regarde maintenant` ou `parti il y a …`, `N s · x/y musiques · écouté/pas écouté`, « Voir le profil ›». Alerte latérale : « 👁 @x regarde ta story » puis « @x est parti · N s ».
+- Propriétaire (Adel, 08/10/2026, #74) : une ligne par spectateur, gardée 24 h avec sa meilleure progression, jamais effacée par une réouverture courte. Exemple : `inside · Vue entière ✓ · 2/2 musiques · touché 3 fois · il y a 5 min` ; vue partielle : `inside · 1/2 musiques · touché 1 fois · il y a 2 h`. Conserver « Profil › ». À la fin de ma story (dernier titre), un spectateur ayant terminé est salué par « Bravo, inside a vu ta story en entier ». Alerte latérale : « 👁 x regarde ta story » puis « x est parti · N s ». Aucun préfixe « @ » devant un nom, sur aucune surface ; helper unique `displayUsername`, adresses e-mail inchangées.
 
 ### §14 sexies — Classement sur les bulles (Adel, 05/10/2026)
 - Classement de la semaine (7 jours glissants) : 1 pt par partage en story, 3 pts par reprise de sa musique par un autre membre, 2 pts par nouvel abonné ; top 50 des profils publics (RPC lecture seule `keep_story_ranking`).
 - Badge discret en haut à gauche de la bulle : 🥇🥈🥉 (top 3), ⭐ (top 10) ; minimum 3 points. Aucun badge si le classement est indisponible. Ne remplace ni le ✓ « vu » (haut droite) ni la pastille de présence (bas droite).
 
 ### §16 bis — Robot intelligent et jeune (Adel, 05/10/2026, IDEA-096)
-- À l'ouverture de l'app (5 s après le démarrage, une fois par lancement et par compte) le robot dit UN message utile : solde FREE à 0 → « plus de FREE » (avec de quoi en gagner : Battle, parrainage) ; solde ≤ 3 → « il ne te reste que N FREE » + comment en gagner ; sinon un **salut jeune avec le pseudo** (« Salut @pseudo 👋 t'es motivé ? … va dire coucou dans le salon »). Un appui sur le salut ouvre le salon/Tchat ; solde bas/vide → Offres.
+- À l'ouverture de l'app (5 s après le démarrage, une fois par lancement et par compte) le robot dit UN message utile : solde FREE à 0 → « plus de FREE » (avec de quoi en gagner : Battle, parrainage) ; solde ≤ 3 → « il ne te reste que N FREE » + comment en gagner ; sinon un **salut jeune avec le pseudo** (« Salut pseudo 👋 t'es motivé ? … va dire coucou dans le salon »). Un appui sur le salut ouvre le salon/Tchat ; solde bas/vide → Offres.
 - Le robot s'agite (secousse amortie < 1 s) et fait vibrer le téléphone (sans son pour le salut). Jamais envahissant : salut 2 fois/jour max et 6 h d'écart, solde bas 1 fois/jour (12 h), solde vide 2 fois/jour (6 h). Phrases composées, jamais toujours les mêmes. Code : `robotCoachMessages.ts`, `robotCoachService.ts` (`robotWelcome`), `GlobalChatDock.tsx`.
 
 ### §14 septies — Stories en chapitres (Adel, 05/10/2026, IDEA-098)
@@ -223,7 +223,7 @@ Les bandelettes lumineuses (accueil au repos et écran d'écoute) **ne sont jama
 - **Popup « Donne ton avis 😉 »** (IDEA-111) : 1,4 s après chaque nouvelle musique, une petite bulle jaune sous les trois boutons (« Donne ton avis 😉 », « Tu en penses quoi ? 😏 »…, 64 variantes) apparaît, reste ~3 s puis disparaît seule ; jamais si l'utilisateur a déjà réagi ; elle s'efface dès qu'il réagit. L'en-tête du lecteur passe au-dessus du corps (`zIndex`) pour qu'elle reste visible.
 
 ### §14 terdecies — Merci par son nom, changer d'avis, recommandations (Adel, 05/10/2026, IDEA-112)
-- Après un avis, le message est un **remerciement par son nom** : « @bruno te remercie pour ton ❤ 🙌 » (le partageur) ; sans partageur connu : « Merci @toi ».
+- Après un avis, le message est un **remerciement par son nom** : « bruno te remercie pour ton ❤ 🙌 » (le partageur) ; sans partageur connu : « Merci toi ».
 - **Changer d'avis / des-aimer (impératif)** : un appui sur la réaction allumée la retire et les trois choix reviennent. Retrait = suppression de SA PROPRE ligne (RLS), seul usage autorisé par une exception ciblée du garde-fou (`explicitDeletionExceptions` dans `config/keep-data-preservation.json`, marqueur `KEEP_DATA_DELETE_EXCEPTION: user-removes-own-reaction`).
 - Les réactions ne s'enregistrent que sur les musiques du catalogue Loki (UUID) ; sinon les boutons sont masqués.
 - Recommandations automatiques « machine de guerre » : voir `docs/ALGORITHM_DATA.md` (profil de goût + `keep_recommend_for_me` en tête du Loki Pulse).
