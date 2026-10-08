@@ -1,6 +1,7 @@
 # KEEP — Contexte actif
 
 ## PR #58 — commentaire 6058058365, 08/10/2026
+- Correctif partagé et vérifié à `8a4119b3fa33f7768535a10b71c8c58b774528b2`. Analyse CodeQL JavaScript finale : 0 alerte ; revue intégrée indisponible (modèle absent), revue ciblée indépendante effectuée. Pas de CI GitHub verte revendiquée.
 - Messages Brevo/YouTube/ACRCloud remis en français, code séparé ; aucune modification UI, schéma, authentification ou décision de validation. Suite Santé 12/12, typecheck Edge et contrat produit réussis ; revue ciblée sans bug certain.
 - CI de revue `action_required` sans jobs (CodeQL 37723029001) ; base canonique avancée à `639f499`, garde source refuse la revue périmée. Aucun contournement ni fusion supplémentaire ; autorisation Actions et synchronisation nécessaires avant CI verte/fusion. Aucun déploiement.
 

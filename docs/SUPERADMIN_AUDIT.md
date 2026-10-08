@@ -3,6 +3,7 @@
 ## Issue #57 — rapport de validation du 08/10/2026
 
 ### Relecture PR #58 — commentaire 6058058365
+- Correctif partagé et contenu distant vérifié : `8a4119b3fa33f7768535a10b71c8c58b774528b2`. Validation finale : CodeQL JavaScript réellement analysé, **0 alerte** ; revue intégrée indisponible (modèle absent), revue indépendante ciblée sans bug certain. Aucun résultat vert de GitHub Actions revendiqué.
 - Validateurs Brevo/YouTube/ACRCloud : phrases françaises contrôlées dans `message`, diagnostic technique dans `code` ; décisions `valid`/`status` et `providerCode` conservés. Aucun corps fournisseur recopié dans les messages.
 - `node --test scripts/system-health.test.cjs` : **12/12 réussis**, dont matrice succès/refus/quota/API désactivée/hôte invalide et typecheck Edge strict. PostgreSQL local démarré après le premier essai qui échouait faute de socket ; aucun accès production. `node scripts/verify-product-contract.cjs` réussi ; revue ciblée sans bug certain.
 - CI distante : [CodeQL PR 37723029001](https://github.com/adelkhatra-bit/KEEP/actions/runs/37723029001) et les autres contrôles de la revue sont `action_required`, sans jobs ni logs d’échec. Une autorisation GitHub est nécessaire ; aucun PASS CI revendiqué. Échec tchat mobile canonique préexistant : run 37711629482, hors correctif.
