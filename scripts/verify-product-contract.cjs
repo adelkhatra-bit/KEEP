@@ -34,6 +34,16 @@ must(contract.creditRules.listen === 0, 'listen credit changed');
 must(contract.creditRules.recognize === 0, 'recognize credit changed');
 must(contract.creditRules.PASS === 0, 'PASS credit changed');
 must(contract.creditRules.KEEP === -3, 'KEEP credit changed');
+const infoIcon = fs.readFileSync(path.join(root, 'packages/mobile/src/components/InfoToggleIcon.tsx'), 'utf8');
+must(contract.uxInteractionRules.infoToggleComponent === 'packages/mobile/src/components/InfoToggleIcon.tsx'
+  && contract.uxInteractionRules.infoToggleKeepsAccessibleLabels === true
+  && infoIcon.includes("expanded ? '✕' : 'ⓘ'"), 'aides: composant commun ⓘ / ✕ et libellés accessibles obligatoires');
+for (const file of ['ClampedText.tsx', '../screens/OffersScreen.tsx', '../screens/HomeScreenCompact.tsx', '../screens/NotificationsScreen.tsx']) {
+  const source = fs.readFileSync(path.join(root, 'packages/mobile/src/components', file), 'utf8');
+  must(source.includes('InfoToggleIcon') && source.includes('accessibilityLabel='), `aides: ${file} doit conserver le déclencheur accessible`);
+}
+const adminHint = fs.readFileSync(path.join(root, 'packages/admin/components/Hint.tsx'), 'utf8');
+must(adminHint.includes("from '../../mobile/src/components/InfoToggleIcon'") && adminHint.includes('aria-label='), 'aides: le Super Admin doit utiliser le même symbole accessible');
 
 must(contract.profileOwner.freePlacement === 'immediately-after-Reprises-in-owner-metrics-bar', 'FREE placement contract changed');
 must(contract.profileOwner.freeBesideProfileKind === false, 'FREE must stay out of profile type row');
@@ -384,12 +394,16 @@ const storyActivitySrc = fs.readFileSync(path.join(root, 'packages/mobile/src/se
 const storyDeckSrc = fs.readFileSync(path.join(root, 'packages/mobile/src/components/MusicSwipeDeckModal.tsx'), 'utf8');
 must(se && se.storyReaderHasNoTeaserSentenceForOthers === true && Array.isArray(se.storyPriceBadgesRequired) && se.storyAgeLineFormat, 'storiesExperience: règles de lecture de story absentes du contrat');
 must(storyActivitySrc.includes('export function formatStoryCountdown') && !storyActivitySrc.includes('reste ${') && storyDeckSrc.includes('numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} testID="deck-story-age"'), 'stories: la ligne verte est un chronomètre 24 h « HH:MM:SS » sur UNE ligne (décision d\'Adel 05/10/2026)');
-must(storyDeckSrc.includes('💳 PAYANT') && storyDeckSrc.includes('saleInfoByTrackId') && storyDeckSrc.includes('GRATUIT · POUR TON PROFIL') && storyDeckSrc.includes('deck-price-badge'), 'stories: chaque musique d\'une story doit afficher PAYANT (PayPal) ou GRATUIT, lisiblement');
+must(storyDeckSrc.includes('💳 PAYANT') && storyDeckSrc.includes('saleInfoByTrackId') && storyDeckSrc.includes('GARDER · ${keepDebitAmount} FREE') && storyDeckSrc.includes('Libre · à découvrir par toi') && storyDeckSrc.includes('originsConfirmed') && storyDeckSrc.includes('deck-price-badge'), 'stories: prix FREE serveur, offres payantes et badge Libre confirmé obligatoires');
 must(!storyBar.includes('{composeStoryTeaser(openStory.username'), 'stories: pas de phrase d\'accroche sur la story d\'un autre (elle induisait en erreur)');
-// Décisions d'Adel du 05/10/2026 : reprise sociale GRATUITE (créateur identifié) et partage en story GRATUIT ; musiques en vente toujours payantes.
+// Issue #63 (08/10/2026) : story débitée, reprises de profil et mise en story gratuites ; offres payantes protégées.
 const keepActionSrc = fs.readFileSync(path.join(root, 'packages/mobile/src/services/keepTrackAction.ts'), 'utf8');
-must(contract.creditRules.socialFreeKeep && contract.creditRules.socialFreeKeep.charge === 0 && contract.creditRules.shareToOwnStoryIsFree && contract.creditRules.shareToOwnStoryIsFree.charge === 0, 'creditRules: reprise sociale et partage en story doivent rester gratuits (décision d\'Adel 05/10/2026)');
-must(keepActionSrc.includes("keep_commit_social_free_decision") && storyService.includes("keep_pin_shared_story_track") && storyBar.includes('keepDebitAmount={0}'), 'stories: GARDER depuis une story / un profil et le partage en story ne doivent débiter aucun FREE');
+must(contract.creditRules.socialFreeKeep?.charge === 0 && !contract.creditRules.socialFreeKeep.sources.includes('story')
+  && contract.creditRules.storyKeep?.charge === 3 && contract.creditRules.shareToOwnStoryIsFree?.charge === 0, 'creditRules: story = tarif GARDER, profil et partage = 0 (issue #63)');
+const pulseKeepSrc = fs.readFileSync(path.join(root, 'packages/mobile/src/services/lokiPulseKeep.ts'), 'utf8');
+must(keepActionSrc.includes("keep_commit_social_free_decision") && storyService.includes("keep_pin_shared_story_track")
+  && storyBar.includes('keepDebitAmount={freeCost}') && pulseKeepSrc.includes('consumeCredit: true')
+  && !storyBar.includes('previewOnly='), 'stories: débit serveur annoncé et GARDER disponibles ; partage gratuit conservé');
 must(se && se.rowIsSinglePiece === true && se.sameStyleStoriesAllowed === false && se.autoChainToNextUnseenStory === true, 'storiesExperience contract missing or changed');
 must(storyRail.includes('{leading ?? null}') && storyRail.includes('horizontal') && storyBar.includes('leading={leadingPhoto}'), 'stories: la photo + « + » doit défiler avec la même rangée horizontale (leading)');
 must(!storyRail.includes('Modal') && !storyRail.includes('home-story-others'), 'stories: la rangée ne doit ni ouvrir de fenêtre ni avoir de rond « Autres » (tout est dans la ligne, façon Instagram)');

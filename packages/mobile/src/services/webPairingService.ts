@@ -23,7 +23,12 @@ export type WebCompanionSession = {
 async function invoke<T>(body: Record<string, unknown>): Promise<T> {
   if (!supabase) throw new Error('Supabase indisponible');
   const { data, error } = await supabase.functions.invoke('keep-web-pairing', { body });
-  if (error) throw error;
+  if (error) {
+    const response = (error as { context?: { json?: () => Promise<{ error?: string }> } }).context;
+    const failure = await response?.json?.().catch(() => null);
+    if (failure?.error) throw new Error(String(failure.error));
+    throw error;
+  }
   if (data?.error) throw new Error(String(data.error));
   return data as T;
 }
@@ -44,6 +49,18 @@ export async function createDesktopPairing(): Promise<DesktopPairingChallenge> {
   });
 }
 
+export async function sendDesktopLinkEmail(): Promise<void> {
+  await invoke<{ ok: true }>({ action: 'email-link' });
+}
+
+export async function inspectDesktopPairing(pairingId: string, token: string): Promise<{ deviceLabel: string }> {
+  return invoke<{ ok: true; deviceLabel: string }>({ action: 'inspect', pairingId, token });
+}
+
+export async function cancelDesktopPairing(pairingId: string, token: string): Promise<void> {
+  await invoke<{ ok: true }>({ action: 'cancel', pairingId, token });
+}
+
 export async function claimDesktopPairing(pairingId: string, token: string): Promise<{ status: string; actionLink?: string }> {
   return invoke<{ ok: true; status: string; actionLink?: string }>({
     action: 'claim',
@@ -57,6 +74,7 @@ export async function approveDesktopPairing(pairingId: string, token: string): P
     action: 'approve',
     pairingId,
     token,
+    confirmed: true,
   });
 }
 

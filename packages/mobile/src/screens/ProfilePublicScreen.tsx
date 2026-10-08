@@ -1,4 +1,5 @@
 import ProfileStoryBar from '../components/ProfileStoryBar';
+import InfoToggleIcon from '../components/InfoToggleIcon';
 import { loadStoryAccess } from '../services/storyAccessService';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useIsFocused } from '@react-navigation/native';
@@ -75,6 +76,7 @@ import KeepModal from '../components/KeepModal';
 import EarReportModal from '../components/EarReportModal';
 import { needsTasteOnboarding } from '../services/tasteOnboarding';
 import { useCollapsedSection } from '../services/useCollapsedSection';
+import WebCompanionSessionsPanel from '../components/WebCompanionSessionsPanel';
 
 type ProfileTab = 'TRACKS' | 'PLAYLISTS' | 'ARTISTS';
 type SocialPlatform = SocialLink['platform'];
@@ -109,6 +111,7 @@ const MENU_GROUPS: ProfileMenuGroup[] = [
       { key: 'ear', icon: '👂', label: 'Mon oreille', hint: 'Niveau · défis · rapport de communauté' },
       { key: 'publicProfile', icon: '🌐', label: 'Réseaux & site web', hint: 'Instagram · TikTok · Snapchat · YouTube · X · Facebook' },
       { key: 'chatSettings', icon: '💬', label: 'Messagerie', hint: 'Pages · côté · hauteur · alertes' },
+      { key: 'computer', icon: '💻', label: 'Ordinateur', hint: 'M’envoyer le lien · ordinateurs connectés' },
     ],
   },
   {
@@ -1646,8 +1649,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
               accessibilityRole="button"
               accessibilityLabel={ownerMusicInfoOpen ? 'Réduire les explications Loki Music' : 'En savoir plus sur Loki Music'}
             >
-              <Text style={s.ownerMusicInfoToggleText}>{ownerMusicInfoOpen ? 'Réduire' : 'En savoir plus'}</Text>
-              <Text style={s.ownerMusicInfoChevron}>{ownerMusicInfoOpen ? '⌃' : '⌄'}</Text>
+              <Text style={s.ownerMusicInfoToggleText}><InfoToggleIcon expanded={ownerMusicInfoOpen} /></Text>
             </TouchableOpacity>
           </View>
           {ownerMusicInfoOpen ? (
@@ -1843,6 +1845,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     setExpandedMenuItem(key);
   };
   const renderMenuDetail = (key: string) => {
+    if (key === 'computer') return <WebCompanionSessionsPanel showEmailLink />;
     if (key === 'free') return <>
       <Text style={s.shareTitle}>Mes FREE</Text>
       <Text style={s.shareSubtitle}>{freeBalance != null ? `${freeBalance} Free disponibles.` : 'Solde indisponible pour le moment.'}</Text>
@@ -2251,7 +2254,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
               {!ownerPrivateChatOpen ? <Text style={s.ownerPrivateChatCollapsedHint}>Masqué pour garder ton profil compact.</Text> : null}
             </View>
             <Text style={s.ownerPrivateChatCount}>{ownerPrivateChatOffers.length}</Text>
-            <Text style={s.ownerPrivateChatToggle}>{ownerPrivateChatOpen ? 'Réduire ⌃' : 'Voir plus ⌄'}</Text>
+            <Text style={s.ownerPrivateChatToggle}><InfoToggleIcon expanded={ownerPrivateChatOpen} /></Text>
           </TouchableOpacity>
           {ownerPrivateChatOpen ? (
             <>

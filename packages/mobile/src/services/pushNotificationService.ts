@@ -159,6 +159,27 @@ export async function notifyDetectedTrack(entryId: string, track: CanonicalTrack
 }
 
 const reportedPushFailures = new Set<string>();
+let registrationEpoch = 0;
+let currentDeviceRegistration: { token: string; profileId: string } | null = null;
+let deviceIdPromise: Promise<string> | null = null;
+
+function pushInstallationId(): Promise<string> {
+  if (!deviceIdPromise) {
+    deviceIdPromise = (async () => {
+      const key = '@keep/push-installation-id-v1';
+      const stored = await AsyncStorage.getItem(key);
+      if (stored) return stored;
+      const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+      await AsyncStorage.setItem(key, id);
+      return id;
+    })();
+  }
+  return deviceIdPromise;
+}
+
+export function cancelPushRegistration(): void {
+  registrationEpoch += 1;
+}
 const IOS_PRODUCTION_PUSH_REPAIR_KEY = '@keep/ios-push-production-reregister-v1';
 
 async function repairIosProductionPushRegistrationIfNeeded(
@@ -296,12 +317,18 @@ function pushClientMetadata(): {
 async function registerExpoTokenWithSupabase(
   token: string,
   nativePushToken?: import('expo-notifications').DevicePushToken | null,
+  expectedProfileId?: string,
+  epoch = registrationEpoch,
 ): Promise<{ ok: boolean; reason?: string }> {
   if (!supabase) return { ok: false, reason: 'supabase_not_configured' };
   if (!token) return { ok: false, reason: 'empty_token' };
   try {
+    const deviceId = await pushInstallationId();
     const { data: sessionData } = await supabase.auth.getSession();
     if (!sessionData.session?.user?.id) return { ok: false, reason: 'not_logged_in' };
+    if (epoch !== registrationEpoch || (expectedProfileId && sessionData.session.user.id !== expectedProfileId)) {
+      return { ok: false, reason: 'session_changed' };
+    }
     const meta = pushClientMetadata();
     const nativeData = nativePushToken?.data;
     const nativeToken = typeof nativeData === 'string'
@@ -309,7 +336,8 @@ async function registerExpoTokenWithSupabase(
       : nativeData != null
         ? String(nativeData).trim()
         : null;
-    const { error } = await supabase.rpc('keep_push_token_register_v3', {
+    const { error } = await supabase.rpc('keep_push_token_register_v4', {
+      p_device_id: deviceId,
       p_token: token,
       p_platform: Platform.OS,
       p_app_version: meta.appVersion,
@@ -324,6 +352,8 @@ async function registerExpoTokenWithSupabase(
       void reportPushRegistrationFailure('register_rpc_error', String(error.message || error.code || 'rpc_error'));
       return { ok: false, reason: `supabase_${String(error.code || 'rpc_error')}` };
     }
+    if (epoch !== registrationEpoch) return { ok: false, reason: 'session_changed' };
+    currentDeviceRegistration = { token, profileId: sessionData.session.user.id };
     return { ok: true };
   } catch {
     return { ok: false, reason: 'network_error' };
@@ -338,8 +368,13 @@ export function listenForExpoPushTokenChanges(): () => void {
   const subscription = Notifications.addPushTokenListener((nextToken) => {
     // addPushTokenListener renvoie le token NATIF APNs/FCM. On le convertit
     // en ExpoPushToken et on refuse toute valeur brute avant le RPC.
-    void resolveExpoPushToken(projectId, nextToken)
-      .then((token) => registerExpoTokenWithSupabase(token, nextToken))
+    const epoch = registrationEpoch;
+    void supabase?.auth.getSession().then(async ({ data }) => {
+      const owner = data.session?.user?.id;
+      if (!owner || epoch !== registrationEpoch) return;
+      const token = await resolveExpoPushToken(projectId, nextToken);
+      return registerExpoTokenWithSupabase(token, nextToken, owner, epoch);
+    })
       .catch((error) => {
         void reportPushRegistrationFailure('expo_token_rotation_error', String((error as any)?.message || error || 'unknown').slice(0, 300));
       });
@@ -386,9 +421,12 @@ export async function registerForPushNotifications(): Promise<{ ok: boolean; rea
   if (!Device.isDevice) {
     return { ok: false, reason: 'simulator_no_push' };
   }
+  const epoch = registrationEpoch;
+  const owner = (await supabase?.auth.getSession())?.data.session?.user?.id;
+  if (!owner) return { ok: false, reason: 'not_logged_in' };
 
   let permission = await Notifications.getPermissionsAsync();
-  if (!notificationPermissionGranted(Notifications, permission)) {
+  if (!notificationPermissionGranted(Notifications, permission) && permission.status !== 'denied') {
     permission = await Notifications.requestPermissionsAsync();
   }
   if (!notificationPermissionGranted(Notifications, permission)) {
@@ -445,7 +483,7 @@ export async function registerForPushNotifications(): Promise<{ ok: boolean; rea
     return { ok: false, reason: 'expo_token_error' };
   }
 
-  const registration = await registerExpoTokenWithSupabase(token, nativePushToken);
+  const registration = await registerExpoTokenWithSupabase(token, nativePushToken, owner, epoch);
   if (registration.ok && repairedIosProductionRegistration) {
     await markIosProductionPushRepairDone();
     const environment = await iosPushEnvironment();
@@ -475,14 +513,19 @@ export async function registerForPushNotifications(): Promise<{ ok: boolean; rea
 }
 
 export async function unregisterCurrentPushToken(): Promise<void> {
+  cancelPushRegistration();
   if (Platform.OS === 'web' || !Device.isDevice || !supabase) return;
-  const Notifications = getNativeNotifications();
   try {
+    const owner = (await supabase.auth.getSession()).data.session?.user?.id;
+    if (!owner) return;
     const projectId = expoProjectId();
     if (!projectId) return;
-    const token = await resolveExpoPushToken(projectId);
+    const token = currentDeviceRegistration?.profileId === owner
+      ? currentDeviceRegistration.token : await resolveExpoPushToken(projectId);
     if (!token) return;
+    if ((await supabase.auth.getSession()).data.session?.user?.id !== owner) return;
     await supabase.rpc('keep_push_token_unregister', { p_token: token });
+    currentDeviceRegistration = null;
   } catch {
     // Best effort on logout; stale Expo tokens are also removed by receipt processing.
   }

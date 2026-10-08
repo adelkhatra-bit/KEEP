@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
+import InfoToggleIcon from '../components/InfoToggleIcon';
 // KEEP_PUBLIC_RUNTIME_PROBE_PARTIES: forces Pages to rebuild this exact screen source.
 import MotionActionButton from '../components/MotionActionButton';
 import { ActivityIndicator, Animated, Image, Linking, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -1667,7 +1668,7 @@ export default function PartiesScreen({ navigation, route }: any) {
                     plus" ouvre la photo complète (jamais rognée) + le texte
                     intégral + YouTube, puis on répond juste après. */}
                 {currentEvent.description?<Text style={styles.description} numberOfLines={3}>{currentEvent.description}</Text>:null}
-                {!isPendingPreview && (currentEvent.description || currentEvent.imageUrls.length > 1) ? <TouchableOpacity style={styles.moreLink} onPress={() => setEventDetailOpen(true)}><Text style={styles.moreLinkText}>En savoir plus ›</Text></TouchableOpacity> : null}
+                {!isPendingPreview && (currentEvent.description || currentEvent.imageUrls.length > 1) ? <TouchableOpacity style={styles.moreLink} onPress={() => setEventDetailOpen(true)} accessibilityRole="button" accessibilityLabel="En savoir plus sur l’événement"><Text style={styles.moreLinkText}><InfoToggleIcon /></Text></TouchableOpacity> : null}
                 {!isPendingPreview && currentEvent.organizerPhone ? <View style={styles.eventLinksRow}><TouchableOpacity style={styles.callOrganizerLink} onPress={()=>{void Linking.openURL(`tel:${currentEvent.organizerPhone}`);}}><View style={styles.callOrganizerIcon}><Text style={styles.callOrganizerIconText}>📞</Text></View><View><Text style={styles.callOrganizerLabel}>Appeler l’organisateur</Text><Text style={styles.callOrganizerNumber}>{currentEvent.organizerPhone}</Text></View></TouchableOpacity></View> : null}
                 {isPendingPreview
                   ? null

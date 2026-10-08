@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import Hint from '../components/Hint';
+import InfoToggleIcon from '../../mobile/src/components/InfoToggleIcon';
 import { supabase } from '../lib/supabaseClient';
 import { commitLink, LEDGER_URL, testLink, validSha, validTestPath } from '../lib/releaseEvidence';
 
@@ -127,8 +128,8 @@ export default function ProblemReports() {
                 <div>Livraison et exécution du test à vérifier</div>
               </details>
               {r.message.length > 110 ? (
-                <button className="btn" onClick={() => setOpen((p) => ({ ...p, [r.id]: !expanded }))} style={{ justifySelf: 'start', background: 'transparent', border: 'none', color: 'var(--primary-light)', fontWeight: 800, padding: 0 }}>
-                  {expanded ? 'Réduire' : 'En savoir plus'}
+                <button className="btn" type="button" aria-expanded={expanded} aria-label={expanded ? 'Réduire le signalement' : 'En savoir plus sur le signalement'} onClick={() => setOpen((p) => ({ ...p, [r.id]: !expanded }))} style={{ justifySelf: 'start', background: 'transparent', border: 'none', color: 'var(--primary-light)', fontWeight: 800, padding: 0, minHeight: 48, minWidth: 48 }}>
+                  <InfoToggleIcon expanded={expanded} />
                 </button>
               ) : null}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 8 }}>

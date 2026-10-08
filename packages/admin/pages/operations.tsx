@@ -50,7 +50,7 @@ const BILLING_LINKS = INTEGRATION_PROVIDER_LINKS;
 
 const PUSH_LABELS: Record<string, string> = {
   CREATED: 'Créées',
-  NO_DEVICE: 'Aucun appareil',
+  NO_DEVICE: 'NO_DEVICE · sans appareil (24 h)',
   SENT: 'Envoyées',
   DELIVERED: 'Livrées',
   FAILED: 'Échouées',
@@ -245,6 +245,12 @@ export default function Operations() {
         {!loading && pushLoaded && pushByStatus.get('TOKENS_REGISTERED') === 0 && (
           <div className="demo-banner" style={{ borderColor: '#f59e0b', marginBottom: 14 }}>
             Aucun téléphone réel n’a encore enregistré de token Expo. Les notifications in-app existent, mais aucun push système ne peut être livré tant qu’un build iPhone/Android n’a pas enregistré son appareil.
+          </div>
+        )}
+        {!loading && pushLoaded && (pushByStatus.get('NO_DEVICE') ?? 0) > 0 && (
+          <div className="demo-banner" style={{ borderColor: '#f59e0b', marginBottom: 14 }}>
+            NO_DEVICE : {pushByStatus.get('NO_DEVICE')} notification(s) sans appareil enregistré sur les dernières 24 h.
+            La connexion sur un téléphone réel autorisant les notifications réenregistre son token Expo ; ceci ne prouve pas une livraison.
           </div>
         )}
         <table>

@@ -31,7 +31,8 @@ describe('Notifications readable-action contract', () => {
 
   it('never shows more than 2 lines of notification text: the rest goes behind « En savoir plus »', () => {
     expect(source).toContain('numberOfLines={expandedNotificationIds.has(item.id) ? undefined : 2}');
-    expect(source).toContain("'En savoir plus ›'");
+    expect(source).toContain('<InfoToggleIcon expanded={expandedNotificationIds.has(item.id)} />');
+    expect(source).toContain("'En savoir plus sur la notification'");
     expect(source).not.toMatch(/styles\.cardBody\} numberOfLines=\{3\}/);
   });
 });

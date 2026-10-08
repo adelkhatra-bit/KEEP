@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { StyleProp, Text, TextStyle } from 'react-native';
 import { colors } from '../theme/colors';
 import { CLAMP_WORDS, clampWords } from '../services/clampWords';
+import InfoToggleIcon from './InfoToggleIcon';
 
-// Adel (06/10/2026, soir) : 2 mots puis « En savoir plus »
+// Adel (08/10/2026) : 2 mots puis ⓘ
 // (repli, rien n'est supprimé) pour que les offres et les boutons d'achat
 // restent visibles sans défiler sur iPhone 390.
 export default function ClampedText({ text, style, max = CLAMP_WORDS }: { text: string; style?: StyleProp<TextStyle>; max?: number }) {
@@ -20,7 +21,7 @@ export default function ClampedText({ text, style, max = CLAMP_WORDS }: { text: 
         accessibilityLabel={open ? 'Réduire le texte' : 'En savoir plus'}
         accessibilityState={{ expanded: open }}
       >
-        {open ? 'Réduire' : 'En savoir plus'}
+        <InfoToggleIcon expanded={open} />
       </Text>
     </Text>
   );

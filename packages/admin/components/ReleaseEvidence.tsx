@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import InfoToggleIcon from '../../mobile/src/components/InfoToggleIcon';
 import { supabase } from '../lib/supabaseClient';
 import { commitLink, evidenceState, LEDGER_URL, parseOverview, readSiteVersion, ReportOverview, SiteVersion, testLink } from '../lib/releaseEvidence';
 
 export default function ReleaseEvidence() {
+  const [helpOpen, setHelpOpen] = useState(false);
   const [site, setSite] = useState<SiteVersion | null>(null);
   const [overview, setOverview] = useState<ReportOverview | null>(null);
   const [siteError, setSiteError] = useState('');
@@ -47,8 +49,8 @@ export default function ReleaseEvidence() {
     </div>
     {siteError ? <p role="alert">{siteError}</p> : null}
     {reportError ? <p role="alert">{reportError}</p> : null}
-    <details style={{ marginTop: 12 }}>
-      <summary>En savoir plus</summary>
+    <details style={{ marginTop: 12 }} onToggle={event => setHelpOpen(event.currentTarget.open)}>
+      <summary aria-label={helpOpen ? 'Réduire les explications' : 'En savoir plus'} aria-expanded={helpOpen} style={{ minHeight: 48, minWidth: 48, fontSize: 18 }}><InfoToggleIcon expanded={helpOpen} /></summary>
       <p>Lecture seule. Site : version.json canonique sans cache. App : dernier signalement iOS/Android, pas une version installée partout. Corrigé ≠ livré ≠ test réussi.</p>
       {observedAt ? <p>Observation : {new Date(observedAt).toLocaleString('fr-FR')}</p> : null}
       {site ? <p>Site : <a href={commitLink(site.sha)!} target="_blank" rel="noopener noreferrer">{site.sha}</a> · construit le {new Date(site.builtAt).toLocaleString('fr-FR')}</p> : null}

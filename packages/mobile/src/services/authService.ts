@@ -529,6 +529,12 @@ export function createAuthService(client: SupabaseClient): AuthService {
     },
 
     async signOut() {
+      try {
+        const { unregisterCurrentPushToken } = await import('./pushNotificationService');
+        await Promise.race([unregisterCurrentPushToken(), wait(1500)]);
+      } catch {
+        // Le retrait push ne doit jamais bloquer la déconnexion locale.
+      }
       // Déconnexion Loki = cet appareil uniquement. Elle doit rester possible
       // même si Supabase Auth/PostgREST traverse une panne 5xx.
       //

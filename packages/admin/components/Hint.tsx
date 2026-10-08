@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import InfoToggleIcon from '../../mobile/src/components/InfoToggleIcon';
 
 /**
  * Règle Adel (07/10/2026) : un seul mot à l'écran, l'explication derrière un « ? ».
@@ -36,7 +37,7 @@ export default function Hint({ text, title = 'À savoir' }: { text: React.ReactN
   const [open, setOpen] = useState(false);
   return <>
     <button type="button" className="hint" aria-label={`Explication : ${typeof title === 'string' ? title : 'aide'}`}
-      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(true); }}>?</button>
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(true); }}><InfoToggleIcon /></button>
     {open && <Sheet title={title} onClose={() => setOpen(false)}
       actions={<button type="button" className="btn btn-primary" onClick={() => setOpen(false)}>Compris</button>}>
       {text}

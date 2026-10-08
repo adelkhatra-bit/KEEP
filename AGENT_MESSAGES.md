@@ -2781,3 +2781,7 @@ Fichiers : pages/index.tsx, pages/problem-reports.tsx, PresetPicker.tsx, Hint.ts
 
 ### État final de cette passe
 Audit et plan seulement, avec tests de fonctions pures et lectures de la base. Les nouvelles réparations des lots ci-dessus NE SONT PAS encore implémentées. Le correctif serveur Signalements d’hier reste appliqué ; l’absence de dashboard v2 est désormais levée. Aucune session utilisateur/admin authentifiée ni appareil iPhone contrôlable ici, donc pas de validation globale mensongère.
+## [2026-10-08T10:28:28.712Z] codex
+
+Issue #63 : base reconcile 639f499 vérifiée, lot aide COMMITTED_LOCAL b7277b4 ; ordinateur, présence/push, stories/GARDER et SQL Pulse en cours dans les modules existants. Aucun déploiement ni écriture production. Tests aide21, tsc mobile/admin et navigateur admin390/1440 fixtures passés.
+

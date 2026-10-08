@@ -537,7 +537,14 @@ export function orderStoriesForBar(stories: MusicStory[], seen: Record<string, s
 export const loadOwnStory = loadProfileStory;
 
 /** Qui a vu ma story (Adel, 05/10/2026). Écriture à l'ouverture d'une story d'autrui ; lecture réservée au propriétaire. */
-export type StoryViewer = { viewerId: string; username: string; avatarUrl: string | null; viewedAt: string; isFollower: boolean; isReprise: boolean; seconds: number; tracksSeen: number; tracksTotal: number; listened: boolean; watching: boolean; leftAt: string | null; chapters: Array<{ index: number; seconds: number }>; trackViews?: Array<{ trackId: string; seconds: number }>; lastTrackId?: string | null };
+export type StoryViewer = { viewerId: string; username: string; avatarUrl: string | null; viewedAt: string; touchCount?: number; isFollower: boolean; isReprise: boolean; seconds: number; tracksSeen: number; tracksTotal: number; listened: boolean; watching: boolean; leftAt: string | null; chapters: Array<{ index: number; seconds: number }>; trackViews?: Array<{ trackId: string; seconds: number }>; lastTrackId?: string | null };
+
+export function formatStoryTouches(viewer: Pick<StoryViewer, 'touchCount' | 'viewedAt'>, now = Date.now()): string {
+  const count = viewer.touchCount == null || !Number.isFinite(viewer.touchCount) ? '…' : Math.max(1, Math.floor(viewer.touchCount));
+  const at = Date.parse(viewer.viewedAt);
+  const age = Number.isFinite(at) ? ` · il y a ${Math.max(0, Math.floor((now - at) / 60000))} min` : '';
+  return `touché ${count} fois${age}`;
+}
 
 /** Classement de la semaine (partages en story + reprises de sa musique + nouveaux abonnés) : top 50, lecture seule côté serveur. */
 export async function loadStoryRanking(): Promise<Record<string, { rank: number; score: number }>> {
@@ -563,8 +570,8 @@ export async function loadMyStoryStats(): Promise<MyStoryStats | null> {
 }
 
 /** Suivi réel façon Instagram (délai de présence, secondes, musiques vues, écoute, départ) : voir services/storyWatchService.ts. */
-export function watchStoryOf(ownerId: string, tracksTotal: number) {
-  if (!supabase || !ownerId) return null;
+export function watchStoryOf(ownerId: string, tracksTotal: number, intentional = true) {
+  if (!supabase || !ownerId || !intentional) return null;
   const client = supabase;
   return startStoryWatch(ownerId, tracksTotal, (fn, args) => client.rpc(fn, args));
 }
@@ -572,7 +579,7 @@ export function watchStoryOf(ownerId: string, tracksTotal: number) {
 export async function loadMyStoryViewers(): Promise<StoryViewer[]> {
   if (!supabase) return [];
   // v4 = identifiant réel de chaque musique vue (détail fiable) ; repli v3 tant que la mise à jour serveur n'est pas appliquée.
-  let { data, error } = await supabase.rpc('keep_my_story_viewers_v4');
+  let { data, error } = await supabase.rpc('keep_my_story_viewers_v4', { p_track_id: null, p_published_at: null });
   if (error) ({ data, error } = await supabase.rpc('keep_my_story_viewers_v3'));
   if (error) throw error;
   return (Array.isArray(data) ? data : []).map((row: any) => ({
@@ -580,6 +587,8 @@ export async function loadMyStoryViewers(): Promise<StoryViewer[]> {
     username: String(row.username ?? ''),
     avatarUrl: row.avatar_url ? String(row.avatar_url) : null,
     viewedAt: String(row.viewed_at ?? ''),
+    touchCount: row.playback_progress?.touch_count == null && row.touch_count == null
+      ? undefined : Math.max(1, Number(row.playback_progress?.touch_count ?? row.touch_count) || 1),
     isFollower: Boolean(row.is_follower),
     isReprise: Boolean(row.is_reprise),
     seconds: Number(row.seconds) || 0,
@@ -589,8 +598,8 @@ export async function loadMyStoryViewers(): Promise<StoryViewer[]> {
     watching: Boolean(row.watching),
     leftAt: row.left_at ? String(row.left_at) : null,
     chapters: (Array.isArray(row.chapters) ? row.chapters : []).map((c: any) => ({ index: Number(c?.i) || 0, seconds: Number(c?.s) || 0 })).sort((a: any, b: any) => a.index - b.index),
-    trackViews: (Array.isArray(row.track_views) ? row.track_views : []).filter((c: any) => c?.t).map((c: any) => ({ trackId: String(c.t), seconds: Number(c?.s) || 0 })),
-    lastTrackId: row.last_track_id ? String(row.last_track_id) : null,
+    trackViews: (Array.isArray(row.track_views) ? row.track_views : Array.isArray(row.chapters) ? row.chapters : []).filter((c: any) => c?.t).map((c: any) => ({ trackId: String(c.t), seconds: Number(c?.s) || 0 })),
+    lastTrackId: row.last_track_id || row.playback_progress?.last_track_id ? String(row.last_track_id || row.playback_progress.last_track_id) : null,
   })).filter((row) => row.viewerId && row.username);
 }
 

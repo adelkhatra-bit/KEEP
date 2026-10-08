@@ -170,10 +170,10 @@ describe('Lecteur de story minimal (Adel 05/10/2026)', () => {
 describe('Étiquettes PAYANT / GRATUIT et bulles inactives (Adel 05/10/2026)', () => {
   const deck = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'MusicSwipeDeckModal.tsx'), 'utf8');
   const rail = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'MusicStoryRail.tsx'), 'utf8');
-  it('chaque musique d\'une story d\'un autre dit clairement PAYANT ou GRATUIT', () => {
+  it('chaque musique d’une story distingue la vente du GARDER en FREE (issue 63)', () => {
     expect(deck).toContain("label: `💳 PAYANT · ${titles} · ${info.priceLabel}`");
     expect(deck).toContain('saleInfoByTrackId');
-    expect(deck).toContain("label: '🎁 GRATUIT · POUR TON PROFIL'");
+    expect(deck).toContain("`GARDER · ${keepDebitAmount} FREE`");
     expect(deck).toContain('testID="deck-price-badge"');
   });
   it('les membres inactifs > 7 jours sans story sont retirés de la rangée', () => {
@@ -192,10 +192,11 @@ describe('Reprises sociales gratuites + partage en story gratuit + alerte visite
   const dock = fs.readFileSync(path.join(root, 'components', 'GlobalChatDock.tsx'), 'utf8');
   const toast = fs.readFileSync(path.join(root, 'components', 'StoryVisitorToast.tsx'), 'utf8');
   const svc = fs.readFileSync(path.join(root, 'services', 'musicStoriesService.ts'), 'utf8');
-  it('garder une musique publique d\'un autre membre passe par la RPC gratuite, sans débit, depuis la story et le profil', () => {
+  it('la story débite le tarif de GARDER, sans modifier ici les reprises de profil (issue 63)', () => {
     expect(keep).toContain("rpc('keep_commit_social_free_decision'");
-    expect(pulse).toContain('consumeCredit: !from?.profileId');
-    expect(bar).toContain('keepDebitAmount={0}');
+    expect(pulse).toContain('consumeCredit: true');
+    expect(pulse).not.toContain('socialFree:');
+    expect(bar).toContain('keepDebitAmount={freeCost}');
     expect(bar).not.toContain('débitera ${freeCost} FREE');
     expect(profile).toContain('socialFree: profile?.id ? { sourceProfileId: profile.id } : undefined');
   });

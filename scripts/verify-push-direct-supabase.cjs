@@ -19,7 +19,7 @@ const appConfig = read('packages/mobile/app.json');
 const mobilePackage = read('packages/mobile/package.json');
 const soundGenerator = read('packages/mobile/scripts/generate-notification-sounds.cjs');
 
-ok('mobile registers token through Supabase RPC', service.includes("rpc('keep_push_token_register'") || service.includes("rpc('keep_push_token_register_v2'") || service.includes("rpc('keep_push_token_register_v3'"));
+ok('mobile registers token through Supabase RPC', service.includes("rpc('keep_push_token_register'") || service.includes("rpc('keep_push_token_register_v2'") || service.includes("rpc('keep_push_token_register_v3'") || service.includes("rpc('keep_push_token_register_v4'"));
 ok('mobile push registration has no Render API URL dependency', !service.includes('EXPO_PUBLIC_API_URL') && !service.includes('/api/notifications/push-token'));
 ok('global lifecycle invokes push registration', lifecycle.includes('registerForPushNotifications') && root.includes('PushRegistrationLifecycle'));
 ok('token registration is authenticated by auth.uid()', directRpc.includes('auth.uid()'));

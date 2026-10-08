@@ -61,6 +61,8 @@ jobs:
         run: npm run type-check
       - name: Unit tests
         run: npm test -- --runInBand
+      - name: Loki Pulse SQL contract and local query plan
+        run: node --test scripts/loki-pulse-sql.test.cjs
       - name: Live keyless recognition smoke — text + shared YouTube URL, no private API key
         env:
           KEEP_SUPABASE_URL: 'https://rrhqsqzcplvmwxizqnla.supabase.co'

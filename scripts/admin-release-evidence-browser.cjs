@@ -82,7 +82,7 @@ async function scenario(browser, width, height) {
   assert.match(await evidence.innerText(), /Preuve incomplète/);
   assert.match(await evidence.innerText(), /SHA du site · test à vérifier/);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `Débordement operations ${width}`);
-  await evidence.getByText('En savoir plus', { exact: true }).click();
+  await evidence.getByLabel('En savoir plus', { exact: true }).click();
   assert.match(await evidence.innerText(), /pas une version installée partout/);
   await page.reload();
   await evidence.waitFor();

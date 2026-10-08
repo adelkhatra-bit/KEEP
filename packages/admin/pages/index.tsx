@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import Hint from '../components/Hint';
+import InfoToggleIcon from '../../mobile/src/components/InfoToggleIcon';
 import { PeriodButtons } from '../components/PresetPicker';
 import { supabase } from '../lib/supabaseClient';
 import { invokeAdminFunction } from '../lib/invokeFunction';
@@ -266,7 +267,7 @@ export default function Dashboard() {
                 </td></tr>}
               </React.Fragment>)}
             </tbody></table>
-            {data.dailySignups.length > 7 && <button type="button" onClick={() => setSignupsExpanded((v) => !v)} style={{ marginTop: 10, background: 'transparent', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '6px 12px', fontSize: 12, cursor: 'pointer' }}>{signupsExpanded ? 'Réduire aux 7 derniers jours' : `Afficher les ${data.dailySignups.length} jours`}</button>}
+            {data.dailySignups.length > 7 && <button type="button" aria-expanded={signupsExpanded} aria-label={signupsExpanded ? 'Réduire aux 7 derniers jours' : `Afficher les ${data.dailySignups.length} jours`} onClick={() => setSignupsExpanded((v) => !v)} style={{ marginTop: 10, background: 'transparent', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '6px 12px', fontSize: 18, cursor: 'pointer', minHeight: 48, minWidth: 48 }}><InfoToggleIcon expanded={signupsExpanded} /></button>}
           </div>
         </>
       )}

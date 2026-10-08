@@ -13,7 +13,9 @@ describe('Loki chat-only approved design contract', () => {
       expect(panel).not.toContain(forbidden);
     }
     expect(panel).toContain("replyTarget ? replyTarget.username : chatMode === 'PLACE' ? 'La Place' : 'Chat'");
-    expect(panel).toContain("replyTarget\n                  ? 'Conversation privée'");
+    expect(panel).toContain('presenceByProfile[replyTarget.profileId] !== undefined');
+    expect(panel).toContain('formatProfilePresence(lastSeenByProfile[replyTarget.profileId] ?? null, Boolean(presenceByProfile[replyTarget.profileId]))');
+    expect(panel).toContain(": 'Conversation privée'");
   });
 
   it('only shows the header action where it is useful', () => {

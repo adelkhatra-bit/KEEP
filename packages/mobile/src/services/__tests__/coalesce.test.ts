@@ -41,9 +41,9 @@ describe('mise en story sans GARDER, musique libre non certifiée (Adel, 06/10/2
   it('le lecteur propose la mise en story gratuite quand la musique n’a pas de propriétaire, avec anti-doublon', () => {
     const deck = read('../../components/MusicSwipeDeckModal.tsx');
     expect(deck).toContain('shareFreeToStory(toShare)');
-    expect(deck).toContain('Gratuit · non certifié');
+    expect(deck).toContain('Libre · à découvrir par toi');
     expect(deck).toContain('Pas de doublon.');
-    expect(deck).toContain('GRATUIT · NON CERTIFIÉ · PRENDS-LA VITE');
+    expect(deck).toContain('firstDiscoveryFreeLabel(current.id, originsConfirmed, firstOrigins)');
     expect(deck).not.toContain("Cette musique n’a pas de source publique à partager.");
   });
   it('le serveur ne crée jamais de doublon et protège les musiques en vente', () => {

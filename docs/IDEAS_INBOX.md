@@ -1,5 +1,8 @@
 # IDEAS INBOX — boîte à idées d'Adel (source unique)
 
+## Issue #63 — demande explicite du 08/10/2026
+- **IDÉE · autorisée par l’issue #63** : ordinateur par e-mail Brevo puis QR avec confirmation et révocation ; présence légère toutes les 5 min ; push par appareil et NO_DEVICE dans Santé ; GARDER en story débité, découvreur +3 FREE plafonnés à 20/mois et réglables ; badge « Libre · à découvrir par toi » ; vues « touché X fois » hors propriétaire ; Loki Pulse < 1,5 s sans changer les exclusions ; aide commune ⓘ / ✕ accessible. Une seule PR basée sur reconcile, aucune écriture production ni preuve matérielle inventée.
+
 ## Demande du 06/10/2026 — gouvernance des livraisons
 - **IDEA-189 · EN COURS — LOCAL_ONLY, plan validé par Adel** : vérifier les améliorations prêtes sans affaiblir les gardes ; tableau simple dans le Super Admin existant (version site réellement observée, dernière app signalée, problèmes ouverts, correctifs et tests), traçabilité bug → SHA → anti-régression, actionlint gratuit épinglé et synthèse des contrôles GitHub en lecture seule. Aucun commit, push, déploiement ni écriture production pendant cette passe.
 

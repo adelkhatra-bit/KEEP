@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { colors } from '../theme/colors';
 import {
@@ -17,6 +17,7 @@ export default function WebCompanionPairingScreen() {
 
   const create = React.useCallback(async () => {
     setLoading(true);
+    setChallenge(null);
     setMessage('Préparation de la connexion…');
     try {
       const next = await createDesktopPairing();
@@ -57,10 +58,16 @@ export default function WebCompanionPairingScreen() {
           window.location.assign(result.actionLink);
           return;
         }
-      } catch {
+      } catch (error) {
+        const code = error instanceof Error ? error.message : '';
+        if (active && /^(pairing_expired|pairing_cancelled|pairing_not_found)$/.test(code)) {
+          setSecondsLeft(0);
+          setMessage(code === 'pairing_cancelled' ? 'Autorisation refusée. Génère un nouveau QR pour réessayer.' : 'Ce QR code a expiré. Génère-en un nouveau.');
+          return;
+        }
         // Une coupure réseau ne détruit pas le QR : on retente tant qu'il est valide.
       }
-      timer = setTimeout(() => { void tick(); }, 2500);
+      timer = setTimeout(() => { void tick(); }, 5000);
     };
 
     timer = setTimeout(() => { void tick(); }, 700);
@@ -71,11 +78,11 @@ export default function WebCompanionPairingScreen() {
   }, [challenge]);
 
   return (
-    <View style={s.container} testID="loki-web-companion-pairing">
+    <ScrollView contentContainerStyle={s.container} testID="loki-web-companion-pairing">
       <View style={s.card}>
         <Text style={s.logo}>Loki Music</Text>
         <Text style={s.title}>Connexion ordinateur</Text>
-        <Text style={s.body}>Ouvre Loki Music sur ton téléphone déjà connecté, puis scanne ce QR code.</Text>
+        <Text style={s.body}>Scanne ce QR avec l’appareil photo de ton téléphone, puis confirme « Autoriser cet ordinateur ? » dans Loki Music.</Text>
 
         <View style={s.qrBox}>
           {loading ? <ActivityIndicator color={colors.primaryLight} size="large" /> : challenge ? (
@@ -94,21 +101,21 @@ export default function WebCompanionPairingScreen() {
 
         <Text style={s.foot}>Aucune création de compte sur ordinateur. La connexion est autorisée depuis ton téléphone.</Text>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, minHeight: '100vh' as any, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  card: { width: '100%', maxWidth: 520, alignItems: 'center', borderRadius: 28, paddingHorizontal: 28, paddingVertical: 32, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
+  container: { flexGrow: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center', padding: 16 },
+  card: { width: '100%', maxWidth: 520, alignItems: 'center', borderRadius: 28, paddingHorizontal: 16, paddingVertical: 32, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
   logo: { color: colors.primaryLight, fontSize: 34, fontWeight: '900', letterSpacing: 2 },
   title: { marginTop: 12, color: colors.textPrimary, fontSize: 22, fontWeight: '900' },
-  body: { marginTop: 10, color: colors.textSecondary, fontSize: 15, lineHeight: 22, textAlign: 'center' },
+  body: { marginTop: 10, color: colors.textPrimary, fontSize: 15, lineHeight: 22, textAlign: 'center' },
   qrBox: { width: 252, height: 252, marginTop: 24, borderRadius: 24, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', padding: 16 },
   status: { marginTop: 18, color: colors.textPrimary, fontSize: 14, fontWeight: '800', textAlign: 'center' },
-  timer: { marginTop: 6, color: colors.textMuted, fontSize: 12 },
+  timer: { marginTop: 6, color: colors.textPrimary, fontSize: 12 },
   error: { color: colors.danger, fontWeight: '800' },
-  button: { marginTop: 18, minHeight: 46, paddingHorizontal: 24, borderRadius: 23, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
+  button: { marginTop: 18, minHeight: 48, paddingHorizontal: 24, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
   buttonText: { color: colors.white, fontSize: 13, fontWeight: '900' },
-  foot: { marginTop: 20, color: colors.textMuted, fontSize: 11, lineHeight: 16, textAlign: 'center' },
+  foot: { marginTop: 20, color: colors.textPrimary, fontSize: 11, lineHeight: 16, textAlign: 'center' },
 });

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import InfoToggleIcon from '../components/InfoToggleIcon';
 import { ActivityIndicator, Linking, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { useUserStore } from '../store/useUserStore';
@@ -518,8 +519,7 @@ export default function OffersScreen({ navigation, route }: any) {
                 accessibilityLabel={`En savoir plus sur ${planLabel(plan.code)}`}
                 accessibilityState={{ expanded: expandedPlanCode === plan.code }}
               >
-                <Text style={s.disclosureText}>{expandedPlanCode === plan.code ? 'Réduire' : 'En savoir plus'}</Text>
-                <Text style={s.disclosureChevron}>{expandedPlanCode === plan.code ? '⌃' : '⌄'}</Text>
+                <Text style={s.disclosureText}><InfoToggleIcon expanded={expandedPlanCode === plan.code} /></Text>
               </TouchableOpacity>
               {expandedPlanCode === plan.code ? <View style={s.planDetails}>
                 {!!plan.description && <Text style={s.planDescription}>{plan.description}</Text>}
@@ -580,12 +580,11 @@ export default function OffersScreen({ navigation, route }: any) {
             accessibilityLabel="En savoir plus sur les règles"
             accessibilityState={{ expanded: rulesExpanded }}
           >
-            <Text style={s.disclosureText}>{rulesExpanded ? 'Réduire' : 'En savoir plus'}</Text>
-            <Text style={s.disclosureChevron}>{rulesExpanded ? '⌃' : '⌄'}</Text>
+            <Text style={s.disclosureText}><InfoToggleIcon expanded={rulesExpanded} /></Text>
           </TouchableOpacity>
           {rulesExpanded ? <View style={s.rulesDetails}>
             <ClampedText style={s.subscriptionText} text="• Écouter et PASSER restent inclus. Une reconnaissance réussie au-delà du quota quotidien de ta formule coûte 1 FREE." />
-            <Text style={s.subscriptionText}>• GARDER un morceau découvert avec Loki Music utilise {rules.freeCostPerKeep} Free. Le récupérer depuis le profil d'un autre membre utilise 0 Free.</Text>
+            <Text style={s.subscriptionText}>• GARDER un morceau découvert avec Loki Music ou depuis une story utilise {rules.freeCostPerKeep} FREE. Le récupérer depuis le profil d'un autre membre utilise 0 FREE. Déjà gardé : aucun nouveau débit.</Text>
             <ClampedText style={s.subscriptionText} text="• Les bonus gagnés avec les partages, les abonnés et les Battles s'ajoutent à ta formule." />
             <ClampedText style={s.subscriptionText} text="• La provenance d'une découverte reste rattachée au membre qui l'a reconnue avec Loki Music." />
           </View> : null}
@@ -599,8 +598,7 @@ export default function OffersScreen({ navigation, route }: any) {
             accessibilityLabel="En savoir plus sur le fonctionnement de Loki Music"
             accessibilityState={{ expanded: introExpanded }}
           >
-            <Text style={s.disclosureText}>{introExpanded ? 'Réduire' : 'En savoir plus : comment Loki Music grandit avec toi'}</Text>
-            <Text style={s.disclosureChevron}>{introExpanded ? '⌃' : '⌄'}</Text>
+            <Text style={s.disclosureText}><InfoToggleIcon expanded={introExpanded} /></Text>
           </TouchableOpacity>
           {introExpanded ? <>
           <View style={s.promiseCard}>
@@ -626,7 +624,7 @@ export default function OffersScreen({ navigation, route }: any) {
           <View style={s.discoveryCard}>
             <Text style={s.discoveryEyebrow}>DÉCOUVERTE Loki Music</Text>
             <Text style={s.discoveryTitle}>Tes découvertes peuvent faire grandir ton profil.</Text>
-            <ClampedText style={s.discoveryBody} text="Quand tu reconnais un morceau avec Loki Music puis que tu le gardes, Loki Music associe cette découverte à ton profil. Si d'autres membres récupèrent ensuite ce titre depuis la communauté, ils ne dépensent aucun Free et ton pseudo reste affiché comme découvreur, avec un accès direct à ton profil." />
+            <ClampedText style={s.discoveryBody} text="Le premier GARDER d'un morceau libre associe sa découverte à ton profil. Une reprise depuis ton profil est gratuite ; depuis une story, le tarif FREE est annoncé avant GARDER. Ton pseudo reste affiché comme premier découvreur." />
             <TouchableOpacity
               style={s.disclosureButton}
               onPress={() => setDiscoveryExpanded((value) => !value)}
@@ -634,11 +632,10 @@ export default function OffersScreen({ navigation, route }: any) {
               accessibilityLabel="En savoir plus sur l'attribution des découvertes"
               accessibilityState={{ expanded: discoveryExpanded }}
             >
-              <Text style={s.disclosureText}>{discoveryExpanded ? 'Réduire' : 'En savoir plus'}</Text>
-              <Text style={s.disclosureChevron}>{discoveryExpanded ? '⌃' : '⌄'}</Text>
+              <Text style={s.disclosureText}><InfoToggleIcon expanded={discoveryExpanded} /></Text>
             </TouchableOpacity>
             {discoveryExpanded ? <View style={s.discoveryDetails}>
-              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>1</Text><Text style={s.discoveryStepText}>Le premier membre qui identifie ce titre avec Écouter et le garde devient son premier découvreur Loki Music.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>1</Text><Text style={s.discoveryStepText}>Le premier membre qui garde ce titre libre devient son premier découvreur Loki Music. Partager sans GARDER ne suffit pas.</Text></View>
               <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>2</Text><Text style={s.discoveryStepText}>Un membre récupère ce titre depuis ton profil : 0 Free débité pour lui, et le morceau est identifié comme un morceau issu de la communauté.</Text></View>
               <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>3</Text><Text style={s.discoveryStepText}>Le titre peut circuler de profil en profil : s'il est repris 20 fois depuis cette chaîne, ton pseudo reste visible et cliquable sur les 20 copies. Chaque reprise peut donc amener de nouveaux visiteurs et abonnés vers ton profil.</Text></View>
               <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>4</Text><Text style={s.discoveryStepText}>Même si le titre est ensuite repris ou redécouvert, le premier découvreur enregistré pour ce titre reste la référence d’origine.</Text></View>
@@ -757,8 +754,7 @@ export default function OffersScreen({ navigation, route }: any) {
               accessibilityLabel="En savoir plus sur les Loki Music Battles"
               accessibilityState={{ expanded: battleExpanded }}
             >
-              <Text style={s.disclosureText}>{battleExpanded ? 'Reduire' : 'En savoir plus'}</Text>
-              <Text style={s.disclosureChevron}>{battleExpanded ? 'v' : '>'}</Text>
+              <Text style={s.disclosureText}><InfoToggleIcon expanded={battleExpanded} /></Text>
             </TouchableOpacity>
             {/* Adel (04/09/2026) : "oublie pas de rajouter aussi dans les
                 offres de bien expliquer les règles pour les Battle" -- le
@@ -782,7 +778,7 @@ export default function OffersScreen({ navigation, route }: any) {
             <Text style={s.paidSectionTitle}>GAGNER OU RECHARGER TES FREE</Text>
             <Text style={s.battleDetailText}>📣 Parrainage : +2 FREE par inscrit validé, jusqu’à 20 FREE par mois.</Text>
             <Text style={s.battleDetailText}>⚡ Battle et série quotidienne : gagne des FREE en jouant et en revenant.</Text>
-            <Text style={s.battleDetailText}>💎 Premier découvreur : +1 FREE quand un autre membre garde ta découverte, jusqu’à 20 par mois.</Text>
+            <Text style={s.battleDetailText}>💎 Premier découvreur : +{funnel.firstDiscoveryFreePerKeep} FREE quand un autre membre garde ta découverte, jusqu’à {funnel.firstDiscoveryMonthlyFreeCap} FREE par mois.</Text>
             <Text style={s.battleDetailText}>📅 Bonus mensuel automatique selon ta formule.</Text>
           </View>
         </> : null}
@@ -847,7 +843,7 @@ const s = StyleSheet.create({
   freePillText: { color: colors.keep, fontSize: 9, fontWeight: '900' },
   creditText: { color: colors.textPrimary, fontSize: 12, lineHeight: 18, marginTop: 4, fontWeight: '700' },
   creditRule: { color: colors.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 7, fontWeight: '700' },
-  disclosureButton: { minHeight: 44, marginTop: 10, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  disclosureButton: { minHeight: 48, minWidth: 48, marginTop: 10, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   disclosureText: { color: colors.textPrimary, fontSize: 12, fontWeight: '900' },
   disclosureChevron: { color: colors.primaryLight, fontSize: 18, fontWeight: '900' },
   growthGrid: { flexDirection: 'row', gap: 7, marginTop: 12 },
