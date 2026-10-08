@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabaseClient';
 import { loadMyOfferedTrackIds, loadPlaylistSaleProfilePreviewSampler } from './playlistSaleService';
 import { startStoryWatch } from './storyWatchService';
+import { displayUsername } from '../utils/displayUsername';
 
 /**
  * Stories musicales Loki (Adel, 05/10/2026).
@@ -536,8 +537,8 @@ export function orderStoriesForBar(stories: MusicStory[], seen: Record<string, s
 /** Compat : ta propre story = la story de ton profil. */
 export const loadOwnStory = loadProfileStory;
 
-/** Qui a vu ma story (Adel, 05/10/2026). Écriture à l'ouverture d'une story d'autrui ; lecture réservée au propriétaire. */
-export type StoryViewer = { viewerId: string; username: string; avatarUrl: string | null; viewedAt: string; isFollower: boolean; isReprise: boolean; seconds: number; tracksSeen: number; tracksTotal: number; listened: boolean; watching: boolean; leftAt: string | null; chapters: Array<{ index: number; seconds: number }>; trackViews?: Array<{ trackId: string; seconds: number }>; lastTrackId?: string | null };
+/** Une ligne par spectateur sur 24 h, avec sa meilleure progression ; lecture réservée au propriétaire. */
+export type StoryViewer = { viewerId: string; username: string; avatarUrl: string | null; viewedAt: string; firstViewedAt: string; touches: number; sawAll: boolean; isFollower: boolean; isReprise: boolean; seconds: number; tracksSeen: number; tracksTotal: number; listened: boolean; watching: boolean; leftAt: string | null; chapters: Array<{ index: number; seconds: number }>; trackViews?: Array<{ trackId: string; seconds: number }>; lastTrackId?: string | null };
 
 /** Classement de la semaine (partages en story + reprises de sa musique + nouveaux abonnés) : top 50, lecture seule côté serveur. */
 export async function loadStoryRanking(): Promise<Record<string, { rank: number; score: number }>> {
@@ -571,20 +572,31 @@ export function watchStoryOf(ownerId: string, tracksTotal: number) {
 
 export async function loadMyStoryViewers(): Promise<StoryViewer[]> {
   if (!supabase) return [];
-  // v4 = identifiant réel de chaque musique vue (détail fiable) ; repli v3 tant que la mise à jour serveur n'est pas appliquée.
+  // Une panne v4 ne doit pas remplacer le bilan 24 h par la seule dernière visite de v3.
   let { data, error } = await supabase.rpc('keep_my_story_viewers_v4');
-  if (error) ({ data, error } = await supabase.rpc('keep_my_story_viewers_v3'));
+  if (error && (error.code === 'PGRST202' || error.code === '42883')) ({ data, error } = await supabase.rpc('keep_my_story_viewers_v3'));
   if (error) throw error;
+  return normalizeStoryViewers(data);
+}
+
+export function normalizeStoryViewers(data: unknown): StoryViewer[] {
+  const count = (value: unknown) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+  };
   return (Array.isArray(data) ? data : []).map((row: any) => ({
-    viewerId: String(row.viewer_id),
-    username: String(row.username ?? ''),
+    viewerId: String(row.viewer_id ?? ''),
+    username: displayUsername(row.username),
     avatarUrl: row.avatar_url ? String(row.avatar_url) : null,
     viewedAt: String(row.viewed_at ?? ''),
+    firstViewedAt: String(row.first_viewed_at ?? row.viewed_at ?? ''),
+    touches: row.touches == null ? 1 : count(row.touches),
+    sawAll: typeof row.saw_all === 'boolean' ? row.saw_all : count(row.tracks_total) > 0 && count(row.tracks_seen) >= count(row.tracks_total),
     isFollower: Boolean(row.is_follower),
     isReprise: Boolean(row.is_reprise),
     seconds: Number(row.seconds) || 0,
-    tracksSeen: Number(row.tracks_seen) || 0,
-    tracksTotal: Number(row.tracks_total) || 0,
+    tracksSeen: Math.min(count(row.tracks_seen), count(row.tracks_total)),
+    tracksTotal: count(row.tracks_total),
     listened: Boolean(row.listened),
     watching: Boolean(row.watching),
     leftAt: row.left_at ? String(row.left_at) : null,

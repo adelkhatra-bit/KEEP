@@ -42,7 +42,8 @@ describe('Robot intelligent et jeune (Adel 05/10/2026)', () => {
     const lines = Array.from({ length: 80 }, (_, i) => composeRobotLine('GREETING', `g${i}`, 0, '@teyou'));
     expect(new Set(lines).size).toBeGreaterThan(20);
     for (const line of lines) {
-      expect(line).toContain('@teyou 👋');
+      expect(line).toContain('teyou 👋');
+      expect(line).not.toContain('@');
       expect(line.length).toBeLessThanOrEqual(120);
     }
     expect(lines.some((line) => /salon|amis|collègues|communauté|musique/i.test(line))).toBe(true);

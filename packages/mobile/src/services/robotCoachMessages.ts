@@ -39,10 +39,10 @@ const hash = (text: string) => { let h = 2166136261; for (let i = 0; i < text.le
 export function composeRobotLine(kind: RobotCoachKind, seed: string, count = 0, username = ''): string {
   const pick = (list: string[], salt: string) => list[hash(`${seed}:${salt}`) % list.length];
   let core = pick(CORES[kind], 'core');
-  // Salut jeune et personnel (Adel 05/10/2026) : « Salut @pseudo 👋 t'es motivé ? … ».
+  // Salut jeune et personnel : « Salut pseudo 👋 t'es motivé ? … ».
   if (kind === 'GREETING') {
     const name = username.trim().replace(/^@+/, '');
-    return `${pick(OPENERS.GREETING, 'open')}${name ? ` @${name}` : ''} 👋 ${core} ${pick(CLOSERS.GREETING, 'close')}`;
+    return `${pick(OPENERS.GREETING, 'open')}${name ? ` ${displayUsername(name)}` : ''} 👋 ${core} ${pick(CLOSERS.GREETING, 'close')}`;
   }
   if (kind === 'LOW_FREE') {
     core = core.replace('{n}', String(Math.max(0, count)));
@@ -93,3 +93,4 @@ export function canRobotSpeak(memory: Memory, kind: RobotCoachKind, now: number)
   return !(entry.day === today && entry.count >= rule.maxPerDay);
 }
 
+import { displayUsername } from '../utils/displayUsername';

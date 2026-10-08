@@ -2781,3 +2781,7 @@ Fichiers : pages/index.tsx, pages/problem-reports.tsx, PresetPicker.tsx, Hint.ts
 
 ### État final de cette passe
 Audit et plan seulement, avec tests de fonctions pures et lectures de la base. Les nouvelles réparations des lots ci-dessus NE SONT PAS encore implémentées. Le correctif serveur Signalements d’hier reste appliqué ; l’absence de dashboard v2 est désormais levée. Aucune session utilisateur/admin authentifiée ni appareil iPhone contrôlable ici, donc pas de validation globale mensongère.
+## [2026-10-08T10:49:11.086Z] codex
+
+Issue #74 : audit et correction ciblée des noms sans arobase et des vues de story 24 h ; aucune écriture production, aucune refonte.
+

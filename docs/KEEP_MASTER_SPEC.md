@@ -9,6 +9,10 @@ Ce document est la référence fonctionnelle et visuelle à lire avant toute mod
 
 ## 0. Bibliothèque anti-régression
 
+**Noms d'utilisateur — décision définitive d'Adel du 08/10/2026 (#74)** : afficher `inside`, jamais `@inside`, sur mobile, ordinateur, Super Admin, e-mails et notifications push. Utiliser le helper unique `displayUsername` ; les adresses e-mail ne sont pas concernées.
+
+**Vues de story — #74** : une ligne par spectateur conservée 24 h avec sa meilleure progression, jamais réduite par une réouverture courte. Afficher « Vue entière ✓ · X/X musiques · touché X fois · il y a … » ou « X/Y musiques · touché X fois · il y a … ». À la fin de ma story, afficher « Bravo, inside a vu ta story en entier » pour un spectateur ayant réellement terminé. La RPC v4 fournit `touches`, `saw_all`, `first_viewed_at`.
+
 Ce cahier est la bibliothèque produit durable de KEEP/Loki. Une ancienne conversation, une capture, un commentaire historique ou la mémoire d'une IA ne peut jamais remplacer la règle active écrite ici.
 
 Chaque décision UI verrouillée doit rester cohérente dans quatre couches dans le même commit : code actif, ce cahier, `config/keep-ui-baseline.json`, et guard/test CI. Une nouvelle demande explicite d'Adel peut changer la règle ; dans ce cas les quatre couches changent ensemble. Il est interdit de restaurer un ancien design uniquement pour faire passer un test obsolète.

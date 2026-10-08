@@ -1,6 +1,24 @@
 // Détail d'un spectateur de MA story, façon Instagram (Adel, 06/10/2026) : « la seule chose que l'utilisateur veut savoir,
 // c'est QUELLE musique il a vue et ce qu'il en a fait » — écoutée en entier, passée (swipe), ou arrêté là. Aucune durée affichée.
-// Module pur. Données : keep_my_story_viewers_v4 (identifiant réel de chaque musique) ; repli sur la position pour les anciennes vues.
+// Module pur. Données : keep_my_story_viewers_v4 (meilleure progression sur 24 h) ; repli sur la position pour les anciennes vues.
+import type { StoryViewer } from './musicStoriesService';
+import { formatSince } from './storyActivity';
+import { displayUsername } from '../utils/displayUsername';
+
+export function formatStoryViewerSummary(viewer: StoryViewer, now = Date.now()): string {
+  return [
+    displayUsername(viewer.username),
+    viewer.sawAll ? 'Vue entière ✓' : 'Vue partielle',
+    `${viewer.tracksSeen}/${viewer.tracksTotal} musique${viewer.tracksTotal === 1 ? '' : 's'}`,
+    `touché ${viewer.touches} fois`,
+    formatSince(viewer.viewedAt, now),
+  ].filter(Boolean).join(' · ');
+}
+
+export function ownStoryCompletionMessage(viewers: StoryViewer[], ownerId: string): string | null {
+  const completed = viewers.find((viewer) => viewer.viewerId !== ownerId && viewer.sawAll);
+  return completed ? `Bravo, ${displayUsername(completed.username)} a vu ta story en entier` : null;
+}
 export type DetailTrack = { id: string; title: string; artist?: string | null };
 export type DetailOutcome = 'FULL' | 'SKIPPED' | 'LEFT_HERE' | 'WATCHING';
 export type DetailRow = { index: number; trackId: string; title: string; artist: string; outcome: DetailOutcome; label: string; liked: boolean };

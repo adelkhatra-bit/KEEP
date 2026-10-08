@@ -13,9 +13,10 @@ export async function shareReferralLink(username: string): Promise<boolean> {
   const url = buildReferralLink(code);
   const name = String(username || '').replace(/^@+/, '');
   try {
-    await Share.share({ message: `${name ? `@${name} t’invite sur` : 'Rejoins-moi sur'} Loki Music : découvre ma musique et fais grandir ta communauté musicale. ${url}`, url });
+    await Share.share({ message: `${name ? `${displayUsername(name)} t’invite sur` : 'Rejoins-moi sur'} Loki Music : découvre ma musique et fais grandir ta communauté musicale. ${url}`, url });
     return true;
   } catch {
     return false;
   }
 }
+import { displayUsername } from '../utils/displayUsername';

@@ -328,7 +328,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const openVisitedStory = () => {
     if (!visitedStory || !visitedStory.tracks.length || !profile) return;
     setFolderSwipeTracks(orderTracksForPlayback(visitedStory.tracks, visitedStoryUnseen));
-    setFolderSwipeTitle(`Story de @${profile.username}`);
+    setFolderSwipeTitle(`Story de ${displayUsername(profile.username)}`);
     setSwipeOpen(true);
     if (effectiveViewerId) { setVisitedStorySeenAt(visitedStory.latestAt); void markStorySeen(effectiveViewerId, visitedStory); }
   };
@@ -1201,7 +1201,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       const result = await requestMissingPlaylistSaleTracks(offer.offerId);
       Alert.alert(
         'Demande envoyée',
-        `@${profile?.username || 'le créateur'} a reçu ta demande pour ${result.missingCount} morceau${result.missingCount > 1 ? 'x' : ''} manquant${result.missingCount > 1 ? 's' : ''}. Il pourra te proposer un prix en FREE.`,
+        `${displayUsername(profile?.username) || 'le créateur'} a reçu ta demande pour ${result.missingCount} morceau${result.missingCount > 1 ? 'x' : ''} manquant${result.missingCount > 1 ? 's' : ''}. Il pourra te proposer un prix en FREE.`,
       );
       setImmersivePreviewOffer(null);
     } catch (e: any) {
@@ -1548,10 +1548,10 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     setBattleInviteBusy(true);
     try {
       await sendBattleChallenge(profile.id, 'MIX', 8);
-      Alert.alert('Invitation envoyée', `@${profile.username.replace(/^@/, '')} a reçu ton défi Battle.`);
+      Alert.alert('Invitation envoyée', `${displayUsername(profile.username)} a reçu ton défi Battle.`);
     } catch (e: any) {
       const message = String(e?.message || '');
-      if (message.includes('BATTLE_TARGET_NO_CREDIT')) Alert.alert('Battle', `@${profile.username.replace(/^@/, '')} n’a pas assez de Free pour jouer maintenant.`);
+      if (message.includes('BATTLE_TARGET_NO_CREDIT')) Alert.alert('Battle', `${displayUsername(profile.username)} n’a pas assez de Free pour jouer maintenant.`);
       else if (message.includes('BATTLE_CHALLENGER_NO_CREDIT')) Alert.alert('Battle', 'Il te faut assez de Free pour lancer ce Battle.');
       else if (message.includes('BATTLE_DECLINE_THROTTLED')) Alert.alert('Battle', 'Les invitations vers cette personne sont temporairement limitées après plusieurs refus.');
       else if (message.includes('BATTLE_TARGET_NOT_AVAILABLE')) Alert.alert('Battle', 'Cette personne n’est pas disponible pour un Battle maintenant.');
@@ -1861,7 +1861,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   return (
     <SafeAreaView style={styles.container}>
       {followNudgeVisible && profile && !isFollowing ? <View style={styles.followNudge}>
-        <View style={styles.followNudgeCopy}><Text style={styles.followNudgeTitle}>Ne rate pas ses prochaines pépites</Text><Text style={styles.followNudgeText} numberOfLines={1}>Tu viens de reprendre une découverte de @{profile.username}</Text></View>
+        <View style={styles.followNudgeCopy}><Text style={styles.followNudgeTitle}>Ne rate pas ses prochaines pépites</Text><Text style={styles.followNudgeText} numberOfLines={1}>Tu viens de reprendre une découverte de {displayUsername(profile.username)}</Text></View>
         <TouchableOpacity style={styles.followNudgeButton} disabled={followBusy} onPress={async () => { await toggleFollow(); setFollowNudgeVisible(false); }}><Text style={styles.followNudgeButtonText}>{followBusy ? '…' : 'S’ABONNER'}</Text></TouchableOpacity>
         <TouchableOpacity style={styles.followNudgeClose} onPress={() => setFollowNudgeVisible(false)} accessibilityLabel="Fermer"><Text style={styles.followNudgeCloseText}>×</Text></TouchableOpacity>
       </View> : null}
@@ -2048,8 +2048,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 <Text style={styles.eventSpotlightKicker}>{marketBannerEventIds.length > 0 ? 'ÇA BOUGE ICI' : 'EN ATTENTE'}</Text>
                 <Text style={styles.eventSpotlightTitle}>
                   {marketBannerEventIds.length > 0
-                    ? `Le prochain rendez-vous de @${profile.username}`
-                    : `@${profile.username} prépare quelque chose`}
+                    ? `Le prochain rendez-vous de ${displayUsername(profile.username)}`
+                    : `${displayUsername(profile.username)} prépare quelque chose`}
                 </Text>
                 <Text style={styles.eventSpotlightMeta}>
                   {marketBannerEventIds.length > 0
@@ -2600,7 +2600,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                     );
                   })}
                 </View>
-                <Text style={styles.profileEventStayHint}>Tu restes sur le profil de @{profile.username}. Ta participation sera aussi disponible depuis ton propre profil.</Text>
+                <Text style={styles.profileEventStayHint}>Tu restes sur le profil de {displayUsername(profile.username)}. Ta participation sera aussi disponible depuis ton propre profil.</Text>
               </>
             ) : (
               <Text style={styles.profileEventPendingText}>Cet événement n’est plus disponible.</Text>
@@ -2804,3 +2804,4 @@ visitorSwipeMotion:{marginTop:12},visitorBattleMotion:{marginTop:8},visitorSwipe
   repriseFollowButtonText:{color:'#FFF',fontSize:10,fontWeight:'900'},
   repriseFollowButtonTextOn:{color:'#76E3AE'},
 });
+import { displayUsername } from '../utils/displayUsername';

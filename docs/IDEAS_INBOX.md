@@ -1,5 +1,8 @@
 # IDEAS INBOX — boîte à idées d'Adel (source unique)
 
+## Demande du 08/10/2026 — issue #74
+- **IDÉE · #74** : noms affichés sans « @ » sur toutes les surfaces, helper unique et garde CI ; vues de story conservées 24 h avec meilleure progression, vue entière, musiques vues et nombre de touches. Migration à recopier depuis la définition serveur exacte, sans écriture en production.
+
 ## Demande du 06/10/2026 — gouvernance des livraisons
 - **IDEA-189 · EN COURS — LOCAL_ONLY, plan validé par Adel** : vérifier les améliorations prêtes sans affaiblir les gardes ; tableau simple dans le Super Admin existant (version site réellement observée, dernière app signalée, problèmes ouverts, correctifs et tests), traçabilité bug → SHA → anti-régression, actionlint gratuit épinglé et synthèse des contrôles GitHub en lecture seule. Aucun commit, push, déploiement ni écriture production pendant cette passe.
 
