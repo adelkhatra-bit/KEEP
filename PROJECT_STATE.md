@@ -34,10 +34,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-10-06T21:53:55.488Z
-- Branche : `copilot/reconcileclaude-main-20260825`
-- Dernier commit : `0f4775bd` (0f4775bd97085704d3a4984d1babfdec66086638) — Débloquer les gardes d’intégration des modules Stories validés
-- Date du dernier commit : 2026-10-06T21:50:17Z
+- Régénéré le : 2026-10-08T10:37:24.879Z
+- Branche : `copilot/reconcileclaude-main-20260825-yet-again`
+- Dernier commit : `b7277b4` (b7277b4394904647405b6db5b07c36f45987a84d) — fix(ui): partager les icônes d’aide accessibles app et Super Admin
+- Date du dernier commit : 2026-10-08T10:28:17Z
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -124,16 +124,9 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
-- `0f4775bd` (2026-10-06, copilot-swe-agent[bot]) — Débloquer les gardes d’intégration des modules Stories validés
-- `88ffffe9` (2026-10-06, copilot-swe-agent[bot]) — chore: aligner la branche agent sur la source produit 0138b4e5
-- `0138b4e5` (2026-10-06, Claude) — Stories: anti-doublon entre membres (cadenas + « Déjà en story chez @x, repartage-la »)
-- `39a9fb06` (2026-10-06, Claude) — Ma story s'ouvre sans faux « terminée », secousse = menu du robot (directions + signaler)
-- `c7cb3e76` (2026-10-06, Claude) — Docs: idées 183-188 (proposition lien partagé, premiers pas, parrainage, barre d'onglets) en attente d'OK
-- `6da2753e` (2026-10-06, Claude) — Lien partagé: le visiteur écoute et voit les stories, toute action demande un compte sur place
-- `d61db043` (2026-10-06, Claude) — Lien partagé = vraie app en invité (stories visibles, fonctions bloquées), vues de story en bulles, Services musicaux jamais bloqués, règle 2 mots
-- `16f5c12e` (2026-10-06, Claude) — Lien de partage: même interface que le profil de l'app (styles + liste repliée), parrainage conservé à l'inscription depuis le lien
-- `f27b139e` (2026-10-06, Claude) — Story: vues façon Instagram (musique vue + écoutée/passée/arrêtée), secousse localisée et fenêtre ouverte sur place
-- `d6262cf8` (2026-10-06, Claude) — Super Admin: menu en 8 rubriques, page Signalements (secousses), styles communs carte/bouton
+- `b7277b4` (2026-10-08, copilot-swe-agent[bot]) — fix(ui): partager les icônes d’aide accessibles app et Super Admin
+- `0a4b9af` (2026-10-08, copilot-swe-agent[bot]) — Initial plan
+- `639f499` (2026-10-08, adelkhatra-bit) — docs: record confirmed missing game genre mappings [skip ci]
 <!-- AUTO:RECENT-COMMITS:END -->
 
 Détail complet de chaque mission : `AGENT_MESSAGES.md` (journal narratif par
@@ -151,6 +144,8 @@ agent) et messages des sessions de chat (non versionnés).
 - Les builds iOS utilisent `--freeze-credentials` pour empêcher EAS d'essayer de réparer/créer des credentials pendant un job non interactif.
 
 ## 4. Points ouverts
+
+- **08/10/2026 — issue #63, PR de revue basée sur reconcile 639f499** : aide unique ⓘ / ✕ `COMMITTED_LOCAL b7277b4` avec 21 tests ciblés, typechecks, export Next et navigateur fixtures 390/1440 réussis. Autres lots en cours : ordinateur e-mail/QR, présence/push, story/GARDER/découvreur, SQL Pulse. Nouvelles migrations non appliquées ; aucune preuve de livraison native ou de latence production < 1,5 s. Détails dans `.context/activeContext.md` et `docs/ERROR_LEDGER.md`.
 
 - **07/10/2026 — IDEA-189, LOCAL_ONLY** : tableau versions/preuves dans Opérations existant, SHA/test obligatoires pour les nouveaux « Corrigé », compteurs exacts avec erreurs honnêtes, actionlint épinglé et synthèse GitHub lecture seule. Typechecks admin/mobile, build admin, 1377 tests mobile, PostgreSQL isolé et navigateur fixtures 390/1440 réussis. Migration `/home/runner/work/KEEP/KEEP/supabase/migrations/20261006235000_problem_report_evidence.sql` non appliquée ; intégration/CI/livraison restent à faire par le parent, sans PASS global. Actionlint global hérité rouge, version publique DNS indisponible, TestFlight inconnu. Détails dans `/home/runner/work/KEEP/KEEP/.context/activeContext.md` et `/home/runner/work/KEEP/KEEP/AGENT_MESSAGES.md`.
 

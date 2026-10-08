@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { AppState, Platform } from 'react-native';
-import { setManualBattleAvailability, pingManualBattleAvailability, getManualBattleAvailability } from '../services/keepBattleLiveService';
+import { setManualBattleAvailability, getManualBattleAvailability } from '../services/keepBattleLiveService';
 import { supabase } from '../services/supabaseClient';
+import { pingProfilePresence, PROFILE_PRESENCE_INTERVAL_MS, resetProfilePresenceHeartbeat } from '../services/profilePresenceService';
 
 // Adel (02/09/2026) : "un utilisateur qui se connecte à la plateforme peut se
 // rendre disponible même s'il est pas en train de faire des Battle ...
@@ -9,9 +10,9 @@ import { supabase } from '../services/supabaseClient';
 // l'app (pas de l'écran Battle) : le bouton peut être basculé depuis le
 // Profil, et l'utilisateur reste "disponible" (et reçoit des invitations,
 // voir GlobalNotificationBanner) même en naviguant ailleurs dans l'app.
-// Ping toutes les 4 minutes tant que actif -- large marge sous le TTL
+// Ping au plus toutes les 5 minutes au premier plan -- marge sous le TTL
 // serveur de 30 minutes (keep_battle_solo_presence.manual_available).
-const PING_INTERVAL_MS = 4 * 60 * 1000;
+const PING_INTERVAL_MS = PROFILE_PRESENCE_INTERVAL_MS;
 
 type BattleAvailabilityState = {
   available: boolean;
@@ -51,6 +52,8 @@ type BattleAvailabilityState = {
 };
 
 let pingTimer: ReturnType<typeof setInterval> | null = null;
+let sessionGeneration = 0;
+let sessionOwner: string | null = null;
 
 function stopPing() {
   if (pingTimer) {
@@ -61,14 +64,9 @@ function stopPing() {
 
 function startPing() {
   stopPing();
-  // Adel (05/09/2026) : setInterval seul ne déclenche rien avant la première
-  // échéance (4 minutes) -- si last_seen_at était déjà périmé au moment où
-  // startPing() démarre (ex. syncFromServer() au chargement de l'app après
-  // une longue absence), la présence restait invisible jusqu'à 4 minutes de
-  // plus après le retour. Un premier ping immédiat comble ce trou.
-  void pingManualBattleAvailability().catch(() => {});
+  void pingProfilePresence().catch(() => {});
   pingTimer = setInterval(() => {
-    void pingManualBattleAvailability().catch(() => {});
+    void pingProfilePresence().catch(() => {});
   }, PING_INTERVAL_MS);
 }
 
@@ -128,16 +126,19 @@ export const useBattleAvailabilityStore = create<BattleAvailabilityState>((set, 
     // MANUELLE (jamais coupée automatiquement en quittant Battle), exactement
     // comme si l'utilisateur venait de l'activer lui-même depuis son profil.
     if (get().busy) return;
+    const generation = sessionGeneration;
     try {
       // Important : sur un profil qui n'a encore aucune ligne de présence,
       // getManualBattleAvailability() renvoie false. Le ping crée justement
       // cette ligne avec manual_available=true. Il faut donc pinger AVANT de
       // lire l'état, sinon l'UI reste faussement OFF jusqu'à une autre action.
-      await pingManualBattleAvailability();
+      await pingProfilePresence();
       const value = await getManualBattleAvailability();
+      if (generation !== sessionGeneration) return;
       set({ available: value, activatedManually: value });
       startPing();
     } catch {
+      if (generation !== sessionGeneration) return;
       // Même si la lecture échoue, la présence de l'utilisateur connecté doit
       // continuer d'être signalée.
       startPing();
@@ -145,29 +146,19 @@ export const useBattleAvailabilityStore = create<BattleAvailabilityState>((set, 
     }
   },
   reset: () => {
+    sessionGeneration += 1;
+    sessionOwner = null;
     stopPing();
+    resetProfilePresenceHeartbeat();
     set({ available: false, activatedManually: false, busy: false });
   },
 }));
 
-// Adel (05/09/2026) : "l'utilisateur Flo souvent on la trouve pas comme si
-// elle était pas connectée et pourtant elle est bien connectée, il faut
-// qu'elle aille se connecter et se déconnecter pour que je puisse la voir"
-// -- BUG RÉEL : le setInterval de 4 minutes qui maintient last_seen_at à
-// jour (bien en dessous du TTL serveur de 30 minutes) peut être
-// throttled/suspendu par le navigateur ou l'OS dès que l'onglet/l'appli
-// passe en arrière-plan (écran verrouillé, autre appli au premier plan,
-// onglet non actif...) -- aucune désactivation explicite de sa part, juste
-// un ping qui ne part plus jusqu'à dépasser le TTL. Se déconnecter/se
-// reconnecter forçait un syncFromServer() qui rafraîchit last_seen_at une
-// fois -- mais rien ne le refaisait automatiquement au retour au premier
-// plan. Un ping immédiat dès que l'onglet/l'appli redevient visible
-// rattrape ça pour TOUS les utilisateurs disponibles, pas seulement Flo.
-// 29/09/2026 : au retour au premier plan, on pingue pour TOUT utilisateur
-// connecté (pingTimer actif), Battle ON ou OFF -- présence « En ligne ».
+// Un retour au premier plan rattrape une échéance suspendue par l'OS.
+// Le service conserve la limite de cinq minutes, Battle ON ou OFF.
 function pingIfAvailable() {
   if (pingTimer) {
-    void pingManualBattleAvailability().catch(() => {});
+    void pingProfilePresence().catch(() => {});
   }
 }
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
@@ -187,8 +178,11 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
 // se déconnecter/reconnecter pour réapparaître en ligne. Seul son bouton Battle
 // ON/OFF peut ensuite modifier ce choix.
 if (supabase) {
+  const restoreGeneration = sessionGeneration;
   void supabase.auth.getSession().then(({ data }) => {
-    if (data.session?.user?.id) void useBattleAvailabilityStore.getState().syncFromServer();
+    if (restoreGeneration !== sessionGeneration || !data.session?.user?.id || sessionOwner) return;
+    sessionOwner = data.session.user.id;
+    void useBattleAvailabilityStore.getState().syncFromServer();
   }).catch(() => {});
   supabase.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_OUT' || !session?.user?.id) {
@@ -196,6 +190,9 @@ if (supabase) {
       return;
     }
     if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+      if (sessionOwner === session.user.id) return;
+      useBattleAvailabilityStore.getState().reset();
+      sessionOwner = session.user.id;
       void useBattleAvailabilityStore.getState().syncFromServer();
     }
   });

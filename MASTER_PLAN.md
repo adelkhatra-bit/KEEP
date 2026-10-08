@@ -1,5 +1,13 @@
 # MASTER PLAN — Loki Music (ce qui RESTE à faire)
 
+## Issue #63 — plan autorisé par la demande du 08/10/2026
+1. Étendre les services ordinateur, présence, push et stories existants, sans table/module doublon.
+2. Migration additive pour gain découvreur, comptage des touches et requête Pulse ; contrats/specs cohérents avec la nouvelle décision.
+3. Déclencheur d’aide partagé ⓘ / ✕ ; tests Jest/SQL ciblés, typechecks, exports, navigateur 390/1440, CI et revue sécurité.
+4. Rapport « TEST MODE RÉEL » séparant code local, CI, déploiement et tests matériels ; migrations non appliquées en production.
+
+Avancement local : aide committée `b7277b4`, PostgreSQL Pulse 4/4 et ~1,1–1,2 s en fixture ; SQL relié aux CI Mobile et complète existantes (actionlint propre). Présence/push et ordinateur en validation ; story affinée pour distinguer touche de bulle et enchaînement automatique. Aucune étape distante ou livraison matériel déclarée réussie.
+
 > Complète `STATE.md` (ce qui est fait). **Règle de travail : plan écrit → validation d'Adel → code.** Une étape à la fois. Aucune IA ne touche `main`, ni au design validé sans accord. Chaque étape finit par : tests + 7 gardes + preuve mobile 390 / ordinateur 1440 + ligne dans `STATE.md`. Audit **ciblé** (seulement le module touché).
 > Statuts : ✅ fait · 🟡 partiel · ⛔ pas fait · ❓ cause non établie. Tout ce qui n'est pas vérifié sur iPhone est marqué « non vérifié iPhone ».
 

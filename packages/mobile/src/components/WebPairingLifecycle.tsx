@@ -7,10 +7,12 @@ import { useUserStore } from '../store/useUserStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import {
   approveDesktopPairing,
+  cancelDesktopPairing,
   clearPendingWebPairing,
   clearWebCompanionSessionId,
   currentWebCompanionSessionId,
   getWebCompanionSessionStatus,
+  inspectDesktopPairing,
   parsePairingDeepLink,
   readPendingWebPairing,
   registerCurrentWebCompanionSession,
@@ -26,7 +28,7 @@ export default function WebPairingLifecycle() {
   const approvingRef = React.useRef(false);
 
   const handleNativePairingUrl = React.useCallback((url: string | null | undefined) => {
-    if (Platform.OS === 'web' || !url) return;
+    if (Platform.OS === 'web' || !url || approvingRef.current) return;
     const parsed = parsePairingDeepLink(url);
     if (!parsed) return;
     setPendingApproval(parsed);
@@ -53,25 +55,47 @@ export default function WebPairingLifecycle() {
     if (!user || isLocalGuest || isDemoMode) return;
 
     approvingRef.current = true;
-    void approveDesktopPairing(pendingApproval.pairingId, pendingApproval.token)
+    let active = true;
+    let submitting = false;
+    const finish = () => {
+      approvingRef.current = false;
+      if (active) setPendingApproval(null);
+    };
+    const canApprove = () => {
+      const current = useUserStore.getState();
+      return active && current.user?.id === user.id && !current.isLocalGuest && !current.isDemoMode;
+    };
+    const fail = () => {
+      if (active) Alert.alert('Connexion ordinateur', 'Ce QR n’est plus disponible. Génère un nouveau QR sur l’ordinateur.');
+      finish();
+    };
+    void inspectDesktopPairing(pendingApproval.pairingId, pendingApproval.token)
       .then((result) => {
-        setPendingApproval(null);
+        if (!canApprove()) { finish(); return; }
         Alert.alert(
-          'Ordinateur autorisé',
-          result.deviceLabel ? `${result.deviceLabel} peut maintenant ouvrir ton compte Loki Music.` : 'Retourne sur ton ordinateur : la connexion est autorisée.',
+          'Autoriser cet ordinateur ?',
+          `${result.deviceLabel} aura accès à ton compte Loki Music. Autorise uniquement l’ordinateur dont tu viens de scanner le QR.`,
+          [
+            { text: 'Refuser', style: 'cancel', onPress: () => {
+              if (canApprove()) void cancelDesktopPairing(pendingApproval.pairingId, pendingApproval.token).catch(() => {});
+              finish();
+            } },
+            { text: 'Autoriser', onPress: () => {
+              if (submitting) return;
+              if (!canApprove()) { finish(); return; }
+              submitting = true;
+              void approveDesktopPairing(pendingApproval.pairingId, pendingApproval.token)
+                .then(() => {
+                  if (active) Alert.alert('Ordinateur autorisé', 'Retourne sur ton ordinateur : la connexion est autorisée.');
+                  finish();
+                })
+                .catch(fail);
+            } },
+          ],
         );
       })
-      .catch((error: any) => {
-        Alert.alert(
-          'Connexion ordinateur',
-          String(error?.message || '').includes('pairing_expired')
-            ? 'Ce QR code a expiré. Génère un nouveau QR sur l’ordinateur.'
-            : 'Impossible d’autoriser cet ordinateur. Génère un nouveau QR et réessaie.',
-        );
-      })
-      .finally(() => {
-        approvingRef.current = false;
-      });
+      .catch(fail);
+    return () => { active = false; approvingRef.current = false; };
   }, [pendingApproval, user?.id, isLocalGuest, isDemoMode]);
 
   React.useEffect(() => {
@@ -80,15 +104,26 @@ export default function WebPairingLifecycle() {
     if (!pending) return;
 
     let active = true;
-    void registerCurrentWebCompanionSession(pending.pairingId, pending.token)
-      .then(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const register = async () => {
+      try {
+        await registerCurrentWebCompanionSession(pending.pairingId, pending.token);
         if (active) clearPendingWebPairing();
-      })
-      .catch(() => {
-        // Le magic-link a déjà créé la session. Garder le proof en sessionStorage
-        // permet une nouvelle tentative au prochain rendu/rechargement.
-      });
-    return () => { active = false; };
+      } catch (error) {
+        if (!active) return;
+        const code = error instanceof Error ? error.message : '';
+        if (/^(session_revoked|pairing_(not_found|not_approved|user_mismatch|session_mismatch|already_claimed|expired))$/.test(code)) {
+          clearPendingWebPairing();
+          clearWebCompanionSessionId();
+          useUserStore.getState().logout();
+          if (supabase) await createAuthService(supabase).signOut().catch(() => {});
+          return;
+        }
+        timer = setTimeout(() => { void register(); }, 10000);
+      }
+    };
+    void register();
+    return () => { active = false; if (timer) clearTimeout(timer); };
   }, [user?.id, isLocalGuest, isDemoMode]);
 
   React.useEffect(() => {
@@ -101,7 +136,10 @@ export default function WebPairingLifecycle() {
     const check = async () => {
       if (!active) return;
       const sessionId = currentWebCompanionSessionId();
-      if (!sessionId) return;
+      if (!sessionId || readPendingWebPairing()) {
+        timer = setTimeout(() => { void check(); }, 10000);
+        return;
+      }
       try {
         const status = await getWebCompanionSessionStatus(sessionId);
         if (!active) return;

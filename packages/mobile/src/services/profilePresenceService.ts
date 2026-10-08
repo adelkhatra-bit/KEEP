@@ -1,4 +1,41 @@
 import { supabase } from './supabaseClient';
+import { AppState, Platform } from 'react-native';
+
+export const PROFILE_PRESENCE_INTERVAL_MS = 5 * 60 * 1000;
+let presenceOwner: string | null = null;
+let lastPresenceAttempt = -Infinity;
+let presenceInFlight = false;
+
+export function resetProfilePresenceHeartbeat() {
+  presenceOwner = null;
+  lastPresenceAttempt = -Infinity;
+}
+
+export function isProfilePresenceForeground(): boolean {
+  return Platform.OS === 'web'
+    ? typeof document === 'undefined' || document.visibilityState === 'visible'
+    : AppState.currentState === 'active';
+}
+
+export async function pingProfilePresence(): Promise<void> {
+  if (!supabase || presenceInFlight || !isProfilePresenceForeground()) return;
+  presenceInFlight = true;
+  try {
+    const { data } = await supabase.auth.getSession();
+    const owner = data.session?.user?.id;
+    if (!owner || !isProfilePresenceForeground()) return;
+    if (presenceOwner !== owner) {
+      presenceOwner = owner;
+      lastPresenceAttempt = -Infinity;
+    }
+    if (Date.now() - lastPresenceAttempt < PROFILE_PRESENCE_INTERVAL_MS) return;
+    // Même une panne ne doit pas relancer le réseau à chaque retour au premier plan.
+    lastPresenceAttempt = Date.now();
+    await supabase.rpc('keep_profile_presence_ping');
+  } finally {
+    presenceInFlight = false;
+  }
+}
 
 export type ProfilePresence = {
   lastSeenAt: string | null;
@@ -26,11 +63,11 @@ export function formatProfilePresence(lastSeenAt: string | null, online: boolean
   if (!lastSeenAt) return 'Hors ligne';
   const elapsed = Math.max(0, Date.now() - new Date(lastSeenAt).getTime());
   const minutes = Math.floor(elapsed / 60000);
-  if (minutes < 2) return 'Actif à l’instant';
-  if (minutes < 60) return `Actif il y a ${minutes} min`;
+  if (!Number.isFinite(elapsed)) return 'Hors ligne';
+  if (minutes < 60) return `vu il y a ${minutes} min`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `Actif il y a ${hours} h`;
+  if (hours < 24) return `vu il y a ${hours} h`;
   const days = Math.floor(hours / 24);
-  if (days < 7) return `Actif il y a ${days} j`;
-  return `Actif le ${new Date(lastSeenAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}`;
+  if (days < 7) return `vu il y a ${days} j`;
+  return `vu le ${new Date(lastSeenAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}`;
 }

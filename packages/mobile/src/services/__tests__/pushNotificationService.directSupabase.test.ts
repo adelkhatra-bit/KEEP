@@ -5,7 +5,7 @@ import path from 'path';
 describe('Loki Music push registration has no Render intermediary', () => {
   const source = fs.readFileSync(path.resolve(__dirname, '..', 'pushNotificationService.ts'), 'utf8');
   it('registers the Expo device token directly through authenticated Supabase RPC', () => {
-    expect(source).toContain("rpc('keep_push_token_register_v3'");
+    expect(source).toContain("rpc('keep_push_token_register_v4'");
     expect(source).toContain('p_token: token');
     expect(source).toContain('p_platform: Platform.OS');
     expect(source).toContain('resolveExpoPushToken(projectId)');

@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Alert } from '../utils/keepAlert';
 import { colors } from '../theme/colors';
 import { blockUser } from '../services/moderationService';
-import { loadProfilePresence } from '../services/profilePresenceService';
+import { formatProfilePresence, loadProfilePresence } from '../services/profilePresenceService';
 import TrackPreviewButton from './TrackPreviewButton';
 import { commitKeep } from '../services/keepTrackAction';
 import {
@@ -153,6 +153,7 @@ export default function MusicAgoraPanel({
   const [groupMembersOpen, setGroupMembersOpen] = useState(false);
   // Adel (05/10/2026) : pastille verte/rouge de présence + accusé « Vu / En attente » dans les messages privés.
   const [presenceByProfile, setPresenceByProfile] = useState<Record<string, boolean | undefined>>({});
+  const [lastSeenByProfile, setLastSeenByProfile] = useState<Record<string, string | null>>({});
   const [peerReadId, setPeerReadId] = useState(0);
 
   const [groupMembers, setGroupMembers] = useState<MusicAgoraGroupMember[]>([]);
@@ -507,9 +508,14 @@ export default function MusicAgoraPanel({
     const load = async () => {
       const results = await Promise.allSettled(ids.map((id) => loadProfilePresence(id)));
       if (!live) return;
+      setLastSeenByProfile((previous) => {
+        const next = { ...previous };
+        ids.forEach((id, index) => { const r = results[index]; if (r.status === 'fulfilled' && r.value.known) next[id] = r.value.lastSeenAt; else delete next[id]; });
+        return next;
+      });
       setPresenceByProfile((previous) => {
         const next = { ...previous };
-        ids.forEach((id, index) => { const r = results[index]; if (r.status === 'fulfilled' && r.value.known) next[id] = r.value.online; });
+        ids.forEach((id, index) => { const r = results[index]; if (r.status === 'fulfilled' && r.value.known) next[id] = r.value.online; else delete next[id]; });
         return next;
       });
     };
@@ -1407,7 +1413,9 @@ export default function MusicAgoraPanel({
               {activeGroup
                 ? `Groupe privé · ${activeGroup.memberCount} membre${activeGroup.memberCount > 1 ? 's' : ''}`
                 : replyTarget
-                  ? 'Conversation privée'
+                  ? presenceByProfile[replyTarget.profileId] !== undefined
+                    ? formatProfilePresence(lastSeenByProfile[replyTarget.profileId] ?? null, Boolean(presenceByProfile[replyTarget.profileId]))
+                    : 'Conversation privée'
                   : chatMode === 'PLACE'
                     ? 'Salon public · tout le monde peut rejoindre'
                     : 'Messages, salons et invitations'}
@@ -1615,6 +1623,7 @@ export default function MusicAgoraPanel({
               <View style={s.presenceWrap}>{item.avatarUrl ? <Image source={{ uri: item.avatarUrl }} style={s.conversationAvatar}/> : <View style={[s.conversationAvatar,s.avatarFallback]}><Text style={s.avatarText}>{item.username.slice(0,1).toUpperCase()}</Text></View>}{presenceByProfile[item.profileId] !== undefined ? <View style={[s.presenceDot, presenceByProfile[item.profileId] ? s.presenceOn : s.presenceOff]} testID={`chat-presence-${item.profileId}`} accessibilityLabel={presenceByProfile[item.profileId] ? 'En ligne' : 'Hors ligne'} /> : null}</View>
               <View style={s.conversationCopy}>
                 <View style={s.conversationTop}><Text style={s.conversationName}>@{item.username}</Text><Text style={s.conversationTime}>{ago(item.lastCreatedAt)}</Text></View>
+                {presenceByProfile[item.profileId] !== undefined ? <Text style={s.conversationName} testID={`chat-last-seen-${item.profileId}`}>{formatProfilePresence(lastSeenByProfile[item.profileId] ?? null, Boolean(presenceByProfile[item.profileId]))}</Text> : null}
                 <Text style={[s.conversationPreview, typingByKey[`p:${item.profileId}`] && s.typingPreview]} numberOfLines={1}>{typingByKey[`p:${item.profileId}`] ? 'écrit…' : <>{item.lastSharedTrackId ? '♫ ' : ''}{musicAgoraBodyPreview(item.lastBody || 'Musique partagée')}</>}</Text>
               </View>
               {unreadByTarget[`p:${item.profileId}`]?.length ? <View style={s.unreadPill}><Text style={s.unreadPillText}>{unreadByTarget[`p:${item.profileId}`].length > 9 ? '9+' : unreadByTarget[`p:${item.profileId}`].length}</Text></View> : null}
@@ -1884,7 +1893,7 @@ export default function MusicAgoraPanel({
           </TouchableOpacity>
         </View>
       ) : null}
-      {replyTarget && !(compact && chatMode === 'MESSAGES') ? <View style={s.replyTarget}><Text style={s.replyTargetText}>Conversation avec @{replyTarget.username}</Text>{!compact ? <TouchableOpacity onPress={() => { void openChatOptions(); }} accessibilityRole="button" accessibilityLabel="Options : messages éphémères, effacer la conversation" testID="chat-options-full"><Text style={s.replyTargetText}>⋯ Options</Text></TouchableOpacity> : null}</View> : null}
+      {replyTarget && !(compact && chatMode === 'MESSAGES') ? <View style={s.replyTarget}><Text style={s.replyTargetText}>Conversation avec @{replyTarget.username}{presenceByProfile[replyTarget.profileId] !== undefined ? ` · ${formatProfilePresence(lastSeenByProfile[replyTarget.profileId] ?? null, Boolean(presenceByProfile[replyTarget.profileId]))}` : ''}</Text>{!compact ? <TouchableOpacity onPress={() => { void openChatOptions(); }} accessibilityRole="button" accessibilityLabel="Options : messages éphémères, effacer la conversation" testID="chat-options-full"><Text style={s.replyTargetText}>⋯ Options</Text></TouchableOpacity> : null}</View> : null}
       {sharedTrack ? <View style={[s.selectedMusic, shareOptionsOpen && { maxHeight: shareExpandedHeight }]}>
         <View style={s.selectedMusicCompactRow}>
           <View style={s.selectedMusicThumbWrap}>

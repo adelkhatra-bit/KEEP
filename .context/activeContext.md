@@ -1,5 +1,10 @@
 # KEEP — Contexte actif
 
+## Issue #63 — 08/10/2026, PR basée sur reconcile 639f499
+- Lot aide `COMMITTED_LOCAL b7277b4` : glyph pur React `InfoToggleIcon`, utilisé par React Native et Next, labels accessibles préservés ; tests ciblés 21/21, typechecks mobile/admin, export admin 22/22 et navigateur fixtures 390/1440 passés.
+- Autres lots en cours dans les propriétaires existants : e-mail → QR → confirmation/révocation ; présence/push ; GARDER/gain découvreur/vues ; SQL Pulse. Contrat actualisé : story = débit serveur GARDER, reprise depuis profil = 0, mise en story = 0, récompense découvreur = 3 plafonnée à 20/mois. Ceci remplace uniquement les anciennes règles contradictoires, sans réécrire l'historique.
+- Aucun déploiement ni écriture production autorisée/exécutée. CI héritée `37711629482`, SHA `fa193cc…`, échoue sur le bouton de conversation de fixture ; ne prouve pas l'état de cette PR. Livraison Brevo/APNs/FCM, iPhone et objectif Pulse < 1,5 s production restent à mesurer.
+
 ## IDEA-189 — versions / preuves / contrôles (07/10/2026, LOCAL_ONLY)
 - Branche de revue conservée, HEAD `08a116e7`, base canonique `0138b4e5f93e8271735857fe3f9b885802e6ee61` confirmée après fetch + approfondissement de l’historique superficiel. Aucun commit/push/deploiement/report_progress ni écriture production. Aucun changement mobile App/Navigation/Stories, dépendances du dépôt inchangées.
 - `/home/runner/work/KEEP/KEEP/packages/admin/pages/operations.tsx` étendu par `/home/runner/work/KEEP/KEEP/packages/admin/components/ReleaseEvidence.tsx` : version.json canonique observé, dernière app native signalée, compteurs exacts ou indisponibles, correctifs bornés à 100 avec liens SHA/test et registre existant. Aucun export public de signalements. Les compteurs push existants ne retombent plus à zéro sur erreur.

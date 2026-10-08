@@ -9,6 +9,7 @@ describe('Web companion QR contract', () => {
   const pairing = read('..', '..', 'services', 'webPairingService.ts');
   const lifecycle = read('..', '..', 'components', 'WebPairingLifecycle.tsx');
   const account = read('..', '..', 'components', 'AccountActionsPanel.tsx');
+  const profile = read('..', '..', 'screens', 'ProfilePublicScreen.tsx');
   const edge = read('..', '..', '..', '..', '..', 'supabase', 'functions', 'keep-web-pairing', 'index.ts');
 
   it('desktop onboarding is QR-only and never auto-enters guest mode', () => {
@@ -35,5 +36,10 @@ describe('Web companion QR contract', () => {
     expect(account).toContain('<WebCompanionSessionsPanel />');
     expect(lifecycle).toContain('getWebCompanionSessionStatus');
     expect(lifecycle).toContain('createAuthService(client).signOut()');
+  });
+
+  it('opens email and connected computers directly from the shared hamburger', () => {
+    expect(profile).toContain("key: 'computer', icon: '💻', label: 'Ordinateur'");
+    expect(profile).toContain("if (key === 'computer') return <WebCompanionSessionsPanel showEmailLink />;");
   });
 });
