@@ -92,6 +92,9 @@ jobs:
       - name: Mobile tests
         run: npm --workspace packages/mobile test -- --runInBand
 
+      - name: Loki Pulse SQL contract and local query plan
+        run: node --test scripts/loki-pulse-sql.test.cjs
+
       - name: Music tests
         run: npm --workspace packages/music test -- --runInBand
 
