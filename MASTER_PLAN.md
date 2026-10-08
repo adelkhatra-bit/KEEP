@@ -110,7 +110,15 @@ Une checklist unique `docs/TEST_PLAN.md` : parcours utilisateur (inscription →
 - **L (IDEA-171)** clés manquantes + pistes gratuites. **M (IDEA-172)** SPF/DKIM/DMARC.
 - **Constat règle I (IDEA-168)** : `keep-apple-notifications` écrit déjà `EXPIRED`/`CANCELLED` et `loadCurrentPlanCode` ignore les abonnements non ACTIVE/TRIALING → retour FREE automatique côté lecture ; MANQUE : trace datée `subscription_history`, délai de grâce (`GRACE_PERIOD`), relance « reviens », et distinction annulation (reste actif jusqu'à la fin) vs expiration.
 
+## Issue #48 et branches de revue — validé par Adel le 08/10/2026
+
+1. Aligner le contrat de branche et le contrôle : `copilot/*` uniquement en revue vers la branche canonique, tests positifs et négatifs.
+2. Réutiliser partage système, catalogue et bibliothèque existants pour Odesli, import idempotent et cache 30 jours ; aucune table recréée.
+3. Ajouter au profil l'ajout sans clavier, les liens plateformes et « Mon style » via `keep_my_music_stats()`.
+4. Tests Jest et navigateur 390/1440, export, revue sécurité ; rapport TEST MODE RÉEL distinguant preuves, accès indisponibles et CI distante.
+
 ## Plan Super Admin « niveau Apple » (06/10/2026) — À VALIDER PAR ADEL AVANT CODE
+
 Ordre proposé, une étape = une preuve 390/1440, rien supprimé, aucun doublon :
 1. **Audit lecture seule** (R) : rapport page par page du Super Admin (marche / vide / doublons / textes > 5 mots) → `docs/SUPERADMIN_AUDIT.md`.
 2. **Menu 8 rubriques** (N, IDEA-173) : regroupement des 18 entrées existantes (mêmes écrans, aucune réécriture), une seule entrée Sécurité, état vide « Rien à approuver » + historique.

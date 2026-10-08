@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: read
 
 jobs:
   remove-misleading-legacy-branches:
@@ -43,6 +44,16 @@ jobs:
                 ;;
             esac
 
+            if [[ "$branch" == copilot/* ]]; then
+              review="$(gh api --method GET "repos/$GITHUB_REPOSITORY/pulls" \
+                -f state=open -f "head=${GITHUB_REPOSITORY%/*}:$branch" \
+                --jq '[.[] | .base.ref] | length > 0 and all(. == "'"$canonical"'")')"
+              if [[ "$review" == true ]]; then
+                echo "KEEP REVIEW ONLY: $branch -> $canonical"
+                continue
+              fi
+            fi
+
             sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$branch" --jq '.object.sha')"
             safe="$(printf '%s' "$branch" | sed -E 's#[^A-Za-z0-9._-]+#--#g')"
             tag="archive/legacy-${safe}-${sha:0:8}"
@@ -70,6 +81,15 @@ jobs:
           while IFS= read -r branch; do
             case "$branch" in
               "$canonical"|main|dependabot/*|archive/*)
+                ;;
+              copilot/*)
+                review="$(gh api --method GET "repos/$GITHUB_REPOSITORY/pulls" \
+                  -f state=open -f "head=${GITHUB_REPOSITORY%/*}:$branch" \
+                  --jq '[.[] | .base.ref] | length > 0 and all(. == "'"$canonical"'")')"
+                if [[ "$review" != true ]]; then
+                  echo "ERROR: Copilot branch without canonical review: $branch"
+                  unexpected=1
+                fi
                 ;;
               *)
                 echo "ERROR: unexpected human branch still exists: $branch"

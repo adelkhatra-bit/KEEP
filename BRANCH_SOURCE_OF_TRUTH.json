@@ -10,20 +10,26 @@
   "allowedRemoteBranches": [
     "reconcile/claude-main-20260825",
     "main",
-    "dependabot/*"
+    "dependabot/*",
+    "copilot/*"
   ],
+  "reviewBranches": {
+    "copilot/*": {
+      "pullRequestBase": "reconcile/claude-main-20260825",
+      "publicationSource": false
+    }
+  },
   "archivedLegacyRefs": "refs/tags/archive/legacy-*",
   "forbiddenRemoteBranches": [
     "web-preview",
     "admin-preview",
     "chatgpt/*",
     "claude*",
-    "copilot/*",
     "fix/*",
     "backup/*",
     "security/*",
     "vercel/*"
   ],
-  "rule": "Never infer the product source from GitHub's default branch. Always use canonicalBranch explicitly. Read productContract before any product edit. All legacy human branches are archive-only.",
+  "rule": "Never infer the product source from GitHub's default branch. Always use canonicalBranch explicitly. Read productContract before any product edit. Copilot branches are review-only, must target canonicalBranch (never main), and are never publication sources. All legacy human branches are archive-only.",
   "productContract": "config/keep-product-contract.json"
 }
