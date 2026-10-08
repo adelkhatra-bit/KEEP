@@ -14,6 +14,7 @@ import SwipeDeck from './SwipeDeck';
 import { loadFirstDiscoveryOrigins, type TrackOrigin } from '../services/trackOriginService';
 import MysteryArtwork from './MysteryArtwork';
 import { isSaleStoryTrack, loadMyStoryTrackIds, loadOtherStoryHolders, notifyOwnStoryChanged, pinSharedStoryTrack, pinFreeStoryTrack, pinStoryTrack, type StoryHolder } from '../services/musicStoriesService';
+import { measureSwipePlaybackLatency } from '../services/swipePlaybackLatency';
 import { loadMyOfferedTrackIds } from '../services/playlistSaleService';
 import { persistOwnTrackVisibility } from '../services/keepVisibilityService';
 import { isTrackPreviewActive, playTrackPreviewFromGesture, preloadTrackPreview, stopTrackPreview, stopTrackPreviewFast, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
@@ -499,7 +500,7 @@ export default function MusicSwipeDeckModal({
     const generation = ++playbackGeneration.current;
     const playbackKey = current ? `swipe-${current.id}-${index}` : null;
     // Latence du Swipe (Adel, 06/10/2026) : délai entre l'arrivée de la carte et le début réel du son ; au-delà de 2,5 s on l'envoie au journal (3 fois max par séance) pour que l'agent réparateur la localise.
-    const cardShownAt = Date.now();
+    const latency = measureSwipePlaybackLatency();
     let latencyReported = false;
     setKeepPromptOpen(false);
     setPreviewInfoOpen(false);
@@ -510,7 +511,7 @@ export default function MusicSwipeDeckModal({
     if (!visible || preparingDeck || !current) {
       setPreviewResolving(false);
       void stopTrackPreview();
-      return () => { alive = false; };
+      return () => { alive = false; latency.dispose(); };
     }
 
     setPreviewResolving(!current.previewUrl?.trim());
@@ -540,10 +541,11 @@ export default function MusicSwipeDeckModal({
             playbackKey,
             previewUrl,
             (playing) => {
+              if (!alive || playbackGeneration.current !== generation) return;
               if (playing && !latencyReported) {
                 latencyReported = true;
-                const waited = Date.now() - cardShownAt;
-                if (waited > 2500) reportAutoDiagnostic('SWIPE_SLOW', `${Math.round(waited / 100) / 10}s host=${String(previewUrl ?? '').replace(/^https?:\/\//, '').split('/')[0] || 'none'}`);
+                const waited = latency.finish();
+                if (waited !== null && waited > 2500) reportAutoDiagnostic('SWIPE_SLOW', `${Math.round(waited / 100) / 10}s host=${String(previewUrl ?? '').replace(/^https?:\/\//, '').split('/')[0] || 'none'}`);
               }
               if (playing && currentSourceProfileId) {
                 void recordProfileSwipeListen(currentSourceProfileId, current.id); markListened(current.id);
@@ -587,6 +589,12 @@ export default function MusicSwipeDeckModal({
               playbackKey,
               refreshedUrl,
               (playing) => {
+                if (!alive || playbackGeneration.current !== generation) return;
+                if (playing && !latencyReported) {
+                  latencyReported = true;
+                  const waited = latency.finish();
+                  if (waited !== null && waited > 2500) reportAutoDiagnostic('SWIPE_SLOW', `${Math.round(waited / 100) / 10}s host=${String(refreshedUrl).replace(/^https?:\/\//, '').split('/')[0] || 'none'}`);
+                }
                 if (playing && currentSourceProfileId) {
                   void recordProfileSwipeListen(currentSourceProfileId, current.id); markListened(current.id);
                 }
@@ -606,42 +614,8 @@ export default function MusicSwipeDeckModal({
           } catch (playError) {
             if (!alive) return;
             if (Platform.OS !== 'web') {
-              // TestFlight/iOS : aucun geste utilisateur n'est requis pour
-              // jouer un son dans l'app native. Une erreur ici est transitoire
-              // (session audio, décodage, URL catalogue). On retente plusieurs
-              // fois automatiquement au lieu d'afficher un bouton ÉCOUTER.
-              let recovered = false;
-              for (let retry = 0; retry < 3 && alive && !recovered; retry += 1) {
-                await new Promise((resolve) => setTimeout(resolve, 180 + retry * 180));
-                if (!alive || playbackGeneration.current !== generation) return;
-                try {
-                  if (isTrackPreviewActive(playbackKey)) { recovered = true; break; }
-                  const retryUrl = await resolveTrackPreviewUrl(current, { forceRefresh: true });
-                  if (!retryUrl) continue;
-                  setResolvedPreviewUrl(retryUrl);
-                  await stopTrackPreview();
-                  await toggleTrackPreview(
-                    playbackKey,
-                    retryUrl,
-                    (playing) => {
-                      if (playing && currentSourceProfileId) {
-                        void recordProfileSwipeListen(currentSourceProfileId, current.id); markListened(current.id);
-                      }
-                    },
-                    () => {
-                      if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
-                      setPreviewEnded(true);
-                      if (index + 1 < deckTracks.length || loop) advanceIndex();
-                    },
-                  );
-                  recovered = true;
-                } catch {}
-              }
-              if (recovered) {
-                setAutoplayBlocked(false);
-                setPreviewEnded(false);
-                return;
-              }
+              // La relance native est bornée dans le lecteur ; ne pas empiler
+              // une deuxième boucle après la résolution fraîche de l'URL.
               // Journal automatique (Adel 05/10/2026 : « la musique ne part pas ») : on garde le code d'échec et l'hôte de l'extrait, jamais l'URL.
               reportAutoDiagnostic('PREVIEW_PLAY_FAILED', `${isSaleStoryTrack(current) ? 'sale' : 'track'} host=${String(current?.previewUrl ?? '').replace(/^https?:\/\//, '').split('/')[0] || 'none'} err=${String((playError as any)?.message ?? playError ?? 'inconnue').replace(/https?:\/\/\S+/g, 'url').slice(0, 110)}`);
               // Dans un flux automatique, un extrait réellement illisible ne
@@ -670,6 +644,7 @@ export default function MusicSwipeDeckModal({
 
     return () => {
       alive = false;
+      latency.dispose();
       if (endAdvanceTimer.current) {
         clearTimeout(endAdvanceTimer.current);
         endAdvanceTimer.current = null;

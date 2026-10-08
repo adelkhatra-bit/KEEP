@@ -5,6 +5,11 @@
 
 ## Les 5 missions de gouvernance — état réel au 06/10/2026
 
+### Issue #70 — correctifs autorisés par la demande du 08/10/2026
+- Audit ciblé audio/story/swipe ; réutiliser les RPC d’épinglage et les vues 24 h, sans doublon avec #63.
+- Session audio iPhone, premier titre, préchargement Solo/Battle et diagnostics visibles uniquement au premier plan ; aide capture iOS sans refonte.
+- Tests Jest ciblés puis existants, typecheck, export et navigateur 390×844/1440×900 ; revue et scan secrets. Matériel iPhone et temps audible avant/après non vérifiables sans appareil ; signalements production laissés à #68.
+
 ### Plan validé par Adel — IDEA-189 (06/10/2026)
 1. Conserver et vérifier les gardes Stories/Navigation déjà corrigés sur la revue basée sur `0138b4e5`.
 2. Étendre `/home/runner/work/KEEP/KEEP/packages/admin/pages/operations.tsx` : version.json canonique, dernière app signalée (pas parc installé), compteurs explicitement bornés ou RPC exact, rapport de preuves lecture seule.

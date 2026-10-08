@@ -2781,3 +2781,6 @@ Fichiers : pages/index.tsx, pages/problem-reports.tsx, PresetPicker.tsx, Hint.ts
 
 ### État final de cette passe
 Audit et plan seulement, avec tests de fonctions pures et lectures de la base. Les nouvelles réparations des lots ci-dessus NE SONT PAS encore implémentées. Le correctif serveur Signalements d’hier reste appliqué ; l’absence de dashboard v2 est désormais levée. Aucune session utilisateur/admin authentifiée ni appareil iPhone contrôlable ici, donc pas de validation globale mensongère.
+## [2026-10-08T10:41:17.916Z] codex
+
+Issue #70 : audit ciblé audio/story/swipe ; aucun design ni écriture production. Vues story coordonnées avec #63, conservation de story_watch_sessions.

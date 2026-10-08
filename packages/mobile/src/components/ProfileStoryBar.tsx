@@ -14,7 +14,7 @@ import { supabase } from '../services/supabaseClient';
 import type { ProfileCertificationTier } from '../services/publicProfileStateService';
 import { loadProfilePresence } from '../services/profilePresenceService';
 import { keepLokiPulseTrack } from '../services/lokiPulseKeep';
-import { preloadTrackPreview, stopTrackPreviewFast, toggleTrackPreview } from '../services/audioPreviewService';
+import { unlockTrackPreviewAudio, stopTrackPreviewFast, toggleTrackPreview } from '../services/audioPreviewService';
 import {
   composeStoryTeaser,
   loadMyPinnableTracks,
@@ -302,8 +302,9 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     // Cercle allumé → on repart de la dernière musique ; cercle éteint (déjà vue) → de la première.
     const unseenNow = (seen[story.profileId] || '') < story.latestAt;
     const ordered = orderTracksForPlayback(story.tracks, unseenNow);
-    // La musique doit démarrer tout de suite : on précharge l'extrait du premier morceau avant même l'ouverture du lecteur.
-    if (ordered[0]?.previewUrl) void preloadTrackPreview(ordered[0].previewUrl).catch(() => {});
+    // Le lecteur commun démarre N puis précharge N+1 ; aucun chargement ne doit
+    // bloquer sa file avant l'ouverture. Safari s'active pendant cet appui.
+    void unlockTrackPreviewAudio().catch(() => {});
     setOpenStory({ ...story, tracks: ordered });
     setViewersOpen(false);
     watchRef.current?.stop();

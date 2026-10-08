@@ -39,6 +39,18 @@ describe('intégration : ta story dans la barre du profil', () => {
     expect(bar).toContain('previewOnly={isOwnOpen}');
     expect(bar).toContain('loadOwnStory(');
   });
+  it('démarre la première musique par le lecteur commun, sans préchargement devant sa file', () => {
+    const bar = src('components', 'ProfileStoryBar.tsx');
+    const open = bar.slice(bar.indexOf('const open = useCallback'), bar.indexOf('// Suivre directement'));
+    expect(open).toContain('unlockTrackPreviewAudio()');
+    expect(open).toContain('setOpenStory({ ...story, tracks: ordered })');
+    expect(open).not.toContain('preloadTrackPreview(');
+    const deck = src('components', 'MusicSwipeDeckModal.tsx');
+    const playback = deck.slice(deck.indexOf('const generation = ++playbackGeneration.current'), deck.indexOf('const manualPlay ='));
+    expect(playback.indexOf('await toggleTrackPreview(')).toBeLessThan(playback.indexOf('preloadTrackPreview(nextUrl)'));
+    expect(playback).not.toContain('!visible || !current || previewOnly');
+    expect(playback).not.toContain('retry < 3');
+  });
   it('there is a single story-rail component (no duplicate)', () => {
     expect(fs.existsSync(path.join(__dirname, '..', '..', 'components', 'StoryRail.tsx'))).toBe(false);
   });

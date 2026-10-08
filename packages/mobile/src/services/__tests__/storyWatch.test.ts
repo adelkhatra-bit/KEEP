@@ -3,6 +3,19 @@ import { formatWatchDetail, formatWatchDuration } from '../storyActivity';
 
 const UUID = '11111111-2222-3333-4444-555555555555';
 
+describe('vues conservées pendant la story 24 h — chemin existant partagé avec #63', () => {
+  it('la nouvelle publication ne repousse pas le début du compteur à la dernière épingle', () => {
+    const fs = require('fs'); const path = require('path');
+    const sql = fs.readFileSync(path.resolve(__dirname, '../../../../../supabase/migrations/20261008010713_story_viewers_v4_since_first_pin_24h.sql'), 'utf8');
+    expect(sql).toContain('from public.story_watch_sessions');
+    expect(sql).toContain("owner_id=auth.uid() and started_at > now()-interval '24 hours'");
+    expect(sql).toContain('viewer_id <> auth.uid()');
+    expect(sql).toContain('select min(sp.pinned_at)');
+    expect(sql.indexOf('select min(sp.pinned_at)')).toBeLessThan(sql.indexOf('select max(sp.pinned_at)'));
+    expect(sql).toContain('revoke all on function public.keep_my_story_viewers_v4(text, timestamptz) from public, anon');
+  });
+});
+
 describe('suivi de vue de story façon Instagram', () => {
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => jest.useRealTimers());

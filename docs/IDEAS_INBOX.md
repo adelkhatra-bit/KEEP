@@ -1,5 +1,8 @@
 # IDEAS INBOX — boîte à idées d'Adel (source unique)
 
+## Issue #70 — 08/10/2026
+- **IDÉE / correctifs demandés** : son iPhone et premier titre de story immédiats, préchargement Solo/Battle avec temps de démarrage réel, aide « Lance la musique sur un autre appareil » si la capture locale est impossible, latence Swipe limitée au premier plan, visites conservées 24 h via `story_watch_sessions` (#63), épingles de session via `keep_pin_free_story_track`. Aucun changement de design ni données de production.
+
 ## Demande du 06/10/2026 — gouvernance des livraisons
 - **IDEA-189 · EN COURS — LOCAL_ONLY, plan validé par Adel** : vérifier les améliorations prêtes sans affaiblir les gardes ; tableau simple dans le Super Admin existant (version site réellement observée, dernière app signalée, problèmes ouverts, correctifs et tests), traçabilité bug → SHA → anti-régression, actionlint gratuit épinglé et synthèse des contrôles GitHub en lecture seule. Aucun commit, push, déploiement ni écriture production pendant cette passe.
 
