@@ -2781,3 +2781,7 @@ Fichiers : pages/index.tsx, pages/problem-reports.tsx, PresetPicker.tsx, Hint.ts
 
 ### État final de cette passe
 Audit et plan seulement, avec tests de fonctions pures et lectures de la base. Les nouvelles réparations des lots ci-dessus NE SONT PAS encore implémentées. Le correctif serveur Signalements d’hier reste appliqué ; l’absence de dashboard v2 est désormais levée. Aucune session utilisateur/admin authentifiée ni appareil iPhone contrôlable ici, donc pas de validation globale mensongère.
+## [2026-10-08T10:33:36.715Z] codex
+
+Je répare le robot de captures App Store : session de test navigateur isolée, écrans réels de l’app, deux tailles Apple et vérification stricte des lots ASC v1.0.0 fr-FR. La porte QR et l’auth de production restent intactes.
+
