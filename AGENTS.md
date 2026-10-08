@@ -1,4 +1,5 @@
 ## 💡 IDÉES D'ADEL — À NOTER IMMÉDIATEMENT (règle pour toutes les IA)
+Branches de revue (décision d'Adel, PR #53, 08/10/2026) : `copilot/*` autorisées uniquement pour une PR vers `reconcile/claude-main-20260825`, jamais vers `main` ni comme source de publication. Voir `BRANCH_SOURCE_OF_TRUTH.json` ; les anciennes interdictions de ces branches sont remplacées.
 Toute idée ou demande nouvelle d'Adel (« je voudrais… », « il faudrait… ») qui n'existe pas encore dans le produit doit être ajoutée dans `docs/IDEAS_INBOX.md` **dans la même réponse**, avant tout code, avec le statut `IDÉE`. Ne jamais la ranger dans un commentaire, un message de commit ou la seule conversation. Avant de dire « ce qui reste à faire », lire `docs/IDEAS_INBOX.md`.
 
 ## BIBLIOTHÈQUE PRODUIT CANONIQUE — À LIRE EN PREMIER

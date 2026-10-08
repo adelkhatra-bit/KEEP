@@ -167,6 +167,13 @@ Les bandelettes lumineuses (accueil au repos et écran d'écoute) **ne sont jama
 - Les musiques partagées en **conversation privée** ne vont JAMAIS en story (confidentialité) ; seules les musiques d'un salon public pourraient y entrer (non implémenté, IDEA-070).
 - À faire (IDEA-071) : proposition de prix pour les titres manquants via notifications + robot, puis chat direct.
 
+### §14 — Soirées en story et Loki Pulse (Adel, issue #52, 08/10/2026)
+- Une soirée approuvée entre automatiquement dans la story de son organisateur pour 24 h, une seule épingle par soirée ; les soirées en attente, rejetées ou désactivées ne sont pas diffusées.
+- La carte partagée mobile/ordinateur montre l'affiche, la date, le lieu et **J'Y VAIS** ; présence persistée via `event_rsvps`, sans nouvelle table de présence.
+- Dans Loki Pulse : libellé sobre **Soirée**, au maximum une carte après dix titres distincts consultés, styles correspondant aux goûts calculés, même pays et même devise uniquement ; filtrage de zone lorsque les coordonnées existent.
+- Vues, J'y vais et partages sont visibles pour l'organisateur et rattachés au pays de la soirée. Le mode Démo ne produit aucune écriture.
+- Texte minimum 11 px et clair sur fond sombre, aucune saisie clavier, aide **ⓘ** sur place.
+
 ### §14 ter — Désabonnement et liste des vues (Adel, 05/10/2026)
 - **Un utilisateur ne se désabonne d'un autre que depuis la PAGE PROFIL de celui-ci.** Jamais depuis une bulle de story, la fiche rapide, la liste des vues ou la liste « Reprises » (elles affichent « Voir le profil » / « ✓ Tu le suis »). Contrôle bloquant : `verify-product-contract.cjs`.
 - La liste « Vues de ta story » conserve l'accès au profil, sans badge « Abonné ». Depuis le 06/10/2026 (ERR-210), ses bulles ouvrent le détail avec le bouton court **Profil ›**, nommé **Voir le profil de @pseudo** pour l'accessibilité.

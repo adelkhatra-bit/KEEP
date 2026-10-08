@@ -13,16 +13,28 @@ if (process.env.GITHUB_REPOSITORY && process.env.GITHUB_REPOSITORY !== expectedR
   failures.push(`WRONG REPOSITORY: ${process.env.GITHUB_REPOSITORY}`);
 }
 // Une branche Copilot est une branche de revue, jamais une source de publication.
-// Elle doit contenir la référence produit récupérée avant toute validation.
+// Elle doit partager l'historique canonique récupéré ; la base peut avancer après la création de la PR.
 let verifiedAgentBranch = '';
 try {
-  const localBranch = execFileSync('git', ['branch', '--show-current'], { cwd: root, encoding: 'utf8' }).trim();
+  const localBranch = process.env.GITHUB_HEAD_REF || execFileSync('git', ['branch', '--show-current'], { cwd: root, encoding: 'utf8' }).trim();
   if (localBranch.startsWith('copilot/')) {
     try {
-      execFileSync('git', ['merge-base', '--is-ancestor', `refs/remotes/origin/${expectedBranch}`, 'HEAD'], { cwd: root, stdio: 'pipe' });
+      if (process.env.GITHUB_HEAD_REF && process.env.GITHUB_EVENT_PATH) {
+        const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+        const pr = event.pull_request;
+        const commit = execFileSync('git', ['cat-file', '-p', 'HEAD'], { cwd: root, encoding: 'utf8' });
+        const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+        const parents = [...commit.matchAll(/^parent ([a-f0-9]{40})$/gm)].map((match) => match[1]);
+        if (pr?.base?.repo?.full_name !== expectedRepository || pr?.base?.ref !== expectedBranch || pr?.head?.ref !== localBranch
+          || !(head === pr?.head?.sha || (parents.includes(pr?.head?.sha) && parents.includes(pr?.base?.sha)))) {
+          throw new Error('INVALID_CANONICAL_REVIEW');
+        }
+      } else {
+        execFileSync('git', ['merge-base', `refs/remotes/origin/${expectedBranch}`, 'HEAD'], { cwd: root, stdio: 'pipe' });
+      }
       verifiedAgentBranch = localBranch;
     } catch {
-      failures.push('AGENT BRANCH MUST CONTAIN FETCHED CANONICAL SOURCE');
+      failures.push('AGENT BRANCH MUST SHARE FETCHED CANONICAL HISTORY');
     }
   }
   if (localBranch && localBranch !== expectedBranch && localBranch !== verifiedAgentBranch) failures.push(`WRONG LOCAL BRANCH: ${localBranch}`);
@@ -31,10 +43,10 @@ try {
   // repository + branch guards above.
 }
 
-if (process.env.GITHUB_REF_NAME && process.env.GITHUB_REF_NAME !== expectedBranch && process.env.GITHUB_REF_NAME !== verifiedAgentBranch) {
+if (process.env.GITHUB_REF_NAME && process.env.GITHUB_REF_NAME !== expectedBranch && process.env.GITHUB_REF_NAME !== verifiedAgentBranch && !(verifiedAgentBranch && process.env.GITHUB_HEAD_REF === verifiedAgentBranch && process.env.GITHUB_BASE_REF === expectedBranch)) {
   failures.push(`WRONG BRANCH: ${process.env.GITHUB_REF_NAME}`);
 }
-if (verifiedAgentBranch && process.env.GITHUB_BASE_REF && process.env.GITHUB_BASE_REF !== expectedBranch) {
+if ((verifiedAgentBranch || process.env.GITHUB_HEAD_REF?.startsWith('copilot/')) && process.env.GITHUB_BASE_REF && process.env.GITHUB_BASE_REF !== expectedBranch) {
   failures.push(`WRONG AGENT REVIEW BASE: ${process.env.GITHUB_BASE_REF}`);
 }
 
@@ -107,8 +119,12 @@ for (const [key, expected] of Object.entries({
   githubPagesWorkflow: '.github/workflows/web-preview-pages.yml',
   frozenDefaultBranch: 'main',
   productSourceCount: 1,
+  agentReviewBaseBranch: expectedBranch,
 })) {
   if (branchContract[key] !== expected) failures.push(`BRANCH CONTRACT MISMATCH: ${key}=${branchContract[key]}`);
+}
+if (!branchContract.allowedRemoteBranches?.includes('copilot/*') || branchContract.forbiddenRemoteBranches?.includes('copilot/*')) {
+  failures.push('COPILOT REVIEW BRANCHES MUST BE ALLOWED WITH CANONICAL BASE ONLY');
 }
 for (const forbiddenBranch of ['web-preview', 'admin-preview']) {
   if (!branchContract.forbiddenRemoteBranches?.includes(forbiddenBranch)) {

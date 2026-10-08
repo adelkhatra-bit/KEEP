@@ -5,6 +5,12 @@
 
 ## Les 5 missions de gouvernance — état réel au 06/10/2026
 
+### Issue #52 — plan validé par Adel (commentaire PR #53, 08/10/2026)
+1. Autoriser les branches de revue `copilot/*` uniquement vers `reconcile/claude-main-20260825`, jamais comme source de publication.
+2. Migration additive : pins musique/soirée exclusifs et idempotents ; publication après approbation ; ciblage Pulse goût/pays/devise et statistiques pays.
+3. Lecteur story et Pulse partagés mobile/ordinateur : affiche/date/lieu, J'Y VAIS via `event_rsvps`, statistiques organisateur ; Démo sans écriture.
+4. Tests SQL isolés, Jest, typecheck/export et navigateur 390/1440 ; revue et CI, sans déployer de migration ni modifier de données réelles.
+
 ### Plan validé par Adel — IDEA-189 (06/10/2026)
 1. Conserver et vérifier les gardes Stories/Navigation déjà corrigés sur la revue basée sur `0138b4e5`.
 2. Étendre `/home/runner/work/KEEP/KEEP/packages/admin/pages/operations.tsx` : version.json canonique, dernière app signalée (pas parc installé), compteurs explicitement bornés ou RPC exact, rapport de preuves lecture seule.

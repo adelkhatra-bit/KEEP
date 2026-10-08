@@ -388,7 +388,15 @@
       "CREATOR_PRO",
       "VENUE_PRO"
     ],
-    "audienceRule": "targeted-followers-and-prior-keepers-with-dedupe"
+    "audienceRule": "targeted-followers-and-prior-keepers-with-dedupe",
+    "pulseEvents": {
+      "minimumDistinctTracksBetweenCards": 10,
+      "sameCountryAndCurrencyOnly": true,
+      "requiresMusicTasteScoreOverlap": true,
+      "label": "Soirée",
+      "demoWritesForbidden": true,
+      "organizerStatsCountrySource": "event-country"
+    }
   },
   "pepitesCart": {
     "entry": "PlaylistSale",
@@ -964,6 +972,9 @@
     "testflightMinimumMustMatchAppBuild": true
   },
   "storiesExperience": {
+    "approvedEventAutoPin": true,
+    "eventPinUsesExistingRsvps": true,
+    "eventPinUniqueByProfileAndEvent": true,
     "unfollowOnlyFromProfilePage": true,
     "storyAgeLineFormat": "Chronomètre 24 h « ⏱ HH:MM:SS » (temps de vie restant de la musique de story, avance chaque seconde, une seule ligne courte) — demande d'Adel du 05/10/2026 qui remplace « il y a N min ».",
     "storyPriceBadgesRequired": ["💳 PAYANT · N titres · prix (PayPal en €) ou 🪙 N FREE · N titres (musique en vente ; on n'achète pas les titres mais la sélection/le savoir-faire d'écoute du membre)", "🎁 GRATUIT · POUR TON PROFIL (musique publique à garder)"],
