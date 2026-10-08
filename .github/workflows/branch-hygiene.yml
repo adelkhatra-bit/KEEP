@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: read
 
 jobs:
   remove-misleading-legacy-branches:
@@ -23,7 +24,7 @@ jobs:
           test "$GITHUB_REPOSITORY" = 'adelkhatra-bit/KEEP'
           test "$GITHUB_REF_NAME" = 'reconcile/claude-main-20260825'
 
-      - name: Archive then delete every non-canonical human branch
+      - name: Archive legacy branches, preserve canonical and Copilot reviews
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -37,7 +38,7 @@ jobs:
 
           for branch in "${branches[@]}"; do
             case "$branch" in
-              "$canonical"|main|dependabot/*|archive/*)
+              "$canonical"|main|dependabot/*|archive/*|copilot/*)
                 echo "KEEP: $branch"
                 continue
                 ;;
@@ -58,7 +59,7 @@ jobs:
             echo "Deleted confusing branch: $branch"
           done
 
-      - name: Verify only canonical/default/automation branches remain
+      - name: Verify canonical source and Copilot PR destinations
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -71,6 +72,13 @@ jobs:
             case "$branch" in
               "$canonical"|main|dependabot/*|archive/*)
                 ;;
+              copilot/*)
+                bases="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$branch" --state open --json baseRefName --jq '.[].baseRefName')"
+                if [ -z "$bases" ] || [ "$(printf '%s\n' "$bases" | grep -Fvx "$canonical" || true)" != '' ]; then
+                  echo "ERROR: Copilot review must have an open PR targeting $canonical: $branch"
+                  unexpected=1
+                fi
+                ;;
               *)
                 echo "ERROR: unexpected human branch still exists: $branch"
                 unexpected=1
@@ -79,4 +87,4 @@ jobs:
           done < <(gh api --paginate "repos/$GITHUB_REPOSITORY/branches?per_page=100" --jq '.[].name')
 
           test "$unexpected" = 0
-          echo "Branch hygiene verified: ONE human product branch = $canonical"
+          echo "Branch hygiene verified: ONE product source = $canonical; Copilot reviews never publish"

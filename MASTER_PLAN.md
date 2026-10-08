@@ -6,6 +6,7 @@
 ## Les 5 missions de gouvernance — état réel au 06/10/2026
 
 ### Issue #50 — plan demandé le 08/10/2026
+Suivi autorisé par Adel (commentaire `6057745740`, option A) : aligner contrat/garde/nettoyage pour les PR Copilot vers reconcile uniquement, vérifier les contrôles locaux et distants, rapport « TEST MODE RÉEL ». Aucun nouveau module produit ni déploiement ; les contrôles `action_required` exigent l'autorisation GitHub.
 1. Réutiliser reconnaissance/session : candidats réels, remplacement sans signal de goût du titre refusé, migration additive privée ; arrêt micro avant ouverture.
 2. Réutiliser Battle/Solo et Remote Config : départ 12 s borné 0–20, tour annulé sans point/FREE, exclusion après deux signalements.
 3. Corriger uniquement bandeau/pastille/bulle signalés ; tests Jest ciblés, export et navigateur 390/1440, gardes et revue. Aucune migration appliquée ni déploiement.

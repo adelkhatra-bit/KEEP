@@ -2689,3 +2689,7 @@ Issue #50 : correction privée + SESSION et Battle/Solo préparés en revue, 141
 
 Clôture #50 : commit de revue 015aa964 distant confirmé, 1417 tests mobile + 19 music, trois typechecks, export et Chromium 390/1440 réussis ; RLS/annulation PostgreSQL isolés, aucun secret. Revue ciblée sans bug significatif ; revue automatique indisponible, CodeQL incomplet (workflows zéro alerte, expiration). Aucune migration/Edge déployée ni intégration canonique. Fin sans nouveau chantier demandée par Adel.
 
+## [2026-10-08T10:22:32.031Z] codex
+
+PR51 : décision Adel option A, mise en cohérence des branches copilot de revue uniquement vers reconcile ; vérification CI action_required sans jobs, pas de production.
+

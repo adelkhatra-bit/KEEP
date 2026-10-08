@@ -53,7 +53,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$GITHUB_REPOSITORY" = "adelkhatra-bit/KEEP"
-          test "$GITHUB_REF_NAME" = "reconcile/claude-main-20260825"
+          test "${GITHUB_BASE_REF:-$GITHUB_REF_NAME}" = "reconcile/claude-main-20260825"
 
       - name: Verify UI master baseline
         run: node scripts/verify-ui-layout-baseline.cjs
