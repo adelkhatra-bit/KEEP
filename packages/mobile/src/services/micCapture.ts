@@ -22,6 +22,7 @@ const DEFAULT_SAMPLE_DURATION_MS = 4000;
 const MIN_SAMPLE_DURATION_MS = 2500;
 const MAX_SAMPLE_DURATION_MS = 11000;
 const NATIVE_VISUAL_NOISE_FLOOR_DB = -52;
+const NATIVE_SILENCE_DB = -70;
 // Retour utilisateur 31/08/2026 (apres desactivation d'autoGainControl) :
 // l'animation reste peu sensible specifiquement sur iPhone -- devrait bouger
 // des qu'un son est audible, pas seulement sur un son fort. Sans AGC, le
@@ -198,22 +199,26 @@ async function captureAudioSampleNative(onLevel?: (level: number) => void, durat
     ios: { ...preset.ios, sampleRate: 44100, numberOfChannels: 1, bitRate: 128000 },
   };
 
+  let peakDb = -160;
+  let meteringReceived = false;
   const { recording } = await Audio.Recording.createAsync(
     recognitionOptions,
-    onLevel ? (status) => {
+    (status) => {
       if (typeof status.metering !== 'number') return;
       const db = Math.max(-160, Math.min(0, status.metering));
+      meteringReceived = true;
+      peakDb = Math.max(peakDb, db);
       // Important : le visuel ne doit PAS inventer du mouvement à partir du
       // souffle du micro. Sous le plancher de bruit on envoie un vrai 0.
       if (db <= NATIVE_VISUAL_NOISE_FLOOR_DB) {
-        onLevel(0);
+        onLevel?.(0);
         return;
       }
       const normalized = (db - NATIVE_VISUAL_NOISE_FLOOR_DB) / Math.abs(NATIVE_VISUAL_NOISE_FLOOR_DB);
       // Courbe sensible au-dessus du plancher : petite musique = réaction visible,
       // musique forte = tourbillon rapide.
-      onLevel(Math.min(1, Math.pow(Math.max(0, normalized), 0.38) * 1.24));
-    } : undefined,
+      onLevel?.(Math.min(1, Math.pow(Math.max(0, normalized), 0.38) * 1.24));
+    },
     40
   );
   activeRecording = recording;
@@ -237,6 +242,9 @@ async function captureAudioSampleNative(onLevel?: (level: number) => void, durat
 
   activeRecording = null;
   await recording.stopAndUnloadAsync();
+  if (Platform.OS === 'ios' && meteringReceived && peakDb <= NATIVE_SILENCE_DB) {
+    throw new Error(noSoundMessage(undefined, true));
+  }
 
   const uri = recording.getURI();
   if (!uri) throw new Error('Capture micro : aucun fichier produit par expo-av.');

@@ -1,6 +1,9 @@
 import { noSoundMessage } from '../micNoSoundMessage';
 
 describe('message « aucun son » (web)', () => {
+  it('sur iOS natif, explique le repli quand YouTube est interrompu', () => {
+    expect(noSoundMessage(undefined, true)).toContain('Lance la musique sur un autre appareil');
+  });
   it('sur iPhone, explique que le son joué par le même iPhone est filtré par iOS', () => {
     const nav = { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_1 like Mac OS X) AppleWebKit/605.1.15 Safari/604.1', maxTouchPoints: 5 };
     expect(noSoundMessage(nav)).toContain('ne peut pas entendre la musique jouée par ce même iPhone');

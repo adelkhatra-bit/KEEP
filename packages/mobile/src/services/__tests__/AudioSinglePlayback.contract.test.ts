@@ -23,13 +23,13 @@ describe('Single native playback + fast handoff contract', () => {
   });
 
   it('applies the single-player guard to synchronized Battle starts too', () => {
-    expect(audio).toContain('retireEveryNativeSoundExcept(createdSound);');
+    expect(audio).toContain('await ensurePlaying(createdSound, () => requestEpoch === playbackRequestEpoch && activeSound === createdSound, async () => {');
     expect(audio).toContain('await awaitNativeHandoffSilence();');
   });
 
   it('loads Battle previews silently before handoff instead of autoplaying during creation', () => {
-    expect(audio).toContain('createSoundWithRetry(previewUrl, effectivePosition, onStatus, false)');
-    expect(audio).toContain('await ensurePlaying(createdSound)');
+    expect(audio).toContain('createSoundWithRetry(previewUrl, effectivePosition, onStatus, false, true, () => requestEpoch === playbackRequestEpoch)');
+    expect(audio).toContain('await ensurePlaying(createdSound, () => requestEpoch === playbackRequestEpoch && activeSound === createdSound, undefined, requestedAt)');
   });
 
   it('blocks duplicate PASSER/swipe-up transitions synchronously', () => {
@@ -51,13 +51,11 @@ describe('Single native playback + fast handoff contract', () => {
 });
 
 describe('Solo instantané : préchargement précoce, web compris (Adel 05/10/2026)', () => {
-  const fs = require('fs'); const path = require('path');
   const battleSrc = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'KeepBattleMobileGameV3.tsx'), 'utf8');
   const audioSrc = fs.readFileSync(path.join(__dirname, '..', 'audioPreviewService.ts'), 'utf8');
-  it('preloads round 0 during preparation and round N+1 as soon as round N plays', () => {
-    expect(battleSrc).toContain('Première manche : l\'extrait se télécharge pendant la préparation de la partie.');
+  it('preloads N+1 as soon as N plays without duplicating the first active load', () => {
     expect(battleSrc).toContain('const nextRound = solo.rounds[soloIndex + 1];');
-    expect(battleSrc).toContain('soloRoundPreviewKey(first.trackId, 0)');
+    expect(battleSrc).not.toContain('soloRoundPreviewKey(first.trackId, 0)');
   });
   it('web no longer skips segment preloading (a second <audio> warms the browser cache)', () => {
     expect(audioSrc).toContain('warmWebSegment(previewUrl);');
@@ -67,6 +65,6 @@ describe('Solo instantané : préchargement précoce, web compris (Adel 05/10/20
 
 describe('Son au swipe : le réessai reconfigure vraiment la session audio (Adel 05/10/2026)', () => {
   it('invalide le cache de configuration avant le second essai', () => {
-    expect(audio).toContain('lastPreviewAudioConfig = null;\n      if (configureSession) await configurePreviewAudio().catch(() => {});');
+    expect(audio).toContain('lastPreviewAudioConfig = null;\n      await configurePreviewAudio();');
   });
 });

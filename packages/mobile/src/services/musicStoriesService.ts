@@ -637,6 +637,10 @@ export async function pinStoryTrack(trackId: string, track?: { title: string; ar
     return;
   }
   const { error } = await supabase.rpc('keep_pin_story_track', { p_track_id: trackId });
+  if (error?.message?.includes('STORY_PIN_REQUIRES_PUBLIC_KEEP') && track?.title) {
+    await pinFreeStoryTrack({ id: trackId, ...track });
+    return;
+  }
   if (error) throw error;
   notifyOwnStoryChanged();
 }

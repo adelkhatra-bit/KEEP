@@ -993,7 +993,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     }).catch(() => {});
   }, [enabled, initialArenaId, arena]);
 
-  const playVerified = React.useCallback(async (key: string, url?: string | null, duration = ROUND_MS, positionMillis = 0, maxAttempts = 2): Promise<boolean> => {
+  const playVerified = React.useCallback(async (key: string, url?: string | null, duration = ROUND_MS, positionMillis = 0, maxAttempts = 1): Promise<boolean> => {
     if (!url) return false;
     for (let attempt = 0; attempt < Math.max(1, maxAttempts); attempt += 1) {
       // Adel (22/09/2026, audit latence) : le premier essai garde `key` tel
@@ -1004,9 +1004,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       // forcer un chargement frais.
       const attemptKey = attempt === 0 ? key : `${key}:retry${attempt}`;
       try {
-        await playTrackPreviewSegment(attemptKey, url, positionMillis, duration);
-        return true;
-      } catch {
+        let started = false;
+        await playTrackPreviewSegment(attemptKey, url, positionMillis, duration, (playing) => { if (playing) started = true; });
+        return started;
+      } catch (error) {
+        if (error instanceof Error && error.message === 'AUDIO_PREVIEW_CANCELLED') return false;
         await wait(220 + attempt * 180);
       }
     }
@@ -1416,17 +1418,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // le téléchargement a toute la durée de la manche pour se faire. Même clé que le préchargement après réponse (déjà-prêt = ignoré).
   React.useEffect(() => {
     if (!solo) return;
-    // Première manche : l'extrait se télécharge pendant la préparation de la partie.
-    if (!audioReady && soloIndex === 0 && !soloAnswer) {
-      const first = solo.rounds[0];
-      if (first?.previewUrl) void preloadTrackPreviewSegment(soloRoundPreviewKey(first.trackId, 0), first.previewUrl, 0).catch(() => {});
-      return;
-    }
     if (!audioReady || soloAnswer) return;
     const nextRound = solo.rounds[soloIndex + 1];
     if (!nextRound?.previewUrl) return;
     void preloadTrackPreviewSegment(soloRoundPreviewKey(nextRound.trackId, soloIndex + 1), nextRound.previewUrl, 0).catch(() => {});
-  }, [solo, audioReady, soloIndex]);
+  }, [solo, audioReady, soloIndex, soloAnswer]);
   React.useEffect(() => {
     if (!solo || !soloAnswer) return undefined;
     // Une réponse coupe immédiatement l'extrait courant et préchauffe N+1

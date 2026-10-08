@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import { isNativeRecordingModeActive } from './micCapture';
-import { AUDIO_START_CONFIRM_MS, AUDIO_START_POLL_MS, isPreviewStartAccepted } from './audioPreviewStart';
+import { reportAutoDiagnostic } from './problemReportService';
+import { AUDIO_LOAD_CONFIRM_MS, AUDIO_START_CONFIRM_MS, AUDIO_START_POLL_MS, isPreviewStartAccepted } from './audioPreviewStart';
 
 type ExpoAVModule = typeof import('expo-av');
 type AVPlaybackStatus = import('expo-av').AVPlaybackStatus;
@@ -18,7 +19,7 @@ let activeTimer: ReturnType<typeof setTimeout> | null = null;
 let activeStartTimer: ReturnType<typeof setTimeout> | null = null;
 let operation = Promise.resolve();
 
-const AUDIO_CREATE_TIMEOUT_MS = 3200;
+const AUDIO_CREATE_TIMEOUT_MS = 8000;
 const AUDIO_CONTROL_TIMEOUT_MS = 1400;
 
 function withAudioTimeout<T>(promise: Promise<T>, label: string, timeoutMs = AUDIO_CONTROL_TIMEOUT_MS): Promise<T> {
@@ -46,14 +47,11 @@ function withAudioTimeout<T>(promise: Promise<T>, label: string, timeoutMs = AUD
   });
 }
 
-// Préchargement de la manche suivante (Loki Battle solo). Distinct de
-// activeSound : le son en cours de lecture n'est jamais touché pendant
-// qu'un second son se charge en arrière-plan pendant la pause de 2,8s après
-// une réponse. Natif uniquement -- voir canUseWebAudio() plus bas, le web
-// réutilise un unique <audio> partagé pour contourner le blocage autoplay
-// Safari iOS, donc un deuxième flux en parallèle n'a pas sa place ici.
+// Le second lecteur charge N+1 silencieusement pendant N, sans bloquer la file de lecture.
 let preloadedSound: NativeSound | null = null;
 let preloadedKey: string | null = null;
+let segmentPreloadEpoch = 0;
+let segmentPreloadPending: { key: string; promise: Promise<void> } | null = null;
 
 // Préchargement séparé pour l'écoute profil/Swipe. Ne réutilise jamais le
 // slot Battle ci-dessus : une prélecture sociale ne doit pas pouvoir évincer
@@ -294,6 +292,8 @@ const PREVIEW_AUDIO_CONFIG_TTL_MS = 8000;
 async function configurePreviewAudio() {
   const { Audio, InterruptionModeIOS } = getNativeExpoAV();
   const recordingActive = isNativeRecordingModeActive();
+  // L'activation globale n'est pas couverte par le cache du mode (interruptions iOS).
+  await withAudioTimeout(Audio.setIsEnabledAsync(true), 'AUDIO_ENABLE', 1800);
   if (lastPreviewAudioConfig && lastPreviewAudioConfig.recording === recordingActive && Date.now() - lastPreviewAudioConfig.at < PREVIEW_AUDIO_CONFIG_TTL_MS) return;
   await withAudioTimeout(Audio.setAudioModeAsync({
     allowsRecordingIOS: recordingActive,
@@ -310,34 +310,59 @@ async function configurePreviewAudio() {
   lastPreviewAudioConfig = { recording: recordingActive, at: Date.now() };
 }
 
-async function ensurePlaying(sound: NativeSound): Promise<void> {
+function assertPlaybackCurrent(isCurrent: () => boolean): void {
+  if (!isCurrent()) throw new Error('AUDIO_PREVIEW_CANCELLED');
+}
+
+async function waitForLoaded(sound: NativeSound, isCurrent: () => boolean = () => true): Promise<AVPlaybackStatus> {
+  const deadline = Date.now() + AUDIO_LOAD_CONFIRM_MS;
+  do {
+    assertPlaybackCurrent(isCurrent);
+    const status = await withAudioTimeout(sound.getStatusAsync(), 'AUDIO_STATUS', Math.max(1, Math.min(AUDIO_CONTROL_TIMEOUT_MS, deadline - Date.now())));
+    assertPlaybackCurrent(isCurrent);
+    if (status.isLoaded) return status;
+    if (status.error) throw new Error('AUDIO_PREVIEW_LOAD_FAILED');
+    await new Promise((resolve) => setTimeout(resolve, AUDIO_START_POLL_MS));
+  } while (Date.now() < deadline);
+  throw new Error('AUDIO_PREVIEW_NOT_LOADED');
+}
+
+async function ensurePlaying(sound: NativeSound, isCurrent: () => boolean = () => true, beforePlay?: () => Promise<void>, requestedAt = Date.now()): Promise<void> {
   // Verrou global TestFlight : avant qu'un nouveau lecteur devienne audible,
   // tout ancien NativeSound non réservé au préchargement est mis au silence.
   // Même un lecteur qui a perdu activeSound à cause d'une course PASSER/play()
   // reste dans le registre et ne peut donc plus continuer en parallèle.
   retireEveryNativeSoundExcept(sound);
   await awaitNativeHandoffSilence();
-  let status = await withAudioTimeout(sound.getStatusAsync(), 'AUDIO_STATUS');
-  if (!status.isLoaded) throw new Error('AUDIO_PREVIEW_NOT_LOADED');
+  assertPlaybackCurrent(isCurrent);
+  await configurePreviewAudio();
+  let status = await waitForLoaded(sound, isCurrent);
   // Chaque nouvel extrait repart à volume plein sauf s'il est précisément le
   // son que Loki est en train de duck-er pour une phrase vocale.
   if (speechDuckNativeSound !== sound) {
     try { await withAudioTimeout(sound.setVolumeAsync(1), 'AUDIO_VOLUME_RESET', 900); } catch {}
   }
-  if (!status.isPlaying) {
+  for (let attempt = 0; attempt < 2 && !isPreviewStartAccepted(status); attempt += 1) {
+    assertPlaybackCurrent(isCurrent);
+    if (attempt > 0) {
+      await withAudioTimeout(sound.pauseAsync(), 'AUDIO_RETRY_PAUSE');
+      lastPreviewAudioConfig = null;
+      await configurePreviewAudio();
+    }
+    if (beforePlay) await beforePlay();
+    assertPlaybackCurrent(isCurrent);
     try { await withAudioTimeout(sound.playAsync(), 'AUDIO_PLAY', 1800); } catch {}
-    // Cause racine AUDIO_PREVIEW_NOT_PLAYING (33 signalements iPhone, 06/10/2026) : un extrait iTunes distant met
-    // souvent plus de 90 ms à remplir son tampon. Pendant ce temps iOS répond isPlaying=false + isBuffering=true alors
-    // que la lecture est bien demandée (shouldPlay=true). L'ancien contrôle unique à 90 ms jetait donc une erreur,
-    // déchargeait le son et recommençait : l'utilisateur n'entendait rien. On attend maintenant le vrai démarrage
-    // (jusqu'à AUDIO_START_CONFIRM_MS) et on accepte un son qui tamponne avec la lecture demandée.
     const deadline = Date.now() + AUDIO_START_CONFIRM_MS;
     do {
+      assertPlaybackCurrent(isCurrent);
+      status = await withAudioTimeout(sound.getStatusAsync(), 'AUDIO_STATUS_CONFIRM', Math.max(1, Math.min(AUDIO_CONTROL_TIMEOUT_MS, deadline - Date.now())));
+      assertPlaybackCurrent(isCurrent);
+      if (isPreviewStartAccepted(status)) break;
       await new Promise((resolve) => setTimeout(resolve, AUDIO_START_POLL_MS));
-      status = await withAudioTimeout(sound.getStatusAsync(), 'AUDIO_STATUS_CONFIRM');
-    } while (status.isLoaded && !status.isPlaying && Date.now() < deadline);
+    } while (Date.now() < deadline);
   }
   if (!isPreviewStartAccepted(status)) throw new Error('AUDIO_PREVIEW_NOT_PLAYING');
+  reportAutoDiagnostic('AUDIO_PREVIEW_STARTED', `native start_ms=${Math.max(0, Date.now() - requestedAt)}`);
 }
 
 
@@ -347,6 +372,7 @@ async function createSoundWithRetry(
   onStatus: (status: AVPlaybackStatus, sound: NativeSound) => void,
   autoPlay = true,
   configureSession = true,
+  isCurrent: () => boolean = () => true,
 ): Promise<NativeSound> {
   const { Audio } = getNativeExpoAV();
   let lastError: unknown = null;
@@ -356,10 +382,12 @@ async function createSoundWithRetry(
   // requêtes ni masquer une vraie URL expirée.
   const maxAttempts = 2;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    assertPlaybackCurrent(isCurrent);
     let createdSound: NativeSound | null = null;
+    let abandoned = false;
     try {
       if (configureSession) await configurePreviewAudio();
-      const created = await withAudioTimeout(Audio.Sound.createAsync(
+      const opening = Audio.Sound.createAsync(
         { uri: previewUrl },
         {
           shouldPlay: false,
@@ -370,17 +398,22 @@ async function createSoundWithRetry(
         (status: AVPlaybackStatus) => {
           if (createdSound) onStatus(status, createdSound);
         },
-      ), 'AUDIO_CREATE', autoPlay ? AUDIO_CREATE_TIMEOUT_MS : 2200);
+      ).then((created) => {
+        nativeSoundRegistry.add(created.sound);
+        if (abandoned || !isCurrent()) retireNativeSoundFast(created.sound);
+        return created;
+      });
+      const created = await withAudioTimeout(opening, 'AUDIO_CREATE', AUDIO_CREATE_TIMEOUT_MS);
       createdSound = created.sound;
-      nativeSoundRegistry.add(created.sound);
+      assertPlaybackCurrent(isCurrent);
       if (autoPlay) {
-        await ensurePlaying(created.sound);
+        await ensurePlaying(created.sound, isCurrent);
       } else {
-        const status = await withAudioTimeout(created.sound.getStatusAsync(), 'AUDIO_PRELOAD_STATUS');
-        if (!status.isLoaded) throw new Error('AUDIO_PREVIEW_NOT_LOADED');
+        await waitForLoaded(created.sound, isCurrent);
       }
       return created.sound;
     } catch (error) {
+      abandoned = true;
       lastError = error;
       if (createdSound) {
         try { await withAudioTimeout(createdSound.stopAsync(), 'AUDIO_CREATE_STOP'); } catch {}
@@ -390,8 +423,8 @@ async function createSoundWithRetry(
       // Adel (05/10/2026) : « quand je swipe il n'y a pas de son ». Le cache de 8 s de configurePreviewAudio faisait que ce second essai
       // ne reconfigurait JAMAIS la session audio iOS alors qu'elle était peut-être la cause de l'échec : on l'invalide avant de réessayer.
       lastPreviewAudioConfig = null;
-      if (configureSession) await configurePreviewAudio().catch(() => {});
-      await new Promise((resolve) => setTimeout(resolve, 120 + attempt * 100));
+      assertPlaybackCurrent(isCurrent);
+      if (attempt + 1 < maxAttempts) await new Promise((resolve) => setTimeout(resolve, 120));
     }
   }
   throw lastError instanceof Error ? lastError : new Error('AUDIO_PREVIEW_LOAD_FAILED');
@@ -597,6 +630,7 @@ export async function toggleTrackPreview(
   onStateChange: (playing: boolean) => void,
   onEnded?: () => void,
 ): Promise<void> {
+  const requestedAt = Date.now();
   const requestEpoch = ++playbackRequestEpoch;
   return serialize(async () => {
     if (requestEpoch !== playbackRequestEpoch) return;
@@ -657,7 +691,7 @@ export async function toggleTrackPreview(
       // createSoundWithRetry configure la session une seule fois. Avant ce
       // correctif, configurePreviewAudio était appelé ici puis à nouveau dans
       // createSoundWithRetry, ce qui alourdissait chaque passage sur iOS.
-      createdSound = await createSoundWithRetry(previewUrl, 0, onStatus, false);
+      createdSound = await createSoundWithRetry(previewUrl, 0, onStatus, false, true, () => requestEpoch === playbackRequestEpoch);
     }
 
     if (requestEpoch !== playbackRequestEpoch) {
@@ -677,7 +711,7 @@ export async function toggleTrackPreview(
     activeKey = key;
     activeStateListener = onStateChange;
     try {
-      await ensurePlaying(createdSound);
+      await ensurePlaying(createdSound, () => requestEpoch === playbackRequestEpoch && activeSound === createdSound, undefined, requestedAt);
     } catch (error) {
       if (activeSound === createdSound) await unloadActive();
       throw error;
@@ -763,6 +797,7 @@ export async function playTrackPreviewSegment(
   onEnded?: () => void,
   startFromBeginning = false,
 ): Promise<void> {
+  const requestedAt = Date.now();
   const requestEpoch = ++playbackRequestEpoch;
   return serialize(async () => {
     if (requestEpoch !== playbackRequestEpoch) return;
@@ -787,10 +822,11 @@ export async function playTrackPreviewSegment(
     // Adel (22/09/2026) : "audit latence TestFlight" -- rien ne préchargeait
     // jamais l'extrait de la manche N+1 pendant que la manche N jouait, donc
     // chaque manche payait la latence réseau+décodage complète. Si
-    // preloadTrackPreviewSegment a déjà préparé CETTE clé (déclenché pendant
-    // la pause de 2,8s après une réponse, voir KeepBattleMobileGameV3), on
+    // preloadTrackPreviewSegment a déjà préparé CETTE clé pendant N, on
     // consomme ce son directement -- latence quasi nulle. Sinon, repli
     // inchangé sur le chargement normal.
+    if (segmentPreloadPending?.key === key) await segmentPreloadPending.promise;
+    assertPlaybackCurrent(() => requestEpoch === playbackRequestEpoch);
     let createdSound: NativeSound | null = null;
     if (preloadedKey === key && preloadedSound) {
       const preloaded = preloadedSound;
@@ -811,7 +847,7 @@ export async function playTrackPreviewSegment(
       await unloadActive();
       // Charger silencieusement : le nouveau morceau n'a pas le droit de
       // devenir audible tant que la barrière de handoff n'a pas coupé N.
-      createdSound = await createSoundWithRetry(previewUrl, effectivePosition, onStatus, false);
+      createdSound = await createSoundWithRetry(previewUrl, effectivePosition, onStatus, false, true, () => requestEpoch === playbackRequestEpoch);
     }
 
     await awaitNativeHandoffSilence();
@@ -825,7 +861,7 @@ export async function playTrackPreviewSegment(
     activeKey = key;
     activeStateListener = onStateChange ?? null;
     try {
-      await ensurePlaying(createdSound);
+      await ensurePlaying(createdSound, () => requestEpoch === playbackRequestEpoch && activeSound === createdSound, undefined, requestedAt);
     } catch (error) {
       if (activeSound === createdSound) await unloadActive();
       throw error;
@@ -880,8 +916,10 @@ export async function preloadTrackPreviewSegment(
     warmWebSegment(previewUrl);
     return;
   }
-  return serialize(async () => {
-    if (preloadedKey === key && preloadedSound) return;
+  if (preloadedKey === key && preloadedSound) return;
+  if (segmentPreloadPending?.key === key) return segmentPreloadPending.promise;
+  const requestEpoch = ++segmentPreloadEpoch;
+  const promise = (async () => {
     // iOS/TestFlight : préparer N+1 sans reconfigurer l'AudioSession
     // pendant que N joue. La reconfiguration globale était la vraie cause
     // du saut de son ; le chargement silencieux d'un second Sound peut, lui,
@@ -898,18 +936,28 @@ export async function preloadTrackPreviewSegment(
     try {
       if (!activePlaying) await configurePreviewAudio();
       const sound = await createSoundWithRetry(previewUrl, effectivePosition, () => {}, false, !activePlaying);
+      if (requestEpoch !== segmentPreloadEpoch) {
+        retireNativeSoundFast(sound);
+        return;
+      }
       preloadedSound = sound;
       preloadedKey = key;
     } catch {
-      await discardPreloaded();
+      if (requestEpoch === segmentPreloadEpoch) await discardPreloaded();
     }
-  });
+  })();
+  segmentPreloadPending = { key, promise };
+  try { await promise; } finally {
+    if (segmentPreloadPending?.promise === promise) segmentPreloadPending = null;
+  }
 }
 
 /** Abandonne un préchargement en attente (ex. le joueur quitte le Battle avant que la manche préchargée ne démarre). */
 export function discardPreloadedTrackPreview(key?: string): void {
-  if (key && preloadedKey !== key) return;
-  void serialize(async () => { await discardPreloaded(); });
+  if (key && preloadedKey !== key && segmentPreloadPending?.key !== key) return;
+  segmentPreloadEpoch += 1;
+  segmentPreloadPending = null;
+  void discardPreloaded();
 }
 
 /** Précharge l'extrait et le lance sur un timestamp absolu partagé entre joueurs. */
@@ -966,9 +1014,11 @@ export async function scheduleTrackPreviewSegment(
       return;
     }
 
+    if (segmentPreloadPending?.key === key) await segmentPreloadPending.promise;
+    assertPlaybackCurrent(() => requestEpoch === playbackRequestEpoch);
     await unloadActive();
     const effectivePosition = positionMillis > 0 ? positionMillis : 9000;
-    const createdSound = await createSoundWithRetry(previewUrl, effectivePosition, (status, sound) => {
+    const onStatus = (status: AVPlaybackStatus, sound: NativeSound) => {
       if (!status.isLoaded) return;
       if (activeSound === sound) activeStateListener?.(status.isPlaying);
       if (!status.didJustFinish) return;
@@ -978,7 +1028,16 @@ export async function scheduleTrackPreviewSegment(
           await unloadActive();
         });
       }
-    }, false);
+    };
+    let createdSound: NativeSound;
+    if (preloadedKey === key && preloadedSound) {
+      createdSound = preloadedSound;
+      preloadedSound = null;
+      preloadedKey = null;
+      createdSound.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => onStatus(status, createdSound));
+    } else {
+      createdSound = await createSoundWithRetry(previewUrl, effectivePosition, onStatus, false, true, () => requestEpoch === playbackRequestEpoch);
+    }
     await awaitNativeHandoffSilence();
     if (requestEpoch !== playbackRequestEpoch) {
       try { await createdSound.stopAsync(); } catch {}
@@ -994,21 +1053,14 @@ export async function scheduleTrackPreviewSegment(
       if (activeSound !== createdSound) return;
       void (async () => {
         try {
-          const lateByMs = Math.min(
-            Math.max(0, Date.now() - startAtEpochMs),
-            Math.max(0, durationMillis - 700),
-          );
-          const syncedPosition = effectivePosition + lateByMs;
-          const remainingDuration = Math.max(700, durationMillis - lateByMs);
-          if (lateByMs > 0) {
-            try { await createdSound.setPositionAsync(syncedPosition); } catch {}
-          }
-          retireEveryNativeSoundExcept(createdSound);
-          await awaitNativeHandoffSilence();
-          if (activeSound !== createdSound) return;
-          await createdSound.playAsync();
+          await ensurePlaying(createdSound, () => requestEpoch === playbackRequestEpoch && activeSound === createdSound, async () => {
+            const lateByMs = Math.max(0, Date.now() - startAtEpochMs);
+            if (lateByMs >= durationMillis) throw new Error('AUDIO_ROUND_EXPIRED');
+            await withAudioTimeout(createdSound.setPositionAsync(effectivePosition + lateByMs), 'AUDIO_SYNC_POSITION');
+          }, startAtEpochMs);
           if (activeSound !== createdSound) return;
           onStateChange?.(true);
+          const remainingDuration = Math.max(700, durationMillis - Math.max(0, Date.now() - startAtEpochMs));
           activeTimer = setTimeout(() => {
             if (activeSound !== createdSound) return;
             void serialize(async () => { await unloadActive(); });
@@ -1113,7 +1165,7 @@ export async function playAntiShazamPreviewSegment(
     }
 
     await unloadActive();
-    const createdSound = await createSoundWithRetry(previewUrl, 0, () => {}, false);
+    const createdSound = await createSoundWithRetry(previewUrl, 0, () => {}, false, true, () => requestEpoch === playbackRequestEpoch);
     createdSound.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
       if (!status.isLoaded) return;
       if (activeSound === createdSound) activeStateListener?.(status.isPlaying);
@@ -1127,7 +1179,12 @@ export async function playAntiShazamPreviewSegment(
     activeSound = createdSound;
     activeKey = key;
     activeStateListener = onStateChange ?? null;
-    await ensurePlaying(createdSound);
+    try {
+      await ensurePlaying(createdSound, () => requestEpoch === playbackRequestEpoch && activeSound === createdSound);
+    } catch (error) {
+      if (activeSound === createdSound) await unloadActive();
+      throw error;
+    }
     onStateChange?.(true);
     activeTimer = setTimeout(() => {
       if (activeSound !== createdSound) return;
@@ -1176,6 +1233,14 @@ export function isTrackPreviewActive(key: string): boolean {
 // (jouer solo, rejoindre en ligne, accepter un défi/une revanche) --
 // jouer puis mettre en pause immédiatement sur le MÊME élément partagé
 // suffit à obtenir ce déblocage pour le reste de la session.
+export async function unlockTrackPreviewAudio(): Promise<void> {
+  if (canUseWebAudio()) {
+    unlockWebAudioForGesture();
+    return;
+  }
+  await configurePreviewAudio();
+}
+
 export function unlockWebAudioForGesture(): void {
   const element = getWebAudio();
   if (!element) return;

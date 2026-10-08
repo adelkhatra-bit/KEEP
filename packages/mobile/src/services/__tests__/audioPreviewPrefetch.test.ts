@@ -18,7 +18,7 @@ describe('audioPreviewService -- préchargement de la manche suivante (Battle so
 
   it('expose preloadTrackPreviewSegment (charge sans jouer, shouldPlay:false via autoPlay=false)', () => {
     expect(preview).toContain('export async function preloadTrackPreviewSegment(');
-    expect(preview).toContain("createSoundWithRetry(previewUrl, effectivePosition, () => {}, false, !activePlaying);");
+    expect(preview).toContain("createSoundWithRetry(previewUrl, effectivePosition, () => {}, false, !activePlaying)");
   });
 
   it('expose discardPreloadedTrackPreview pour nettoyer un préchargement abandonné', () => {
@@ -37,16 +37,16 @@ describe('audioPreviewService -- préchargement de la manche suivante (Battle so
     expect(preview).toContain('if (preloadedKey === key && preloadedSound) {');
     expect(preview).toContain('preloaded.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => onStatus(status, preloaded));');
     expect(preview).toContain('createdSound = preloaded;');
-    expect(preview).toContain('await ensurePlaying(createdSound);');
+    expect(preview).toContain('await ensurePlaying(createdSound, () => requestEpoch === playbackRequestEpoch && activeSound === createdSound, undefined, requestedAt)');
   });
 
   it('un échec de consommation du préchargement retombe sur le chargement normal (pas de blocage)', () => {
     const fnStart = preview.indexOf('export async function playTrackPreviewSegment(');
     const fnBody = preview.slice(fnStart, preview.indexOf('\n}\n', fnStart));
     expect(fnBody).toContain('if (!createdSound) {');
-    expect(fnBody).toContain('createdSound = await createSoundWithRetry(previewUrl, effectivePosition, onStatus, false);');
+    expect(fnBody).toContain('createdSound = await createSoundWithRetry(previewUrl, effectivePosition, onStatus, false, true, () => requestEpoch === playbackRequestEpoch)');
     expect(fnBody).toContain('await awaitNativeHandoffSilence();');
-    expect(fnBody).toContain('await ensurePlaying(createdSound);');
+    expect(fnBody).toContain('await ensurePlaying(createdSound, () => requestEpoch === playbackRequestEpoch && activeSound === createdSound, undefined, requestedAt)');
   });
 
   it("KeepBattleMobileGameV3 précharge la manche N+1 dès qu'une réponse est donnée, seulement s'il en reste une", () => {

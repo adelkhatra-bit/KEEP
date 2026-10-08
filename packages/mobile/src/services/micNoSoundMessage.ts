@@ -13,7 +13,8 @@ export function isIosWebBrowser(nav: { userAgent?: string; maxTouchPoints?: numb
   return /iPhone|iPad|iPod/.test(ua) || iPadOs;
 }
 
-export function noSoundMessage(nav?: { userAgent?: string; maxTouchPoints?: number }): string {
+export function noSoundMessage(nav?: { userAgent?: string; maxTouchPoints?: number }, nativeIos = false): string {
+  if (nativeIos) return 'Aucun son capté. Si YouTube ou une autre app s’arrête pendant l’écoute, Lance la musique sur un autre appareil, puis réessaie.';
   return isIosWebBrowser(nav ?? (typeof navigator === 'undefined' ? undefined : navigator))
     ? 'Aucun son capté. Sur iPhone, le site ne peut pas entendre la musique jouée par ce même iPhone : iOS la filtre du micro. Joue-la sur une enceinte ou un autre appareil, ou utilise l’app Loki Music.'
     : 'Aucun son détecté -- vérifie que le micro capte bien la musique (volume, autorisation navigateur).';
