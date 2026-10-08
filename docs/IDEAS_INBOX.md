@@ -218,3 +218,12 @@ Statuts : `IDÉE` (notée) → `CADRÉE` (proposition validée) → `EN COURS` �
 - **IDÉE / problème à diagnostiquer :** Maes : confusion possible de morceaux/artistes/styles ; audit confirme des homonymes sous la même clé textuelle. Conserver l’identité fournisseur de l’artiste, ne pas forcer tous les morceaux nommés Maes en rap.
 - **IDÉE / performance :** réduire les attentes Solo/Battle et entre extraits à partir de mesures clic→son, chargement questions, préchargement et réseau ; préserver quotas, FREE, synchronisation et contrôles serveur.
 - **IDÉE / préciser IDEA-181 :** chaîne signalement→diagnostic→correctif→tests→publication→invitation à retester→retour utilisateur, traçable par build/SHA et fichier concerné. Aucun message « réparé » sur simple changement de statut.
+
+## Complément Adel — 08/10/2026 — catalogue, statistiques et Loki Pulse
+
+- **IDÉE / décision :** styles Solo/Battle séparés des goûts musicaux du profil ; enrichir les catalogues sans remplacement silencieux par un autre style.
+- **IDÉE :** réunir les événements existants (j’aime, refus, écoutes réelles, parties, partages et reprises) pour personnaliser les recommandations. Conserver leurs contextes ; un style de partie ne réécrit pas les goûts du profil. Dédupliquer et exclure répétitions artificielles du classement.
+- **IDÉE :** promotion automatique dans Loki Pulse selon critères contrôlables par le Super Admin. Message uniquement après diffusion réelle : « Ta découverte passe dans Loki Pulse 🎉 » avec « Voir » ; une seule notification par promotion. Respecter visibilité, premier découvreur et offres en vente.
+- **IDÉE / libellé proposé :** « À découvrir » pour un titre sans premier découvreur Loki ; « Découvert par @… » sinon. Ne pas suggérer une propriété des droits musicaux.
+- **IDÉE / décision explicite :** partager dans sa story coûte 0 FREE ; ajouter ensuite ce titre depuis sa propre story à son profil coûte 3 FREE, annoncés avant confirmation. Aucun nouveau débit si déjà gardé ; annulation et requête répétée ne débitent pas. La reprise sociale publique d’un autre membre garde son régime distinct existant.
+- **IDÉE / exécution autorisée :** réaliser le maximum des corrections testables, conserver les travaux de Claude Code, documenter précisément le reste et les accès/API nécessaires. Aucun verrou d’agent demandé par Adel.
