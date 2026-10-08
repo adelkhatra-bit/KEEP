@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 import { APP_NAME } from '../lib/brand';
 import AdminRobot from './AdminRobot';
+import { healthState, parseSystemHealth, SystemHealth } from '../lib/systemHealth';
 
 type AdminRole = 'SUPER_ADMIN' | 'ADMIN' | 'SUPPORT' | 'FINANCE' | 'MARKETING' | 'MODERATOR' | 'TECH';
 
@@ -58,6 +59,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [pendingSupport, setPendingSupport] = useState(0);
   const [integrationIssues, setIntegrationIssues] = useState(0);
+  const [healthAlerts, setHealthAlerts] = useState<SystemHealth['notifications']>([]);
+  const [healthUnavailable, setHealthUnavailable] = useState(false);
   const [pendingModeration, setPendingModeration] = useState(0);
   const [bellOpen, setBellOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -93,15 +96,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (!client) return undefined;
     let active = true;
     const refresh = async () => {
-      const [{ data: pending }, { data: runtime }, { data: moderation }] = await Promise.all([
+      const [{ data: pending }, healthResult, { data: moderation }] = await Promise.all([
         client.rpc('admin_pending_support_count'),
-        client.rpc('admin_integration_runtime_status'),
+        client.rpc('admin_system_health'),
         client.rpc('admin_event_pending_count'),
       ]);
       if (!active) return;
       setPendingSupport(Number(pending || 0));
-      const issues = Array.isArray(runtime) ? runtime.filter((row: any) => row.status === 'ERROR' || row.status === 'EXHAUSTED').length : 0;
-      setIntegrationIssues(issues);
+      try {
+        if (healthResult.error) throw healthResult.error;
+        const health = parseSystemHealth(healthResult.data);
+        setIntegrationIssues(health.services.filter(row => healthState(row) === 'ERROR').length);
+        setHealthAlerts(health.notifications);
+        setHealthUnavailable(false);
+      } catch {
+        setIntegrationIssues(0); setHealthAlerts([]); setHealthUnavailable(true);
+      }
       setPendingModeration(Number(moderation || 0));
     };
     void refresh();
@@ -109,14 +119,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       .channel('admin-bell')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, () => void refresh())
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'support_ticket_messages' }, () => void refresh())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'integration_runtime_status' }, () => void refresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'provider_health' }, () => void refresh())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => void refresh())
       .subscribe();
     const interval = setInterval(() => void refresh(), 60000);
     return () => { active = false; clearInterval(interval); void client.removeChannel(channel); };
   }, []);
 
-  const totalAlerts = pendingSupport + integrationIssues + pendingModeration;
+  const totalAlerts = pendingSupport + Math.max(integrationIssues, healthAlerts.filter(alert => !alert.read_at).length) + pendingModeration;
 
   const visibleGroups = useMemo(
     () => NAV_GROUPS
@@ -183,7 +193,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <button
               type="button"
               onClick={() => setBellOpen((v) => !v)}
-              aria-label={totalAlerts > 0 ? `${totalAlerts} alerte(s) Super Admin` : 'Aucune alerte'}
+              aria-label={healthUnavailable ? 'Alertes santé indisponibles' : totalAlerts > 0 ? `${totalAlerts} alerte(s) Super Admin` : 'Aucune alerte'}
               style={{ position: 'relative', background: 'transparent', border: '1px solid var(--border)', borderRadius: 10, width: 38, height: 38, padding: 0, fontSize: 18, cursor: 'pointer', color: 'var(--text)' }}
             >
               🔔
@@ -194,8 +204,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               )}
             </button>
             {bellOpen && (
-              <div style={{ position: 'absolute', right: 0, top: 44, width: 300, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 14, zIndex: 50, boxShadow: '0 8px 24px rgba(0,0,0,.4)' }}>
-                {totalAlerts === 0 ? (
+              <div style={{ position: 'absolute', right: 0, top: 44, width: 300, maxHeight: '70vh', overflowY: 'auto', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 14, zIndex: 50, boxShadow: '0 8px 24px rgba(0,0,0,.4)' }}>
+                {healthUnavailable ? <p role="alert">Santé indisponible · à vérifier</p> : null}
+                {totalAlerts === 0 && !healthUnavailable && !healthAlerts.length ? (
                   <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: 13 }}>Rien à signaler.</p>
                 ) : <>
                   {pendingSupport > 0 && (
@@ -204,8 +215,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     </Link>
                   )}
                   {integrationIssues > 0 && (
-                    <Link href="/integrations" onClick={() => setBellOpen(false)} style={{ display: 'block', padding: '8px 0', color: 'var(--text)', textDecoration: 'none' }}>
-                      ⚠️ {integrationIssues} intégration{integrationIssues > 1 ? 's' : ''} en erreur ou quota épuisé
+                    <Link href="/operations" onClick={() => setBellOpen(false)} style={{ display: 'block', padding: '8px 0', color: 'var(--text)', textDecoration: 'none' }}>
+                      ❌ {integrationIssues} incident(s) Santé
                     </Link>
                   )}
                   {pendingModeration > 0 && (
@@ -213,6 +224,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       🛡️ {pendingModeration} événement{pendingModeration > 1 ? 's' : ''} en attente de validation
                     </Link>
                   )}
+                  {healthAlerts.map(alert => <Link key={alert.id} href="/operations" onClick={() => setBellOpen(false)} style={{ display: 'block', padding: '8px 0', color: 'var(--text)', textDecoration: 'none', overflowWrap: 'anywhere' }}>
+                    {alert.title} · {new Date(alert.created_at).toLocaleString('fr-FR')}
+                  </Link>)}
                 </>}
               </div>
             )}

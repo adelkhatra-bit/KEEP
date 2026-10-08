@@ -1,5 +1,30 @@
 # TEST MODE RÉEL — Audit Super Admin page par page (06/10/2026)
 
+## Issue #57 — rapport de validation du 08/10/2026
+
+**TEST MODE RÉEL production : NON EXÉCUTÉ dans cette session.** Aucun connecteur/accès Supabase authentifié disponible dans ce clone. Les nombres ci-dessous sont les valeurs de production fournies dans l’issue, pas une nouvelle mesure. Aucune écriture, migration ni fonction déployée en production ; aucune réception d’e-mail admin revendiquée.
+
+| Source : issue #57, 08/10 vers 05 h | Valeur fournie |
+|---|---|
+| provider_health | vide |
+| app_problem_reports | 90 NEW, 74 Profil, 14 en 24 h |
+| email_queue, 7 j | 6 failed / 2 sent |
+| push_delivery_attempts, 7 j | 370 NO_DEVICE / 12 FAILED / 34 DELIVERED ; 1 push token |
+| web_pairings | 243 WAITING / 0 validé |
+| cron, 24 h | 0 échec ; 2 observations « job startup timeout » fanout |
+
+**Preuves locales, transport fournisseur simulé et PostgreSQL réel isolé :**
+- `KEEP_PROBLEM_REPORT_LOCAL_SQL=1 node --test scripts/problem-report-evidence.test.cjs` : 7/7, sans skipped. Trois messages identiques ou normalisés → un groupe de 3 ; écrans/codes HTTP distincts séparés ; NEW → SEEN → FIXED atomique, SHA/test obligatoires, réouverture sans perte de preuves ; refus anon/non-admin.
+- `node --test scripts/admin-system-health.test.cjs scripts/admin-release-evidence.test.cjs` : 13/13. Vert limité à un contrôle réussi récent ; erreur persistante, réponse inaccessible jamais transformée en zéro ; brouillon GitHub sans message, pseudo, appareil ni contexte privé ; anciens statuts « configuré » non présentés comme santé réelle.
+- Serveur : `scripts/system-health.test.cjs` exercé par l’agent serveur, 9/9, probes simulées, signature ES256 réellement vérifiée, PostgreSQL16 isolé : panne → ligne ERROR + notification/e-mail uniques, rétablissement puis nouvelle panne → nouvel incident ; authentification worker refusée sans clé valide, atomicité/concurrence, files sans récursion, Brevo simulé et métriques UTC.
+- `npx tsc --noEmit -p packages/admin` et `npm run build --workspace=packages/admin` : réussis, 22 pages exportées avec `/KEEP/admin-preview`. Vérifications robot et contraste intégrées au build.
+- `scripts/admin-release-evidence-browser.cjs` sur cet export, Chromium **390×844 et 1440×900** : Santé, détails Brevo, cloche, résumé visible, pays/devise uniques, groupe de 3, brouillon d’issue, formulaire SHA/test, navigation/reload HTTP200, aucun débordement horizontal, aucun `pageerror` ni erreur HTTP des pages/assets. Panne de RPC simulée : Santé et cloche indisponibles, aucun faux vert.
+- Captures **fixtures, jamais preuves de production** : [Santé 390](audit/evidence/issue57/sante-390.png), [Santé 1440](audit/evidence/issue57/sante-1440.png), [groupes 390](audit/evidence/issue57/signalements-390.png), [groupes 1440](audit/evidence/issue57/signalements-1440.png). Les compteurs représentés sont simulés et ne constituent pas le résumé réel du jour.
+
+**Activation contrôlée à faire après revue :** appliquer uniquement les deux migrations additives `20261008031000_system_health_monitor.sql` et `20261008031500_problem_report_groups.sql` avec l’accord d’Adel ; publier la fonction `keep-system-health` et l’admin via la chaîne canonique. Le worker utilise une clé interne Vault hachée, jamais une clé dans le navigateur. Vérifier ensuite les six probes, l’historique cron, les files, une alerte réellement reçue par Brevo et les groupes sur les vraies données. Les probes synthétiques ACR/Translate/YouTube peuvent consommer quota/coût (288 passages/jour) ; elles ne certifient pas une livraison e-mail/APNs. Les fonctions Edge restent UNKNOWN si leurs logs ne sont pas accessibles, jamais un taux d’erreur inventé. iPhone/TestFlight et CI distante de cette revue non vérifiés.
+
+CI canonique examinée séparément : [run 37711629482](https://github.com/adelkhatra-bit/KEEP/actions/runs/37711629482), échec du bouton « Ouvrir la conversation avec profil-test » du smoke **tchat mobile** au SHA `fa193cc537d47132053163cc842a98756b2a1fff` ; fichiers mobile/workflow inchangés par #57. Aucun PASS global ni relance de ce workflow revendiqués.
+
 Méthode : lecture du code `packages/admin` (branche `reconcile/claude-main-20260825`, tête `07d328d`) + requêtes en lecture seule sur la base réelle Supabase. Aucune modification. Pas de capture 390/1440 : la page exige la connexion SUPER_ADMIN (mot de passe d'Adel).
 
 Légende : ✅ marche · ⚠️ à corriger · ❌ cassé/manquant. « Textes > 5 mots » = textes visibles comptés automatiquement (règle n°1). « Clavier » = champs à taper (règle n°2).

@@ -78,8 +78,9 @@ test('UI et RPC restent dans admin existant, pas export des messages privés', (
   assert.match(component, /admin_problem_report_overview/);
   assert.match(component, /test à vérifier|test réussi/);
   assert.doesNotMatch(component, /JSON\.stringify|download=|fix\.message\b|\.username\b|\.context\b/);
-  assert.match(reports, /admin_problem_report_record_fix/);
+  assert.match(reports, /admin_problem_report_group_set_status/);
+  assert.match(reports, /p_status: 'FIXED', p_sha: sha\.trim\(\), p_test: testPath\.trim\(\)/);
   assert.match(reports, /validSha\(sha\.trim\(\)\)/);
-  assert.match(reports, /admin_problem_reports_with_evidence/);
+  assert.match(reports, /admin_problem_report_groups/);
   assert.doesNotMatch(reports, /onClick=\{\(\) => void setStatus\(r\.id, 'FIXED'\)/);
 });

@@ -11,5 +11,9 @@ verify_jwt = false
 [functions.keep-brevo-webhook]
 verify_jwt = false
 
+# Internal cron uses a dedicated hashed worker key, not a user JWT.
+[functions.keep-system-health]
+verify_jwt = false
+
 # keep-account-email is intentionally NOT public: the deployed function currently
 # requires an authenticated account and must keep verify_jwt=true.
