@@ -28,7 +28,17 @@ try {
   const reviewBranch = localBranch || process.env.GITHUB_HEAD_REF || '';
   if (reviewBranch.startsWith('copilot/')) {
     try {
-      execFileSync('git', ['merge-base', '--is-ancestor', `refs/remotes/origin/${expectedBranch}`, 'HEAD'], { cwd: root, stdio: 'pipe' });
+      let reviewHead = 'HEAD';
+      if (process.env.GITHUB_EVENT_NAME === 'pull_request') {
+        const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+        const pr = event.pull_request;
+        if (pr?.head?.ref !== reviewBranch || pr?.head?.repo?.full_name !== expectedRepository
+          || pr?.base?.ref !== expectedBranch || !/^[a-f0-9]{40}$/i.test(pr?.head?.sha || '')) {
+          throw new Error('Invalid review head');
+        }
+        reviewHead = pr.head.sha;
+      }
+      execFileSync('git', ['merge-base', '--is-ancestor', `refs/remotes/origin/${expectedBranch}`, reviewHead], { cwd: root, stdio: 'pipe' });
       verifiedAgentBranch = reviewBranch;
     } catch {
       failures.push('AGENT BRANCH MUST CONTAIN FETCHED CANONICAL SOURCE');

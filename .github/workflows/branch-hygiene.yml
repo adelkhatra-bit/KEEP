@@ -7,13 +7,32 @@ on:
       - 'BRANCH_SOURCE_OF_TRUTH.json'
       - '.github/workflows/branch-hygiene.yml'
   workflow_dispatch:
+  pull_request:
+    types: [opened, reopened, synchronize, edited, ready_for_review]
 
 permissions:
   contents: write
   pull-requests: read
 
 jobs:
+  copilot-review-base:
+    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'copilot/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: read
+    steps:
+      - name: Refuser toute base de revue non canonique
+        env:
+          REVIEW_BASE: ${{ github.base_ref }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = 'adelkhatra-bit/KEEP'
+          test "$REVIEW_BASE" = 'reconcile/claude-main-20260825'
+
   remove-misleading-legacy-branches:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
