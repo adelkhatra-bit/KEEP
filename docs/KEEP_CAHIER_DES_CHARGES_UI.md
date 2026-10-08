@@ -2,6 +2,12 @@
 
 Sous-spécification du cahier des charges maître : `docs/KEEP_MASTER_SPEC.md`. En cas d'évolution validée, les deux fichiers doivent rester cohérents.
 
+## Liens et Mon style — issue #48, Adel 08/10/2026
+- Profil › Ma musique : un seul « ＋ Ajouter un lien », lecture automatique du presse-papiers, aperçu et AJOUTER, sans clavier ; le partage système utilise le même import.
+- Les titres importés restent dans `music_library_items` et proposent « Ouvrir dans » avec toutes les plateformes résolues. Aucun déplacement des collections validées.
+- « Mon style » affiche cinq styles, cinq artistes, ❤️, 👎, GARDER et le nombre d'imports par plateforme depuis `keep_my_music_stats()`, sans chiffres fabriqués en cas d'erreur.
+- Aide par ⓘ, texte clair ≥ 11 px, cibles ≥ 48 px ; même composant pour 390×844 et 1440×900. Aucune écriture en Démo/invité, aucune consommation FREE pour importer.
+
 Version : **2026-10-01.4**  
 Branche produit unique : **`reconcile/claude-main-20260825`**  
 Ce document est la référence à relire avant toute modification d'interface.

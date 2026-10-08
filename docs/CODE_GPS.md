@@ -172,3 +172,8 @@ Avant de créer un fichier/service/store/RPC :
 
 ## Bandelettes (05/10/2026)
 - Bibliothèque : `packages/mobile/src/services/tickerMessageLibrary.ts` (pure) ; mémoire anti-répétition : `services/tickerMemory.ts` ; affichage : `components/LedTicker.tsx` ; branchement : `screens/HomeScreenCompact.tsx` (`useTickerMessages`). Règle : cahier §15.
+
+## Imports par lien et Mon style (08/10/2026, issue #48)
+- Entrée système existante : `packages/mobile/src/components/SharedMusicHandoff.tsx`. Profil : `SharedMusicLibraryPanel.tsx`, service partagé `sharedMusicImportService.ts` (démo/invité interdits), presse-papiers `sharingService.ts`.
+- Résolution serveur : `supabase/functions/keep-resolve-music-link/` ; seul Odesli résout les URLs, catalogue et bibliothèque existants réutilisés. Pas d'écriture dans les anciennes tables de connexions ou d'affinité.
+- Statistiques : `keep_my_music_stats()` et `profile_music_taste_scores`, jamais recomputées depuis une seconde table cliente. Tests navigateur : `scripts/music-link-profile-browser.cjs`, transport isolé 390/1440, pas une preuve de production.

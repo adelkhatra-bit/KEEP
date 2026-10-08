@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-07.01",
+  "version": "2026-10-08.01",
   "adminReleaseEvidence": {
     "siteVersionUrl": "https://adelkhatra-bit.github.io/KEEP/version.json",
     "appVersionSource": "Dernier signalement natif app_problem_reports, jamais parc installé global",
@@ -158,6 +158,21 @@
     "preferInlineActionOverExtraNavigation": true,
     "sameRulesMobileAndWeb": true,
     "childUnderstandable": true
+  },
+  "musicLinkImports": {
+    "libraryTable": "music_library_items",
+    "tasteSource": "profile_music_taste_scores",
+    "statsRpc": "keep_my_music_stats",
+    "resolverFunction": "keep-resolve-music-link",
+    "sourceKind": "shared_link",
+    "providerConnectionsTable": "provider_links",
+    "demoWritesAllowed": false,
+    "importFreeCost": 0,
+    "cacheDays": 30,
+    "identityOrder": ["isrc", "normalized-title-artist"],
+    "helpTrigger": "ⓘ",
+    "minimumFontSize": 11,
+    "sharedMobileWebImplementation": true
   },
   "responsive": {
     "requiredViewports": [

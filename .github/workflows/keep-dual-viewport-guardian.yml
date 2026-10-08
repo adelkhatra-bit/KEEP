@@ -63,7 +63,7 @@ jobs:
         run: npm run type-check
       - name: Install Chromium
         run: |
-          npm install --no-save playwright@1.55.0
+          npm install --no-save --legacy-peer-deps playwright@1.55.1
           npx playwright install chromium --with-deps
       - name: Start KEEP Web runtime
         working-directory: packages/mobile
@@ -76,6 +76,11 @@ jobs:
           done
           cat /tmp/keep-dual-runtime.log
           exit 1
+
+      - name: Test import de lien et Mon style — 390/1440, transport isolé
+        env:
+          KEEP_MUSIC_LINK_ARTIFACTS: artifacts/dual-viewport
+        run: node scripts/music-link-profile-browser.cjs http://127.0.0.1:8081
 
       - name: Test KEEP critical loop — mobile 390x844 + desktop smoke 1440x900
         run: |
