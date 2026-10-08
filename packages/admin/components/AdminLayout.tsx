@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabaseClient';
 import { APP_NAME } from '../lib/brand';
 import AdminRobot from './AdminRobot';
 import Hint from './Hint';
-import { AdminRole, ALL_ROLES, NAV, NAV_GROUPS, currentTab, tabHref } from '../lib/adminNavigation';
+import { AdminRole, ALL_ROLES, NAV_GROUPS, currentTab, tabHref } from '../lib/adminNavigation';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -92,16 +92,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const item = group.items[0];
     void router.replace({ pathname: `/${group.slug}`, query: { ...query, tab: item.href === '/' ? 'index' : item.href.slice(1) }, hash });
   }, [router.isReady, router.pathname, router.query.tab, router.query.section, role, visibleGroups]);
-
-  useEffect(() => {
-    if (!router.isReady || router.pathname === '/[section]') return;
-    const item = NAV.find((entry) => entry.href === router.pathname);
-    const group = NAV_GROUPS.find((entry) => entry.items.includes(item!));
-    if (!item || !group) return;
-    const { tab: _tab, section: _section, ...query } = router.query;
-    const hash = router.asPath.includes('#') ? router.asPath.slice(router.asPath.indexOf('#')) : '';
-    void router.replace({ pathname: `/${group.slug}`, query: { ...query, tab: item.href === '/' ? 'index' : item.href.slice(1) }, hash });
-  }, [router.isReady, router.pathname]);
 
   return (
     <div className="layout">

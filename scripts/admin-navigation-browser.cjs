@@ -50,7 +50,12 @@ async function scenario(browser, width, height, role = 'SUPER_ADMIN') {
     const target = new URL(request.url());
     if (target.origin === local.origin) return route.continue();
     const json = (data, status = 200) => route.fulfill({
-      status, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(data),
+      status, contentType: 'application/json', headers: {
+        'access-control-allow-origin': local.origin,
+        'access-control-allow-methods': 'GET, POST, OPTIONS',
+        'access-control-allow-headers': request.headers()['access-control-request-headers'] || Object.keys(request.headers()).join(', '),
+        'access-control-allow-credentials': 'true',
+      }, body: JSON.stringify(data),
     });
     if (target.hostname !== 'fixture.invalid') return route.abort();
     if (request.method() === 'OPTIONS') return json({});
@@ -67,6 +72,9 @@ async function scenario(browser, width, height, role = 'SUPER_ADMIN') {
       revenueByCurrency: [], refundsByCurrency: [], costsByCurrency: [],
       recentTransactions: [], recentCosts: [],
     });
+    if (rpc === 'admin_problem_report_overview') return json({
+      open_count: 12, fixed_count: 0, documented_count: 0, fixes_limit: 100, latest_app: null, fixes: [],
+    });
     if (rpc === 'admin_music_overview') return unavailable ? json({ message: 'fixture indisponible' }, 503)
       : json(malformed ? {} : empty ? { ...overview, catalog: { total: 0, added24h: 0, added7d: 0 },
         queue: { pending: 0, processing: 0 }, styles: [], discoverers: [], platforms: [],
@@ -78,7 +86,7 @@ async function scenario(browser, width, height, role = 'SUPER_ADMIN') {
   const page = await context.newPage();
   const errors = [];
   const broken = [];
-  page.on('pageerror', error => errors.push(error.message));
+  page.on('pageerror', error => errors.push(`${page.url()}: ${error.message}`));
   page.on('response', response => {
     if (new URL(response.url()).origin === local.origin && response.status() >= 400) broken.push(response.url());
   });
@@ -118,6 +126,11 @@ async function scenario(browser, width, height, role = 'SUPER_ADMIN') {
   assert.match(await page.getByRole('dialog').innerText(), /sans|Aucun appel de Pulse/);
   await page.getByRole('button', { name: 'Compris', exact: true }).click();
   const fits = async () => {
+    if (new URL(page.url()).searchParams.get('tab') === 'operations') {
+      const evidence = page.getByRole('region', { name: 'Versions et preuves' });
+      await evidence.getByText('12', { exact: true }).waitFor();
+      await evidence.getByRole('button', { name: 'Actualiser', exact: true }).waitFor();
+    }
     assert.equal(await page.evaluate(() => {
       const main = document.querySelector('.main');
       return document.documentElement.scrollWidth <= innerWidth && document.body.scrollHeight <= innerHeight
@@ -153,15 +166,20 @@ async function scenario(browser, width, height, role = 'SUPER_ADMIN') {
       assert.equal(current.hash, '#anchor');
       const tabs = page.getByRole('navigation', { name: `Onglets ${group.title}`, exact: true });
       await tabs.getByRole('link', { name: item.label, exact: true }).waitFor();
+      await page.waitForLoadState('networkidle');
       assert.equal(await tabs.getByRole('link').count(), group.items.length);
       assert.equal(await tabs.locator('[aria-current="page"]').innerText(), item.label);
       await fits();
       await page.reload();
       await tabs.locator('[aria-current="page"]').waitFor();
+      await page.waitForLoadState('networkidle');
       assert.equal(await tabs.locator('[aria-current="page"]').innerText(), item.label);
-      for (const sibling of group.items) {
+      for (const sibling of item === group.items[0] ? group.items : []) {
         await tabs.getByRole('link', { name: sibling.label, exact: true }).click();
         await page.waitForURL(url => url.searchParams.get('tab') === (sibling.href === '/' ? 'index' : sibling.href.slice(1)));
+        await page.waitForFunction(label => document.querySelector('.admin-tabs [aria-current="page"]')?.textContent === label, sibling.label);
+        await fits();
+        await page.waitForLoadState('networkidle');
       }
     }
   }
@@ -181,5 +199,16 @@ async function scenario(browser, width, height, role = 'SUPER_ADMIN') {
     await scenario(browser, 390, 844);
     await scenario(browser, 1440, 900);
     await scenario(browser, 390, 844, 'FINANCE');
+    const signedOut = await browser.newContext({ viewport: { width: 390, height: 400 } });
+    const page = await signedOut.newPage();
+    await page.goto(`${base}/`);
+    await page.getByRole('button', { name: 'MOT DE PASSE OUBLIÉ ?', exact: true }).click();
+    await page.getByRole('button', { name: 'SE CONNECTER', exact: true }).scrollIntoViewIfNeeded();
+    assert.equal(await page.evaluate(() => {
+      const main = document.querySelector('main');
+      return main.scrollHeight > main.clientHeight && main.scrollTop > 0 && document.body.scrollHeight <= innerHeight;
+    }), true, 'Connexion et récupération défilent dans leur fenêtre sur petit écran');
+    assert.equal(await page.getByRole('button', { name: 'SE CONNECTER', exact: true }).isVisible(), true);
+    await signedOut.close();
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
