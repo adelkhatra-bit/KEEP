@@ -243,3 +243,8 @@ Statuts : `IDÉE` (notée) → `CADRÉE` (proposition validée) → `EN COURS` �
 - **IDÉE / audit sécurité QR :** distinguer lien public du profil et QR de connexion ordinateur ; vérifier expiration, usage unique, validation du propriétaire, confirmation du navigateur destinataire et refus d’un tiers. Examiner si un code e-mail existe réellement, sans en inventer un.
 - **IDÉE / libellé proposé :** action du hamburger « Connecter mon PC », guidage court vers le vrai parcours existant ; ne pas afficher un QR de connexion comme un partage public.
 - **IDÉE / décision UI :** remplacer les libellés « En savoir plus » visibles dans le produit par « Plus », conserver une étiquette accessible précise. Événement visible dans Découverte chez Adel 4A : replier le texte long, ouvrir avec « Plus », refermer avec « Moins », sans masquer date, lieu et action principale.
+
+## Complément Adel — 08/10/2026 — sessions en attente persistantes
+
+- **IDÉE / décision :** languette/badge du hamburger visible tant qu’au moins une session contient des titres pending, indépendamment de la fermeture du message du robot. Afficher le nombre de sessions en attente (distinguer du nombre de morceaux) ; actualiser après garder/passer et après réouverture. Un simple passage sur l’écran ne marque pas les titres traités.
+- **IDÉE / décision confirmée :** retirer GARDER de la reconnaissance active et proposer « Ma session ». Arrêter la boucle de reconnaissance et attendre la libération matérielle du micro avant navigation/lecture ; conserver les titres détectés. Le message intelligent peut disparaître, pas le badge tant que l’attente subsiste.
