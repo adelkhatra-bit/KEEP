@@ -9,6 +9,7 @@ node_modules/
 dist/
 build/
 .next/
+/packages/admin/out/
 *.tsbuildinfo
 next-env.d.ts
 **/dist-verify/

@@ -30,6 +30,7 @@ export const INTEGRATION_PROVIDER_LINKS: Record<string, { label: string; url: st
   DEEZER_APP_ID: { label: 'Deezer Developers', url: 'https://developers.deezer.com/myapps' },
   DEEZER_APP_SECRET: { label: 'Deezer Developers', url: 'https://developers.deezer.com/myapps' },
   YOUTUBE_API_KEY: { label: 'Google Cloud Console — API YouTube', url: 'https://console.cloud.google.com/apis/credentials' },
+  GOOGLE_TRANSLATE_API_KEY: { label: 'Google Cloud Console — Cloud Translation', url: 'https://console.cloud.google.com/apis/credentials' },
   APPLE_MUSICKIT_TEAM_ID: { label: 'Apple Developer', url: 'https://developer.apple.com/account/' },
   APPLE_MUSICKIT_KEY_ID: { label: 'Apple Developer — clés MusicKit', url: 'https://developer.apple.com/account/resources/authkeys/list' },
   APPLE_MUSICKIT_PRIVATE_KEY: { label: 'Apple Developer — clés MusicKit', url: 'https://developer.apple.com/account/resources/authkeys/list' },
@@ -42,9 +43,9 @@ export const INTEGRATION_PROVIDER_LINKS: Record<string, { label: string; url: st
   // Adel (04/09/2026 puis 08/09/2026) : App Store / Google Play — inscription
   // aux programmes développeur, jamais automatisable de bout en bout (Apple
   // exige une vérification d'identité/entreprise qui peut prendre 24-48h).
-  APPLE_IAP_ISSUER_ID: { label: 'App Store Connect — clés API', url: 'https://appstoreconnect.apple.com/access/integrations/api' },
-  APPLE_IAP_KEY_ID: { label: 'App Store Connect — clés API', url: 'https://appstoreconnect.apple.com/access/integrations/api' },
-  APPLE_IAP_PRIVATE_KEY: { label: 'App Store Connect — clés API', url: 'https://appstoreconnect.apple.com/access/integrations/api' },
+  APPLE_IAP_ISSUER_ID: { label: 'App Store Connect — achat intégré', url: 'https://appstoreconnect.apple.com/access/integrations' },
+  APPLE_IAP_KEY_ID: { label: 'App Store Connect — achat intégré', url: 'https://appstoreconnect.apple.com/access/integrations' },
+  APPLE_IAP_PRIVATE_KEY: { label: 'App Store Connect — achat intégré', url: 'https://appstoreconnect.apple.com/access/integrations' },
   GOOGLE_PLAY_PACKAGE_NAME: { label: 'Google Play Console', url: 'https://play.google.com/console/' },
   GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: { label: 'Google Play Console — API', url: 'https://play.google.com/console/api-access' },
   STRIPE_SECRET_KEY: { label: 'Stripe Dashboard — clés API', url: 'https://dashboard.stripe.com/apikeys' },
@@ -62,3 +63,10 @@ export const INTEGRATION_PROVIDER_LINKS: Record<string, { label: string; url: st
   // Custom GPT.
   AI_RELAY_API_KEY: { label: 'ChatGPT — créer un Custom GPT (Actions)', url: 'https://chatgpt.com/gpts/editor' },
 };
+
+export function integrationProviderGuidance(key: string): string | null {
+  if (key.startsWith('APPLE_MUSICKIT_')) return 'Certificates, Identifiers & Profiles › Keys › + › Media Services › Configure › Register › Download';
+  if (key.startsWith('APPLE_IAP_')) return 'App Store Connect › Utilisateurs et accès › Intégrations › Achat intégré › + › Générer › Télécharger la clé d’achat intégré';
+  if (key === 'YOUTUBE_API_KEY' || key === 'GOOGLE_TRANSLATE_API_KEY') return 'Identifiants › Afficher la clé › copier';
+  return null;
+}

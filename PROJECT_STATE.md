@@ -31,10 +31,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-09-22T13:26:53.106Z
-- Branche : `HEAD`
-- Dernier commit : `f766644` (f76664440c2ffa14ff4fa40285e5f041eed16f47) — chore(reconcile): port eas.json prod fix (remove hardcoded Supabase env) + recover agent coordination files from main
-- Date du dernier commit : 2026-09-22T13:25:41+00:00
+- Régénéré le : 2026-10-08T03:34:34.324Z
+- Branche : `copilot/super-admin-cls-bouton-fichier-p8`
+- Dernier commit : `5d61920` (5d61920b1c0267d5ca07b01bb6757b9b26bc3e34) — Initial plan
+- Date du dernier commit : 2026-10-08T03:05:25Z
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -122,16 +122,8 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
-- `f766644` (2026-09-22, adelkhatra-bit) — chore(reconcile): port eas.json prod fix (remove hardcoded Supabase env) + recover agent coordination files from main
-- `580f483` (2026-09-22, adelkhatra-bit) — chore(state): regenerate PROJECT_STATE.md after pull 3276a24
-- `3276a24` (2026-09-22, adelkhatra-bit) — fix(marketplace): resolve price save error + detailed error messages
-- `d3deba0` (2026-09-22, adelkhatra-bit) — feat(infra): PROJECT_STATE.md + hooks Git pour mémoire partagée inter-IA
-- `54a269d` (2026-09-22, adelkhatra-bit) — feat(anti-shazam): random offset + pitch shift + TTS overlay
-- `a12d641` (2026-09-22, adelkhatra-bit) — chore(branding): replace KEEP verb with garder in UI
-- `2562f5e` (2026-09-22, adelkhatra-bit) — perf(battle): prefetch next round audio during answer pause
-- `23356f3` (2026-09-22, adelkhatra-bit) — fix(audio): minor edge cases -- ended event web + manche sautee visible
-- `a98868f` (2026-09-22, adelkhatra-bit) — fix(audio): resout un conflit reel entre capture micro et lecture de previews
-- `49f60e8` (2026-09-22, adelkhatra-bit) — docs(app-store): notes reviewer + checklist de soumission
+- `5d61920` (2026-10-08, copilot-swe-agent[bot]) — Initial plan
+- `d7b0910` (2026-10-05, adelkhatra-bit) — Update checkout action reference in workflow
 <!-- AUTO:RECENT-COMMITS:END -->
 
 Détail complet de chaque mission : `AGENT_MESSAGES.md` (journal narratif par
@@ -141,6 +133,8 @@ agent) et messages des sessions de chat (non versionnés).
 
 ## 4. Points ouverts
 
+- **Issue #55 — Clés Super Admin (08/10/2026)** : Apple Music/Spotify branchés au catalogue existant via le Vault, import `.p8` local et contrôles automatiques ajoutés. Déploiement des fonctions modifiées/nouvelles puis test Apple `/v1/catalog/fr/search` HTTP 200 à confirmer avec une session autorisée. Dans ce sandbox, le domaine Supabase ne se résout pas ; aucun succès fournisseur réel revendiqué. `BRANCH_SOURCE_OF_TRUTH.json` absent ; le garde de branche refuse la branche PR, les invariants du contenu passent hors variable CI de branche.
+- **Base PR #56 incorrecte** : GitHub confirme `main` comme base automatique, alors que #55 exige `reconcile/claude-main-20260825`. Recibler puis revalider sur la branche produit avant intégration ; ne pas fusionner vers `main`.
 - **Test device en attente (Adel)** : préchargement audio Battle (latence),
   correctif micro/preview, anti-Shazam (« lance Shazam pendant la preview »).
   Aucun de ces tests n'a pu être fait depuis cet environnement (pas de

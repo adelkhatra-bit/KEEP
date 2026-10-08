@@ -1,8 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import { supabase } from '../lib/supabaseClient';
-import { INTEGRATION_PROVIDER_LINKS } from '../lib/integrationLinks';
+import { INTEGRATION_PROVIDER_LINKS, integrationProviderGuidance } from '../lib/integrationLinks';
 import { invokeAdminFunction } from '../lib/invokeFunction';
+import { ACTIVE_INTEGRATION_KEYS } from '../../../supabase/functions/_shared/integrationUsage';
+import { p8KeyId, validateAppleP8 } from '../../../supabase/functions/_shared/appleP8';
+import { appleKeyIdField, appleKeyPurpose, conciseRefusal, integrationValueAllowsSpaces } from '../lib/appleKeyFile';
 
 type IntegrationStatus = 'UNKNOWN' | 'ACTIVE' | 'EXHAUSTED' | 'ERROR' | 'NOT_CONFIGURED';
 
@@ -60,15 +63,15 @@ const AUDD_DASHBOARD = 'https://dashboard.audd.io/';
 const AUDD_DOCS = 'https://docs.audd.io/';
 
 const STATUS_LABELS: Record<IntegrationStatus, string> = {
-  UNKNOWN: 'À tester',
-  ACTIVE: 'Actif',
-  EXHAUSTED: 'Quota épuisé',
-  ERROR: 'Erreur fournisseur',
-  NOT_CONFIGURED: 'Clé manquante',
+  UNKNOWN: '❌ Refusée',
+  ACTIVE: '✅ OK',
+  EXHAUSTED: '❌ Refusée',
+  ERROR: '❌ Refusée',
+  NOT_CONFIGURED: '⚪ Manquante',
 };
 
 const STATUS_COLORS: Record<IntegrationStatus, string> = {
-  UNKNOWN: '#f0b429',
+  UNKNOWN: '#e05252',
   ACTIVE: '#62c46f',
   EXHAUSTED: '#ff9f43',
   ERROR: '#e05252',
@@ -93,6 +96,58 @@ export default function Integrations() {
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const [keylessRuntime, setKeylessRuntime] = useState<RuntimeStatusRow | null>(null);
   const [lastRecognitionTest, setLastRecognitionTest] = useState<RecognitionProviderResult[]>([]);
+  const [testing, setTesting] = useState(false);
+  const [fileNames, setFileNames] = useState<Record<string, string>>({});
+  const [fileIds, setFileIds] = useState<Record<string, string>>({});
+  const [fileErrors, setFileErrors] = useState<Record<string, string>>({});
+
+  const testIntegrations = async (baseRows: IntegrationRow[]) => {
+    setTesting(true);
+    // Discard previous green statuses while fresh provider checks are running.
+    setRows(baseRows.map((row) => ({ ...row, runtimeStatus: row.configured ? 'UNKNOWN' : 'NOT_CONFIGURED', lastError: null })));
+    try {
+      const result = await invokeAdmin({ action: 'integrations.test' });
+      if (!Array.isArray(result?.data) || result?.ok === false) throw new Error('Vérification fournisseur impossible');
+      const checks = new Map<string, { status: IntegrationStatus; message: string; checkedAt: string }>(
+        result.data.map((item: { key: string; status: IntegrationStatus; message: string; checkedAt: string }) => [item.key, item]),
+      );
+      setRows(baseRows.map((row) => {
+        const check = checks.get(row.key);
+        const status = check && ['ACTIVE', 'ERROR', 'NOT_CONFIGURED'].includes(check.status) ? check.status : row.configured ? 'ERROR' : 'NOT_CONFIGURED';
+        return { ...row, runtimeStatus: row.configurationIssue ? 'ERROR' : status, lastError: row.configurationIssue || check?.message || (row.configured ? 'Vérification indisponible' : null), lastCheckedAt: check?.checkedAt ?? null };
+      }));
+    } catch {
+      setRows(baseRows.map((row) => ({ ...row, runtimeStatus: row.configured ? 'ERROR' : 'NOT_CONFIGURED', lastError: 'Vérification fournisseur impossible' })));
+      setError('Vérification fournisseur impossible.');
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const importAppleFile = async (row: IntegrationRow, file: File) => {
+    const purpose = appleKeyPurpose(row.key);
+    if (!purpose) return;
+    try {
+      const keyId = p8KeyId(file.name, row.key);
+      if (file.size > 16384) throw new Error('Fichier .p8 trop volumineux');
+      const value = await validateAppleP8(await file.text());
+      setValues((prev) => ({ ...prev, [row.key]: value, [appleKeyIdField(purpose)]: keyId }));
+      setFileNames((prev) => ({ ...prev, [row.key]: file.name }));
+      setFileIds((prev) => ({ ...prev, [row.key]: keyId }));
+      setFileErrors((prev) => ({ ...prev, [row.key]: '' }));
+      setRevealed((prev) => ({ ...prev, [row.key]: false }));
+      setError(null);
+    } catch (e: any) {
+      setFileErrors((prev) => ({ ...prev, [row.key]: e?.message || 'Fichier .p8 invalide' }));
+    }
+  };
+
+  const localConfigurationIssue = (row: IntegrationRow) => {
+    if (fileErrors[row.key]) return fileErrors[row.key];
+    const purpose = appleKeyPurpose(row.key);
+    if (purpose && fileIds[row.key] && values[appleKeyIdField(purpose)] !== fileIds[row.key]) return 'Clé ID différente du fichier';
+    return null;
+  };
 
   const load = async () => {
     setLoading(true);
@@ -108,7 +163,7 @@ export default function Integrations() {
       }
       const runtimeByKey = new Map(statusRows.map((item) => [item.key, item]));
       setKeylessRuntime(runtimeByKey.get('KEYLESS_SOURCE') ?? null);
-      setRows(baseRows.map((row) => {
+      const loadedRows = baseRows.map((row) => {
         const runtimeKey = row.key.startsWith('ACRCLOUD_') ? 'ACRCLOUD' : row.key;
         const runtime = runtimeByKey.get(runtimeKey);
         return {
@@ -117,7 +172,10 @@ export default function Integrations() {
           lastCheckedAt: runtime?.last_checked_at ?? null,
           lastError: runtime?.last_error ?? null,
         };
-      }));
+      });
+      setRows(loadedRows);
+      setLoading(false);
+      await testIntegrations(loadedRows);
     } catch (e: any) {
       setError(e?.message ?? 'Impossible de charger les intégrations.');
     } finally {
@@ -129,7 +187,10 @@ export default function Integrations() {
 
   const grouped = useMemo(() => {
     const map: Record<string, IntegrationRow[]> = {};
-    for (const row of rows) (map[row.category] ||= []).push(row);
+    for (const row of rows) {
+      const category = (ACTIVE_INTEGRATION_KEYS as readonly string[]).includes(row.key) ? row.category : 'optional';
+      (map[category] ||= []).push(row);
+    }
     return map;
   }, [rows]);
 
@@ -138,12 +199,22 @@ export default function Integrations() {
   const save = async (row: IntegrationRow) => {
     const value = (values[row.key] ?? '').trim();
     if (!value) return setError(`Renseigne une valeur pour ${row.label}.`);
-    if (/\s/.test(value)) return setError(`${row.label} : cette valeur contient un espace -- vérifie que tu n'as pas copié un caractère en trop.`);
+    if (!integrationValueAllowsSpaces(row.key) && /\s/.test(value)) return setError('Espaces interdits dans cette clé.');
+    const purpose = appleKeyPurpose(row.key);
+    const issue = localConfigurationIssue(row);
+    if (issue) return setError(issue);
     if (/^(your_|xxx|changeme|todo|test123|placeholder)/i.test(value)) return setError(`${row.label} : cette valeur ressemble à un exemple/placeholder, pas à une vraie clé. Colle la vraie valeur du fournisseur.`);
     setBusy(row.key); setError(null); setMessage(null);
     try {
-      const result = await invokeAdmin({ action: 'integrations.set', key: row.key, value });
-      setValues((prev) => ({ ...prev, [row.key]: '' }));
+      if (purpose) await validateAppleP8(value);
+      const result = await invokeAdmin({
+        action: 'integrations.set', key: row.key, value,
+        ...(purpose ? { keyId: values[appleKeyIdField(purpose)] || fileIds[row.key] || undefined, fileName: fileNames[row.key] || undefined } : {}),
+      });
+      if (result?.ok === false) throw new Error(result.error || 'Enregistrement refusé');
+      setValues((prev) => ({ ...prev, [row.key]: '', ...(purpose ? { [appleKeyIdField(purpose)]: '' } : {}) }));
+      setFileNames((prev) => ({ ...prev, [row.key]: '' }));
+      setFileIds((prev) => ({ ...prev, [row.key]: '' }));
       if (row.key === 'AUDD_API_KEY' && result?.validation?.valid) {
         setMessage(`Clé AudD vérifiée par le fournisseur puis enregistrée dans Supabase Vault. État : ${result.validation.status}.`);
       } else if (row.key.startsWith('ACRCLOUD_') && result?.validation?.valid) {
@@ -155,7 +226,7 @@ export default function Integrations() {
       }
       await load();
     } catch (e: any) {
-      setError(e?.message ?? `Impossible d’enregistrer ${row.label}.`);
+      setError(conciseRefusal(e?.message));
     } finally {
       setBusy(null);
     }
@@ -233,7 +304,7 @@ export default function Integrations() {
           <button onClick={() => void testRecognition()} disabled={busy === 'RECOGNITION_TEST'} style={{ fontWeight: 800 }}>
             {busy === 'RECOGNITION_TEST' ? 'Test en cours…' : 'Tester tous les moteurs maintenant'}
           </button>
-          <button onClick={() => void load()} disabled={loading}>Actualiser les statuts</button>
+          <button onClick={() => void load()} disabled={loading || testing || !!busy}>Actualiser les statuts</button>
         </div>
         {lastRecognitionTest.length > 0 && (
           <div style={{ display: 'grid', gap: 6, marginTop: 12 }}>
@@ -261,10 +332,10 @@ export default function Integrations() {
                   Sans clé, Loki Music exploite déjà le partage TikTok / YouTube / Instagram / Snapchat et les métadonnées publiques. Une clé AudD valide active automatiquement l’empreinte audio complète. Toute clé AudD invalide est refusée avant sauvegarde.
                 </div>
               </div>
-              <div style={{ color: STATUS_COLORS[status], fontWeight: 800 }}>● {STATUS_LABELS[status]}</div>
+              <div style={{ color: testing ? 'var(--text-muted)' : STATUS_COLORS[status], fontWeight: 800 }}>{testing ? 'Vérification en cours…' : STATUS_LABELS[status]}</div>
             </div>
             {row.lastCheckedAt && <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 8 }}>Dernier contrôle réel : {new Date(row.lastCheckedAt).toLocaleString('fr-FR')}</div>}
-            {row.lastError && <div style={{ color: status === 'EXHAUSTED' ? '#ff9f43' : '#e05252', fontSize: 12, marginTop: 8 }}>Dernier retour : {row.lastError}</div>}
+            {!testing && row.lastError && <div style={{ color: '#e05252', fontSize: 12, marginTop: 8 }}>Dernier retour : {conciseRefusal(row.lastError)}</div>}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
               <a href={AUDD_DASHBOARD} target="_blank" rel="noreferrer" style={{ display: 'inline-block', padding: '9px 13px', borderRadius: 8, background: 'var(--primary)', color: '#fff', textDecoration: 'none', fontWeight: 800 }}>
                 Gérer / recharger AudD
@@ -311,28 +382,51 @@ export default function Integrations() {
 
       {loading && <div className="card">Chargement des intégrations…</div>}
 
-      {!loading && Object.entries(grouped).map(([category, items]) => (
-        <div className="card" key={category} style={{ marginBottom: 22 }}>
-          <h3 style={{ marginTop: 0 }}>{CATEGORY_LABELS[category] ?? category}</h3>
+      {!loading && Object.entries(grouped).sort(([a], [b]) => a === 'optional' ? 1 : b === 'optional' ? -1 : 0).map(([category, items]) => {
+        const Container = category === 'optional' ? 'details' : 'div';
+        return (
+        <Container className="card" key={category} style={{ marginBottom: 22, minWidth: 0 }}>
+          {category === 'optional'
+            ? <summary style={{ fontWeight: 800, cursor: 'pointer' }}>Optionnel / plus tard ({items.length})</summary>
+            : <h3 style={{ marginTop: 0 }}>À corriger — {CATEGORY_LABELS[category] ?? category}</h3>}
+          {category === 'optional' && <p style={{ color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.5 }}>Clés conservées pour plus tard. Aucun succès fournisseur n’est annoncé pour un service qui n’utilise pas ces clés.</p>}
           <div style={{ display: 'grid', gap: 14 }}>
-            {items.map((row) => (
-              <div key={row.key} style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', marginBottom: 8 }}>
-                  <div>
+            {items.map((row) => {
+              const purpose = appleKeyPurpose(row.key);
+              const localIssue = localConfigurationIssue(row);
+              const configurationIssue = localIssue || row.configurationIssue;
+              const status = configurationIssue ? 'ERROR' : row.runtimeStatus ?? (row.configured ? 'ERROR' : 'NOT_CONFIGURED');
+              const guidance = integrationProviderGuidance(row.key);
+              return (
+              <div key={row.key} style={{ borderTop: '1px solid var(--border)', paddingTop: 14, minWidth: 0, overflowWrap: 'anywhere' }}
+                onDragOver={purpose ? (event) => event.preventDefault() : undefined}
+                onDrop={purpose ? (event) => {
+                  event.preventDefault();
+                  if (busy || testing) return;
+                  if (event.dataTransfer.files.length === 1) void importAppleFile(row, event.dataTransfer.files[0]);
+                  else setFileErrors((prev) => ({ ...prev, [row.key]: 'Choisir un seul fichier .p8' }));
+                } : undefined}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, alignItems: 'flex-start', marginBottom: 8 }}>
+                  <div style={{ minWidth: 0 }}>
                     <strong>{row.label}</strong>
                     <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 3 }}>{row.key}</div>
                   </div>
-                  <div style={{ fontSize: 12, color: row.configured ? '#62c46f' : 'var(--text-muted)' }}>
-                    {row.configured ? `● Configuré ${row.hint ? `(${row.hint})` : ''}` : '○ Non configuré'}
+                  <div role="status" style={{ fontSize: 12, color: testing ? 'var(--text-muted)' : STATUS_COLORS[status] }}>
+                    {testing ? 'Vérification en cours…' : `${STATUS_LABELS[status]}${status === 'ERROR' || status === 'EXHAUSTED' || status === 'UNKNOWN' ? ` · ${conciseRefusal(configurationIssue || row.lastError)}` : ''}`}
                   </div>
                 </div>
-                {row.configurationIssue && <div style={{ marginBottom: 9, padding: '9px 11px', borderRadius: 9, border: '1px solid #e05252', color: '#ff9aa8', background: 'rgba(224,82,82,.09)', fontSize: 12, lineHeight: 1.45 }}><strong>Configuration incorrecte :</strong> {row.configurationIssue}</div>}
-                {row.category === 'recognition' && (
-                  <div style={{ color: STATUS_COLORS[row.runtimeStatus ?? 'UNKNOWN'], fontSize: 12, marginBottom: 8 }}>
-                    ● {STATUS_LABELS[row.runtimeStatus ?? 'UNKNOWN']}
-                    {row.lastCheckedAt ? ` · contrôle ${new Date(row.lastCheckedAt).toLocaleString('fr-FR')}` : ''}
-                  </div>
-                )}
+                {purpose && <div style={{ fontSize: 12, marginBottom: 8 }}>Clé {fileIds[row.key] || row.hint?.replace(/^Clé\s+/i, '') || 'ID non renseignée'}</div>}
+                {!purpose && row.hint && <div style={{ fontSize: 12, marginBottom: 8, color: 'var(--text-muted)' }}>Indice : {row.hint}</div>}
+                {configurationIssue && <div role="alert" style={{ marginBottom: 9, padding: '9px 11px', borderRadius: 9, border: '1px solid #e05252', color: '#ff9aa8', background: 'rgba(224,82,82,.09)', fontSize: 12, lineHeight: 1.45 }}><strong>Configuration incorrecte :</strong> {configurationIssue}</div>}
+                {row.lastCheckedAt && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>Contrôle : {new Date(row.lastCheckedAt).toLocaleString('fr-FR')}</div>}
+                {guidance && <div style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 8, lineHeight: 1.5 }}>Où trouver : {guidance}</div>}
+                {purpose && <div style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 8, lineHeight: 1.5 }}>
+                  {purpose === 'iap'
+                    ? 'Utiliser SubscriptionKey_XXXXXXXXXX.p8, la clé d’achat intégré. Une clé API App Store Connect / EAS (AuthKey) n’est pas une preuve de clé d’achat ; elle est refusée ici. Optionnel / plus tard : la vérification actuelle des achats utilise le JWS Apple sans cette clé. Aucun test fournisseur d’achat intégré n’est simulé.'
+                    : 'Utiliser AuthKey_XXXXXXXXXX.p8 avec Media Services activé pour MusicKit. Le nom AuthKey seul ne prouve pas cette autorisation : le test catalogue la vérifie.'}
+                  {' '}Lecture locale uniquement ; la Clé ID est remplie depuis le nom du fichier. Cliquer Enregistrer pour envoyer la clé et cet ID au serveur.
+                </div>}
                 {/* Adel (08/09/2026) : "un bouton ... pour que j'active et
                     ca me dirige directement" -- ouvre la bonne page du bon
                     fournisseur juste a cote du champ ou coller la cle
@@ -344,20 +438,33 @@ export default function Integrations() {
                     href={INTEGRATION_PROVIDER_LINKS[row.key].url}
                     target="_blank"
                     rel="noreferrer"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 8, padding: '7px 12px', borderRadius: 8, background: 'rgba(139,92,246,.14)', border: '1px solid var(--primary)', color: 'var(--primary)', textDecoration: 'none', fontWeight: 800, fontSize: 12 }}
+                    style={{ display: 'inline-flex', maxWidth: '100%', boxSizing: 'border-box', alignItems: 'center', gap: 6, marginBottom: 8, padding: '7px 12px', borderRadius: 8, background: 'rgba(139,92,246,.14)', border: '1px solid var(--primary)', color: 'var(--primary)', textDecoration: 'none', fontWeight: 800, fontSize: 12 }}
                   >
                     🔗 {row.configured ? 'Régénérer / révoquer chez' : 'Créer chez'} {INTEGRATION_PROVIDER_LINKS[row.key].label}
                   </a>
                 )}
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <div style={{ position: 'relative', flex: '1 1 360px' }}>
-                    <input
+                <div style={{ display: 'flex', gap: 8, flexDirection: 'column', minWidth: 0 }}>
+                  <div style={{ position: 'relative', width: '100%', minWidth: 0 }}>
+                    {purpose ? <textarea
+                      aria-label={row.label}
+                      rows={3}
+                      readOnly={!revealed[row.key]}
+                      placeholder="Choisir ou déposer le fichier .p8"
+                      value={revealed[row.key] ? values[row.key] ?? '' : values[row.key] ? '••••••••••••••••\n••••••••••••••••\n••••••••••••••••' : ''}
+                      onChange={(event) => setValues((prev) => ({ ...prev, [row.key]: event.target.value }))}
+                      onPaste={(event) => {
+                        event.preventDefault();
+                        setValues((prev) => ({ ...prev, [row.key]: event.clipboardData.getData('text') }));
+                      }}
+                      style={{ width: '100%', height: 78, minWidth: 0, resize: 'none', boxSizing: 'border-box', background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 40px 10px 14px' }}
+                    /> : <input
+                      aria-label={row.label}
                       type={row.secret && !revealed[row.key] ? 'password' : 'text'}
                       placeholder={row.configured ? 'Nouvelle valeur pour remplacer…' : 'Renseigner la valeur…'}
                       value={values[row.key] ?? ''}
                       onChange={(e) => setValues((prev) => ({ ...prev, [row.key]: e.target.value }))}
                       style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 40px 10px 14px' }}
-                    />
+                    />}
                     {row.secret && (
                       <button
                         type="button"
@@ -370,6 +477,16 @@ export default function Integrations() {
                       </button>
                     )}
                   </div>
+                  {purpose && <>
+                    <input id={`file-${row.key}`} type="file" accept=".p8" hidden onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) void importAppleFile(row, file);
+                      event.target.value = '';
+                    }} />
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Glisser-déposer ici{fileNames[row.key] ? ` · ${fileNames[row.key]}` : ''}</div>
+                  </>}
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', minWidth: 0 }}>
+                  {purpose && <button type="button" disabled={!!busy || testing} onClick={() => document.getElementById(`file-${row.key}`)?.click()} style={{ maxWidth: '100%' }}>📂 Choisir le fichier .p8</button>}
                   {GENERATABLE_KEYS.has(row.key) && (
                     <button
                       type="button"
@@ -380,21 +497,22 @@ export default function Integrations() {
                       🎲 Générer
                     </button>
                   )}
-                  <button onClick={() => void save(row)} disabled={busy === row.key || !(values[row.key] ?? '').trim()}>
+                  <button onClick={() => void save(row)} disabled={!!busy || testing || !!localIssue || !(values[row.key] ?? '').trim()}>
                     {busy === row.key ? 'Patiente…' : row.configured ? 'Remplacer' : 'Enregistrer'}
                   </button>
                   {row.configured && (
-                    <button onClick={() => void remove(row)} disabled={busy === row.key} style={{ opacity: 0.8 }}>
+                    <button onClick={() => void remove(row)} disabled={!!busy || testing} style={{ opacity: 0.8 }}>
                       Supprimer
                     </button>
                   )}
+                  </div>
                 </div>
                 {row.updatedAt && <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>Mis à jour : {new Date(row.updatedAt).toLocaleString('fr-FR')}</div>}
               </div>
-            ))}
+            );})}
           </div>
-        </div>
-      ))}
+        </Container>
+      );})}
     </AdminLayout>
   );
 }

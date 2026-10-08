@@ -1,11 +1,14 @@
 # KEEP — Contexte actif
 
-Dernière mise à jour : 21 septembre 2026.
+Dernière mise à jour : 8 octobre 2026.
 
 Ce fichier résume l'état de travail à court terme. Il doit être actualisé à la fin de chaque session importante. Le code, les migrations et les guides agents restent prioritaires en cas d'écart.
 
 ## Tâche en cours
 
+- Issue #55 — clés Super Admin : catalogue Apple Music/Spotify relié au Vault, import local `.p8` et vérifications fournisseur automatiques. Les validations locales sont distinctes des appels réels : Supabase ne se résout pas depuis le sandbox ; aucun HTTP 200 Apple réel confirmé. `BRANCH_SOURCE_OF_TRUTH.json` absent de ce clone.
+- Blocage d’intégration vérifié via GitHub : la PR #56 a été créée automatiquement avec `main` comme base, pas `reconcile/claude-main-20260825`. Reciblage et revalidation sur la source produit nécessaires avant fusion ; aucune fusion vers `main`.
+- Tests ciblés : vérifications fournisseur et contrat des clés actives ; agents catalogue/UI ont validé signature/cache, import `.p8`, typecheck et export admin. Captures 390/1440 du vrai export avec authentification et fournisseurs simulés ; pas de validation des clés de production.
 - Mémoire partagée `.context/` mise en place pour Claude Code, Codex, Cursor et les autres agents ayant accès au dépôt.
 - Audit exhaustif des profils mobile personnel (`ProfilePublicScreen.tsx`) et public visité (`PublicUserProfileScreen.tsx`) validé.
 - Design system écrit dans `DESIGN_SYSTEM.md` et direction visuelle mobile validée par Adel.

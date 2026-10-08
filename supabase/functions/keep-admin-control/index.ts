@@ -1,6 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { lokiEmailCtaShell, lokiEmailShell } from "../_shared/lokiEmailShell.ts";
+import { checkIntegrations } from "../_shared/integrationChecks.ts";
+import { getAppleMusicToken } from "../_shared/appleMusicToken.ts";
+import { getSpotifyCatalogToken } from "../_shared/spotifyCatalog.ts";
+import { p8KeyId, validateAppleP8 } from "../_shared/appleP8.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -42,6 +46,7 @@ const CATALOG: Record<string, { category: string; label: string; secret?: boolea
   DEEZER_APP_ID: { category: "music", label: "Deezer App ID" },
   DEEZER_APP_SECRET: { category: "music", label: "Deezer App Secret", secret: true },
   YOUTUBE_API_KEY: { category: "music", label: "YouTube Data API key (liens de secours précis)", secret: true },
+  GOOGLE_TRANSLATE_API_KEY: { category: "automation", label: "Google Cloud Translation API key", secret: true },
   APPLE_MUSICKIT_TEAM_ID: { category: "music", label: "Apple MusicKit Team ID" },
   APPLE_MUSICKIT_KEY_ID: { category: "music", label: "Apple MusicKit Key ID" },
   APPLE_MUSICKIT_PRIVATE_KEY: { category: "music", label: "Apple MusicKit Private Key", secret: true },
@@ -130,7 +135,7 @@ async function validateAuddToken(value: string): Promise<AuddValidation> {
   form.append("api_token", value);
   let response: Response;
   try {
-    response = await fetch("https://api.audd.io/", { method: "POST", body: form });
+    response = await fetch("https://api.audd.io/", { method: "POST", body: form, signal: AbortSignal.timeout(10000) });
   } catch {
     return { valid: false, status: "ERROR", message: "Impossible de joindre AudD pour valider la clé. Réessaie sans enregistrer une clé non vérifiée." };
   }
@@ -388,9 +393,8 @@ async function audit(actorId: string, action: string, targetType: string, target
 }
 
 async function getSecret(key: string): Promise<string | null> {
-  const { data, error } = await admin.rpc("service_get_integration_secret", { p_key: key });
-  if (error) throw error;
-  if (typeof data === "string" && data.trim()) return data.trim();
+  const { data, error } = await admin.rpc("service_get_integration_secret", { p_key: key }).abortSignal(AbortSignal.timeout(5000));
+  if (!error && typeof data === "string" && data.trim()) return data.trim();
   return existingEdgeSecret(key);
 }
 
@@ -501,31 +505,66 @@ Deno.serve(async (req) => {
         .order("key");
       if (error) throw error;
       const indexed = new Map((data ?? []).map((row: any) => [row.key, row]));
+      const appleKeyIds = new Map<string, string | null>(await Promise.all(["musickit", "iap"].map(async (purpose) => {
+        const key = purpose === "musickit" ? "APPLE_MUSICKIT_KEY_ID" : "APPLE_IAP_KEY_ID";
+        return [key, await getSecret(key)] as const;
+      })));
       return json(200, {
         data: Object.entries(CATALOG).map(([key, meta]) => {
           const row: any = indexed.get(key);
           const edgeConfigured = Boolean(existingEdgeSecret(key));
           const vaultConfigured = Boolean(row?.is_configured);
+          const applePrivateKey = key === "APPLE_MUSICKIT_PRIVATE_KEY" || key === "APPLE_IAP_PRIVATE_KEY";
+          const savedId = applePrivateKey ? appleKeyIds.get(key.replace("_PRIVATE_KEY", "_KEY_ID")) : null;
+          const fileId = applePrivateKey ? /^Clé ([A-Z0-9]{10})$/.exec(row?.value_hint ?? "")?.[1] : null;
+          const mismatch = Boolean(fileId && fileId !== savedId);
           return {
             key,
             ...meta,
             configured: vaultConfigured || edgeConfigured,
-            hint: row?.value_hint ?? (edgeConfigured ? "configuré côté serveur" : null),
+            hint: applePrivateKey ? (fileId || savedId ? `Clé ${fileId || savedId}` : null) : row?.value_hint ?? (edgeConfigured ? "configuré côté serveur" : null),
             updatedAt: row?.updated_at ?? null,
             source: vaultConfigured ? "VAULT" : edgeConfigured ? "EDGE_SECRET" : null,
-            configurationIssue: integrationConfigurationIssue(key, row?.value_hint ?? null),
+            configurationIssue: mismatch ? "KEY_ID différent du fichier .p8" : integrationConfigurationIssue(key, row?.value_hint ?? null),
           };
         }),
       });
     }
 
+    if (action === "integrations.test") {
+      assertRole(actor, ["SUPER_ADMIN", "ADMIN", "TECH"]);
+      const data = await checkIntegrations({
+        getSecret,
+        appleToken: async () => (await getAppleMusicToken(admin)).token,
+        spotifyToken: async () => (await getSpotifyCatalogToken(admin)).token,
+        audd: validateAuddToken,
+        acrcloud: validateAcrCloudCredentials,
+      });
+      return json(200, { data });
+    }
+
     if (action === "integrations.set") {
       assertRole(actor, ["SUPER_ADMIN", "ADMIN", "TECH"]);
       const key = String(body?.key ?? "");
-      const value = String(body?.value ?? "").trim();
+      let value = String(body?.value ?? "").trim();
       const meta = CATALOG[key];
       if (!meta) return json(400, { error: "integration_key_not_allowed" });
       if (!value) return json(400, { error: "value_required" });
+      if (value.length > 20000) return json(400, { error: "integration_value_too_large" });
+      const applePrivateKey = key === "APPLE_MUSICKIT_PRIVATE_KEY" || key === "APPLE_IAP_PRIVATE_KEY";
+      const keyIdField = key.replace("_PRIVATE_KEY", "_KEY_ID");
+      let importedKeyId: string | null = null;
+      if (applePrivateKey) {
+        try {
+          value = await validateAppleP8(value);
+          const providedId = String(body?.keyId ?? "").trim();
+          importedKeyId = body?.fileName ? p8KeyId(String(body.fileName), key) : providedId || await getSecret(keyIdField);
+          if (!importedKeyId || !/^[A-Z0-9]{10}$/.test(importedKeyId)) throw new Error("Identifiant Apple requis");
+          if (providedId && providedId !== importedKeyId) throw new Error("KEY_ID différent du fichier .p8");
+        } catch (error) {
+          return json(400, { error: "invalid_apple_private_key", message: error instanceof Error ? error.message : "Fichier Apple invalide" });
+        }
+      }
       if (key === "STRIPE_SECRET_KEY" && !/^sk_(test_|live_)/.test(value)) {
         return json(400, { error: "invalid_stripe_secret_key", message: "Stripe Secret Key doit commencer par sk_test_ ou sk_live_. Une clé pk_ est publique et va dans STRIPE_PUBLISHABLE_KEY." });
       }
@@ -578,7 +617,7 @@ Deno.serve(async (req) => {
           }
         }
       }
-      const valueHint = hint(value);
+      const valueHint = importedKeyId ? `Clé ${importedKeyId}` : hint(value);
       const { error } = await admin.rpc("service_set_integration_secret", {
         p_key: key,
         p_category: meta.category,
@@ -587,6 +626,16 @@ Deno.serve(async (req) => {
         p_updated_by: actor.id,
       });
       if (error) throw error;
+      if (applePrivateKey && importedKeyId) {
+        const { error: keyIdError } = await admin.rpc("service_set_integration_secret", {
+          p_key: keyIdField,
+          p_category: CATALOG[keyIdField].category,
+          p_value: importedKeyId,
+          p_hint: hint(importedKeyId),
+          p_updated_by: actor.id,
+        });
+        if (keyIdError) throw new Error("Clé enregistrée, KEY_ID non enregistré");
+      }
       if (key === "AUDD_API_KEY" && providerValidation) {
         await setRecognitionRuntimeStatus("AUDD_API_KEY", providerValidation.status, providerValidation.message);
       } else if (key.startsWith("ACRCLOUD_") && acrValidation) {
