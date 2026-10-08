@@ -1,0 +1,138 @@
+--- a/supabase/functions/keep-web-pairing/index.ts
++++ b/supabase/functions/keep-web-pairing/index.ts
+@@ -119,12 +119,28 @@
+       const pairing = await pairingByProof(String(body?.pairingId ?? ""), String(body?.token ?? ""));
+       if (!pairing) return json(404, { error: "pairing_not_found" });
+       if (pairing.status === "EXPIRED") return json(410, { error: "pairing_expired" });
+-      if (pairing.status === "CANCELLED") return json(410, { error: "pairing_cancelled" });
++      if (pairing.status === "CANCELLED") return json(200, { ok: true, status: "CANCELLED" });
+       if (pairing.status === "APPROVED" && pairing.action_link) {
+         return json(200, { ok: true, status: "APPROVED", actionLink: pairing.action_link });
+       }
+       if (pairing.status === "CLAIMED") return json(200, { ok: true, status: "CLAIMED" });
+       return json(200, { ok: true, status: "WAITING" });
++    }
++
++    if (action === "cancel") {
++      const auth = await requireUser(req);
++      if ("error" in auth) return auth.error;
++      const pairing = await pairingByProof(String(body?.pairingId ?? ""), String(body?.token ?? ""));
++      if (!pairing) return json(404, { error: "pairing_not_found" });
++      if (pairing.status === "CANCELLED") return json(200, { ok: true, status: "CANCELLED" });
++      if (pairing.status !== "WAITING") return json(409, { error: "pairing_not_waiting", status: pairing.status });
++      const { data: cancelled, error } = await admin.from("web_pairings")
++        .update({ status: "CANCELLED", action_link: null })
++        .eq("id", pairing.id).eq("status", "WAITING")
++        .select("id").maybeSingle();
++      if (error) throw error;
++      if (!cancelled) return json(409, { error: "pairing_state_changed" });
++      return json(200, { ok: true, status: "CANCELLED" });
+     }
+ 
+     if (action === "approve") {
+@@ -147,13 +163,14 @@
+       }
+ 
+       const now = new Date().toISOString();
+-      const { error } = await admin.from("web_pairings").update({
++      const { data: approved, error } = await admin.from("web_pairings").update({
+         status: "APPROVED",
+         approved_user_id: auth.user.id,
+         action_link: actionLink,
+         approved_at: now,
+-      }).eq("id", pairing.id).eq("status", "WAITING");
+-      if (error) throw error;
++      }).eq("id", pairing.id).eq("status", "WAITING").select("id").maybeSingle();
++      if (error) throw error;
++      if (!approved) return json(409, { error: "pairing_state_changed" });
+       return json(200, { ok: true, status: "APPROVED", deviceLabel: pairing.device_label });
+     }
+ 
+--- a/packages/mobile/src/services/webPairingService.ts
++++ b/packages/mobile/src/services/webPairingService.ts
+@@ -58,6 +58,10 @@
+     pairingId,
+     token,
+   });
++}
++
++export async function cancelDesktopPairing(pairingId: string, token: string): Promise<{ status: string }> {
++  return invoke<{ ok: true; status: string }>({ action: 'cancel', pairingId, token });
+ }
+ 
+ export function parsePairingDeepLink(url: string): { pairingId: string; token: string } | null {
+--- a/packages/mobile/src/components/WebPairingLifecycle.tsx
++++ b/packages/mobile/src/components/WebPairingLifecycle.tsx
+@@ -7,6 +7,7 @@
+ import { useAccountGateStore } from '../store/useAccountGateStore';
+ import {
+   approveDesktopPairing,
++  cancelDesktopPairing,
+   clearPendingWebPairing,
+   clearWebCompanionSessionId,
+   currentWebCompanionSessionId,
+@@ -53,25 +54,31 @@
+     if (!user || isLocalGuest || isDemoMode) return;
+ 
+     approvingRef.current = true;
+-    void approveDesktopPairing(pendingApproval.pairingId, pendingApproval.token)
+-      .then((result) => {
+-        setPendingApproval(null);
+-        Alert.alert(
+-          'Ordinateur autorisé',
+-          result.deviceLabel ? `${result.deviceLabel} peut maintenant ouvrir ton compte Loki Music.` : 'Retourne sur ton ordinateur : la connexion est autorisée.',
+-        );
+-      })
+-      .catch((error: any) => {
+-        Alert.alert(
+-          'Connexion ordinateur',
+-          String(error?.message || '').includes('pairing_expired')
+-            ? 'Ce QR code a expiré. Génère un nouveau QR sur l’ordinateur.'
+-            : 'Impossible d’autoriser cet ordinateur. Génère un nouveau QR et réessaie.',
+-        );
+-      })
+-      .finally(() => {
+-        approvingRef.current = false;
+-      });
++    const request = pendingApproval;
++    const decide = (approve: boolean) => {
++      setPendingApproval(null);
++      const action = approve ? approveDesktopPairing : cancelDesktopPairing;
++      void action(request.pairingId, request.token)
++        .then(() => {
++          Alert.alert(
++            approve ? 'Ordinateur autorisé' : 'Connexion annulée',
++            approve ? 'Retourne sur ton ordinateur.' : 'Cette demande ne peut plus connecter cet ordinateur.',
++          );
++        })
++        .catch(() => {
++          Alert.alert('Connexion ordinateur', 'La demande n’a pas été confirmée. Réessaie depuis le QR de ton ordinateur.');
++        })
++        .finally(() => { approvingRef.current = false; });
++    };
++    Alert.alert(
++      'Connecter cet ordinateur ?',
++      'Approuve uniquement si tu viens de scanner le QR affiché sur ton propre ordinateur.',
++      [
++        { text: 'Annuler', style: 'cancel', onPress: () => decide(false) },
++        { text: 'Approuver', onPress: () => decide(true) },
++      ],
++      { cancelable: false },
++    );
+   }, [pendingApproval, user?.id, isLocalGuest, isDemoMode]);
+ 
+   React.useEffect(() => {
+--- a/packages/mobile/src/components/WebCompanionPairingScreen.tsx
++++ b/packages/mobile/src/components/WebCompanionPairingScreen.tsx
+@@ -51,6 +51,11 @@
+       try {
+         const result = await claimDesktopPairing(challenge.pairingId, challenge.token);
+         if (!active) return;
++        if (result.status === 'CANCELLED') {
++          setMessage('Connexion refusée sur le téléphone.');
++          setSecondsLeft(0);
++          return;
++        }
+         if (result.status === 'APPROVED' && result.actionLink) {
+           rememberPendingWebPairing(challenge.pairingId, challenge.token);
+           setMessage('Téléphone validé. Connexion de cet ordinateur…');
