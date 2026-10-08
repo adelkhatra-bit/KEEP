@@ -424,3 +424,8 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 - Toute nouvelle décision durable doit mettre à jour contrat + spec + guards dans le même changement, sinon le CI bloque.
 
 ## 06/10/2026 (fin) — « Découvert par » = fiche rapide dans le Swipe; Vues de ta story alignées; robot argot (voir ERR-195/196/197). Reste : Pulse bulle « Test » non cliquable (IDEA-158), même bibliothèque pour Pulse, e-mails, notifications mobiles.
+
+
+### Points ouverts — complément Codex 08/10/2026
+
+Journal de référence : AGENT_MESSAGES.md, commit ea955e816ea7ff9955b30261c22c002739d07e82. Catalogue : règles EXACT ajoutées en production pour9 styles, rattrapage additif testé/réexécutable et lecture zéro mapping manquant ; SQL exact dans journal, miroir migration canonique à intégrer. Pas de contenu/profil/FREE/auth modifié. Priorités restantes : QR (confirmation/proof privé/usage unique/révocation serveur), badge sessions basé sur historique pending et arrêt micro attendu avant Ma session, Plus/Moins et description Découverte repliée. Défauts documentés ERROR_LEDGER, demandes soirées/MP3/Pulse enregistrées IDEAS_INBOX. Deux exceptions marketplace expliquent certaines différences entre testeurs ; pending local non synchronisé PC. Aucun nouveau code UI poussé, aucune nouvelle publication ni validation iPhone/App Store. Desktop Commander ne voit aucun appareil ; accès à la copie canonique et validations tsc/rendu restent nécessaires. Aucun verrou posé, aucune personne déconnectée.
