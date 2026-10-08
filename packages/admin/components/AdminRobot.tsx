@@ -24,6 +24,7 @@ export const ROBOT_HELP: Record<string, string> = {
   '/costs': 'Revenus et coûts, séparés par pays et devise.',
   '/marketplace': 'Ventes de playlists et de billets.',
   '/music-brain': 'Styles, Vibes et rangement automatique de la musique.',
+  '/music': 'Catalogue, styles, Pulse, découvreurs et plateformes, sans comptes test.',
   '/integrations': 'Coller et contrôler les clés des services.',
   '/email-test': 'Envoyer un e-mail de test.',
   '/operations': 'Santé et coût des services payants.',

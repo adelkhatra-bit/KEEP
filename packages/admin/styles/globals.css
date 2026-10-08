@@ -69,8 +69,8 @@ a { color: inherit; text-decoration: none; }
 }
 .sidebar nav a.active { background: rgba(124,92,252,0.15); color: var(--primary-light); font-weight: 600; }
 .sidebar nav a:hover { background: var(--bg-card); }
-/* Menu en 8 rubriques (06/10/2026) : titre de rubrique + liens alignés sur la même grille. */
-.sidebar .nav-group { margin-bottom: 14px; }
+/* Huit entrées, les pages restent accessibles par les onglets internes. */
+.sidebar .nav-group { margin-bottom: 4px; }
 .sidebar .nav-group-title {
   padding: 0 12px 6px;
   font-size: 11px;
@@ -229,7 +229,7 @@ h3 { font-size: 15px; font-weight: 800; margin: 0 0 var(--space-3); }
 .sidebar .subtitle { padding: 0 var(--space-3); }
 .sidebar nav a { position: relative; padding: 8px 12px; font-size: 13.5px; margin-bottom: 2px; transition: background .12s, color .12s; }
 .sidebar nav a.active::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 3px; background: var(--primary-light); }
-.sidebar .nav-group { margin-bottom: var(--space-5); }
+.sidebar .nav-group { margin-bottom: var(--space-1); }
 
 /* Cartes et indicateurs */
 .card, .kpi-card { border-radius: var(--radius); padding: var(--space-5); box-shadow: var(--shadow-card); margin-bottom: var(--space-4); }
@@ -286,7 +286,7 @@ td :where(button, .btn, a.btn) { white-space: nowrap; padding: 8px 12px; }
 
 /* SUPER_ADMIN_REDEPLOY_20261003: force GitHub Pages to rebuild admin-preview only. */
 
-/* ===== Un mot + « ? » (règle Adel 07/10/2026) : explication et confirmation dans une seule fenêtre partagée ===== */
+/* ===== Un mot + « ⓘ » : explication et confirmation dans une seule fenêtre partagée ===== */
 .hint { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; min-width: 22px; padding: 0; margin-left: 6px;
   border-radius: 11px; border: 1px solid #6d5a96; background: #241b35; color: #d9ccff; font: 800 13px/1 system-ui, sans-serif; cursor: pointer; vertical-align: middle; }
 .hint:hover, .hint:focus-visible { background: #3a2a5a; color: #fff; outline: none; }
@@ -338,3 +338,13 @@ td :where(button, .btn, a.btn) { white-space: nowrap; padding: 8px 12px; }
 .bar-track { height: 8px; border-radius: 4px; background: #2a2140; overflow: hidden; }
 .bar-fill { display: block; height: 100%; border-radius: 4px; }
 .bar-value { color: #f4f0ff; font-variant-numeric: tabular-nums; }
+
+html, body, #__next { height: 100%; overflow: hidden; }
+.layout { height: 100dvh; min-height: 0; }
+.main { height: 100%; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
+.admin-section h1 { font-size: 20px; margin: 0 0 12px; }
+.admin-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+.admin-tabs a { padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 13px; color: var(--text); }
+.admin-tabs a.active { background: rgba(124,92,252,.15); border-color: var(--primary-light); color: var(--primary-light); }
+.music-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 16px; }
+.music-grid h2 { margin-top: 0; }

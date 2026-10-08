@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import '../styles/globals.css';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 import { APP_NAME } from '../lib/brand';
+import AdminPageRouter from '../components/AdminPageRouter';
 
 type AuthState = 'checking' | 'signed_out' | 'checking_role' | 'allowed' | 'forbidden';
 const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'FINANCE', 'MARKETING', 'MODERATOR', 'TECH'];
@@ -88,8 +89,8 @@ function AdminLogin(){
     <button type="button" onClick={()=>setHelpOpen(v=>!v)} style={forgotButton}>MOT DE PASSE OUBLIÉ ?</button>
     {helpOpen ? <div style={recoveryHelp}>
       <strong>Récupération Super Admin</strong>
-      <p style={{margin:'8px 0 0'}}>Si tu as généré un code de secours depuis « Sécurité & mot de passe », entre ce code directement dans le champ Mot de passe puis touche « Se connecter ». Le code est à usage unique et devient ton nouveau mot de passe après validation.</p>
-      <p style={{margin:'8px 0 0'}}>Si tu es encore connecté sur un autre appareil, ouvre « Sécurité & mot de passe » pour modifier ton mot de passe ou générer un nouveau code de secours sans e-mail.</p>
+      <p style={{margin:'8px 0 0'}}>Si tu as généré un code de secours depuis « Utilisateurs → Équipe », entre ce code directement dans le champ Mot de passe puis touche « Se connecter ». Le code est à usage unique et devient ton nouveau mot de passe après validation.</p>
+      <p style={{margin:'8px 0 0'}}>Si tu es encore connecté sur un autre appareil, ouvre « Utilisateurs → Équipe » pour modifier ton mot de passe ou générer un nouveau code de secours sans e-mail.</p>
     </div> : null}
     {error?<p style={{color:'#fb7185',margin:'10px 0 0'}}>{error}</p>:null}
     <button type="submit" disabled={busy||!identity.trim()||!password} style={button}>{busy?'Connexion…':'SE CONNECTER'}</button>
@@ -125,10 +126,10 @@ export default function App({Component,pageProps}:AppProps){
   },[]);
   if(state==='checking'||state==='checking_role')return <main style={page}><LiveMarker/><div style={{color:'#fff'}}>Vérification de la session…</div></main>;
   if(state!=='allowed')return <AdminLogin/>;
-  return <><LiveMarker/><Component {...pageProps}/></>;
+  return <><LiveMarker/><AdminPageRouter Component={Component} pageProps={pageProps}/></>;
 }
 
-const page={minHeight:'100vh',display:'grid',placeItems:'center',background:'#09070f',color:'#fff',padding:24} as const;
+const page={height:'100dvh',overflowY:'auto',display:'grid',placeItems:'safe center',background:'#09070f',color:'#fff',padding:24} as const;
 const card={width:'100%',maxWidth:420,background:'#151021',border:'1px solid #2c2340',borderRadius:24,padding:28,boxSizing:'border-box' as const};
 const brand={fontSize:13,color:'#a78bfa',fontWeight:800,letterSpacing:1.4} as const;
 const title={margin:'8px 0 6px',fontSize:30} as const;

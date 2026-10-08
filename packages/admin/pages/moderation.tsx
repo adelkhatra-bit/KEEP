@@ -141,9 +141,7 @@ export default function Moderation() {
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10 }}>
                   @{item.creator_username} · {new Date(item.starts_at).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}{item.venue_name ? ` · ${item.venue_name}` : ''}
                 </div>
-                {/* Adel (08/09/2026) : "un bouton en savoir plus pour le
-                    texte qui soit plié ... pour pas que ça encombre" quand
-                    il y a beaucoup d'évènements en attente. */}
+                {/* Description repliée, détails derrière ⓘ (issue #54). */}
                 {item.description ? (
                   <div style={{ marginBottom: 12 }}>
                     <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
@@ -151,10 +149,12 @@ export default function Moderation() {
                     </p>
                     {item.description.length > 180 ? (
                       <button
+                        aria-label="Description"
+                        aria-expanded={Boolean(expanded[item.id])}
                         onClick={() => setExpanded((e) => ({ ...e, [item.id]: !e[item.id] }))}
                         style={{ marginTop: 4, background: 'transparent', border: 'none', color: 'var(--primary-light)', fontSize: 12, fontWeight: 800, cursor: 'pointer', padding: 0 }}
                       >
-                        {expanded[item.id] ? '‹ Replier' : 'En savoir plus ›'}
+                        ⓘ
                       </button>
                     ) : null}
                   </div>

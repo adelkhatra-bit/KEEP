@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 
 /**
- * Règle Adel (07/10/2026) : un seul mot à l'écran, l'explication derrière un « ? ».
- * Composant UNIQUE pour tout le Super Admin : `Hint` (le « ? ») et `Sheet` (la fenêtre, réutilisée par la confirmation).
+ * Règle Adel (issue #54) : un seul mot à l'écran, l'explication derrière « ⓘ ».
+ * Composant UNIQUE pour tout le Super Admin : `Hint` et `Sheet` (la fenêtre, réutilisée par la confirmation).
  * La fenêtre défile elle-même (jamais le fond), se ferme par ✕, Échap ou un clic à côté, et reste lisible sur 390 px.
  */
 export function Sheet({ title, children, onClose, actions }: {
@@ -36,7 +36,7 @@ export default function Hint({ text, title = 'À savoir' }: { text: React.ReactN
   const [open, setOpen] = useState(false);
   return <>
     <button type="button" className="hint" aria-label={`Explication : ${typeof title === 'string' ? title : 'aide'}`}
-      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(true); }}>?</button>
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(true); }}>ⓘ</button>
     {open && <Sheet title={title} onClose={() => setOpen(false)}
       actions={<button type="button" className="btn btn-primary" onClick={() => setOpen(false)}>Compris</button>}>
       {text}

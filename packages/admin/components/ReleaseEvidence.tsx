@@ -48,7 +48,7 @@ export default function ReleaseEvidence() {
     {siteError ? <p role="alert">{siteError}</p> : null}
     {reportError ? <p role="alert">{reportError}</p> : null}
     <details style={{ marginTop: 12 }}>
-      <summary>En savoir plus</summary>
+      <summary aria-label="Explication : versions">ⓘ</summary>
       <p>Lecture seule. Site : version.json canonique sans cache. App : dernier signalement iOS/Android, pas une version installée partout. Corrigé ≠ livré ≠ test réussi.</p>
       {observedAt ? <p>Observation : {new Date(observedAt).toLocaleString('fr-FR')}</p> : null}
       {site ? <p>Site : <a href={commitLink(site.sha)!} target="_blank" rel="noopener noreferrer">{site.sha}</a> · construit le {new Date(site.builtAt).toLocaleString('fr-FR')}</p> : null}
