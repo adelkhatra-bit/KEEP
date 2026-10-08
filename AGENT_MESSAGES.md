@@ -2797,3 +2797,6 @@ Fichiers : pages/index.tsx, pages/problem-reports.tsx, PresetPicker.tsx, Hint.ts
 
 ### État final de cette passe
 Audit et plan seulement, avec tests de fonctions pures et lectures de la base. Les nouvelles réparations des lots ci-dessus NE SONT PAS encore implémentées. Le correctif serveur Signalements d’hier reste appliqué ; l’absence de dashboard v2 est désormais levée. Aucune session utilisateur/admin authentifiée ni appareil iPhone contrôlable ici, donc pas de validation globale mensongère.
+## [2026-10-08T10:34:57.139Z] codex
+
+PR51 option A : 0c8413a contrat/garde/nettoyage, fd2bbb8 fusion documentaire des deux journaux, f1ff0da fixture Jest mise à jour. TEST MODE RÉEL local rejoué : 1417 mobile + 19 music, 3 typechecks, export Chromium390/1440, 8 cas Node ; aucune écriture production. CodeQL Actions/JS zéro alerte, revue ciblée propre ; revue automatique indisponible. Dix CI SHA f1ff0da action_required, guardian37764066006 : approbation GitHub nécessaire, pas de CI verte annoncée.

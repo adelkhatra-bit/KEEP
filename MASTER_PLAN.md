@@ -7,6 +7,8 @@
 
 ### Issue #50 — plan demandé le 08/10/2026
 Suivi autorisé par Adel (commentaire `6057745740`, option A) : aligner contrat/garde/nettoyage pour les PR Copilot vers reconcile uniquement, vérifier les contrôles locaux et distants, rapport « TEST MODE RÉEL ». Aucun nouveau module produit ni déploiement ; les contrôles `action_required` exigent l'autorisation GitHub.
+
+Suivi terminé en revue (`0c8413a`, fusion `fd2bbb8`, tests `f1ff0da`) : 1417 tests mobile + 19 music, typechecks et export/Chromium 390/1440 MODE RÉEL isolé réussis ; CodeQL Actions/JS zéro alerte. Reste l'approbation des runs GitHub (`37764066006`, etc.), puis leur exécution réelle et l'intégration/livraison autorisées. Revue automatique indisponible ; relecture ciblée sans problème significatif. Ne pas appeler les contrôles `action_required` une CI verte.
 1. Réutiliser reconnaissance/session : candidats réels, remplacement sans signal de goût du titre refusé, migration additive privée ; arrêt micro avant ouverture.
 2. Réutiliser Battle/Solo et Remote Config : départ 12 s borné 0–20, tour annulé sans point/FREE, exclusion après deux signalements.
 3. Corriger uniquement bandeau/pastille/bulle signalés ; tests Jest ciblés, export et navigateur 390/1440, gardes et revue. Aucune migration appliquée ni déploiement.

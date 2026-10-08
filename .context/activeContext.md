@@ -1,5 +1,13 @@
 # KEEP — Contexte actif
 
+## PR #51 — reprise option A et TEST MODE RÉEL (08/10/2026)
+- Décision propriétaire `6057745740` appliquée : `copilot/*` uniquement en revue vers reconcile, jamais source de publication. Contrat/garde/nettoyage alignés (`0c8413a`), fixture Jest existante adaptée (`f1ff0da`) avec protections main/dépôt étranger/Navigation conservées.
+- Fusion documentaire `fd2bbb8` avec la pointe canonique `639f499` : seul conflit dans le journal, les deux historiques conservés. Aucun module produit ajouté ni changé depuis le correctif `015aa964`. Le guardian teste les huit cas de branche ; UI Baseline accepte la base PR, pas une publication de revue.
+- Preuves rejouées : **1417/1417 tests mobile (288 suites), 19/19 music (5 suites)** ; typechecks mobile/admin/music propres ; huit tests Node de gouvernance et neuf tests Jest de branche réussis ; syntaxe YAML/Bash des trois workflows validée. Export `--clear` MODE RÉEL et Chromium **390×844 / 1440×900** : corrections moteur/catalogue sans clavier, arrêt avant SESSION, aucune reprise, contraste/bulle/pastille/débordement. Réseau HTTP/WebSockets et micro simulés, aucune écriture réelle. L'avertissement initial de navigation hérité reste explicitement journalisé.
+- Playwright du guardian : **1.55.0 → 1.55.1**, avis SSL corrigé, contrôle dépendance sans alerte connue ; installation sous `/tmp` pour ne pas modifier le monorepo.
+- Validation automatique : **CodeQL Actions et JavaScript terminés, zéro alerte**. Outil de revue automatique indisponible (modèle absent) ; revue spécialisée en lecture seule sans problème significatif après correction de la permission minimale `pull-requests: read`.
+- HEAD distant `f1ff0da06af1f651cbc628b3196e21a2fac8de04` confirmé. Les dix contrôles CI de ce SHA sont **action_required** : guardian `37764066006`, Mobile CI `37764065999`, CodeQL `37764066012`, etc. Une approbation GitHub reste nécessaire ; aucune CI distante verte annoncée. Non intégré, migrations/Edge non déployées, iPhone physique non testé.
+
 ## Issue #50 — écoute / SESSION / Battle (08/10/2026, revue non livrée)
 - Correctif committé en revue : `015aa964fa672b0b15ea324fd7607457f83745a2` sur `copilot/coute-pas-la-bonne-bouton-session`, HEAD distant vérifié ; **non intégré à la branche canonique, non livré**. Scan des 49 fichiers sans secret. Revue ciblée en lecture seule sans problème significatif après corrections ; outil de revue automatique indisponible. CodeQL : workflows sans alerte, expiration avant fin des autres langages ; **analyse complète non validée**, aucun PASS global.
 - Branche de revue `copilot/coute-pas-la-bonne-bouton-session`, base canonique `fa193cc537d47132053163cc842a98756b2a1fff` ; aucun changement App/Navigation/onglets, données utilisateur ou stories.

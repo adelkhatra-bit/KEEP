@@ -34,10 +34,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-10-08T02:42:20.886Z
+- Régénéré le : 2026-10-08T10:34:57.212Z
 - Branche : `copilot/coute-pas-la-bonne-bouton-session`
-- Dernier commit : `015aa96` (015aa964fa672b0b15ea324fd7607457f83745a2) — Corriger la reconnaissance, SESSION et les tours Battle sans voix (#50)
-- Date du dernier commit : 2026-10-08T02:38:58Z
+- Dernier commit : `f1ff0da0` (f1ff0da06af1f651cbc628b3196e21a2fac8de04) — Adapter les assertions Jest à la politique de revue option A
+- Date du dernier commit : 2026-10-08T10:31:41Z
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -124,9 +124,16 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
-- `015aa96` (2026-10-08, copilot-swe-agent[bot]) — Corriger la reconnaissance, SESSION et les tours Battle sans voix (#50)
-- `91a8dcd` (2026-10-08, copilot-swe-agent[bot]) — Initial plan
-- `fa193cc` (2026-10-08, adelkhatra-bit) — ci: repare les 2 robots (Human Guardian + diagnostic tchat)
+- `f1ff0da0` (2026-10-08, copilot-swe-agent[bot]) — Adapter les assertions Jest à la politique de revue option A
+- `fd2bbb8c` (2026-10-08, copilot-swe-agent[bot]) — Intégrer les journaux canoniques sans modifier le produit
+- `0c8413a6` (2026-10-08, copilot-swe-agent[bot]) — Autoriser les PR Copilot vers reconcile sans publication (option A)
+- `639f499d` (2026-10-08, adelkhatra-bit) — docs: record confirmed missing game genre mappings [skip ci]
+- `748f845e` (2026-10-08, adelkhatra-bit) — docs: record events MP3 and listening session requirements [skip ci]
+- `39b68ff6` (2026-10-08, adelkhatra-bit) — docs: record Adel catalogue and Pulse decisions [skip ci]
+- `6b64e01a` (2026-10-08, adelkhatra-bit) — docs: audit vérifié et plan Loki stories artistes solo bot [skip ci]
+- `f64656ba` (2026-10-08, adelkhatra-bit) — docs: décisions audit stories bot unique et performance [skip ci]
+- `a384d2c7` (2026-10-08, copilot-swe-agent[bot]) — Consigner les preuves locales et limites de validation de l’issue #50
+- `015aa964` (2026-10-08, copilot-swe-agent[bot]) — Corriger la reconnaissance, SESSION et les tours Battle sans voix (#50)
 <!-- AUTO:RECENT-COMMITS:END -->
 
 Détail complet de chaque mission : `AGENT_MESSAGES.md` (journal narratif par
@@ -144,6 +151,8 @@ agent) et messages des sessions de chat (non versionnés).
 - Les builds iOS utilisent `--freeze-credentials` pour empêcher EAS d'essayer de réparer/créer des credentials pendant un job non interactif.
 
 ## 4. Points ouverts
+
+- **08/10/2026 — suivi PR #51, TEST MODE RÉEL local validé** : option A encodée (Copilot revue vers reconcile uniquement), conflit documentaire résolu sans perte ; commits `0c8413a`, `fd2bbb8`, `f1ff0da`. 1417 tests mobile + 19 music, trois typechecks, huit tests gouvernance, export et Chromium 390/1440 réussis. CodeQL Actions/JavaScript zéro alerte ; revue automatique indisponible, relecture ciblée propre. CI du SHA `f1ff0da` suspendue `action_required` (guardian `37764066006`) : autorisation GitHub nécessaire, pas de PASS distant. Aucune migration/fonction issue #50 déployée ; détails `.context/activeContext.md`.
 
 - **08/10/2026 — issue #50, revue non livrée** : correction « Pas la bonne », SESSION et trois défauts visuels, position Battle/Solo 12 s + « Pas de voix ». 1417 tests mobile + 19 music, typechecks des trois workspaces, export, RLS locale et Chromium fixtures 390/1440 réussis ; voir `.context/activeContext.md` pour les limites héritées exactes. Migrations/fonctions non appliquées ; CI produit et intégration canonique restent distinctes.
 
