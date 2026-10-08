@@ -1,0 +1,156 @@
+name: Loki App Store Release Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/app-store-release-audit.yml'
+      - '.github/app-store-audit-trigger'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Audit remaining App Store submission gates
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        run: |
+          node <<'NODE'
+          const crypto=require('node:crypto');
+          const key=Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(),'base64');
+          const enc=x=>Buffer.from(JSON.stringify(x)).toString('base64url');
+          const now=Math.floor(Date.now()/1000);
+          const unsigned=enc({alg:'ES256',kid:process.env.ASC_KEY_ID.trim(),typ:'JWT'})+'.'+enc({iss:process.env.ASC_ISSUER_ID.trim(),iat:now-30,exp:now+600,aud:'appstoreconnect-v1'});
+          const token=unsigned+'.'+crypto.sign('sha256',Buffer.from(unsigned),{key,dsaEncoding:'ieee-p1363'}).toString('base64url');
+          async function api(path,{allow404=false}={}){
+            const res=await fetch('https://api.appstoreconnect.apple.com'+path,{headers:{Authorization:'Bearer '+token}});
+            if(allow404&&res.status===404)return null;
+            const txt=await res.text();
+            if(!res.ok)throw new Error(path+' HTTP '+res.status+' '+txt.slice(0,800));
+            return txt?JSON.parse(txt):null;
+          }
+          const present=v=>typeof v==='string'?Boolean(v.trim()):v!=null;
+          (async()=>{
+            const appId=process.env.ASC_APP_ID.trim();
+            const report={};
+
+            const app=await api('/v1/apps/'+appId+'?fields[apps]=name,bundleId,primaryLocale,contentRightsDeclaration,isOrEverWasMadeForKids');
+            report.app={
+              name:app.data.attributes?.name,
+              bundleId:app.data.attributes?.bundleId,
+              primaryLocale:app.data.attributes?.primaryLocale,
+              contentRightsDeclaration:app.data.attributes?.contentRightsDeclaration||null,
+              madeForKids:!!app.data.attributes?.isOrEverWasMadeForKids
+            };
+
+            const versions=await api('/v1/apps/'+appId+
+              '/appStoreVersions?filter[platform]=IOS&fields[appStoreVersions]=versionString,appVersionState,copyright,reviewType,releaseType,usesIdfa,createdDate&limit=50');
+            const v=(versions.data||[]).find(x=>x.attributes?.appVersionState==='PREPARE_FOR_SUBMISSION')||(versions.data||[])[0];
+            if(!v)throw new Error('No iOS App Store version');
+            report.version={
+              id:v.id,
+              versionString:v.attributes?.versionString,
+              state:v.attributes?.appVersionState,
+              copyrightPresent:present(v.attributes?.copyright),
+              reviewType:v.attributes?.reviewType||null,
+              releaseType:v.attributes?.releaseType||null,
+              usesIdfa:v.attributes?.usesIdfa??null
+            };
+
+            const build=await api('/v1/appStoreVersions/'+v.id+
+              '/build?fields[builds]=version,processingState,uploadedDate,usesNonExemptEncryption',{allow404:true});
+            report.build=build?.data?{
+              attached:true,
+              buildNumber:build.data.attributes?.version||null,
+              processingState:build.data.attributes?.processingState||null,
+              uploadedDate:build.data.attributes?.uploadedDate||null,
+              usesNonExemptEncryption:build.data.attributes?.usesNonExemptEncryption??null
+            }:{attached:false};
+
+            const review=await api('/v1/appStoreVersions/'+v.id+
+              '/appStoreReviewDetail?fields[appStoreReviewDetails]=contactFirstName,contactLastName,contactPhone,contactEmail,demoAccountRequired,notes',
+              {allow404:true});
+            const ra=review?.data?.attributes||{};
+            report.review={
+              exists:!!review?.data,
+              contactComplete:Boolean(ra.contactFirstName?.trim()&&ra.contactLastName?.trim()&&ra.contactPhone?.trim()&&ra.contactEmail?.trim()),
+              demoAccountRequired:!!ra.demoAccountRequired,
+              notesPresent:Boolean(ra.notes?.trim())
+            };
+
+            const gc=await api('/v1/appStoreVersions/'+v.id+'/gameCenterAppVersion?fields[gameCenterAppVersions]=enabled',{allow404:true});
+            report.gameCenter={configured:!!gc?.data,enabled:gc?.data?.attributes?.enabled??false};
+
+            const locs=await api('/v1/appStoreVersions/'+v.id+
+              '/appStoreVersionLocalizations?fields[appStoreVersionLocalizations]=locale,description,keywords,marketingUrl,promotionalText,supportUrl,whatsNew&limit=50');
+            report.localizations=[];
+            for(const loc of (locs.data||[])){
+              const a=loc.attributes||{};
+              const sets=await api('/v1/appStoreVersionLocalizations/'+loc.id+
+                '/appScreenshotSets?fields[appScreenshotSets]=screenshotDisplayType&limit=50');
+              const shotSets=[];
+              for(const set of (sets.data||[])){
+                const shots=await api('/v1/appScreenshotSets/'+set.id+
+                  '/appScreenshots?fields[appScreenshots]=fileName,assetDeliveryState&limit=200');
+                shotSets.push({
+                  displayType:set.attributes?.screenshotDisplayType,
+                  count:(shots.data||[]).length,
+                  complete:(shots.data||[]).filter(s=>['COMPLETE','UPLOAD_COMPLETE'].includes(s.attributes?.assetDeliveryState?.state)).length
+                });
+              }
+              report.localizations.push({
+                locale:a.locale,
+                descriptionPresent:present(a.description),
+                keywordsPresent:present(a.keywords),
+                supportUrlPresent:present(a.supportUrl),
+                marketingUrlPresent:present(a.marketingUrl),
+                promotionalTextPresent:present(a.promotionalText),
+                whatsNewPresent:present(a.whatsNew),
+                screenshotSets:shotSets
+              });
+            }
+
+            const price=await api('/v1/apps/'+appId+'/appPriceSchedule?include=baseTerritory,manualPrices&fields[appPriceSchedules]=baseTerritory,manualPrices&fields[appPrices]=manual,startDate,endDate,appPricePoint,territory&fields[territories]=currency&limit[manualPrices]=50',{allow404:true});
+            report.pricing={configured:!!price?.data,baseTerritory:price?.data?.relationships?.baseTerritory?.data?.id||null,manualPriceCount:price?.data?.relationships?.manualPrices?.data?.length||0};
+
+            const infos=await api('/v1/apps/'+appId+
+              '/appInfos?fields[appInfos]=appStoreState,state,appStoreAgeRating,ageRatingDeclaration,appInfoLocalizations,primaryCategory,secondaryCategory&limit=50');
+            report.appInfos=[];
+            for(const info of (infos.data||[])){
+              const row={
+                id:info.id,
+                state:info.attributes?.state||info.attributes?.appStoreState||null,
+                appStoreAgeRating:info.attributes?.appStoreAgeRating||null
+              };
+              const primary=await api('/v1/appInfos/'+info.id+'/primaryCategory',{allow404:true});
+              row.primaryCategory=primary?.data?.id||null;
+              const secondary=await api('/v1/appInfos/'+info.id+'/secondaryCategory',{allow404:true});
+              row.secondaryCategory=secondary?.data?.id||null;
+              const age=await api('/v1/appInfos/'+info.id+'/ageRatingDeclaration',{allow404:true});
+              row.ageRatingDeclarationPresent=!!age?.data;
+              const infoLocs=await api('/v1/appInfos/'+info.id+
+                '/appInfoLocalizations?fields[appInfoLocalizations]=locale,name,subtitle,privacyPolicyUrl,privacyChoicesUrl&limit=50');
+              row.localizations=(infoLocs.data||[]).map(x=>({
+                locale:x.attributes?.locale,
+                namePresent:present(x.attributes?.name),
+                subtitlePresent:present(x.attributes?.subtitle),
+                privacyPolicyUrlPresent:present(x.attributes?.privacyPolicyUrl),
+                privacyChoicesUrlPresent:present(x.attributes?.privacyChoicesUrl)
+              }));
+              report.appInfos.push(row);
+            }
+
+            console.log('=== LOKI RELEASE AUDIT ===');
+            console.log(JSON.stringify(report,null,2));
+            console.log('=== END LOKI RELEASE AUDIT ===');
+          })().catch(e=>{console.error(e.message||String(e));process.exit(1)});
+          NODE

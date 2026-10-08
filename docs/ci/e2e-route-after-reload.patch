@@ -1,0 +1,61 @@
+From 13a80436b1c808841efdb8a766534e86b22ddfdc Mon Sep 17 00:00:00 2001
+From: Loki Music Agent <agent@lokimusic.local>
+Date: Wed, 23 Sep 2026 23:05:51 +0000
+Subject: [PATCH] test(e2e): verify route after reload on GitHub Pages
+
+---
+ .github/workflows/web-preview-pages.yml | 38 +++++++++++++++++++++++++
+ 1 file changed, 38 insertions(+)
+
+diff --git a/.github/workflows/web-preview-pages.yml b/.github/workflows/web-preview-pages.yml
+index 52691df9..18b02640 100644
+--- a/.github/workflows/web-preview-pages.yml
++++ b/.github/workflows/web-preview-pages.yml
+@@ -286,6 +286,44 @@ jobs:
+           test "$dynamic_code" = '404'
+           grep -q '__keep_route' /tmp/keep-dynamic.html
+ 
++      - name: Verify route persists after reload (Profile / Parties / MyMusic)
++        shell: bash
++        run: |
++          set -euo pipefail
++          npm install --no-save @playwright/test@1.55.0
++          npx playwright install chromium --with-deps
++          cat > verify-route-after-reload.cjs <<'JS'
++          const { chromium } = require('@playwright/test');
++          const BASE = 'https://adelkhatra-bit.github.io/KEEP';
++          // Chaque route directe doit rester elle-même APRÈS un reload complet :
++          // la SPA ne doit jamais retomber sur l'accueil ni sur une page blanche.
++          const ROUTES = ['Main/Profile', 'Main/Parties', 'Main/MyMusic'];
++          (async () => {
++            const browser = await chromium.launch({ headless: true });
++            const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
++            for (const route of ROUTES) {
++              const url = `${BASE}/${route}/`;
++              await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
++              await page.waitForTimeout(1200);
++              // Rechargement dur : c'est le scénario réel « je rouvre le lien ».
++              await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
++              await page.waitForTimeout(1500);
++              const pathname = await page.evaluate(() => location.pathname);
++              const bodyText = (await page.locator('body').innerText()).trim();
++              const rootHtml = await page.locator('#root').innerHTML().catch(() => '');
++              console.log(`ROUTE ${route} -> pathname=${pathname} bodyLen=${bodyText.length}`);
++              if (!bodyText || bodyText.length < 10) throw new Error(`${route}: page blanche après reload`);
++              if (!rootHtml || rootHtml.trim().length < 20) throw new Error(`${route}: #root vide après reload`);
++              if (!pathname.includes(`/${route}`)) {
++                throw new Error(`${route}: la route a été perdue après reload (pathname=${pathname})`);
++              }
++            }
++            await browser.close();
++            console.log('ROUTE_AFTER_RELOAD: PASS');
++          })().catch(err => { console.error(err); process.exit(1); });
++          JS
++          node verify-route-after-reload.cjs
++
+       # Les audits navigateurs lourds vivent dans mobile-web-importmeta-diagnostic.yml
+       # ("KEEP — Real Browser Web Runtime Audit"). Ils ne doivent pas retenir
+       # le verrou de publication Pages après un déploiement HTTP déjà valide.
+-- 
+2.39.5
+

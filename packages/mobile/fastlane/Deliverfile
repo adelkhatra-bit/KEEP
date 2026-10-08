@@ -1,0 +1,35 @@
+# Deliverfile — Loki Music
+# Publie la FICHE App Store (metadonnees + screenshots) SANS re-uploader de
+# binaire : la build 312 (v1.0.0) est deja sur TestFlight.
+
+app_identifier(ENV["LOKI_APP_IDENTIFIER"] || "com.adelkhatra.keep")
+username(ENV["FASTLANE_USER"])            # Apple ID ; le mot de passe d'app vient de
+                                          # FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD
+
+# On ne touche pas au binaire, juste la fiche.
+skip_binary_upload(true)
+force(true)                               # pas de confirmation interactive (mode agent)
+
+# Langue de la fiche
+languages(["fr-FR"])
+
+# Le build a utiliser pour la version (deja sur TestFlight)
+build_number(ENV["LOKI_BUILD_NUMBER"] || "312")
+app_version(ENV["LOKI_APP_VERSION"] || "1.0.0")
+
+# Screenshots : au moins 1 en 6.5" requis (fastlane/screenshots/fr-FR/)
+overwrite_screenshots(true)
+
+# Envoi en review une fois la fiche complete (mets a false pour ne faire QUE
+# remplir sans soumettre).
+submit_for_review(ENV["LOKI_SUBMIT_FOR_REVIEW"] != "false")
+
+# Conformite de soumission (evite les blocages courants a la soumission)
+submission_information({
+  add_id_info_uses_idfa: false,
+  export_compliance_uses_encryption: false,
+  content_rights_contains_third_party_content: true,
+  content_rights_has_rights: true
+})
+
+precheck_include_in_app_purchases(false)

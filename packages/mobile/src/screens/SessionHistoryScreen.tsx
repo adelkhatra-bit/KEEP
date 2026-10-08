@@ -7,7 +7,7 @@ import { useSessionStore } from '../store/useSessionStore';
 import { KeepSession } from '../types';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
-import { getDownloadCreditStatus } from '../services/creditService';
+import ContextHelpSheet from '../components/ContextHelpSheet';
 
 function autoTitle(session: KeepSession): string {
   if (session.title) return session.title;
@@ -31,10 +31,7 @@ export default function SessionHistoryScreen({ navigation }: any) {
     .filter((session) => !isCloudProfileRecoverySession(session))
     .slice()
     .sort((a, b) => {
-      const aPending = pendingTracks(a);
-      const bPending = pendingTracks(b);
-      if ((aPending > 0) !== (bPending > 0)) return aPending > 0 ? -1 : 1;
-      if (aPending !== bPending) return bPending - aPending;
+      // Règle d'Adel (05/10/2026) : la session la plus récente est toujours en haut.
       return new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime();
     }), [sessions]);
   const deleteSession = useSessionHistoryStore((s) => s.deleteSession);
@@ -42,28 +39,9 @@ export default function SessionHistoryScreen({ navigation }: any) {
   const reconcileOrphanedLiveSessions = useSessionHistoryStore((s) => s.reconcileOrphanedLiveSessions);
   const isListening = useSessionStore((s) => s.isActive);
   const activeSessionId = useSessionStore((s) => s.sessionId);
-  const [planBadge, setPlanBadge] = useState<{ label: string; focusPlan: string; paid: boolean }>({ label: 'Free', focusPlan: 'PREMIUM', paid: false });
+  const [helpOpen, setHelpOpen] = useState(false);
   const realActiveSessionId = isListening ? activeSessionId : null;
   const hasOrphanedLiveSession = visibleSessions.some((session) => session.endedAt == null && session.id !== realActiveSessionId);
-
-  const refreshPlanBadge = async () => {
-    try {
-      const status = await getDownloadCreditStatus();
-      const rawCode = String(status.planCode || 'FREE').toUpperCase();
-      const code = rawCode === 'GUEST' || rawCode === 'DEMO' ? 'FREE' : rawCode;
-      const paid = code !== 'FREE';
-      const label = code === 'PREMIUM'
-        ? '♛ Premium'
-        : code === 'CREATOR_PRO'
-          ? 'Creator Pro'
-          : code === 'VENUE_PRO'
-            ? 'Venue Pro'
-            : status.remaining == null ? 'Free' : `Free · ${status.remaining}`;
-      setPlanBadge({ label, focusPlan: paid ? code : 'PREMIUM', paid });
-    } catch {
-      setPlanBadge({ label: 'Free', focusPlan: 'PREMIUM', paid: false });
-    }
-  };
 
   useEffect(() => {
     // AsyncStorage se réhydrate après le premier rendu. Cette dépendance passe à
@@ -76,7 +54,6 @@ export default function SessionHistoryScreen({ navigation }: any) {
     const refresh = () => {
       reconcileOrphanedLiveSessions(realActiveSessionId);
       void refreshCreditLocks().catch(() => {});
-      void refreshPlanBadge();
     };
     refresh();
     const unsubscribe = navigation?.addListener?.('focus', refresh);
@@ -131,16 +108,25 @@ export default function SessionHistoryScreen({ navigation }: any) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))} hitSlop={8}><Text style={styles.backArrow}>←</Text></TouchableOpacity>
-        <Text style={styles.title}>{t('history.title')}</Text>
-        <TouchableOpacity
-          style={[styles.planBadge, planBadge.paid ? styles.planBadgePaid : styles.planBadgeFree]}
-          onPress={() => navigation.navigate('Offers', { focusPlan: planBadge.focusPlan, sourceFeature: 'SESSION_PLAN_BADGE' })}
-          accessibilityLabel="Voir mon offre Loki Music"
-        >
-          <Text style={[styles.planBadgeText, planBadge.paid ? styles.planBadgePaidText : styles.planBadgeFreeText]}>{planBadge.label}</Text>
+        <TouchableOpacity style={styles.helpButton} onPress={() => setHelpOpen(true)} accessibilityRole="button" accessibilityLabel="Comprendre Mes Sessions">
+          <Text style={styles.helpButtonText}>?</Text>
         </TouchableOpacity>
+        <View style={styles.headerCopy}><Text style={styles.title}>{t('history.title')}</Text></View>
+        <TouchableOpacity style={styles.backButton} onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))} hitSlop={8} accessibilityRole="button" accessibilityLabel="Retour"><Text style={styles.backArrow}>←</Text></TouchableOpacity>
       </View>
+      <ContextHelpSheet
+        visible={helpOpen}
+        title="Mes Sessions"
+        intro="Ici tu retrouves uniquement tes vraies sessions d’écoute."
+        steps={[
+          { title: 'Retrouver une écoute', text: 'Chaque session garde les morceaux détectés pendant ton écoute, avec l’heure et le contexte.' },
+          { title: 'Swiper ce qui reste', text: 'Quand des morceaux sont encore à décider, ouvre SWIPER pour les garder ou les passer.' },
+          { title: 'Garder sans doublon', text: 'Un morceau déjà ajouté à ta musique n’est pas recréé une deuxième fois.' },
+          { title: 'Session en cours', text: 'Une session réellement active reste protégée : elle ne peut pas être supprimée pendant l’écoute.' },
+          { title: 'Supprimer une session', text: 'Supprimer retire cette session de la liste, sans effacer les morceaux déjà ajoutés à tes playlists externes.' },
+        ]}
+        onClose={() => setHelpOpen(false)}
+      />
       {visibleSessions.length === 0 ? (
         <View style={styles.centered}><Text style={styles.emptyEmoji}>🕐</Text><Text style={styles.emptyText}>{t('history.empty')}</Text></View>
       ) : (
@@ -152,36 +138,34 @@ export default function SessionHistoryScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
-  backArrow: { color: colors.textPrimary, fontSize: 22 },
-  title: { ...typography.h2, color: colors.textPrimary, flex: 1 },
-  planBadge: { minHeight: 30, minWidth: 70, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  planBadgeFree: { backgroundColor: '#10271F', borderColor: '#3BCB8B' },
-  planBadgePaid: { backgroundColor: '#25183B', borderColor: colors.primaryLight },
-  planBadgeText: { fontSize: 10, fontWeight: '900', letterSpacing: .3 },
-  planBadgeFreeText: { color: '#68F2B1' },
-  planBadgePaidText: { color: colors.primaryLight },
+  header: { minHeight:68, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
+  backButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},
+  backArrow: { color: colors.textPrimary, fontSize: 24, lineHeight:26, fontWeight:'800' },
+  headerCopy:{flex:1,minWidth:0},
+  title: { ...typography.h2, color: colors.textPrimary, marginTop:1 },
+  helpButton:{width:36,height:36,borderRadius:18,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
+  helpButtonText:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing.xl },
   emptyEmoji: { fontSize: 40, marginBottom: spacing.md },
   emptyText: { color: colors.textSecondary, fontSize: 14, textAlign: 'center' },
-  list: { padding: spacing.xl, gap: spacing.md },
-  card: { backgroundColor: colors.backgroundCard, borderRadius: radius.lg, marginBottom: spacing.md, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' },
+  list: { paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.xxxl },
+  card: { backgroundColor: colors.backgroundElevated, borderRadius: 20, marginBottom: spacing.md, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' },
   cardNeedsSorting: { borderColor: colors.primaryLight },
-  cardMain: { padding: spacing.lg },
+  cardMain: { minHeight: 82, paddingHorizontal: spacing.md, paddingVertical: spacing.md, justifyContent:'center' },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardTitle: { ...typography.bodyBold, color: colors.textPrimary, flex: 1, marginRight: spacing.sm, textTransform: 'capitalize' },
   cardTime: { color: colors.textMuted, fontSize: 12 },
   cardStats: { color: colors.textSecondary, fontSize: 13, marginTop: spacing.xs },
   liveHint: { color: colors.keep, fontSize: 11, lineHeight: 16, marginTop: 7, fontWeight: '700' },
   lockedHint: { color: colors.primaryLight, fontSize: 11, lineHeight: 16, marginTop: 5, fontWeight: '800' },
-  cardFooter: { minHeight: 42, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: 'row', alignItems: 'stretch' },
-  sortButton: { flex: 1, minHeight: 42, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, borderRightWidth: 1, borderRightColor: colors.border },
+  cardFooter: { minHeight: 48, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: 'row', alignItems: 'stretch' },
+  sortButton: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, borderRightWidth: 1, borderRightColor: colors.border },
   sortText: { color: colors.white, fontSize: 10, fontWeight: '900', letterSpacing: .4 },
   // BUG RÉEL (Adel, 01/09/2026, capture à l'appui) : ce bouton n'avait ni
   // fond ni contour -- juste du texte rouge posé dans le pied de carte, donc
   // rien n'indiquait visuellement qu'on pouvait appuyer dessus à côté du
   // bouton SWIPER, lui bien rempli en violet juste à côté.
-  deleteButton: { flex: 1, minHeight: 42, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,107,134,.08)' },
+  deleteButton: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,92,114,.10)' },
   deleteButtonFull: { flex: 1 },
   deleteText: { color: colors.danger, fontSize: 12, fontWeight: '800' },
 });

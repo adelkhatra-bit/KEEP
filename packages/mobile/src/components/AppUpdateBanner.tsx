@@ -1,49 +1,98 @@
-import React from 'react';
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useAppUpdateStore } from '../store/useAppUpdateStore';
+import React, { useEffect, useRef } from 'react';
+import { Platform } from 'react-native';
 import { reloadToLatest } from '../services/appUpdateService';
-import { colors } from '../theme/colors';
-import { spacing, radius } from '../theme/spacing';
+import { useAppUpdateStore } from '../store/useAppUpdateStore';
+import { runWhenNoGameInProgress } from '../services/updateGameGuard';
 
-// Adel (02/09/2026) : "comme une application normale ... popup pour qu'il
-// puisse faire sa mise à jour, toujours avoir la possibilité de dire je la
-// ferai plus tard" -- bandeau discret (pas un Alert bloquant : une mise à
-// jour n'empêche jamais d'utiliser l'app en attendant), monté une fois au
-// niveau racine comme GlobalNotificationBanner. Recharger la page suffit à
-// "mettre à jour" puisque KEEP est un site statique : c'est le nouveau
-// bundle déjà déployé qui se charge.
-export default function AppUpdateBanner() {
-  const latestSha = useAppUpdateStore((s) => s.latestSha);
-  const dismiss = useAppUpdateStore((s) => s.dismiss);
+/**
+ * Mise à jour Loki Music sans UI visible :
+ * - web : vérifie régulièrement version.json et recharge automatiquement
+ *   avec cache-busting dès qu'un bundle plus récent est réellement publié ;
+ * - iOS/Android production : récupère silencieusement l'OTA compatible au lancement.
+ *
+ * Aucun bouton "Actualiser Loki Music" ne doit encombrer la cloche ou le profil.
+ */
+export default function AppUpdateBanner({ authReady = true }: { authReady?: boolean }) {
+  const latestSha = useAppUpdateStore((state) => state.latestSha);
+  const checkNow = useAppUpdateStore((state) => state.checkNow);
+  const webReloadingRef = useRef(false);
 
-  if (Platform.OS !== 'web' || !latestSha) return null;
+  useEffect(() => {
+    if (!authReady || Platform.OS !== 'web') return undefined;
+    void checkNow();
+    const interval = setInterval(() => { void checkNow(); }, 60_000);
+    const onVisible = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        void checkNow();
+      }
+    };
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(interval);
+      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [authReady, checkNow]);
 
-  return (
-    <View style={s.wrap} pointerEvents="box-none">
-      <View style={s.card}>
-        <Text style={s.title}>🔄 Nouvelle version de Loki Music disponible</Text>
-        <Text style={s.body}>Recharge pour profiter des dernières fonctions.</Text>
-        <View style={s.actions}>
-          <TouchableOpacity accessibilityRole="button" style={s.later} onPress={dismiss}>
-            <Text style={s.laterText}>Plus tard</Text>
-          </TouchableOpacity>
-          <TouchableOpacity accessibilityRole="button" style={s.update} onPress={reloadToLatest}>
-            <Text style={s.updateText}>Mettre à jour</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
-  );
+  useEffect(() => {
+    if (!authReady || Platform.OS !== 'web' || !latestSha || webReloadingRef.current) return undefined;
+    // Incident 02/10/2026 : la page se rechargeait en pleine utilisation (clic
+    // sur Recherche, profil en cours de chargement) à chaque publication -- et
+    // il y en a eu des dizaines dans la journée. Chaque rechargement relançait
+    // tout le chargement du profil, qui n'aboutissait jamais : profils « vides ».
+    // La mise à jour reste silencieuse et automatique, mais ne s'applique
+    // JAMAIS sous les doigts de l'utilisateur : seulement quand l'onglet passe
+    // en arrière-plan (changement d'onglet, écran verrouillé, fenêtre réduite).
+    let cancelGameWait: () => void = () => {};
+    const applyUpdate = () => {
+      if (webReloadingRef.current) return;
+      // Jamais pendant un Solo / Battle : on attend la fin de la partie.
+      cancelGameWait();
+      cancelGameWait = runWhenNoGameInProgress(() => {
+        if (webReloadingRef.current) return;
+        webReloadingRef.current = true;
+        reloadToLatest();
+      });
+    };
+    if (typeof document === 'undefined' || document.visibilityState === 'hidden') {
+      applyUpdate();
+      return () => cancelGameWait();
+    }
+    const onHidden = () => {
+      if (document.visibilityState === 'hidden') applyUpdate();
+    };
+    document.addEventListener('visibilitychange', onHidden);
+    return () => {
+      document.removeEventListener('visibilitychange', onHidden);
+      cancelGameWait();
+    };
+  }, [authReady, latestSha]);
+
+  useEffect(() => {
+    if (!authReady || Platform.OS === 'web' || __DEV__) return undefined;
+    let active = true;
+    let cancelGameWait: () => void = () => {};
+
+    const applySilently = async () => {
+      try {
+        const Updates = await import('expo-updates');
+        if (!active || !Updates.isEnabled) return;
+        const check = await Updates.checkForUpdateAsync();
+        if (!active || !check.isAvailable) return;
+        await Updates.fetchUpdateAsync();
+        if (!active) return;
+        // Téléchargée maintenant, installée seulement hors partie.
+        cancelGameWait = runWhenNoGameInProgress(() => {
+          if (!active) return;
+          Updates.reloadAsync().catch(() => {});
+        });
+      } catch {
+        // Une panne OTA ne doit jamais empêcher Loki Music de démarrer.
+      }
+    };
+
+    void applySilently();
+    return () => { active = false; cancelGameWait(); };
+  }, [authReady]);
+
+  return null;
 }
-
-const s = StyleSheet.create({
-  wrap: { position: 'absolute', left: 0, right: 0, bottom: 78, alignItems: 'center', paddingHorizontal: spacing.lg, zIndex: 200 },
-  card: { width: '100%', maxWidth: 420, backgroundColor: colors.backgroundCard, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: 14, gap: 8 },
-  title: { color: colors.textPrimary, fontSize: 13, fontWeight: '900' },
-  body: { color: colors.textSecondary, fontSize: 12, lineHeight: 16 },
-  actions: { flexDirection: 'row', gap: 10, marginTop: 2 },
-  later: { flex: 1, minHeight: 40, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  laterText: { color: colors.textPrimary, fontSize: 12, fontWeight: '800' },
-  update: { flex: 1, minHeight: 40, borderRadius: radius.md, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  updateText: { color: '#FFF', fontSize: 12, fontWeight: '900' },
-});

@@ -3,30 +3,54 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 import { APP_NAME } from '../lib/brand';
+import AdminRobot from './AdminRobot';
 
 type AdminRole = 'SUPER_ADMIN' | 'ADMIN' | 'SUPPORT' | 'FINANCE' | 'MARKETING' | 'MODERATOR' | 'TECH';
 
 type NavItem = { href: string; label: string; roles?: AdminRole[] };
+type NavGroup = { title: string; items: NavItem[] };
 
 const ALL_ROLES: AdminRole[] = ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'FINANCE', 'MARKETING', 'MODERATOR', 'TECH'];
-const NAV: NavItem[] = [
-  { href: '/', label: 'Dashboard', roles: ALL_ROLES },
-  { href: '/users', label: 'Utilisateurs', roles: ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'MODERATOR'] },
-  { href: '/moderation', label: 'Approuver', roles: ['SUPER_ADMIN', 'ADMIN', 'MODERATOR'] },
-  { href: '/support-center', label: 'Support utilisateurs', roles: ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'MODERATOR'] },
-  { href: '/messages', label: 'Messages', roles: ['SUPER_ADMIN', 'ADMIN', 'MARKETING'] },
-  { href: '/music-brain', label: `${APP_NAME} Music Brain`, roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
-  { href: '/plans', label: 'Abonnements & Prix', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
-  { href: '/operations', label: 'API payantes & Support', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
-  { href: '/launch-center', label: 'Lancer Loki Music', roles: ['SUPER_ADMIN'] },
-  { href: '/costs', label: 'Comptabilité & Rentabilité', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
-  { href: '/marketplace', label: 'Place de marché', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
-  { href: '/feature-flags', label: 'Feature Flags', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
-  { href: '/remote-config', label: 'Textes & Quotas app', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH', 'MARKETING'] },
-  { href: '/integrations', label: 'Clés & intégrations', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
-  { href: '/email-test', label: 'Test e-mail', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
-  { href: '/team', label: 'Équipe Super Admin', roles: ['SUPER_ADMIN'] },
+// Menu en 8 rubriques (Adel, 06/10/2026) : mêmes écrans qu'avant, rien supprimé, une seule entrée par écran.
+// « Signalements » est nouveau (secousses et diagnostics de l'app, jusqu'ici invisibles).
+const NAV_GROUPS: NavGroup[] = [
+  { title: 'Accueil', items: [
+    { href: '/', label: 'Accueil', roles: ALL_ROLES },
+  ] },
+  { title: 'Comptes', items: [
+    { href: '/users', label: 'Comptes', roles: ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'MODERATOR'] },
+  ] },
+  { title: 'Modération', items: [
+    { href: '/moderation', label: 'Approuver', roles: ['SUPER_ADMIN', 'ADMIN', 'MODERATOR'] },
+    { href: '/community', label: 'Communauté', roles: ['SUPER_ADMIN', 'ADMIN', 'MODERATOR'] },
+    { href: '/problem-reports', label: 'Bugs', roles: ['SUPER_ADMIN', 'ADMIN', 'MODERATOR', 'SUPPORT', 'TECH'] },
+  ] },
+  { title: 'Contact', items: [
+    { href: '/support-center', label: 'Support', roles: ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'MODERATOR'] },
+    { href: '/messages', label: 'Messages', roles: ['SUPER_ADMIN', 'ADMIN', 'MARKETING'] },
+    { href: '/notification-access', label: 'Notifications', roles: ['SUPER_ADMIN', 'ADMIN'] },
+  ] },
+  { title: 'Argent', items: [
+    { href: '/plans', label: 'Formules', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
+    { href: '/costs', label: 'Comptabilité', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
+    { href: '/marketplace', label: 'Ventes', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
+  ] },
+  { title: 'Musique', items: [
+    { href: '/music-brain', label: 'Musique', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
+  ] },
+  { title: 'Technique', items: [
+    { href: '/integrations', label: 'Clés', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
+    { href: '/email-test', label: 'E-mail', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
+    { href: '/operations', label: 'Santé', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
+    { href: '/launch-center', label: 'Lancement', roles: ['SUPER_ADMIN'] },
+    { href: '/feature-flags', label: 'Fonctions', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
+    { href: '/remote-config', label: 'Réglages', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH', 'MARKETING'] },
+  ] },
+  { title: 'Sécurité', items: [
+    { href: '/team', label: 'Équipe', roles: ['SUPER_ADMIN'] },
+  ] },
 ];
+const NAV: NavItem[] = NAV_GROUPS.flatMap((group) => group.items);
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -36,10 +60,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [integrationIssues, setIntegrationIssues] = useState(0);
   const [pendingModeration, setPendingModeration] = useState(0);
   const [bellOpen, setBellOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (window.innerWidth < 1180) setSidebarOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const update = () => setIsMobile(window.innerWidth < 900);
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
   }, []);
 
   useEffect(() => {
@@ -85,8 +118,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const totalAlerts = pendingSupport + integrationIssues + pendingModeration;
 
-  const visibleNav = useMemo(
-    () => NAV.filter((item) => !item.roles || (role ? item.roles.includes(role) : false)),
+  const visibleGroups = useMemo(
+    () => NAV_GROUPS
+      .map((group) => ({ ...group, items: group.items.filter((item) => !item.roles || (role ? item.roles.includes(role) : false)) }))
+      .filter((group) => group.items.length > 0),
     [role],
   );
   const currentItem = NAV.find((item) => item.href === router.pathname);
@@ -94,14 +129,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="layout">
+      {sidebarOpen && isMobile && (
+        <div
+          className="sidebar-backdrop active"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
       <aside className={`sidebar ${sidebarOpen ? '' : 'sidebar-collapsed'}`}>
         <div className="logo">{APP_NAME}</div>
         <div className="subtitle">Super Admin{role ? ` · ${role}` : ''}</div>
         <nav>
-          {visibleNav.map((item) => (
-            <Link key={item.href} href={item.href} className={router.pathname === item.href ? 'active' : ''}>
-              {item.label}
-            </Link>
+          {visibleGroups.map((group) => (
+            <div key={group.title} className="nav-group">
+              <div className="nav-group-title">{group.title}</div>
+              {group.items.map((item) => (
+                <Link key={item.href} href={item.href} className={router.pathname === item.href ? 'active' : ''}>
+                  {item.label}
+                </Link>
+              ))}
+            </div>
           ))}
         </nav>
         <div
@@ -116,7 +163,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             lineHeight: 1.4,
           }}
         >
-          Accès par rôle. Les actions sensibles restent liées à la session {APP_NAME}, au rôle Admin actif et au journal d’audit.
+          🔒 Tracé
         </div>
       </aside>
       <main className="main">
@@ -130,13 +177,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           >
             ☰
           </button>
-          <span className="admin-toolbar-label">{sidebarOpen ? 'Masquer le menu' : 'Menu Super Admin'}</span>
+          <span className="admin-toolbar-label">Menu</span>
+          {/* Doublon « 🔐 Mot de passe » retiré (06/10/2026) : une seule entrée, menu › Sécurité. */}
           <div style={{ marginLeft: 'auto', position: 'relative' }}>
             <button
               type="button"
               onClick={() => setBellOpen((v) => !v)}
               aria-label={totalAlerts > 0 ? `${totalAlerts} alerte(s) Super Admin` : 'Aucune alerte'}
-              style={{ position: 'relative', background: 'transparent', border: '1px solid var(--border)', borderRadius: 10, width: 38, height: 38, fontSize: 18, cursor: 'pointer', color: 'var(--text)' }}
+              style={{ position: 'relative', background: 'transparent', border: '1px solid var(--border)', borderRadius: 10, width: 38, height: 38, padding: 0, fontSize: 18, cursor: 'pointer', color: 'var(--text)' }}
             >
               🔔
               {totalAlerts > 0 && (
@@ -176,6 +224,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <p style={{ color: 'var(--text-muted)' }}>Ton rôle {role || 'inconnu'} n’autorise pas cette section.</p>
           </div>
         )}
+        {/* Robot d'aide (07/10/2026) : son catalogue = ce menu, filtré par rôle (aucun lien vers une page interdite ou absente). */}
+        <AdminRobot currentPath={router.pathname} pages={visibleGroups.flatMap((g) => g.items.map((i) => ({ href: i.href, label: i.label, group: g.title })))} />
       </main>
     </div>
   );

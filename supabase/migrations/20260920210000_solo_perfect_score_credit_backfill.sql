@@ -24,7 +24,7 @@ create temporary table _solo_backfill (
   profile_id uuid,
   round_count integer,
   amount integer
-) on commit drop;
+);
 
 insert into _solo_backfill (history_id, profile_id, round_count, amount)
 select
@@ -74,3 +74,6 @@ select p.username, b.round_count, b.amount
 from _solo_backfill b
 join public.profiles p on p.id = b.profile_id
 order by p.username;
+
+
+drop table if exists _solo_backfill;

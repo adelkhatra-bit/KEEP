@@ -1,0 +1,60 @@
+name: Loki EAS Build API Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/eas-build-api-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Inspect EAS GraphQL build API
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          node <<'NODE'
+          const token=process.env.EXPO_TOKEN;
+          if(!token) throw new Error('EXPO_TOKEN missing');
+          async function gql(query,variables={}){
+            const r=await fetch('https://api.expo.dev/graphql',{
+              method:'POST',
+              headers:{'content-type':'application/json',authorization:'Bearer '+token},
+              body:JSON.stringify({query,variables})
+            });
+            const j=await r.json();
+            if(!r.ok||j.errors?.length) throw new Error(JSON.stringify(j.errors||j).slice(0,3000));
+            return j.data;
+          }
+          (async()=>{
+            const data=await gql(`
+              query BuildSchema {
+                __schema {
+                  queryType {
+                    fields {
+                      name
+                      args { name type { kind name ofType { kind name ofType { kind name } } } }
+                      type { kind name ofType { kind name ofType { kind name } } }
+                    }
+                  }
+                }
+                buildType: __type(name:"Build") {
+                  fields {
+                    name
+                    type { kind name ofType { kind name ofType { kind name } } }
+                  }
+                }
+              }
+            `);
+            const fields=(data.__schema?.queryType?.fields||[]).filter(f=>/build/i.test(f.name));
+            console.log('EAS_BUILD_QUERY_FIELDS='+JSON.stringify(fields,null,2));
+            console.log('EAS_BUILD_TYPE_FIELDS='+JSON.stringify((data.buildType?.fields||[]).filter(f=>/artifact|version|status|id|created|completed|profile|distribution|runtime/i.test(f.name)),null,2));
+          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE

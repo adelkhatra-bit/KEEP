@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import Hint from '../components/Hint';
 import { supabase } from '../lib/supabaseClient';
 
 type Ticket = {
@@ -117,9 +118,8 @@ export default function SupportCenterAdmin() {
   };
 
   return <AdminLayout>
-    <div className="page-title">Support utilisateurs</div>
-    <div className="page-subtitle">Conversation directe Loki Music ↔ utilisateurs · données Supabase réelles</div>
-    <div className="demo-banner">● MODE RÉEL — les demandes viennent de l’application et les réponses repartent dans Réglages avancés.</div>
+    <div className="page-title">Support <Hint title="Support" text={<>Conversation directe Loki Music ↔ utilisateurs · données Supabase réelles</>}/></div>
+    <div className="demo-banner"><span className="real-pill">● Réel <Hint title="Mode réel" text="Les demandes viennent de l’application et les réponses repartent dans Réglages avancés."/></span></div>
 
     <div style={{ display:'flex', gap:8, margin:'14px 0' }}>
       <button onClick={() => setFilter('ACTIVE')} style={{ opacity: filter === 'ACTIVE' ? 1 : .55 }}>Actifs</button>
@@ -152,7 +152,7 @@ export default function SupportCenterAdmin() {
             {messages.map((message) => <div key={message.id} style={{ maxWidth:'88%', justifySelf: message.sender_role === 'ADMIN' ? 'end' : 'start', padding:'10px 12px', borderRadius:12, background: message.sender_role === 'ADMIN' ? '#28184a' : '#120e1b', border:'1px solid #3a2d50' }}>
               <div style={{ color:'#a78bfa', fontSize:10, fontWeight:900 }}>{message.sender_role === 'ADMIN' ? 'Loki Music' : message.sender_role === 'SYSTEM' ? 'SYSTÈME' : 'UTILISATEUR'}</div>
               <div style={{ marginTop:4, whiteSpace:'pre-wrap' }}>{message.body}</div>
-              <div style={{ marginTop:5, color:'#80768f', fontSize:9 }}>{new Date(message.created_at).toLocaleString('fr-FR')}</div>
+              <div style={{ marginTop:5, color:'#aaa5c4', fontSize:9 }}>{new Date(message.created_at).toLocaleString('fr-FR')}</div>
             </div>)}
           </div>
           {/* Adel (08/09/2026) : "trouve une solution ... qui reprend les

@@ -5,7 +5,8 @@ const outDir = process.argv[2] || 'dist';
 const outputRoot = path.resolve(process.cwd(), outDir);
 const indexPath = path.join(outputRoot, 'index.html');
 const canonicalRoot = 'https://adelkhatra-bit.github.io/KEEP/';
-const buildId = (process.env.GITHUB_SHA || `local-${Date.now()}`).slice(0, 16);
+const buildSha = process.env.GITHUB_SHA || `local-${Date.now()}`;
+const buildId = buildSha.slice(0, 16);
 
 if (!fs.existsSync(indexPath)) {
   throw new Error(`KEEP web export introuvable: ${indexPath}`);
@@ -26,16 +27,47 @@ const cacheHygiene = [
   `<meta name="keep-build" content="${buildId}" />`,
   `<script id="keep-cache-hygiene">(function(){try{var k='__keep_web_build';var n='${buildId}';var p=localStorage.getItem(k);if(p!==n){if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.unregister().catch(function(){})})}).catch(function(){})}if('caches' in window){caches.keys().then(function(keys){return Promise.all(keys.map(function(key){return caches.delete(key)}))}).catch(function(){})}localStorage.setItem(k,n)}}catch(e){}})();</script>`,
 ].join('');
+const liveVersionGuard = `<script id="keep-live-version-guard">(function(){try{var current='${buildSha}';if(!/^([0-9a-f]{40})$/i.test(current))return;var checking=false;var check=function(){if(checking)return;checking=true;fetch('/KEEP/version.json?ts='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(v){var latest=v&&String(v.sha||'');if(!latest||latest===current)return;var key='__keep_forced_build';if(sessionStorage.getItem(key)===latest)return;sessionStorage.setItem(key,latest);var u=new URL(location.href);u.searchParams.set('__keep_build',latest.slice(0,16));location.replace(u.toString())}).catch(function(){}).finally(function(){checking=false})};check();setInterval(check,30000);addEventListener('focus',check,{passive:true});document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')check()},{passive:true})}catch(e){}})();</script>`;
 if (!html.includes('keep-cache-hygiene') && html.includes('</head>')) {
-  html = html.replace('</head>', `${cacheHygiene}</head>`);
+  html = html.replace('</head>', `${cacheHygiene}${liveVersionGuard}</head>`);
+}
+
+// Anti-flash refresh : Safari/Chrome peuvent conserver la dernière frame peinte
+// pendant que le nouveau bundle se charge. Sur Loki cela donnait l'impression
+// qu'un ancien design/modal restait "derrière" l'écran courant. On masque donc
+// le DOM applicatif derrière un fond opaque jusqu'au premier rendu React réel.
+// Aucun état métier/localStorage n'est touché et le garde-fou s'enlève aussi
+// automatiquement après 8 s si le bundle plante, afin de ne jamais bloquer l'UI.
+const bootShield = [
+  '<style id="keep-boot-shield">html.keep-booting,html.keep-booting body{background:#0B0A12!important}html.keep-booting body>*{visibility:hidden!important}html.keep-booting #root{visibility:hidden!important}</style>',
+  '<script id="keep-boot-shield-script">(function(){try{var d=document.documentElement;d.classList.add("keep-booting");var done=false;var release=function(){if(done)return;done=true;requestAnimationFrame(function(){requestAnimationFrame(function(){d.classList.remove("keep-booting")})})};var watch=function(){var r=document.getElementById("root");if(r&&r.childNodes&&r.childNodes.length){release();return true}return false};if(!watch()){var o=new MutationObserver(function(){if(watch())o.disconnect()});o.observe(document,{childList:true,subtree:true});setTimeout(function(){try{o.disconnect()}catch(e){}release()},8000)}}catch(e){try{document.documentElement.classList.remove("keep-booting")}catch(_){}}})();</script>',
+].join('');
+if (!html.includes('keep-boot-shield') && html.includes('</head>')) {
+  html = html.replace('</head>', `${bootShield}</head>`);
 }
 
 // iOS Safari zoome automatiquement lorsqu'un input a une taille de police
 // inférieure à 16px. On corrige uniquement les champs sur petit écran web,
 // sans désactiver le pinch-to-zoom ni modifier le design natif Android/iOS.
+// Le navigateur peint parfois le canvas AVANT que le bundle Expo ne démarre.
+// Utiliser exactement le même fond que le thème Loki évite tout flash/halo
+// d'un ancien fond lors d'un refresh ou d'un changement de route.
+const shellBackgroundCss = '<style id="keep-shell-background">html,body,#root{margin:0;background:#0B0A12!important}html,body{min-height:100%}</style>';
+if (!html.includes('keep-shell-background') && html.includes('</head>')) {
+  html = html.replace('</head>', `${shellBackgroundCss}</head>`);
+}
+
 const mobileFormCss = '<style id="keep-mobile-form-nozoom">@media (max-width: 767px){input,textarea,select{font-size:16px!important}}</style>';
 if (!html.includes('keep-mobile-form-nozoom') && html.includes('</head>')) {
   html = html.replace('</head>', `${mobileFormCss}</head>`);
+}
+
+// Desktop web must use the whole browser surface instead of behaving like a
+// frozen phone viewport. Keep mobile untouched; on wide screens, allow natural
+// page height/scroll and remove any accidental root width cap left by the web shell.
+const desktopShellCss = '<style id="keep-desktop-shell">@media (min-width: 900px){html,body{width:100%!important;height:100%!important;min-height:100%!important;overflow:hidden!important}#root{width:100%!important;max-width:none!important;height:100dvh!important;min-height:100vh!important;max-height:100dvh!important;overflow:hidden!important}#root>div{width:100%!important;max-width:none!important;height:100%!important;min-height:100%!important}}</style>';
+if (!html.includes('keep-desktop-shell') && html.includes('</head>')) {
+  html = html.replace('</head>', `${desktopShellCss}</head>`);
 }
 
 // SEO sans toucher au rendu React Native : toutes les routes de l'application

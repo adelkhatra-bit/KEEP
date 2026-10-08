@@ -15,8 +15,11 @@ const worker = read('supabase/functions/keep-push-worker/index.ts');
 const directRpc = read('supabase/migrations/20260830015000_keep_push_tokens_direct_rpc.sql');
 const singleOwner = read('supabase/migrations/20260830015200_keep_push_token_single_owner.sql');
 const cron = read('supabase/migrations/20260830014500_keep_push_worker_cron.sql');
+const appConfig = read('packages/mobile/app.json');
+const mobilePackage = read('packages/mobile/package.json');
+const soundGenerator = read('packages/mobile/scripts/generate-notification-sounds.cjs');
 
-ok('mobile registers token through Supabase RPC', service.includes("rpc('keep_push_token_register'"));
+ok('mobile registers token through Supabase RPC', service.includes("rpc('keep_push_token_register'") || service.includes("rpc('keep_push_token_register_v2'") || service.includes("rpc('keep_push_token_register_v3'"));
 ok('mobile push registration has no Render API URL dependency', !service.includes('EXPO_PUBLIC_API_URL') && !service.includes('/api/notifications/push-token'));
 ok('global lifecycle invokes push registration', lifecycle.includes('registerForPushNotifications') && root.includes('PushRegistrationLifecycle'));
 ok('token registration is authenticated by auth.uid()', directRpc.includes('auth.uid()'));
@@ -25,6 +28,11 @@ ok('Supabase Edge push worker exists', worker.includes('EXPO_PUSH_URL') && worke
 ok('Supabase Cron invokes Edge worker', cron.includes('cron.schedule') && cron.includes('keep-push-worker'));
 ok('Cron secret comes from Vault', cron.includes('vault.decrypted_secrets'));
 ok('Render push loop is fallback only', backend.includes("process.env.KEEP_PUSH_WORKER_FALLBACK === '1'"));
+ok('money sound is generated before native builds', mobilePackage.includes('generate-notification-sounds.cjs') && soundGenerator.includes('keep_money.wav'));
+ok('Expo bundles the money notification sound', appConfig.includes('keep_money.wav'));
+ok('mobile registers a dedicated money notification channel', service.includes("setNotificationChannelAsync('money'") && service.includes("sound: 'keep_money.wav'"));
+ok('Edge worker applies persisted category sound preferences including money and silent', worker.includes('deliveryPreference') && worker.includes('isMoneyNotification') && worker.includes('keep_money.wav') && worker.includes('SILENT') && worker.includes('pref.channelId'));
+ok('only genuinely invalid device tokens are pruned', worker.includes('return code === "DeviceNotRegistered"') && worker.includes('BadEnvironmentKeyInToken') && worker.includes('token de l\'iPhone reste valable'));
 
 console.log('KEEP direct Supabase push architecture: PASS');
 for (const c of checks) console.log(`PASS  ${c.label}`);

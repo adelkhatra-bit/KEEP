@@ -42,9 +42,14 @@ export function primaryArtistName(value?: string | null): string {
 export function canonicalTrackIdentity(track: Pick<CanonicalTrack, 'id' | 'isrc' | 'title' | 'artist'>): string {
   const isrc = track.isrc?.trim().toUpperCase();
   if (isrc) return `isrc:${isrc}`;
-  const title = normalizeMusicText(track.title);
-  const artist = normalizeMusicText(primaryArtistName(track.artist));
-  return track.id ? `id:${track.id}` : `text:${artist}|${title}`;
+  // Règle Loki : le titre ou le nom d'artiste ne prouvent jamais qu'il
+  // s'agit du même contenu. Une version live, remix, reprise ou morceau aux
+  // paroles différentes doit rester distincte. CanonicalTrack possède un ID
+  // interne stable : c'est le seul repli sûr quand l'ISRC manque.
+  if (track.id) return `id:${track.id}`;
+  // Cas défensif uniquement pour un objet incomplet non conforme au type :
+  // ne jamais fusionner deux morceaux sur leurs métadonnées textuelles.
+  throw new Error('canonical_track_id_required_without_isrc');
 }
 
 export function canonicalArtistIdentity(track: Pick<CanonicalTrack, 'artist'>): string {

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import Hint from '../components/Hint';
 import { invokeAdminFunction } from '../lib/invokeFunction';
 
 const invokeControl = (body: Record<string, unknown>) => invokeAdminFunction('keep-admin-control', body);
@@ -129,8 +130,7 @@ export default function EmailTestPage() {
 
   return (
     <AdminLayout>
-      <div className="page-title">Test e-mail Brevo</div>
-      <div className="page-subtitle">Vérification réelle du circuit Loki Music → Supabase sécurisé → Brevo → boîte mail</div>
+      <div className="page-title">E-mail <Hint title="E-mail" text={<>Vérification réelle du circuit Loki Music → Supabase sécurisé → Brevo → boîte mail</>}/></div>
 
       <div className="kpi-card" style={{ maxWidth: 900, marginTop: 24 }}>
         <div style={{ marginBottom: 14, padding: 12, borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--muted)', fontSize: 12 }}>

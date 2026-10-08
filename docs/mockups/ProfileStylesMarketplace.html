@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Loki Music — Profil vendeur vu par un visiteur</title>
+<style>
+:root{--bg:#0B0A12;--card:#151320;--e:#1C1930;--border:#2A2640;--p:#7C5CFC;--pl:#A78BFA;--keep:#2DE1C2;--pass:#FF5C72;--txt:#F5F5F7;--muted:#A0A0B0}
+*{box-sizing:border-box}body{margin:0;background:#06050b;color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.wrap{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,390px));gap:24px;justify-content:center;padding:24px}
+.phone{background:var(--bg);border:1px solid #302b45;border-radius:32px;min-height:844px;overflow:hidden;box-shadow:0 24px 70px #0009;position:relative}
+.status{height:34px;padding:10px 18px 0;font-weight:800;font-size:12px;display:flex;justify-content:space-between}
+.scroll{padding:8px 16px 92px}.top{display:flex;justify-content:space-between;align-items:center;height:44px}.icon{width:40px;height:40px;border-radius:20px;background:var(--e);display:grid;place-items:center}
+.identity{display:flex;gap:12px;align-items:center}.avatar{width:72px;height:72px;border-radius:36px;background:linear-gradient(135deg,#ff683a,#7c5cfc);display:grid;place-items:center;font-size:28px;border:2px solid var(--pl)}
+.name{font-size:22px;font-weight:900}.meta{font-size:12px;color:var(--muted);margin-top:4}.bio{font-size:13px;line-height:18px;color:#d8d2e5;margin:12px 0}
+.row{display:flex;gap:8px}.btn{min-height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;padding:0 14px;font-weight:900;font-size:12px}.primary{background:var(--p);flex:1}.secondary{background:var(--e);border:1px solid var(--border);flex:1}.money{background:rgba(45,225,194,.12);border:1px solid var(--keep);color:var(--keep);flex:1}
+.stats{display:flex;justify-content:space-around;border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:12px 0;margin:14px 0}.stat{text-align:center}.n{font-size:17px;font-weight:900}.l{font-size:9px;color:var(--muted);text-transform:uppercase;margin-top:3px}
+.heroCta{height:50px;border-radius:16px;background:var(--p);display:grid;place-items:center;font-size:13px;font-weight:900;margin-bottom:20px}
+.heading{display:flex;align-items:end;justify-content:space-between;margin:18px 0 10px}.heading h2{font-size:17px;margin:0}.small{font-size:11px;color:var(--pl)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.style{min-height:132px;border-radius:18px;padding:13px;position:relative;overflow:hidden;border:1px solid var(--border);background:linear-gradient(145deg,#28193d,#151320)}
+.style.orange{background:linear-gradient(145deg,#6a2c14,#221310)}.style.blue{background:linear-gradient(145deg,#09375d,#111b2c)}.style.pink{background:linear-gradient(145deg,#5d194d,#241221)}.style.locked{background:linear-gradient(145deg,#191b25,#0c0e14);border-color:#544c70}
+.styleTitle{font-size:17px;font-weight:900;margin-top:36px}.styleMeta{font-size:11px;color:#ddd6ec;margin-top:4px}.play{position:absolute;right:10px;bottom:10px;width:34px;height:34px;border-radius:17px;background:#0b0a12cc;display:grid;place-items:center}
+.lock{position:absolute;right:10px;top:10px;font-size:18px}.price{position:absolute;left:11px;top:10px;padding:4px 8px;border-radius:9px;background:var(--keep);color:#07100d;font-size:10px;font-weight:900}
+.offer{margin-top:12px;background:linear-gradient(135deg,rgba(124,92,252,.18),rgba(45,225,194,.05));border:1px solid var(--p);border-radius:18px;padding:14px}.offerTitle{font-weight:900;font-size:14px}.offerText{font-size:11px;color:var(--muted);line-height:16px;margin:5px 0 10px}.listen{height:44px;border-radius:13px;background:var(--keep);color:#07100d;display:grid;place-items:center;font-weight:900;font-size:12px}
+.accordion{margin-top:18px}.acc{height:48px;background:var(--card);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-size:13px;font-weight:800}.nav{position:absolute;bottom:0;left:0;right:0;height:72px;background:#0d0c14;border-top:1px solid var(--border);display:grid;grid-template-columns:repeat(5,1fr);align-items:center;text-align:center;font-size:9px;color:var(--muted)}.nav b{display:block;font-size:18px;color:#eee;margin-bottom:3px}.nav .on{color:var(--pl)}
+.ownerNote{font-size:11px;color:var(--muted);margin:-2px 0 12px}.tag{position:absolute;left:10px;top:10px;font-size:9px;font-weight:900;padding:4px 7px;border-radius:8px;background:#2de1c222;color:var(--keep);border:1px solid #2de1c266}
+</style></head>
+<body>
+<div class="wrap">
+<section class="phone">
+  <div class="status"><span>9:41</span><span>●●●  Wi‑Fi  61%</span></div>
+  <div class="scroll">
+    <div class="top"><div class="icon">‹</div><div class="icon">↗</div></div>
+    <div class="identity"><div class="avatar">L</div><div><div class="name">LunaBeats ✓</div><div class="meta">DJ · Lyon, France</div></div></div>
+    <div class="bio">Je découvre, je partage, je vis la musique. Funk · House · Techno.</div>
+    <div class="row"><div class="btn primary">+ SUIVRE</div><div class="btn secondary">PARTAGER</div></div>
+    <div class="stats"><div class="stat"><div class="n">124</div><div class="l">morceaux</div></div><div class="stat"><div class="n">680</div><div class="l">abonnés</div></div><div class="stat"><div class="n">43</div><div class="l">reprises</div></div></div>
+    <div class="heroCta">▶ ÉCOUTER SON UNIVERS</div>
+
+    <div class="heading"><h2>SES STYLES</h2><span class="small">Voir tout ›</span></div>
+    <div class="grid">
+      <div class="style orange"><div class="styleTitle">FUNK</div><div class="styleMeta">42 morceaux</div><div class="play">▶</div></div>
+      <div class="style blue"><div class="styleTitle">HOUSE</div><div class="styleMeta">31 morceaux</div><div class="play">▶</div></div>
+      <div class="style pink"><div class="styleTitle">RAP</div><div class="styleMeta">18 morceaux</div><div class="play">▶</div></div>
+      <div class="style locked"><div class="price">4,99 €</div><div class="lock">🔒</div><div class="styleTitle">TECHNO</div><div class="styleMeta">27 découvertes · aperçu</div><div class="play">▶</div></div>
+    </div>
+
+    <div class="offer"><div class="offerTitle">🔒 TECHNO · COLLECTION PRIVÉE</div><div class="offerText">Écoute quelques extraits. Titres, artistes et pochettes restent masqués jusqu’au déblocage.</div><div class="listen">▶ ÉCOUTER UN EXTRAIT</div></div>
+
+    <div class="accordion"><div class="acc"><span>Artistes favoris</span><span>›</span></div><div class="acc"><span>Loki Music DNA</span><span>›</span></div><div class="acc"><span>Communauté</span><span>›</span></div><div class="acc"><span>Battle & progression</span><span>›</span></div><div class="acc"><span>Réseaux & site</span><span>›</span></div><div class="acc"><span>Voir tous les morceaux</span><span>›</span></div></div>
+  </div>
+  <div class="nav"><div><b>◉</b>Écouter</div><div><b>⌕</b>Découvertes</div><div><b>≡</b>Playlists</div><div><b>♬</b>Soirées</div><div class="on"><b>●</b>Profil</div></div>
+</section>
+
+<section class="phone">
+  <div class="status"><span>9:41</span><span>●●●  Wi‑Fi  61%</span></div>
+  <div class="scroll">
+    <div class="top"><div style="font-size:12px;font-weight:900;color:var(--pl)">CREATOR PRO</div><div class="row"><div class="icon">🔔</div><div class="icon">☰</div></div></div>
+    <div class="identity"><div class="avatar">A</div><div><div class="name">@adel4a ✓</div><div class="meta">Créateur · Lyon</div></div></div>
+    <div class="bio">Mon univers musical, classé automatiquement par Loki.</div>
+    <div class="heroCta">▶ PRÉVISUALISER MON PROFIL</div>
+    <div class="row"><div class="btn secondary">↗ INVITER / PARTAGER</div><div class="btn money">💰 GÉRER MES VENTES</div></div>
+    <div class="stats"><div class="stat"><div class="n">124</div><div class="l">morceaux</div></div><div class="stat"><div class="n">680</div><div class="l">abonnés</div></div><div class="stat"><div class="n">43</div><div class="l">reprises</div></div></div>
+
+    <div class="heading"><h2>MES STYLES</h2><span class="small">Triés automatiquement</span></div>
+    <div class="grid">
+      <div class="style orange"><div class="tag">PUBLIC</div><div class="styleTitle">FUNK</div><div class="styleMeta">42 morceaux</div><div class="play">⋯</div></div>
+      <div class="style blue"><div class="tag">PUBLIC</div><div class="styleTitle">HOUSE</div><div class="styleMeta">31 morceaux</div><div class="play">⋯</div></div>
+      <div class="style pink"><div class="tag">PUBLIC</div><div class="styleTitle">RAP</div><div class="styleMeta">18 morceaux</div><div class="play">⋯</div></div>
+      <div class="style locked"><div class="price">EN VENTE · 4,99 €</div><div class="lock">🔒</div><div class="styleTitle">TECHNO</div><div class="styleMeta">27 découvertes</div><div class="play">⋯</div></div>
+    </div>
+    <p class="ownerNote">Tap dossier : SWIPE · Renommer · Public/Privé · Mettre en vente / gérer la vente.</p>
+    <div class="accordion"><div class="acc"><span>Artistes</span><span>›</span></div><div class="acc"><span>Communauté</span><span>›</span></div><div class="acc"><span>Progression</span><span>›</span></div><div class="acc"><span>Battle</span><span>›</span></div><div class="acc"><span>Loki Music DNA</span><span>›</span></div><div class="acc"><span>Réseaux & liens</span><span>›</span></div><div class="acc"><span>Voir tous les morceaux</span><span>›</span></div></div>
+  </div>
+  <div class="nav"><div><b>◉</b>Écouter</div><div><b>⌕</b>Découvertes</div><div><b>≡</b>Playlists</div><div><b>♬</b>Soirées</div><div class="on"><b>●</b>Profil</div></div>
+</section>
+</div>
+</body></html>

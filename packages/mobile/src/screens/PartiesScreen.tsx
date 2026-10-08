@@ -1,26 +1,36 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
+// KEEP_PUBLIC_RUNTIME_PROBE_PARTIES: forces Pages to rebuild this exact screen source.
+import MotionActionButton from '../components/MotionActionButton';
+import { ActivityIndicator, Animated, Image, Linking, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Alert } from '../utils/keepAlert';
-import { createCreatorEvent, loadMyRsvps, loadUpcomingEvents, setEventRsvp, CreatorEvent, EventRsvpStatus, loadMyPendingEventReviews, submitEventReview, loadEventReviewSummary, PendingEventReview, EventReviewSummary, loadEventRsvpCounts, EventRsvpCounts, updateCreatorEvent, disableCreatorEvent, loadEventParticipants, EventParticipant, pickAndUploadEventImage, loadMyEventTicket, EventTicket, checkinEventTicketByCode, toggleEventCheckin, buildGoogleCalendarUrl, buildEventIcs, loadMyEventOrganizerContact, EVENT_TICKET_PRESET_PRICES_CENTS, setEventTicketPrice, requestEventTicketPurchase, markEventTicketPaid, loadMyEventTicketSales, EventTicketTransaction } from '../services/creatorEventService';
+import { createCreatorEvent, loadMyRsvps, loadUpcomingEvents, loadMyEventInvitationIds, loadPendingEventInvitePreviews, setEventRsvp, CreatorEvent, EventAudienceMode, EventRsvpStatus, loadMyPendingEventReviews, submitEventReview, loadEventReviewSummary, PendingEventReview, EventReviewSummary, loadEventRsvpCounts, EventRsvpCounts, updateCreatorEvent, disableCreatorEvent, loadEventParticipants, EventParticipant, pickAndUploadEventImage, loadMyEventTicket, EventTicket, checkinEventTicketByCode, toggleEventCheckin, buildGoogleCalendarUrl, buildEventIcs, loadMyEventOrganizerContact, EVENT_TICKET_PRESET_PRICES_CENTS, setEventTicketPrice, requestEventTicketPurchase, EventTicketPurchaseRequest, markEventTicketPaid, loadMyEventTicketSales, EventTicketTransaction, loadEventPlaylist, EventTrack } from '../services/creatorEventService';
 import { shareEvent } from '../services/sharingService';
 import { getCommercialRules, getEventCreationAccess, getGrowthRewardStatus, QuotaAccess } from '../services/growthAccessService';
 import { useUserStore } from '../store/useUserStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
+import { useGameSessionStore } from '../store/useGameSessionStore';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
 import SwipeDeck from '../components/SwipeDeck';
 import KeepBattleArenaPanel from '../components/KeepBattleArenaPanel';
 import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
-import { loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadKeepBattleThemes, loadPendingArenaRematches, respondKeepBattleArenaRematch, loadMyKeepBattleCreditStatus, KeepBattleGlobalLeaderboardEntry, KeepBattlePendingRematch, KeepBattlePlayerStats } from '../services/keepBattleService';
+import { loadKeepBattleSoloLeaderboard, loadKeepBattlePlayerStats, loadKeepBattleThemes, loadPendingArenaRematches, respondKeepBattleArenaRematch, loadMyKeepBattleCreditStatus, loadMyActiveKeepBattleArena, KeepBattleGlobalLeaderboardEntry, KeepBattlePendingRematch, KeepBattlePlayerStats } from '../services/keepBattleService';
 import { loadIncomingBattleChallenges, respondBattleChallenge, KeepBattleIncomingChallenge } from '../services/keepBattleLiveService';
 import { supabase } from '../services/supabaseClient';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
+import { useSessionStore } from '../store/useSessionStore';
 import { FreeCreditBreakdown, loadFreeCreditBreakdown } from '../services/creditService';
 import { loadCurrentPlanCode } from '../services/planService';
 import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/ProfileCertificationBadge';
 import type { ProfileCertificationTier } from '../services/publicProfileStateService';
 import { searchAddress, reverseGeocodeAddress, getCurrentKeepLocation, KeepLocationPermissionError, AddressSuggestion } from '../services/locationService';
 import WheelPicker from '../components/WheelPicker';
+import StandardBackButton from '../components/StandardBackButton';
+import ContextHelpSheet from '../components/ContextHelpSheet';
+import PayoutCheckoutSheet from '../components/PayoutCheckoutSheet';
+import KeepModal from '../components/KeepModal';
 
 const RSVP_LABEL: Record<EventRsvpStatus, string> = {
   GOING: '✓ Je participe', MAYBE: 'Peut-être', NOT_GOING: 'Je ne participe pas',
@@ -88,11 +98,56 @@ function qrImageUrl(payload: string): string {
   return `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(payload)}`;
 }
 
+// Refonte Soirées (spec Adel 22/09/2026) : pastille "EN COURS" pulsante sur
+// le hero de l'événement. Pulsation douce en boucle (opacité), aucun état
+// supplémentaire -- simple indicateur visuel de live.
+function PendingModerationBadge() {
+  const blink = React.useRef(new Animated.Value(1)).current;
+  React.useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(blink, { toValue: 0.25, duration: 520, useNativeDriver: true }),
+        Animated.timing(blink, { toValue: 1, duration: 520, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [blink]);
+  return (
+    <Animated.View style={[styles.pendingBadge, { opacity: blink }]}>
+      <Text style={styles.pendingBadgeText}>● EN ATTENTE</Text>
+    </Animated.View>
+  );
+}
+
+function LivePulseBadge() {
+  const pulse = React.useRef(new Animated.Value(1)).current;
+  React.useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 0.45, duration: 900, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 900, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+  return (
+    <Animated.View style={[styles.liveBadge, { opacity: pulse }]}>
+      <View style={styles.liveBadgeDot} />
+      <Text style={styles.liveBadgeText}>EN COURS</Text>
+    </Animated.View>
+  );
+}
+
 export default function PartiesScreen({ navigation, route }: any) {
   const user = useUserStore((s) => s.user);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const [events, setEvents] = useState<CreatorEvent[]>([]);
+  const [eventViewMode, setEventViewMode] = useState<'ALL' | 'MY' | 'INVITES'>('ALL');
+  const [invitedEventIds, setInvitedEventIds] = useState<Set<string>>(new Set());
+  const [pendingInvitePreviews, setPendingInvitePreviews] = useState<CreatorEvent[]>([]);
   const [eventIndex, setEventIndex] = useState(0);
   const [rsvps, setRsvps] = useState<Record<string, EventRsvpStatus>>({});
   const [loading, setLoading] = useState(true);
@@ -102,7 +157,69 @@ export default function PartiesScreen({ navigation, route }: any) {
   const [followers, setFollowers] = useState(0);
   const [minEventFollowers, setMinEventFollowers] = useState(500);
   const [createOpen, setCreateOpen] = useState(false);
+  const [eventAccessInfoOpen, setEventAccessInfoOpen] = useState(false);
   const [battleOpen, setBattleOpen] = useState(false);
+  // Battle et écoute micro utilisent la même session audio iOS. Si une écoute
+  // Loki est encore active quand l'utilisateur ouvre Battle, on suspend
+  // uniquement le micro (la session et ses morceaux restent intacts), puis on
+  // le reprend automatiquement à la sortie. Cela évite le mode
+  // AVAudioSession PlayAndRecord pendant les previews Battle, source classique
+  // de son très faible / absent sur iPhone.
+  const battlePausedListeningRef = useRef(false);
+  useEffect(() => {
+    const session = useSessionStore.getState();
+    if (battleOpen) {
+      if (session.isActive && !session.micPaused) {
+        battlePausedListeningRef.current = true;
+        session.pauseListening();
+      }
+      return;
+    }
+    if (battlePausedListeningRef.current) {
+      battlePausedListeningRef.current = false;
+      const latest = useSessionStore.getState();
+      if (latest.isActive && latest.micPaused) latest.resumeListening();
+    }
+  }, [battleOpen]);
+  useEffect(() => () => {
+    if (!battlePausedListeningRef.current) return;
+    battlePausedListeningRef.current = false;
+    const session = useSessionStore.getState();
+    if (session.isActive && session.micPaused) session.resumeListening();
+  }, []);
+  // 29/09/2026 : la confirmation de sortie d'un Solo en cours est centralisée
+  // (gameExitGuard + barre d'onglets) ; l'ancienne garde « beforeRemove » ne
+  // se déclenchait jamais sur un changement d'onglet et marquait « partie en
+  // cours » dès l'ouverture de Battle. On nettoie seulement à la fermeture.
+  useEffect(() => {
+    if (battleOpen) return;
+    const game = useGameSessionStore.getState();
+    // Fermer l'écran ne signifie pas quitter un Battle EN LIGNE. Le siège
+    // reste ACTIVE côté serveur et le shell global doit pouvoir rouvrir
+    // automatiquement cette arène. Seul QUITTER LE BATTLE libère réellement
+    // la session. Le Solo conserve l'ancien nettoyage local.
+    if (game.gameMode !== 'EN_LIGNE') game.clearGameSession();
+  }, [battleOpen]);
+  // PHASE 2 FIX (28/09/2026) : Reset tous les modales au montage du composant.
+  // Élimine les modales "fantômes" après un refresh ou une navigation.
+  useEffect(() => {
+    const resetAllModals = () => {
+      setStatsEntry(null);
+      setMyRankingOpen(false);
+      setCreateOpen(false);
+      setParticipantsOpen(false);
+      setEventDetailOpen(false);
+      setTicketModalOpen(false);
+      setReviewTarget(null);
+    };
+
+    // Reset au montage
+    resetAllModals();
+
+    // Reset aussi quand on navigue vers cet écran (focus)
+    const unsubscribe = navigation?.addListener?.('focus', resetAllModals);
+    return () => unsubscribe?.();
+  }, [navigation]);
   // Adel (02/09/2026) : "chaque fois que je reviens en arrière, ça revient
   // sur cette page" -- le bouton RETOUR du navigateur restaure une ENTRÉE
   // D'HISTORIQUE ancienne qui porte encore ?arenaId=... dans son URL (chaque
@@ -145,8 +262,52 @@ export default function PartiesScreen({ navigation, route }: any) {
   // deviennent deux onglets séparés au lieu d'un lanceur mélangé dans le
   // flux des événements ; Soirées reste l'onglet par défaut.
   const [partiesTab, setPartiesTab] = useState<'SOIREES' | 'BATTLE'>('SOIREES');
+  // Un joueur qui possède encore un siège ACTIVE côté serveur ne doit jamais
+  // avoir à chercher où est passé son Battle. Au montage et à chaque retour
+  // sur l'onglet Soirées, on relit la vérité serveur puis on rouvre
+  // directement l'arène exacte. Une vraie sortie via QUITTER LE BATTLE
+  // désactive le siège, donc ce mécanisme ne force jamais un ancien match.
+  useEffect(() => {
+    if (!battleFeatureEnabled || !user?.id || isLocalGuest || isDemoMode) return undefined;
+    let live = true;
+    const resumeActiveArena = async () => {
+      const active = await loadMyActiveKeepBattleArena().catch(() => null);
+      // Ne jamais forcer un ancien lobby WAITING par-dessus le SOLO. Le retour
+      // automatique est réservé à un match réellement lancé. Un salon WAITING
+      // reste accessible depuis l'onglet Battle mais ne prend pas le contrôle
+      // de l'écran ni de la session Solo.
+      if (!live || !active?.id || active.status !== 'ACTIVE' || active.me?.status !== 'ACTIVE') return;
+      setPendingArenaId(active.id);
+      setPartiesTab('BATTLE');
+      setBattleOpen(true);
+      useGameSessionStore.getState().setGameInProgress(
+        true,
+        'EN_LIGNE',
+        'Tu es engagé dans ce Battle. Pour sortir, utilise QUITTER LE BATTLE.',
+        active.id,
+      );
+    };
+    void resumeActiveArena();
+    const unsubscribe = navigation?.addListener?.('focus', () => { void resumeActiveArena(); });
+    return () => {
+      live = false;
+      unsubscribe?.();
+    };
+  }, [battleFeatureEnabled, isDemoMode, isLocalGuest, navigation, user?.id]);
+  // Adel (30/09/2026) : le bouton Battle du haut ouvre directement le vrai
+  // Battle. Le classement global reste disponible séparément, replié dans
+  // Soirées, sans écran/lanceur intermédiaire.
+  const [battleSummaryOpen, setBattleSummaryOpen] = useState(false);
+  const [partySection, setPartySection] = useState<'EVENT' | 'DETAILS' | 'PLAYLIST'>('EVENT');
+  const [partyHome, setPartyHome] = useState(true);
+  // Refonte Soirées (spec Adel 22/09/2026) : quand un événement est affiché,
+  // trois sous-onglets -- Lobby (infos + RSVP + participants), Classement
+  // (podium Battle, ligne utilisateur surlignée), Playlist (morceaux de la
+  // soirée). Les onglets SOIRÉES/BATTLE du niveau supérieur restent.
+  const [eventTab, setEventTab] = useState<'LOBBY' | 'CLASSEMENT' | 'PLAYLIST'>('LOBBY');
   const [leaderboard, setLeaderboard] = useState<KeepBattleGlobalLeaderboardEntry[]>([]);
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [myRankingOpen, setMyRankingOpen] = useState(false);
   const [myRankingLoading, setMyRankingLoading] = useState(false);
   const [myFreeBreakdown, setMyFreeBreakdown] = useState<FreeCreditBreakdown | null>(null);
@@ -164,6 +325,13 @@ export default function PartiesScreen({ navigation, route }: any) {
   // KeepBattleMobileGameV3 une fois qu'on y est).
   const [incomingBattle, setIncomingBattle] = useState<KeepBattleIncomingChallenge[]>([]);
   const [incomingResponding, setIncomingResponding] = useState<string | null>(null);
+  const [incomingDecisionReady, setIncomingDecisionReady] = useState(false);
+  useEffect(() => {
+    setIncomingDecisionReady(false);
+    if (!incomingBattle[0]?.id) return undefined;
+    const timer = setTimeout(() => setIncomingDecisionReady(true), 700);
+    return () => clearTimeout(timer);
+  }, [incomingBattle[0]?.id]);
   const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
   useEffect(() => {
     // Adel (03/09/2026) : "il doit être en soirée, il doit être dans Battle,
@@ -174,16 +342,34 @@ export default function PartiesScreen({ navigation, route }: any) {
     let live = true;
     const poll = () => { loadIncomingBattleChallenges().then((rows) => { if (live) setIncomingBattle(rows); }).catch(() => {}); };
     poll();
-    const id = setInterval(poll, 2000);
+    // Realtime global signale immédiatement l'événement ; ce polling local
+    // ne sert qu'à resynchroniser le bandeau fixe de Soirées.
+    const id = setInterval(poll, 8000);
     return () => { live = false; clearInterval(id); };
   }, [battleFeatureEnabled, battleOpen, user, isLocalGuest, isDemoMode]);
-  const respondIncomingBattle = (challenge: KeepBattleIncomingChallenge, accept: boolean) => {
+  const commitIncomingBattleDecision = (challenge: KeepBattleIncomingChallenge, accept: boolean) => {
     setIncomingResponding(challenge.id);
     respondBattleChallenge(challenge.id, accept).then((result) => {
       setIncomingBattle((rows) => rows.filter((r) => r.id !== challenge.id));
       if (accept && result.arenaId) { setPendingArenaId(result.arenaId); setBattleOpen(true); }
     }).catch(() => {}).finally(() => setIncomingResponding(null));
   };
+  const requestIncomingBattleDecision = (challenge: KeepBattleIncomingChallenge, accept: boolean) => {
+    if (incomingResponding) return;
+    if (accept) {
+      commitIncomingBattleDecision(challenge, true);
+      return;
+    }
+    Alert.alert(
+      'Refuser ce Battle ?',
+      `Confirme uniquement si tu veux réellement refuser l’invitation de ${challenge.username}.`,
+      [
+        { text: 'ANNULER', style: 'cancel' },
+        { text: 'REFUSER', style: 'destructive', onPress: () => commitIncomingBattleDecision(challenge, false) },
+      ],
+    );
+  };
+
   // Adel (03/09/2026) : "dans Soirées tu mets que du fixe, la notification tu
   // l'intègres uniquement dans Profil/Playlists/Découvertes/Écoute" -- ce
   // flag reste vrai tant que cet écran est monté, quel que soit son
@@ -204,17 +390,35 @@ export default function PartiesScreen({ navigation, route }: any) {
     let live = true;
     const poll = () => { loadPendingArenaRematches().then((rows) => { if (live) setPendingRematchLB(rows); }).catch(() => {}); };
     poll();
-    const id = setInterval(poll, 2000);
+    // Realtime global signale immédiatement l'événement ; ce polling local
+    // ne sert qu'à resynchroniser le bandeau fixe de Soirées.
+    const id = setInterval(poll, 8000);
     return () => { live = false; clearInterval(id); };
   }, [battleFeatureEnabled, battleOpen, user, isLocalGuest, isDemoMode]);
-  const respondPendingRematchLB = (item: KeepBattlePendingRematch, accept: boolean) => {
+  const commitPendingRematchLB = (item: KeepBattlePendingRematch, accept: boolean) => {
+    if (rematchResponding) return;
     setRematchResponding(item.arenaId);
     respondKeepBattleArenaRematch(item.arenaId, accept).then(() => {
       setPendingRematchLB((rows) => rows.filter((r) => r.arenaId !== item.arenaId));
       if (accept) { setPendingArenaId(item.arenaId); setBattleOpen(true); }
     }).catch(() => {
-      setPendingRematchLB((rows) => rows.filter((r) => r.arenaId !== item.arenaId));
+      // Ne jamais faire disparaître la décision si le serveur ne l'a pas confirmée.
     }).finally(() => setRematchResponding(null));
+  };
+  const respondPendingRematchLB = (item: KeepBattlePendingRematch, accept: boolean) => {
+    if (rematchResponding) return;
+    if (accept) {
+      commitPendingRematchLB(item, true);
+      return;
+    }
+    Alert.alert(
+      'Refuser la revanche ?',
+      'Confirme uniquement si tu veux réellement refuser cette revanche.',
+      [
+        { text: 'ANNULER', style: 'cancel' },
+        { text: 'REFUSER', style: 'destructive', onPress: () => commitPendingRematchLB(item, false) },
+      ],
+    );
   };
   // Adel (02/09/2026) : "un pop-up qui me permette de voir son style musical
   // ... toutes les statistiques ... inspire-toi de TikTok" -- fiche joueur en
@@ -246,11 +450,11 @@ export default function PartiesScreen({ navigation, route }: any) {
   // figée), même RPC que le reste de l'app.
   const [leaderboardTiers, setLeaderboardTiers] = useState<Record<string, ProfileCertificationTier>>({});
   useEffect(() => {
-    if (partiesTab !== 'BATTLE' || !battleFeatureEnabled) return;
+    if (!battleSummaryOpen || !battleFeatureEnabled) return;
     let live = true;
     setLeaderboardLoading(true);
     Promise.all([
-      loadKeepBattleGlobalLeaderboard(20),
+      loadKeepBattleSoloLeaderboard(20),
       loadKeepBattleThemes().catch(() => []),
     ]).then(([rows, themes]) => {
       if (!live) return;
@@ -265,7 +469,7 @@ export default function PartiesScreen({ navigation, route }: any) {
       }
     }).catch(() => { if (live) setLeaderboard([]); }).finally(() => { if (live) setLeaderboardLoading(false); });
     return () => { live = false; };
-  }, [partiesTab, battleFeatureEnabled]);
+  }, [battleSummaryOpen, battleFeatureEnabled]);
   const [createBusy, setCreateBusy] = useState(false);
   const [name, setName] = useState('');
   const [startsAt, setStartsAt] = useState('');
@@ -301,6 +505,7 @@ export default function PartiesScreen({ navigation, route }: any) {
   // par défaut (c'est ce qui donne le compteur), décochable pour une simple
   // notification sans réponse attendue.
   const [includeRsvpButtons, setIncludeRsvpButtons] = useState(true);
+  const [audienceMode, setAudienceMode] = useState<EventAudienceMode>('GENERAL');
   const [rsvpCounts, setRsvpCounts] = useState<EventRsvpCounts | null>(null);
   // Adel (17-18/09/2026) : "construis tout ce qui manque ... entrée
   // payante" -- l'organisateur confirme ici les billets payés (même
@@ -308,6 +513,7 @@ export default function PartiesScreen({ navigation, route }: any) {
   // manuelle qui débloque la participation).
   const [ticketSales, setTicketSales] = useState<EventTicketTransaction[]>([]);
   const [ticketConfirmBusyId, setTicketConfirmBusyId] = useState<string | null>(null);
+  const [ticketCheckout, setTicketCheckout] = useState<EventTicketPurchaseRequest | null>(null);
   // Adel (08/09/2026) : "il puisse effacer les evenements ... tous les
   // modifier ... voir tous les participants" -- edition en place (meme
   // formulaire que la creation), suppression = debit definitif (soft
@@ -317,6 +523,17 @@ export default function PartiesScreen({ navigation, route }: any) {
   const [participantsOpen, setParticipantsOpen] = useState(false);
   const [participants, setParticipants] = useState<EventParticipant[]>([]);
   const [participantsLoading, setParticipantsLoading] = useState(false);
+  // Refonte Soirées (spec Adel 22/09/2026) : le sous-onglet CLASSEMENT d'un
+  // événement montre le podium des PARTICIPANTS de CETTE soirée -- et non le
+  // classement Battle global, qui reste disponible dans l'onglet BATTLE
+  // dédié. État séparé pour ne jamais interférer avec la modale Participants.
+  const [eventPodiumParticipants, setEventPodiumParticipants] = useState<EventParticipant[]>([]);
+  const [eventPodiumLoading, setEventPodiumLoading] = useState(false);
+  // Playlist de la soirée : morceaux rattachés à events.playlist_id, chargés à
+  // l'ouverture de l'onglet PLAYLIST (RPC keep_event_playlist). Les morceaux en
+  // vente par l'organisateur sont exclus côté serveur (anti-fuite marketplace).
+  const [eventPlaylist, setEventPlaylist] = useState<EventTrack[]>([]);
+  const [eventPlaylistLoading, setEventPlaylistLoading] = useState(false);
   // Adel (08/09/2026) : "en savoir plus ... toute la deroulement du texte
   // ... j'appuie hop et je participe" -- detail plein ecran de l'evenement
   // courant (photo complete + texte integral + YouTube), avec la reponse
@@ -419,8 +636,15 @@ export default function PartiesScreen({ navigation, route }: any) {
   const reload = async () => {
     setLoading(true); setError('');
     try {
-      const liveEvents = await loadUpcomingEvents(user?.id);
-      setEvents(liveEvents); setEventIndex(0);
+      const [liveEvents, invitationIds, pendingPreviews] = await Promise.all([
+        loadUpcomingEvents(user?.id),
+        user && !isLocalGuest && !isDemoMode ? loadMyEventInvitationIds().catch(() => []) : Promise.resolve([] as string[]),
+        user && !isLocalGuest && !isDemoMode ? loadPendingEventInvitePreviews().catch(() => []) : Promise.resolve([] as CreatorEvent[]),
+      ]);
+      setEvents(liveEvents);
+      setInvitedEventIds(new Set(invitationIds));
+      setPendingInvitePreviews(pendingPreviews);
+      setEventIndex(0);
       if (user && !isLocalGuest && !isDemoMode) {
         setRsvps(await loadMyRsvps(user.id));
         setPendingReviews(await loadMyPendingEventReviews().catch(() => []));
@@ -432,12 +656,18 @@ export default function PartiesScreen({ navigation, route }: any) {
 
   useEffect(() => { void reload(); }, [user?.id, isLocalGuest, isDemoMode]);
   useEffect(() => {
-    if (!route?.params?.openBattle) return;
+    const openBattle = Boolean(route?.params?.openBattle);
+    const openRanking = Boolean(route?.params?.openBattleRanking);
+    if (!openBattle && !openRanking) return;
     setPendingArenaId(route?.params?.arenaId);
     setBattleOpen(true);
-    navigation.setParams?.({ openBattle: undefined, source: undefined, arenaId: undefined });
+    if (openRanking) {
+      setLeaderboardOpen(true);
+      setBattleSummaryOpen(true);
+    }
+    navigation.setParams?.({ openBattle: undefined, openBattleRanking: undefined, source: undefined, arenaId: undefined });
     stripBattleUrlParams();
-  }, [navigation, route?.params?.openBattle]);
+  }, [navigation, route?.params?.openBattle, route?.params?.openBattleRanking]);
   // Adel (15/09/2026) : "comment ça se fait qu'on n'a pas le même pop-up
   // que dans la rubrique Soirée ... je veux le même des deux côtés" --
   // Réglages avancés (CreatorToolsPanel) avait sa propre création
@@ -450,21 +680,84 @@ export default function PartiesScreen({ navigation, route }: any) {
     navigation.setParams?.({ openCreateEvent: undefined });
     void openCreate();
   }, [navigation, route?.params?.openCreateEvent]);
-  const currentEvent = events.length ? events[eventIndex % events.length] : null;
+  const visibleEvents = useMemo(() => {
+    if (eventViewMode === 'MY') return events.filter((event) => event.creatorId === user?.id);
+    if (eventViewMode === 'INVITES') {
+      const approved = events.filter((event) => event.creatorId !== user?.id && invitedEventIds.has(event.id));
+      const byId = new Map<string, CreatorEvent>();
+      for (const event of [...pendingInvitePreviews, ...approved]) byId.set(event.id, event);
+      return Array.from(byId.values()).sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+    }
+    return events;
+  }, [events, eventViewMode, invitedEventIds, pendingInvitePreviews, user?.id]);
+  const currentEvent = visibleEvents.length ? visibleEvents[eventIndex % visibleEvents.length] : null;
+
+  // Découvertes peut ouvrir directement une soirée sans nouvelle route.
+  // On réutilise Parties et son vrai état métier : aucun écran événement dupliqué.
+  useEffect(() => {
+    const requestedEventId = String(route?.params?.openEventId ?? '');
+    if (!requestedEventId || !events.length) return;
+    const targetIndex = events.findIndex((event) => event.id === requestedEventId);
+    if (targetIndex < 0) return;
+    setPartiesTab('SOIREES');
+    setEventViewMode('ALL');
+    setPartyHome(false);
+    setPartySection('EVENT');
+    setEventTab('LOBBY');
+    setEventIndex(targetIndex);
+    navigation.setParams?.({ openEventId: undefined, source: undefined });
+  }, [events, navigation, route?.params?.openEventId]);
+
+  // Refonte Soirées (spec Adel 22/09/2026) : retour au Lobby quand on change
+  // d'événement (SwipeDeck "Suivant").
+  useEffect(() => { setEventTab('LOBBY'); }, [currentEvent?.id]);
   const audienceReady = followers >= minEventFollowers;
   const canCreate = Boolean(eventAccess?.allowed || eventAccess?.unlimited) && audienceReady;
-  const nextEvent = () => { if (events.length) setEventIndex((value) => (value + 1) % events.length); };
+  const nextEvent = () => { if (visibleEvents.length) setEventIndex((value) => (value + 1) % visibleEvents.length); };
 
   useEffect(() => {
     let cancelled = false;
     setMyTicket(null);
-    if (!currentEvent) { setCurrentEventReviewSummary(null); setRsvpCounts(null); return undefined; }
+    if (!currentEvent || currentEvent.pendingPreviewOnly) {
+      setCurrentEventReviewSummary(null);
+      setRsvpCounts(null);
+      setTicketSales([]);
+      return undefined;
+    }
     void loadEventReviewSummary(currentEvent.id).then((summary) => { if (!cancelled) setCurrentEventReviewSummary(summary); }).catch(() => {});
     void loadEventRsvpCounts(currentEvent.id).then((counts) => { if (!cancelled) setRsvpCounts(counts); }).catch(() => {});
     if (user?.id === currentEvent.creatorId) void loadMyEventTicketSales().then((rows) => { if (!cancelled) setTicketSales(rows); }).catch(() => {});
     else setTicketSales([]);
     return () => { cancelled = true; };
   }, [currentEvent?.id]);
+
+  // Refonte Soirées (spec Adel 22/09/2026) : charge les participants de la
+  // soirée courante quand on ouvre son sous-onglet CLASSEMENT (podium des
+  // participants). loadEventParticipants renvoie [] pour qui n'a pas le droit
+  // de voir la liste -> l'état vide prend le relais.
+  useEffect(() => {
+    let cancelled = false;
+    if (!currentEvent || eventTab !== 'CLASSEMENT') return undefined;
+    setEventPodiumLoading(true);
+    loadEventParticipants(currentEvent.id)
+      .then((rows) => { if (!cancelled) setEventPodiumParticipants(rows); })
+      .catch(() => { if (!cancelled) setEventPodiumParticipants([]); })
+      .finally(() => { if (!cancelled) setEventPodiumLoading(false); });
+    return () => { cancelled = true; };
+  }, [currentEvent?.id, eventTab]);
+
+  // Playlist de la soirée : chargée à l'ouverture de l'onglet PLAYLIST. Le RPC
+  // renvoie [] pour un événement sans playlist -> l'état vide prend le relais.
+  useEffect(() => {
+    let cancelled = false;
+    if (!currentEvent || eventTab !== 'PLAYLIST') return undefined;
+    setEventPlaylistLoading(true);
+    loadEventPlaylist(currentEvent.id)
+      .then((rows) => { if (!cancelled) setEventPlaylist(rows); })
+      .catch(() => { if (!cancelled) setEventPlaylist([]); })
+      .finally(() => { if (!cancelled) setEventPlaylistLoading(false); });
+    return () => { cancelled = true; };
+  }, [currentEvent?.id, eventTab]);
 
   const confirmTicketPaid = async (order: EventTicketTransaction) => {
     if (ticketConfirmBusyId) return;
@@ -512,9 +805,11 @@ export default function PartiesScreen({ navigation, route }: any) {
     setBusyId(event.id);
     try {
       const request = await requestEventTicketPurchase(event.id);
-      if (!request.payoutLink) { Alert.alert('Paiement pas encore prêt', `${request.sellerUsername || 'L’organisateur'} n’a pas encore ajouté de lien de paiement personnel.`); return; }
-      await Linking.openURL(request.payoutLink);
-      Alert.alert('Paie directement sur le lien de l’organisateur', `Paie ${(request.amountCents / 100).toFixed(2)} ${request.currencyCode} sur le lien qui vient de s'ouvrir. Loki Music ne touche jamais cet argent -- ta participation se débloquera dès que ${request.sellerUsername || 'l’organisateur'} confirme.`);
+      if (!request.payoutLink && !request.payoutQrUrl) {
+        Alert.alert('Paiement pas encore prêt', `${request.sellerUsername || 'L’organisateur'} n’a pas encore ajouté de PayPal.Me ni de QR PayPal.`);
+        return;
+      }
+      setTicketCheckout(request);
     } catch (e: any) {
       const message = String(e?.message || '');
       if (message.includes('CANNOT_BUY_OWN_TICKET')) Alert.alert('Impossible', 'Tu ne peux pas acheter un billet pour ta propre soirée.');
@@ -604,7 +899,7 @@ export default function PartiesScreen({ navigation, route }: any) {
   const resetEventForm = () => {
     setCreateOpen(false); setEditingEventId(null);
     setName(''); setStartsAt(''); setVenueName(''); setVenueCoords(null); setVenueSuggestions([]);
-    setDescription(''); setIncludeRsvpButtons(true);
+    setDescription(''); setIncludeRsvpButtons(true); setAudienceMode('GENERAL');
     setEventImageUrls([]); setRequireQrCode(false); setTicketPriceCents(null);
     setOrganizerPhone(''); setShowOrganizerPhone(false);
   };
@@ -628,6 +923,7 @@ export default function PartiesScreen({ navigation, route }: any) {
     setDescription(event.description || '');
     setEventImageUrls(event.imageUrls || []);
     setRequireQrCode(event.requireQrCode);
+    setAudienceMode(event.audienceMode || 'GENERAL');
     setTicketPriceCents(event.ticketPriceCents ?? null);
     // Adel (08/09/2026) : la lecture publique masque deja le numero si
     // l'organisateur ne l'affiche pas -- on va chercher le vrai numero
@@ -757,7 +1053,7 @@ export default function PartiesScreen({ navigation, route }: any) {
     if (!iso) return Alert.alert('Événement', 'Indique la date au format AAAA-MM-JJTHH:MM.');
     setCreateBusy(true);
     try {
-      const payload = { name: name.trim(), description: description.trim(), venueName: venueName.trim(), startsAt: iso, countryCode: countryCode.trim().toUpperCase().slice(0,2), imageUrls: eventImageUrls, requireQrCode, organizerPhone: organizerPhone.trim() || undefined, showOrganizerPhone, lat: venueCoords?.lat, lng: venueCoords?.lng };
+      const payload = { name: name.trim(), description: description.trim(), venueName: venueName.trim(), startsAt: iso, countryCode: countryCode.trim().toUpperCase().slice(0,2), imageUrls: eventImageUrls, requireQrCode, audienceMode, organizerPhone: organizerPhone.trim() || undefined, showOrganizerPhone, lat: venueCoords?.lat, lng: venueCoords?.lng };
       if (editingEventId) {
         await updateCreatorEvent(editingEventId, payload);
         await setEventTicketPrice(editingEventId, ticketPriceCents).catch(() => {});
@@ -768,8 +1064,39 @@ export default function PartiesScreen({ navigation, route }: any) {
         const created = await createCreatorEvent({ ...payload, djArtistNames: user?.username ? [user.username] : [], includeRsvpButtons });
         await setEventTicketPrice(created.id, ticketPriceCents).catch(() => {});
         resetEventForm();
-        await reload();
-        Alert.alert('Envoyé pour validation', 'Le Super Admin doit approuver la photo et le texte avant qu’il soit visible. Tu seras notifié dès que c’est fait.');
+        // La lecture serveur peut avoir un très court délai après l'Edge
+        // Function. Injecter immédiatement la soirée créée évite l'état
+        // "disparue jusqu'au refresh", puis reload réconcilie avec Supabase.
+        const optimisticEvent: CreatorEvent = {
+          id: created.id,
+          creatorId: user?.id || '',
+          name: payload.name,
+          description: payload.description || null,
+          venueName: payload.venueName || null,
+          startsAt: payload.startsAt,
+          endsAt: null,
+          countryCode: payload.countryCode || null,
+          externalTicketUrl: null,
+          djArtistNames: user?.username ? [user.username] : [],
+          youtubeUrl: null,
+          imageUrl: payload.imageUrls?.[0] || null,
+          imageUrls: payload.imageUrls || [],
+          requireQrCode: payload.requireQrCode,
+          audienceMode: payload.audienceMode,
+          organizerPhone: payload.showOrganizerPhone ? (payload.organizerPhone || null) : null,
+          ticketPriceCents,
+          moderationStatus: 'PENDING',
+          photoStatus: 'PENDING',
+          photoNote: null,
+          textStatus: 'PENDING',
+          textNote: null,
+        };
+        setEvents((current) => [optimisticEvent, ...current.filter((event) => event.id !== created.id)]);
+        setEventViewMode('MY');
+        setPartyHome(false);
+        setEventIndex(0);
+        void reload();
+        Alert.alert('Envoyé pour validation', 'Loki doit valider la photo et le texte. En attendant, seule une jaquette et un descriptif sans coordonnées peuvent apparaître aux personnes concernées ; aucune action n’est débloquée.');
       }
     } catch (e: any) {
       const code = String(e?.message || '');
@@ -791,250 +1118,84 @@ export default function PartiesScreen({ navigation, route }: any) {
   // propre carte (aperçu fidèle), mais jamais les boutons de réponse : on ne
   // répond pas à sa propre invitation.
   const isOwnEvent = !!currentEvent && user?.id === currentEvent.creatorId;
+  const isPendingPreview = Boolean(currentEvent?.pendingPreviewOnly);
   const createLabel = !audienceReady && eventAccess && ['CREATOR_PRO','VENUE_PRO'].includes(eventAccess.planCode)
     ? `🔒 ${followers}/${minEventFollowers}`
     : eventAccess?.unlimited && canCreate ? '＋ ILLIMITÉ'
       : eventAccess?.planCode === 'CREATOR_PRO' ? (canCreate ? `＋ ${eventAccess.limit ?? 1} / MOIS` : '🔒 LIMITE') : '🔒 CRÉER';
 
-  if (battleOpen) {
-    return <SafeAreaView style={styles.container}>
-      <View style={styles.battleFullscreen}>
-        <KeepBattleArenaPanel
-          enabled={Boolean(user && !isLocalGuest && !isDemoMode)}
-          initialArenaId={pendingArenaId}
-          onOpenProfile={(username) => navigation.navigate('PublicProfile', { username })}
-          onRequireAccount={() => Alert.alert(
-            'Compte Loki Music requis',
-            'Le mode invité permet d’écouter et de visiter des profils, mais Loki Music Battle est réservé aux comptes créés. Crée ton compte (pseudo + mot de passe + e-mail) : tu reçois +20 Free offerts et tu peux jouer, gagner des Free et construire ta communauté musicale.',
-            [
-              { text: 'Plus tard', style: 'cancel' },
-              { text: 'Créer mon compte', onPress: () => useAccountGateStore.getState().requestAccount('create') },
-            ],
-          )}
-          onExit={() => { setBattleOpen(false); setPendingArenaId(undefined); navigation.setParams?.({ arenaId: undefined, openBattle: undefined, source: undefined }); stripBattleUrlParams(); }}
-          onOpenSession={(sessionId) => { setBattleOpen(false); setPendingArenaId(undefined); navigation.setParams?.({ arenaId: undefined, openBattle: undefined, source: undefined }); stripBattleUrlParams(); navigation.navigate('SessionRecap', { sessionId }); }}
-        />
-      </View>
-    </SafeAreaView>;
-  }
-
-  return <SafeAreaView style={styles.container}>
-    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-      <View style={styles.headerRow}>
-        {/* Adel (08/09/2026) : "ça a rien à voir avec l'évènement ... il
-            faut expliquer à quoi ça va servir ... ça peut être une soirée,
-            un évènement, une porte ouverte, etc." -- l'ancien texte parlait
-            de swipe/jeu (vocabulaire Battle) ; celui-ci ne nomme plus que
-            les évènements eux-mêmes, sans présumer du type. */}
-        <View style={{flex:1}}><Text style={styles.title}>{partiesTab === 'BATTLE' ? 'Loki Music BATTLE' : 'Soirées'}</Text><Text style={styles.subtitle}>{partiesTab === 'BATTLE' ? 'Classement, solo ou multijoueur.' : 'Soirées, concerts, portes ouvertes… découvre les évènements et réponds en un geste.'}</Text></View>
-        {partiesTab === 'SOIREES' ? <TouchableOpacity style={[styles.createButton,!canCreate&&styles.createButtonLocked]} onPress={() => void openCreate()}><Text style={styles.createButtonText}>{createLabel}</Text></TouchableOpacity> : null}
-      </View>
-
-      {/* Adel (02/09/2026) : "on devrait faire deux petits boutons, un côté
-          Battle et un côté les soirées ... par défaut ça revient toujours à
-          soirée" -- deux onglets au lieu de mélanger les deux dans le même
-          flux ; Soirées reste l'onglet par défaut. */}
-      {battleFeatureEnabled ? (
-        <View style={styles.partiesTabs}>
-          <TouchableOpacity style={[styles.partiesTabBtn, partiesTab === 'SOIREES' && styles.partiesTabBtnOn]} onPress={() => setPartiesTab('SOIREES')}><Text style={[styles.partiesTabText, partiesTab === 'SOIREES' && styles.partiesTabTextOn]}>SOIRÉES</Text></TouchableOpacity>
-          <TouchableOpacity style={[styles.partiesTabBtn, partiesTab === 'BATTLE' && styles.partiesTabBtnOn]} onPress={() => setPartiesTab('BATTLE')}><Text style={[styles.partiesTabText, partiesTab === 'BATTLE' && styles.partiesTabTextOn]}>⚡ BATTLE</Text></TouchableOpacity>
-        </View>
-      ) : null}
-
-      {/* Adel (03/09/2026) : "il doit être en soirée, il doit être dans
-          Battle, il est de partout pour pas le louper" -- bandeaux fixes
-          d'invite/revanche rendus ICI, avant le choix du sous-onglet, pour
-          rester visibles que l'utilisateur soit sur SOIRÉES (événements) ou
-          BATTLE (classement) -- ils vivaient uniquement dans la branche
-          BATTLE avant, invisibles sur le sous-onglet SOIRÉES. */}
-      {incomingBattle.map((challenge) => (
-        <View key={challenge.id} style={styles.incomingBanner}>
-          <Text style={styles.incomingText}><Text style={styles.incomingName}>{challenge.username}</Text> souhaite faire un Battle avec toi ({themeLabels[challenge.themeCode] || challenge.themeCode} · {challenge.roundCount} morceaux). Acceptes-tu ?</Text>
-          <View style={styles.incomingActions}>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser le Battle" disabled={incomingResponding === challenge.id} style={[styles.incomingNo, incomingResponding === challenge.id && styles.incomingBusy]} onPress={() => respondIncomingBattle(challenge, false)}><Text style={styles.incomingNoText}>REFUSER</Text></TouchableOpacity>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter le Battle" disabled={incomingResponding === challenge.id} style={[styles.incomingYes, incomingResponding === challenge.id && styles.incomingBusy]} onPress={() => respondIncomingBattle(challenge, true)}><Text style={styles.incomingYesText}>{incomingResponding === challenge.id ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity>
-          </View>
-        </View>
-      ))}
-      {!incomingBattle.length ? pendingRematchLB.map((item) => (
-        <View key={item.arenaId} style={styles.incomingBanner}>
-          <Text style={styles.incomingText}>🔁 Revanche proposée avec {item.participantUsernames.map((u) => `${u}`).join(', ') || 'le groupe'}. Acceptes-tu ?</Text>
-          <View style={styles.incomingActions}>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser la revanche" disabled={rematchResponding === item.arenaId} style={[styles.incomingNo, rematchResponding === item.arenaId && styles.incomingBusy]} onPress={() => respondPendingRematchLB(item, false)}><Text style={styles.incomingNoText}>REFUSER</Text></TouchableOpacity>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter la revanche" disabled={rematchResponding === item.arenaId} style={[styles.incomingYes, rematchResponding === item.arenaId && styles.incomingBusy]} onPress={() => respondPendingRematchLB(item, true)}><Text style={styles.incomingYesText}>{rematchResponding === item.arenaId ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity>
-          </View>
-        </View>
-      )) : null}
-
-      {partiesTab === 'SOIREES' ? <>
-        {!eventAccess || !['CREATOR_PRO','VENUE_PRO'].includes(eventAccess.planCode) ? <TouchableOpacity style={styles.creatorHint} onPress={() => void openCreate()}><Text style={styles.creatorHintText}>🔒 À partir de {minEventFollowers} abonnés : Creator Pro 9,99 € · 2 événements/mois. Venue Pro 29,99 € · événements illimités.</Text></TouchableOpacity>
-          : !audienceReady ? <TouchableOpacity style={styles.creatorHint} onPress={() => void openCreate()}><Text style={styles.creatorHintText}>🔒 Audience événements : {followers}/{minEventFollowers} abonnés. La formule est prête, il reste à atteindre le seuil communautaire.</Text></TouchableOpacity>
-            : eventAccess.planCode === 'CREATOR_PRO' ? <TouchableOpacity style={styles.creatorHint} onPress={() => !canCreate && navigation.navigate('Offers',{focusPlan:'VENUE_PRO',sourceFeature:'CREATE_EVENT'})}><Text style={styles.creatorHintText}>{canCreate ? `Creator Pro : ta création du mois est disponible · seuil ${minEventFollowers} abonnés atteint.` : 'Limite du mois atteinte · Venue Pro débloque les événements en illimité.'}</Text></TouchableOpacity>
-              : <View style={styles.creatorHint}><Text style={styles.creatorHintText}>Venue Pro : événements illimités · seuil {minEventFollowers} abonnés atteint.</Text></View>}
-
-        {loading ? <ActivityIndicator color={colors.primaryLight}/> : null}
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        {!loading&&!error&&!currentEvent ? <View style={styles.empty}><Text style={styles.emptyTitle}>Aucun événement publié pour le moment.</Text><Text style={styles.meta}>Les invitations de tes artistes, DJ et lieux suivis apparaîtront ici.</Text></View> : null}
-
-        {/* Adel (08/09/2026) : "systeme d'etoile ... comprendre pourquoi il
-            a eu un flop" -- proposer de noter une soiree passee des qu'il y
-            en a une en attente, sans devoir la retrouver ailleurs. */}
-        {pendingReviews.map((row) => (
-          <TouchableOpacity key={row.eventId} style={styles.reviewPrompt} onPress={() => openReview(row)}>
-            <Text style={styles.reviewPromptTitle}>⭐ Donne ton avis sur « {row.name} »</Text>
-            <Text style={styles.reviewPromptMeta}>{new Date(row.startsAt).toLocaleDateString('fr-FR')} · {row.creatorUsername}{row.venueName ? ` · ${row.venueName}` : ''}</Text>
+  // Refonte Soirées (spec Adel 22/09/2026) : le classement (podium + ligne
+  // utilisateur surlignée violet) est partagé entre l'onglet BATTLE et le
+  // sous-onglet CLASSEMENT d'un événement -- une seule source de rendu.
+  const renderLeaderboard = () => (
+    <>
+      {leaderboardLoading ? <ActivityIndicator color={colors.primaryLight} /> : null}
+      {!leaderboardLoading && leaderboard.length ? (
+        <View style={styles.leaderboardPanel}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={leaderboardOpen ? "Masquer le classement Solo" : "Afficher le classement Solo"} style={styles.leaderboardHeader} onPress={() => setLeaderboardOpen((value) => !value)}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.leaderboardTitle}>CLASSEMENT SOLO</Text>
+              <Text style={styles.leaderboardHint}>{leaderboardOpen ? 'Touche un joueur pour voir ses stats' : 'Podium et progression Solo'}</Text>
+            </View>
+            <Text style={styles.leaderboardChevron}>{leaderboardOpen ? '⌃' : '⌄'}</Text>
           </TouchableOpacity>
-        ))}
-
-        {currentEvent ? <>
-          {/* Adel (08/09/2026) : "j'imagine demain un utilisateur qui va
-              mettre un très grand texte ... toutes les fonctions YouTube
-              etc. ... beaucoup de place sur l'étiquette pourquoi t'utilises
-              toute la même carte" -- la photo devient une bannière fixe en
-              haut (comme une pochette), tout le texte (nom, date, avis,
-              description, liens) vit dans un bloc en dessous, à fond plein :
-              ça peut grandir sans jamais recouvrir la photo. */}
-          <SwipeDeck resetKey={currentEvent.id} enabled={busyId!==currentEvent.id && !isOwnEvent} onSwipeLeft={()=>chooseRsvp(currentEvent.id,'NOT_GOING',true)} onSwipeRight={()=>chooseRsvp(currentEvent.id,'GOING',true)} leftLabel="NON" rightLabel="J’Y VAIS" hint={isOwnEvent ? 'Aperçu : voici comment tes invités verront cette carte' : 'Glisse pour répondre à l’invitation · les boutons fonctionnent aussi'}>
-            <View style={styles.card}>
-              {currentEvent.imageUrl ? <Image source={{ uri: currentEvent.imageUrl }} style={styles.cardBanner} resizeMode="cover" /> : null}
-              <View style={styles.cardBody}>
-                <View style={styles.badgeRow}>
-                  <View style={styles.badge}><Text style={styles.badgeText}>ÉVÉNEMENT</Text></View>
-                  {/* Adel (08/09/2026) : "il faut pas que les utilisateurs
-                      voient quoi que ce soit tant que le super admin a pas
-                      approuvé" -- seul l'organisateur voit cet indicateur
-                      sur SON évènement (le public ne le voit jamais, il n'y
-                      a même pas accès tant que ce n'est pas APPROVED). */}
-                  {user?.id === currentEvent.creatorId && currentEvent.moderationStatus === 'PENDING' ? <View style={styles.pendingBadge}><Text style={styles.pendingBadgeText}>⏳ En attente de validation</Text></View> : null}
-                  {user?.id === currentEvent.creatorId && currentEvent.moderationStatus === 'REJECTED' ? <View style={styles.rejectedBadge}><Text style={styles.rejectedBadgeText}>⚠️ À corriger</Text></View> : null}
+          {leaderboardOpen ? <>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Ouvrir mon classement et mon historique de Free" style={styles.myRankingButton} onPress={openMyRanking}>
+            <Text style={styles.myRankingButtonText}>MON CLASSEMENT</Text>
+          </TouchableOpacity>
+          {leaderboard.length ? (
+            <View style={styles.podium}>
+              {[1, 0, 2].map((rank) => {
+                const entry = leaderboard[rank];
+                if (!entry) return <View key={`podium-empty-${rank}`} style={styles.podiumCol} />;
+                const medal = rank === 0 ? '🥇' : rank === 1 ? '🥈' : '🥉';
+                const barStyle = rank === 0 ? styles.podiumBarFirst : rank === 1 ? styles.podiumBarSecond : styles.podiumBarThird;
+                return (
+                  <TouchableOpacity key={`podium-${entry.profileId}`} style={styles.podiumCol} onPress={() => openPlayerStats(entry)} accessibilityRole="button" accessibilityLabel={`${medal} ${entry.username}`}>
+                    <Text style={styles.podiumMedal}>{medal}</Text>
+                    <View style={styles.podiumAvatar}><Text style={styles.podiumAvatarInitial}>{entry.username.slice(0, 1).toUpperCase()}</Text></View>
+                    <Text numberOfLines={1} style={styles.podiumName}>{entry.username}</Text>
+                    <View style={[styles.podiumBar, barStyle]}><Text style={styles.podiumScore}>{entry.wins}</Text></View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ) : null}
+          {leaderboard.map((entry, index) => (
+            <TouchableOpacity
+              key={entry.profileId}
+              style={[styles.leaderboardRow, entry.profileId === user?.id && styles.leaderboardRowMine]}
+              onPress={() => openPlayerStats(entry)}
+            >
+              <Text style={styles.leaderboardTrophy}>{index === 0 ? '🏆' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}</Text>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <View style={styles.leaderboardNameRow}>
+                  <Text numberOfLines={1} style={styles.leaderboardName}>{entry.username}</Text>
+                  {leaderboardTiers[entry.profileId] ? <ProfileCertificationBadge tier={leaderboardTiers[entry.profileId]} compact /> : null}
                 </View>
-                {user?.id === currentEvent.creatorId && currentEvent.photoNote ? <Text style={styles.moderationNote}>Photo : {currentEvent.photoNote}</Text> : null}
-                {user?.id === currentEvent.creatorId && currentEvent.textNote ? <Text style={styles.moderationNote}>Texte : {currentEvent.textNote}</Text> : null}
-                <Text style={styles.eventName}>{currentEvent.name}</Text>
-                <Text style={styles.date}>{dateText}</Text>
-                <Text style={styles.meta}>{[currentEvent.venueName,currentEvent.countryCode].filter(Boolean).join(' · ')}</Text>
-                {currentEvent.ticketPriceCents ? <Text style={styles.rsvpCountsText}>🎟 Entrée : {(currentEvent.ticketPriceCents / 100).toFixed(2)}€</Text> : null}
-                {currentEventReviewSummary && currentEventReviewSummary.reviewCount > 0 ? <Text style={styles.reviewSummary}>⭐ {currentEventReviewSummary.averageRating.toFixed(1)} · {currentEventReviewSummary.reviewCount} avis</Text> : null}
-                {user?.id === currentEvent.creatorId && rsvpCounts && (rsvpCounts.going + rsvpCounts.maybe + rsvpCounts.notGoing) > 0 ? <Text style={styles.rsvpCountsText}>✓ {rsvpCounts.going} participent · {rsvpCounts.maybe} peut-être · {rsvpCounts.notGoing} ne viennent pas</Text> : null}
-                {user?.id === currentEvent.creatorId && ticketSales.filter((s) => s.status === 'PENDING').length > 0 ? (
-                  <View style={{ marginTop: 10 }}>
-                    <Text style={styles.rsvpToggleLabel}>💳 Billets à confirmer</Text>
-                    {ticketSales.filter((s) => s.status === 'PENDING').map((sale) => (
-                      <View key={sale.id} style={[styles.rsvpToggleRow, { alignItems: 'center', marginTop: 6 }]}>
-                        <View style={{ flex: 1 }}><Text style={styles.rsvpToggleLabel}>@{sale.counterpartUsername} · {sale.eventName}</Text><Text style={styles.rsvpToggleHint}>{(sale.amountCents / 100).toFixed(2)}€ -- pas encore confirmé</Text></View>
-                        <TouchableOpacity style={styles.myRankingButton} disabled={ticketConfirmBusyId === sale.id} onPress={() => void confirmTicketPaid(sale)}>
-                          <Text style={styles.myRankingButtonText}>{ticketConfirmBusyId === sale.id ? '…' : '✓ PAYÉ'}</Text>
-                        </TouchableOpacity>
-                      </View>
-                    ))}
-                  </View>
+                {entry.isOnline ? (
+                  <Text numberOfLines={1} style={styles.leaderboardPresence}>● joue en solo{entry.presenceThemeCode && themeLabels[entry.presenceThemeCode] ? ` · ${themeLabels[entry.presenceThemeCode]}` : ''} · {tierLabel(entry.skillTier)}</Text>
                 ) : null}
-                {currentEvent.djArtistNames.length?<Text style={styles.dj}>{currentEvent.djArtistNames.map((n)=>`${n.replace(/^@+/,'')}`).join(' · ')}</Text>:null}
-                {/* Adel (08/09/2026) : "c'est vraiment pas beau, il y a deux
-                    textes ... trouve une solution avec un petit bouton ...
-                    en savoir plus, comme ça ils auront toutes les
-                    informations" -- meme logique que le popup des
-                    notifications : aperçu court sur la carte, "En savoir
-                    plus" ouvre la photo complète (jamais rognée) + le texte
-                    intégral + YouTube, puis on répond juste après. */}
-                {currentEvent.description?<Text style={styles.description} numberOfLines={3}>{currentEvent.description}</Text>:null}
-                {(currentEvent.description || currentEvent.imageUrls.length > 1) ? <TouchableOpacity style={styles.moreLink} onPress={() => setEventDetailOpen(true)}><Text style={styles.moreLinkText}>En savoir plus ›</Text></TouchableOpacity> : null}
-                {currentEvent.organizerPhone ? <View style={styles.eventLinksRow}><TouchableOpacity style={styles.callOrganizerLink} onPress={()=>{void Linking.openURL(`tel:${currentEvent.organizerPhone}`);}}><View style={styles.callOrganizerIcon}><Text style={styles.callOrganizerIconText}>📞</Text></View><View><Text style={styles.callOrganizerLabel}>Appeler l’organisateur</Text><Text style={styles.callOrganizerNumber}>{currentEvent.organizerPhone}</Text></View></TouchableOpacity></View> : null}
-                {isOwnEvent
-                  ? <View style={styles.currentAnswer}><Text style={styles.currentAnswerText}>👁 Aperçu — ceci n’est pas une réponse</Text></View>
-                  : <View style={[styles.currentAnswer, currentRsvp==='GOING'&&styles.currentAnswerGoing, currentRsvp==='NOT_GOING'&&styles.currentAnswerNotGoing]}><Text style={[styles.currentAnswerText, currentRsvp==='GOING'&&styles.currentAnswerTextGoing, currentRsvp==='NOT_GOING'&&styles.currentAnswerTextNotGoing]}>{currentRsvp?RSVP_LABEL[currentRsvp]:'Pas encore de réponse'}</Text></View>}
+                {entry.topThemeCode && themeLabels[entry.topThemeCode] ? (
+                  <Text numberOfLines={1} style={styles.leaderboardSpecialty}>🎯 Incollable en {themeLabels[entry.topThemeCode]}</Text>
+                ) : null}
               </View>
-            </View>
-          </SwipeDeck>
-          {/* Adel (08/09/2026) : "pourquoi tu utilises pas des boutons
-              normal ... je participe, je ne participe pas avec des vrais
-              boutons ... le même code couleur si je participe ça reste en
-              jaune, je participe pas ça lui met une carte en rouge" --
-              vrais boutons libellés, jaune plein = participe, rouge =
-              ne participe pas, cohérent avec la pastille de réponse. */}
-          {!isOwnEvent ? <>
-            <View style={styles.rsvpMainRow}>
-              <TouchableOpacity style={[styles.rsvpButton,styles.rsvpButtonNo]} disabled={busyId===currentEvent.id} onPress={()=>void chooseRsvp(currentEvent.id,'NOT_GOING',true)}>{busyId===currentEvent.id?<ActivityIndicator color="#FF5F83"/>:<Text style={styles.rsvpButtonNoText}>✕ Je ne participe pas</Text>}</TouchableOpacity>
-              <TouchableOpacity style={[styles.rsvpButton,styles.rsvpButtonYes]} disabled={busyId===currentEvent.id} onPress={()=>void chooseRsvp(currentEvent.id,'GOING',true)}>{busyId===currentEvent.id?<ActivityIndicator color="#17130B"/>:<Text style={styles.rsvpButtonYesText}>{currentEvent.ticketPriceCents && rsvps[currentEvent.id] !== 'GOING' ? `🎟 Payer ${(currentEvent.ticketPriceCents / 100).toFixed(2)}€` : '✓ Je participe'}</Text>}</TouchableOpacity>
-            </View>
-            <View style={styles.rsvpMaybeRow}><TouchableOpacity style={[styles.maybeAction,currentRsvp==='MAYBE'&&styles.maybeActionOn]} onPress={()=>void chooseRsvp(currentEvent.id,'MAYBE')}><Text style={styles.maybeText}>PEUT-ÊTRE</Text></TouchableOpacity></View>
+              <Text style={styles.leaderboardWins}>{entry.wins} sans-faute</Text>
+              <Text style={styles.leaderboardStats}>✓{entry.totalCorrect}{entry.avgResponseMs != null ? ` · ${(entry.avgResponseMs / 1000).toFixed(1)}s` : ''}{entry.abandons != null ? ` · ${entry.abandons} abandon${entry.abandons > 1 ? 's' : ''}` : ''}</Text>
+              <Text style={styles.leaderboardChevron}>›</Text>
+            </TouchableOpacity>
+          ))}
           </> : null}
-          <View style={styles.secondaryRow}><TouchableOpacity style={styles.secondary} onPress={nextEvent}><Text style={styles.secondaryText}>Suivant</Text></TouchableOpacity><TouchableOpacity style={styles.secondary} onPress={()=>shareEvent(currentEvent.id,currentEvent.name).catch(()=>{})}><Text style={styles.secondaryText}>↗ Partager</Text></TouchableOpacity></View>
-          {/* Adel (08/09/2026) : "il pourra dire que je telecharge mon QR
-              code ou un bouton QR code" -- reserve a qui participe a un
-              evenement qui impose le QR. */}
-          {!isOwnEvent && currentEvent.requireQrCode && currentRsvp === 'GOING' ? <TouchableOpacity style={styles.ticketButton} onPress={() => void openMyTicket()}><Text style={styles.ticketButtonText}>🎟 Mon billet</Text></TouchableOpacity> : null}
-          {/* Adel (08/09/2026) : "il puisse effacer les evenements qu'il a
-              deja mis, tous les modifier ... voir tous les participants" --
-              reserve a l'organisateur de CETTE soiree. Modifier reste
-              possible tant que ce n'est pas APPROVED ; une fois approuve,
-              c'est verrouille cote serveur (event_locked_after_approval). */}
-          {user?.id === currentEvent.creatorId ? <View style={styles.secondaryRow}>
-            {currentEvent.moderationStatus !== 'APPROVED' ? <TouchableOpacity style={styles.secondary} onPress={()=>openEdit(currentEvent)}><Text style={styles.secondaryText}>✎ Modifier</Text></TouchableOpacity> : null}
-            <TouchableOpacity style={styles.secondary} onPress={()=>void openParticipants(currentEvent)}><Text style={styles.secondaryText}>👥 Participants</Text></TouchableOpacity>
-            <TouchableOpacity style={[styles.secondary,styles.secondaryDanger]} disabled={eventBusyAction==='delete'} onPress={()=>deleteEvent(currentEvent)}>{eventBusyAction==='delete'?<ActivityIndicator color="#FF6C8C"/>:<Text style={[styles.secondaryText,styles.secondaryDangerText]}>Supprimer</Text>}</TouchableOpacity>
-          </View> : null}
-        </> : null}
-      </> : (
-        <>
-          {/* Adel (02/09/2026) : "le bouton salon musical au-dessus du
-              classement global, jouer en jaune au lieu de violet, le contour
-              du bouton battle en jaune" -- le lanceur passe avant le
-              classement, couleurs alignées sur le jaune de marque Battle. */}
-          <TouchableOpacity style={styles.battleLauncher} onPress={() => { setPendingArenaId(undefined); setBattleOpen(true); }} accessibilityRole="button" accessibilityLabel="Ouvrir le Salon Loki Music Battle">
-            <View style={styles.battleLauncherIcon}><Text style={styles.battleLauncherBolt}>⚡</Text></View>
-            <View style={styles.battleLauncherCopy}>
-              <View style={styles.battleLauncherKickerRow}>
-                <Text style={styles.battleLauncherKicker}>Loki Music BATTLE</Text>
-                {battleFreeBalance != null ? <View style={[styles.battleLauncherFreeBadge, { backgroundColor: `${myTierColors.colors[myTierColors.colors.length - 1]}33`, borderColor: myTierColors.ring }]}><Text style={[styles.battleLauncherFreeBadgeText, { color: myTierColors.ring }]}>{battleFreeBalance} Free</Text></View> : null}
-              </View>
-              <Text style={styles.battleLauncherTitle}>Salon musical</Text>
-              <Text style={styles.battleLauncherMeta}>Solo ou multijoueur · mode plein écran · aucun code à écrire</Text>
-            </View>
-            <Text style={styles.battleLauncherOpen}>JOUER ›</Text>
-          </TouchableOpacity>
+        </View>
+      ) : !leaderboardLoading ? <View style={styles.empty}><Text style={styles.emptyTitle}>Aucun classement pour le moment.</Text><Text style={styles.meta}>Joue un Solo pour apparaître ici.</Text></View> : null}
+    </>
+  );
 
-          {leaderboardLoading ? <ActivityIndicator color={colors.primaryLight} /> : null}
-          {!leaderboardLoading && leaderboard.length ? (
-            <View style={styles.leaderboardPanel}>
-              <View style={styles.leaderboardHeader}>
-                <Text style={styles.leaderboardTitle}>CLASSEMENT GLOBAL</Text>
-                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Ouvrir mon classement et mon historique de Free" style={styles.myRankingButton} onPress={openMyRanking}>
-                  <Text style={styles.myRankingButtonText}>MON CLASSEMENT</Text>
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.leaderboardHint}>👆 Touche un joueur pour voir ses stats</Text>
-              {leaderboard.map((entry, index) => (
-                <TouchableOpacity
-                  key={entry.profileId}
-                  style={styles.leaderboardRow}
-                  onPress={() => openPlayerStats(entry)}
-                >
-                  <Text style={styles.leaderboardTrophy}>{index === 0 ? '🏆' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}</Text>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <View style={styles.leaderboardNameRow}>
-                      <Text numberOfLines={1} style={styles.leaderboardName}>{entry.username}</Text>
-                      {leaderboardTiers[entry.profileId] ? <ProfileCertificationBadge tier={leaderboardTiers[entry.profileId]} compact /> : null}
-                    </View>
-                    {entry.isOnline ? (
-                      <Text numberOfLines={1} style={styles.leaderboardPresence}>● joue en solo{entry.presenceThemeCode && themeLabels[entry.presenceThemeCode] ? ` · ${themeLabels[entry.presenceThemeCode]}` : ''} · {tierLabel(entry.skillTier)}</Text>
-                    ) : null}
-                    {entry.topThemeCode && themeLabels[entry.topThemeCode] ? (
-                      <Text numberOfLines={1} style={styles.leaderboardSpecialty}>🎯 Incollable en {themeLabels[entry.topThemeCode]}</Text>
-                    ) : null}
-                  </View>
-                  <Text style={styles.leaderboardWins}>{entry.wins} victoire{entry.wins > 1 ? 's' : ''}</Text>
-                  <Text style={styles.leaderboardStats}>✓{entry.totalCorrect}{entry.avgResponseMs != null ? ` · ${(entry.avgResponseMs / 1000).toFixed(1)}s` : ''}</Text>
-                  <Text style={styles.leaderboardChevron}>›</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          ) : !leaderboardLoading ? <View style={styles.empty}><Text style={styles.emptyTitle}>Aucun classement pour le moment.</Text><Text style={styles.meta}>Joue un Battle pour apparaître ici.</Text></View> : null}
-        </>
-      )}
-    </ScrollView>
-
-    <Modal visible={Boolean(statsEntry)} transparent animationType="fade" onRequestClose={() => setStatsEntry(null)}>
+  // Fenêtres « stats d'un joueur » et « mon classement » : une seule source,
+  // utilisée par Soirées et par l'écran Battle (Adel 02/10/2026).
+  const renderRankingModals = () => (
+    <>
+    <KeepModal visible={Boolean(statsEntry)} transparent animationType="fade" onRequestClose={() => setStatsEntry(null)}>
       <View style={styles.statsBackdrop}>
         <View style={styles.statsCard}>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fermer" style={styles.statsClose} onPress={() => setStatsEntry(null)}><Text style={styles.statsCloseText}>×</Text></TouchableOpacity>
@@ -1044,7 +1205,7 @@ export default function PartiesScreen({ navigation, route }: any) {
               {statsLoading ? <ActivityIndicator color={colors.primaryLight} style={{ marginTop: 20 }} /> : (
                 <>
                   <View style={styles.statsBigRow}>
-                    <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{statsData?.wins ?? statsEntry.wins}</Text><Text style={styles.statsBigLabel}>Victoires</Text></View>
+                    <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{statsData?.wins ?? statsEntry.wins}</Text><Text style={styles.statsBigLabel}>Sans-faute</Text></View>
                     <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{statsData?.matchesPlayed ?? statsEntry.matchesPlayed}</Text><Text style={styles.statsBigLabel}>Matchs</Text></View>
                     <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{statsData?.totalCorrect ?? statsEntry.totalCorrect}</Text><Text style={styles.statsBigLabel}>Bonnes rép.</Text></View>
                   </View>
@@ -1052,33 +1213,33 @@ export default function PartiesScreen({ navigation, route }: any) {
                     <View style={styles.statsSmallRow}>
                       <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>👥 {statsData.followers}</Text><Text style={styles.statsSmallLabel}>Abonnés</Text></View>
                       <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>🎁 {statsData.freeBalance}</Text><Text style={styles.statsSmallLabel}>Free restant</Text></View>
-                      <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>🏆 {statsData.freeWon}</Text><Text style={styles.statsSmallLabel}>Free gagné</Text></View>
-                      <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>↘ {statsData.freeLost}</Text><Text style={styles.statsSmallLabel}>Free perdu</Text></View>
+                      <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>🏆 {statsData.freeWon}</Text><Text style={styles.statsSmallLabel}>FREE gagnés aujourd’hui</Text></View>
+                      <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>↘ {statsData.freeLost}</Text><Text style={styles.statsSmallLabel}>FREE perdus aujourd’hui</Text></View>
                     </View>
-                    <Text style={styles.statsSectionTitle}>DÉTAIL FREE</Text>
-                    <TouchableOpacity style={[styles.creditHistoryRow, Boolean(expandedMatchId === `user-free-${statsEntry?.profileId}`) && {backgroundColor:'#24192E'}]} onPress={() => setExpandedMatchId(expandedMatchId === `user-free-${statsEntry?.profileId}` ? null : `user-free-${statsEntry?.profileId}`)}>
+                    <Text style={styles.statsSectionTitle}>FREE DU JOUR · RESET 02:00</Text>
+                    <TouchableOpacity style={[styles.creditHistoryRow, Boolean(expandedMatchId === `user-free-${statsEntry?.profileId}`) && {backgroundColor:colors.backgroundCard}]} onPress={() => setExpandedMatchId(expandedMatchId === `user-free-${statsEntry?.profileId}` ? null : `user-free-${statsEntry?.profileId}`)}>
                       <View style={{flex: 1}}>
                         <Text style={styles.creditHistoryLabel}>💰 Bilan Battle</Text>
-                        <Text style={[styles.creditHistoryLabel, {fontSize: 12, opacity: 0.6, marginTop: 2}]}>Gagné vs Perdu</Text>
+                        <Text style={[styles.creditHistoryLabel, {fontSize: 12, opacity: 0.6, marginTop: 2}]}>Depuis 02:00 aujourd’hui</Text>
                       </View>
                       <View style={{alignItems: 'flex-end'}}>
-                        <Text style={{color: '#7CF2B9', fontSize: 12, fontWeight: '900'}}>+{statsData.freeWon}</Text>
-                        <Text style={{fontSize: 10, color: '#8F879D', marginTop: 2}}>{expandedMatchId === `user-free-${statsEntry?.profileId}` ? '▼' : '▶'}</Text>
+                        <Text style={{color: colors.keep, fontSize: 12, fontWeight: '900'}}>+{statsData.freeWon}</Text>
+                        <Text style={{fontSize: 10, color: colors.textMuted, marginTop: 2}}>{expandedMatchId === `user-free-${statsEntry?.profileId}` ? '▼' : '▶'}</Text>
                       </View>
                     </TouchableOpacity>
                     {expandedMatchId === `user-free-${statsEntry?.profileId}` ? (
-                      <View style={{paddingHorizontal: 10, paddingVertical: 8, backgroundColor: '#17121D', marginTop: -1, borderBottomLeftRadius: 12, borderBottomRightRadius: 12, marginBottom: 6}}>
+                      <View style={{paddingHorizontal: 10, paddingVertical: 8, backgroundColor: colors.backgroundElevated, marginTop: -1, borderBottomLeftRadius: 12, borderBottomRightRadius: 12, marginBottom: 6}}>
                         <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
-                          <Text style={{color: '#B79CFF', fontSize: 11, fontWeight: '800'}}>Free gagné</Text>
-                          <Text style={{color: '#7CF2B9', fontSize: 11, fontWeight: '700'}}>+{statsData.freeWon}</Text>
+                          <Text style={{color: colors.primaryLight, fontSize: 11, fontWeight: '800'}}>FREE gagnés aujourd’hui</Text>
+                          <Text style={{color: colors.keep, fontSize: 11, fontWeight: '700'}}>+{statsData.freeWon}</Text>
                         </View>
                         <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
-                          <Text style={{color: '#B79CFF', fontSize: 11, fontWeight: '800'}}>Free perdu</Text>
-                          <Text style={{color: '#FFB3C3', fontSize: 11, fontWeight: '700'}}>−{statsData.freeLost}</Text>
+                          <Text style={{color: colors.primaryLight, fontSize: 11, fontWeight: '800'}}>FREE perdus aujourd’hui</Text>
+                          <Text style={{color: colors.pass, fontSize: 11, fontWeight: '700'}}>−{statsData.freeLost}</Text>
                         </View>
-                        <View style={{flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#312348', paddingTop: 8}}>
-                          <Text style={{color: '#B79CFF', fontSize: 11, fontWeight: '800'}}>Bilan net</Text>
-                          <Text style={{color: '#FFF', fontSize: 11, fontWeight: '700'}}>{statsData.freeWon - statsData.freeLost >= 0 ? '+' : ''}{statsData.freeWon - statsData.freeLost}</Text>
+                        <View style={{flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8}}>
+                          <Text style={{color: colors.primaryLight, fontSize: 11, fontWeight: '800'}}>Bilan net</Text>
+                          <Text style={{color: colors.white, fontSize: 11, fontWeight: '700'}}>{statsData.freeWon - statsData.freeLost >= 0 ? '+' : ''}{statsData.freeWon - statsData.freeLost}</Text>
                         </View>
                       </View>
                     ) : null}
@@ -1104,9 +1265,9 @@ export default function PartiesScreen({ navigation, route }: any) {
           ) : null}
         </View>
       </View>
-    </Modal>
+    </KeepModal>
 
-    <Modal visible={myRankingOpen} transparent animationType="fade" onRequestClose={() => setMyRankingOpen(false)}>
+    <KeepModal visible={myRankingOpen} transparent animationType="fade" onRequestClose={() => setMyRankingOpen(false)}>
       <View style={styles.statsBackdrop}><View style={styles.myRankingCard}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fermer" style={styles.statsClose} onPress={() => setMyRankingOpen(false)}><Text style={styles.statsCloseText}>×</Text></TouchableOpacity>
         <Text style={styles.statsUsername}>MON CLASSEMENT</Text>
@@ -1116,7 +1277,7 @@ export default function PartiesScreen({ navigation, route }: any) {
             const mine = index >= 0 ? leaderboard[index] : null;
             return <>
               <View style={styles.statsBigRow}>
-                <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{index >= 0 ? `#${index + 1}` : '—'}</Text><Text style={styles.statsBigLabel}>Rang global</Text></View>
+                <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{index >= 0 ? `#${index + 1}` : '—'}</Text><Text style={styles.statsBigLabel}>Rang Solo</Text></View>
                 <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{mine?.wins ?? 0}</Text><Text style={styles.statsBigLabel}>Victoires</Text></View>
                 <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{myFreeBreakdown?.remaining ?? 0}</Text><Text style={styles.statsBigLabel}>Free disponibles</Text></View>
               </View>
@@ -1140,31 +1301,31 @@ export default function PartiesScreen({ navigation, route }: any) {
                   const themeLabel = event.themeCode ? ` · ${themeLabels[event.themeCode] || event.themeCode}` : '';
                   const timeStr = new Date(event.createdAt).toLocaleDateString('fr-FR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
                   return <View key={matchId}>
-                    <TouchableOpacity style={[styles.creditHistoryRow, isExpanded && {backgroundColor:'#24192E'}]} onPress={() => setExpandedMatchId(isExpanded ? null : matchId)}>
+                    <TouchableOpacity style={[styles.creditHistoryRow, isExpanded && {backgroundColor:colors.backgroundCard}]} onPress={() => setExpandedMatchId(isExpanded ? null : matchId)}>
                       <View style={{flex: 1}}>
                         <Text style={styles.creditHistoryLabel}>{event.result === 'WIN' ? '🏆 Victoire' : '❌ Défaite'} {battleTypeLabel}{themeLabel}</Text>
                         <Text style={[styles.creditHistoryLabel, {fontSize: 12, opacity: 0.6, marginTop: 2}]}>{timeStr}</Text>
                       </View>
                       <View style={{alignItems: 'flex-end'}}>
                         <Text style={event.amount >= 0 ? styles.creditHistoryGain : styles.creditHistoryLoss}>{event.amount > 0 ? '+' : ''}{event.amount}</Text>
-                        <Text style={{fontSize: 10, color: '#8F879D', marginTop: 2}}>{isExpanded ? '▼' : '▶'}</Text>
+                        <Text style={{fontSize: 10, color: colors.textMuted, marginTop: 2}}>{isExpanded ? '▼' : '▶'}</Text>
                       </View>
                     </TouchableOpacity>
                     {isExpanded ? (
-                      <View style={{paddingHorizontal: 10, paddingVertical: 8, backgroundColor: '#17121D', marginTop: -1, borderBottomLeftRadius: 12, borderBottomRightRadius: 12, marginBottom: 6}}>
+                      <View style={{paddingHorizontal: 10, paddingVertical: 8, backgroundColor: colors.backgroundElevated, marginTop: -1, borderBottomLeftRadius: 12, borderBottomRightRadius: 12, marginBottom: 6}}>
                         <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
-                          <Text style={{color: '#B79CFF', fontSize: 11, fontWeight: '800'}}>Type</Text>
-                          <Text style={{color: '#FFF', fontSize: 11, fontWeight: '700'}}>{battleTypeLabel.replace('🎯 ', '').replace('⚡ ', '').replace('⚔️ ', '')}</Text>
+                          <Text style={{color: colors.primaryLight, fontSize: 11, fontWeight: '800'}}>Type</Text>
+                          <Text style={{color: colors.white, fontSize: 11, fontWeight: '700'}}>{battleTypeLabel.replace('🎯 ', '').replace('⚡ ', '').replace('⚔️ ', '')}</Text>
                         </View>
                         {event.themeCode ? (
                           <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
-                            <Text style={{color: '#B79CFF', fontSize: 11, fontWeight: '800'}}>Style</Text>
-                            <Text style={{color: '#FFF', fontSize: 11, fontWeight: '700'}}>{themeLabels[event.themeCode] || event.themeCode}</Text>
+                            <Text style={{color: colors.primaryLight, fontSize: 11, fontWeight: '800'}}>Style</Text>
+                            <Text style={{color: colors.white, fontSize: 11, fontWeight: '700'}}>{themeLabels[event.themeCode] || event.themeCode}</Text>
                           </View>
                         ) : null}
-                        <View style={{flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#312348', paddingTop: 8}}>
-                          <Text style={{color: '#B79CFF', fontSize: 11, fontWeight: '800'}}>Détail Free</Text>
-                          <Text style={{color: '#FFF', fontSize: 11, fontWeight: '700', textAlign: 'right'}}>{event.amount > 0 ? 'Gagné' : 'Perdu'} {Math.abs(event.amount)} Free</Text>
+                        <View style={{flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8}}>
+                          <Text style={{color: colors.primaryLight, fontSize: 11, fontWeight: '800'}}>Détail Free</Text>
+                          <Text style={{color: colors.white, fontSize: 11, fontWeight: '700', textAlign: 'right'}}>{event.amount > 0 ? 'Gagné' : 'Perdu'} {Math.abs(event.amount)} Free</Text>
                         </View>
                       </View>
                     ) : null}
@@ -1175,9 +1336,408 @@ export default function PartiesScreen({ navigation, route }: any) {
           })()}
         </ScrollView>}
       </View></View>
-    </Modal>
+    </KeepModal>
 
-    <Modal visible={createOpen} transparent animationType="slide" onRequestClose={resetEventForm}><View style={styles.backdrop}><View style={styles.sheet}><View style={styles.modalHeader}><Text style={styles.modalTitle}>{editingEventId ? 'Modifier l’événement' : 'Créer un événement'}</Text><TouchableOpacity onPress={resetEventForm}><Text style={styles.close}>Fermer</Text></TouchableOpacity></View><ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+    </>
+  );
+
+  if (battleOpen) {
+    return <SafeAreaView style={styles.container}><PersonalThemeBackdrop />
+      <View style={styles.battleFullscreen}>
+        <KeepBattleArenaPanel
+          enabled={Boolean(user && !isLocalGuest && !isDemoMode)}
+          initialArenaId={pendingArenaId}
+          onOpenProfile={(username) => navigation.navigate('PublicProfile', { username })}
+          onRequireAccount={() => Alert.alert(
+            'Compte Loki Music requis',
+            'Le mode invité permet d’écouter et de visiter des profils, mais Loki Music Battle est réservé aux comptes créés. Crée ton compte (pseudo + mot de passe + e-mail) : tu reçois +20 Free offerts et tu peux jouer, gagner des Free et construire ta communauté musicale.',
+            [
+              { text: 'Plus tard', style: 'cancel' },
+              { text: 'Créer mon compte', onPress: () => useAccountGateStore.getState().requestAccount('create') },
+            ],
+          )}
+          onExit={() => { setBattleOpen(false); setPendingArenaId(undefined); useGameSessionStore.getState().clearGameSession(); navigation.setParams?.({ arenaId: undefined, openBattle: undefined, source: undefined }); stripBattleUrlParams(); }}
+          onOpenOffers={() => navigation.navigate('Offers', { sourceFeature: 'BATTLE_FREE' })}
+          onOpenLeaderboard={() => { setLeaderboardOpen(true); setBattleSummaryOpen(true); }}
+          onOpenSession={(sessionId) => { setBattleOpen(false); setPendingArenaId(undefined); navigation.setParams?.({ arenaId: undefined, openBattle: undefined, source: undefined }); stripBattleUrlParams(); navigation.navigate('SessionRecap', { sessionId }); }}
+        />
+      </View>
+      <KeepModal visible={battleSummaryOpen} transparent animationType="slide" onRequestClose={() => setBattleSummaryOpen(false)}>
+        <View style={styles.backdrop}>
+          <View style={styles.sheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>🏆 Classement Solo</Text>
+              <TouchableOpacity onPress={() => setBattleSummaryOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer le classement"><Text style={styles.close}>Fermer</Text></TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>{renderLeaderboard()}</ScrollView>
+          </View>
+        </View>
+      </KeepModal>
+      {renderRankingModals()}
+</SafeAreaView>;
+  }
+
+  // Refonte Soirées (spec Adel 22/09/2026) : sous-onglet CLASSEMENT d'un
+  // événement -- podium (🥇🥈🥉) des PARTICIPANTS de la soirée en cours, mêmes
+  // styles que le podium Battle. Ordre = celui renvoyé par
+  // keep_event_participants (participants « J'y vais » en tête). Le classement
+  // Battle global reste, inchangé, dans l'onglet BATTLE dédié.
+  const renderEventClassement = () => {
+    const top3 = eventPodiumParticipants.slice(0, 3);
+    return (
+      <View style={styles.leaderboardPanel}>
+        <View style={styles.leaderboardHeader}>
+          <Text style={styles.leaderboardTitle}>PARTICIPANTS</Text>
+        </View>
+        {eventPodiumLoading ? <ActivityIndicator color={colors.primaryLight} /> : null}
+        {!eventPodiumLoading && top3.length ? (
+          <View style={styles.podium}>
+            {[1, 0, 2].map((slot) => {
+              const entry = top3[slot];
+              if (!entry) return <View key={`event-podium-empty-${slot}`} style={styles.podiumCol} />;
+              const medal = slot === 0 ? '🥇' : slot === 1 ? '🥈' : '🥉';
+              const barStyle = slot === 0 ? styles.podiumBarFirst : slot === 1 ? styles.podiumBarSecond : styles.podiumBarThird;
+              return (
+                <View key={`event-podium-${entry.profileId}`} style={styles.podiumCol}>
+                  <Text style={styles.podiumMedal}>{medal}</Text>
+                  <View style={styles.podiumAvatar}><Text style={styles.podiumAvatarInitial}>{entry.username.slice(0, 1).toUpperCase()}</Text></View>
+                  <Text numberOfLines={1} style={styles.podiumName}>{entry.username}</Text>
+                  <View style={[styles.podiumBar, barStyle]}><Text style={styles.podiumScore}>{entry.status === 'GOING' ? '✓' : entry.status === 'MAYBE' ? '?' : '✕'}</Text></View>
+                </View>
+              );
+            })}
+          </View>
+        ) : null}
+        {!eventPodiumLoading && eventPodiumParticipants.length ? (
+          eventPodiumParticipants.map((p) => (
+            <View key={`event-rank-${p.profileId}`} style={styles.participantRow}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <View style={styles.participantNameRow}><Text style={styles.participantName} numberOfLines={1}>{p.username}</Text><ProfileCertificationBadge tier={p.certificationTier} compact /></View>
+              </View>
+              <Text style={[styles.participantStatus, p.status === 'GOING' && styles.participantStatusGoing, p.status === 'NOT_GOING' && styles.participantStatusNotGoing]}>{RSVP_LABEL[p.status]}</Text>
+            </View>
+          ))
+        ) : !eventPodiumLoading ? (
+          <View style={styles.empty}><Text style={styles.emptyTitle}>Sois le premier à participer</Text><Text style={styles.meta}>Réponds « J'y vais » pour ouvrir le classement de cette soirée.</Text></View>
+        ) : null}
+      </View>
+    );
+  };
+
+  // Refonte Soirées (spec Adel 22/09/2026) : badge "EN COURS" affiché quand
+  // l'événement est en train de se dérouler (début passé, fin pas encore
+  // atteinte -- ou pas de fin renseignée).
+  const isEventLive = currentEvent
+    ? new Date(currentEvent.startsAt) <= new Date() && (!currentEvent.endsAt || new Date(currentEvent.endsAt) >= new Date())
+    : false;
+
+  return <SafeAreaView style={styles.container}><PersonalThemeBackdrop />
+    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <View style={styles.headerRow}>
+        {/* Adel (08/09/2026) : "ça a rien à voir avec l'évènement ... il
+            faut expliquer à quoi ça va servir ... ça peut être une soirée,
+            un évènement, une porte ouverte, etc." -- l'ancien texte parlait
+            de swipe/jeu (vocabulaire Battle) ; celui-ci ne nomme plus que
+            les évènements eux-mêmes, sans présumer du type. */}
+        <View style={{flex:1}}><Text style={styles.title}>{partiesTab === 'BATTLE' ? 'Loki Music BATTLE' : 'Soirées'}</Text></View>
+        {partiesTab === 'SOIREES' ? <TouchableOpacity style={styles.eventHelpButton} onPress={() => setEventAccessInfoOpen((value) => !value)} accessibilityRole="button" accessibilityLabel={eventAccessInfoOpen ? "Masquer l'aide Événements" : "Tout comprendre sur Soirées"}><Text style={styles.eventHelpButtonText}>?</Text></TouchableOpacity> : null}
+      </View>
+
+      {/* Adel (02/09/2026) : "on devrait faire deux petits boutons, un côté
+          Battle et un côté les soirées ... par défaut ça revient toujours à
+          soirée" -- deux onglets au lieu de mélanger les deux dans le même
+          flux ; Soirées reste l'onglet par défaut. */}
+      <PayoutCheckoutSheet
+        visible={Boolean(ticketCheckout)}
+        sellerUsername={ticketCheckout?.sellerUsername}
+        amountCents={ticketCheckout?.amountCents ?? 0}
+        currencyCode={ticketCheckout?.currencyCode ?? 'EUR'}
+        payoutLink={ticketCheckout?.payoutLink}
+        payoutQrUrl={ticketCheckout?.payoutQrUrl}
+        onClose={() => setTicketCheckout(null)}
+      />
+
+      <ContextHelpSheet
+        visible={partiesTab === 'SOIREES' && eventAccessInfoOpen}
+        title="Tout faire dans Soirées"
+        intro="Ici tu crées, suis et gères tes soirées sans quitter cet écran."
+        steps={[
+          { title: 'Créer une soirée', text: 'Appuie sur Créer, choisis le lieu, la date, les invités et publie ta demande.' },
+          { title: 'Attendre la validation', text: 'Le Super Admin vérifie la soirée. Tant qu’elle n’est pas approuvée, elle reste marquée En attente.' },
+          { title: 'Retrouver tes soirées', text: 'Mes soirées regroupe les événements que tu as créés et ceux auxquels tu participes.' },
+          { title: 'Répondre aux invitations', text: 'Tu peux accepter, répondre Peut-être ou refuser une invitation directement dans Loki Music.' },
+          { title: 'Prévenir ta communauté', text: 'Après approbation, Loki envoie les invitations à l’audience prévue, sans créer de doublons.' },
+        ]}
+        footer={canCreate ? `Tu peux publier · ${eventAccess?.unlimited ? 'illimité' : `${eventAccess?.remaining ?? 0} restante(s) ce mois`} · ${followers} abonnés` : createLabel}
+        onClose={() => setEventAccessInfoOpen(false)}
+      />
+
+      <View style={styles.partiesTabs} accessibilityLabel="Choisir Soirées ou Battle">
+        <TouchableOpacity
+          style={[styles.partiesTabBtn, partiesTab === 'SOIREES' && styles.partiesTabBtnOn]}
+          onPress={() => { setPartiesTab('SOIREES'); setPartyHome(true); setBattleOpen(false); }}
+          accessibilityRole="button"
+          accessibilityLabel="Ouvrir Soirées"
+        >
+          <Text style={[styles.partiesTabText, partiesTab === 'SOIREES' && styles.partiesTabTextOn]}>SOIRÉES</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.partiesTabBtn}
+          onPress={() => { setPendingArenaId(undefined); setBattleOpen(true); }}
+          accessibilityRole="button"
+          accessibilityLabel="Ouvrir directement Battle"
+        >
+          <Text style={styles.partiesTabText}>BATTLE</Text>
+        </TouchableOpacity>
+      </View>
+      
+      {/* Adel (03/09/2026) : "il doit être en soirée, il doit être dans
+          Battle, il est de partout pour pas le louper" -- bandeaux fixes
+          d'invite/revanche rendus ICI, avant le choix du sous-onglet, pour
+          rester visibles que l'utilisateur soit sur SOIRÉES (événements) ou
+          BATTLE (classement) -- ils vivaient uniquement dans la branche
+          BATTLE avant, invisibles sur le sous-onglet SOIRÉES. */}
+      {incomingBattle.slice(0, 1).map((challenge) => (
+        <View key={challenge.id} style={styles.incomingBanner}>
+          <Text style={styles.incomingText}><Text style={styles.incomingName}>{challenge.username}</Text> souhaite faire un Battle avec toi ({themeLabels[challenge.themeCode] || challenge.themeCode} · {challenge.roundCount} morceaux). Acceptes-tu ?</Text>
+          <View style={styles.incomingActions}>
+            <MotionActionButton
+            variant="danger"
+            size="small"
+            disabled={!incomingDecisionReady || incomingResponding === challenge.id}
+            onPress={() => requestIncomingBattleDecision(challenge, false)}
+            accessibilityLabel="Refuser le Battle"
+          >
+            REFUSER
+          </MotionActionButton>
+            <MotionActionButton
+            variant="success"
+            size="small"
+            disabled={!incomingDecisionReady || incomingResponding === challenge.id}
+            onPress={() => requestIncomingBattleDecision(challenge, true)}
+            accessibilityLabel="Accepter le Battle"
+          >
+            {incomingResponding === challenge.id ? 'CONNEXION…' : 'ACCEPTER'}
+          </MotionActionButton>
+          </View>
+        </View>
+      ))}
+      {!incomingBattle.length ? pendingRematchLB.slice(0, 1).map((item) => (
+        <View key={item.arenaId} style={styles.incomingBanner}>
+          <Text style={styles.incomingText}>🔁 Revanche proposée avec {item.participantUsernames.map((u) => `${u}`).join(', ') || 'le groupe'}. Acceptes-tu ?</Text>
+          <View style={styles.incomingActions}>
+            <MotionActionButton
+            variant="danger"
+            size="small"
+            disabled={rematchResponding === item.arenaId}
+            onPress={() => respondPendingRematchLB(item, false)}
+            accessibilityLabel="Refuser la revanche"
+          >
+            REFUSER
+          </MotionActionButton>
+            <MotionActionButton
+            variant="success"
+            size="small"
+            disabled={rematchResponding === item.arenaId}
+            onPress={() => respondPendingRematchLB(item, true)}
+            accessibilityLabel="Accepter la revanche"
+          >
+            {rematchResponding === item.arenaId ? 'CONNEXION…' : 'ACCEPTER'}
+          </MotionActionButton>
+          </View>
+        </View>
+      )) : null}
+
+      {partiesTab === 'SOIREES' ? <>
+        {partyHome ? <View style={styles.partyHome}>
+          <TouchableOpacity style={[styles.partyHomeChoice, styles.partyHomeChoicePrimary]} onPress={() => void openCreate()} accessibilityLabel="Créer une soirée"><View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>＋</Text></View><View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Créer</Text></View><Text style={styles.partyHomeArrow}>›</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.partyHomeChoice} onPress={() => { setEventViewMode('MY'); setEventIndex(0); setPartyHome(false); setPartySection('EVENT'); setEventTab('LOBBY'); }} accessibilityLabel="Voir mes soirées"><View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>▣</Text></View><View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Mes soirées</Text></View><Text style={styles.partyHomeArrow}>›</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.partyHomeChoice} onPress={() => { setEventViewMode('INVITES'); setEventIndex(0); setPartyHome(false); setPartySection('EVENT'); setEventTab('LOBBY'); }} accessibilityLabel="Voir mes invitations"><View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>✓</Text></View><View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Invitations</Text></View><Text style={styles.partyHomeArrow}>›</Text></TouchableOpacity>
+          {/* Adel (02/10/2026) : le Classement Battle n'a rien à faire dans
+              Soirées ; il est dans l'écran Battle (bouton 🏆 CLASSEMENT). */}
+        </View> : <>
+        <StandardBackButton label="Soirées" onPress={() => { setEventViewMode('ALL'); setPartyHome(true); setPartySection('EVENT'); setEventTab('LOBBY'); }} accessibilityLabel="Retour aux rubriques Soirées" />
+        {eventViewMode !== 'ALL' ? <View style={styles.eventModeHeader}>
+          <Text style={styles.eventModeTitle}>{eventViewMode === 'MY' ? 'MES SOIRÉES' : 'INVITATIONS REÇUES'}</Text>
+          <Text style={styles.eventModeCount}>{visibleEvents.length} événement{visibleEvents.length > 1 ? 's' : ''}</Text>
+        </View> : null}
+          
+        {!eventAccess || !['CREATOR_PRO','VENUE_PRO'].includes(eventAccess.planCode) ? <TouchableOpacity style={styles.creatorHint} onPress={() => void openCreate()}><Text style={styles.creatorHintText}>🔒 À partir de {minEventFollowers} abonnés : Creator Pro 9,99 € · 2 événements/mois. Venue Pro 29,99 € · événements illimités.</Text></TouchableOpacity>
+          : !audienceReady ? <TouchableOpacity style={styles.creatorHint} onPress={() => void openCreate()}><Text style={styles.creatorHintText}>🔒 Audience événements : {followers}/{minEventFollowers} abonnés. La formule est prête, il reste à atteindre le seuil communautaire.</Text></TouchableOpacity>
+            : eventAccess.planCode === 'CREATOR_PRO' ? <TouchableOpacity style={styles.creatorHint} onPress={() => !canCreate && navigation.navigate('Offers',{focusPlan:'VENUE_PRO',sourceFeature:'CREATE_EVENT'})}><Text style={styles.creatorHintText}>{canCreate ? `Creator Pro : ta création du mois est disponible · seuil ${minEventFollowers} abonnés atteint.` : 'Limite du mois atteinte · Venue Pro débloque les événements en illimité.'}</Text></TouchableOpacity>
+              : <View style={styles.creatorHint}><Text style={styles.creatorHintText}>Venue Pro : événements illimités · seuil {minEventFollowers} abonnés atteint.</Text></View>}
+
+        {loading ? <ActivityIndicator color={colors.primaryLight}/> : null}
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {!loading&&!error&&!currentEvent ? <View style={styles.empty}>
+          <Text style={styles.emptyTitle}>{eventViewMode === 'MY' ? 'Aucune soirée déposée' : eventViewMode === 'INVITES' ? 'Aucune invitation reçue' : 'Aucun événement publié pour le moment.'}</Text>
+          <Text style={styles.meta}>{eventViewMode === 'MY' ? 'Les événements que tu crées apparaissent ici, y compris pendant leur validation.' : eventViewMode === 'INVITES' ? 'Seules les invitations réellement envoyées à ton compte apparaissent ici.' : 'Les invitations de tes artistes, DJ et lieux suivis apparaîtront ici.'}</Text>
+        </View> : null}
+
+        {/* Adel (08/09/2026) : "systeme d'etoile ... comprendre pourquoi il
+            a eu un flop" -- proposer de noter une soiree passee des qu'il y
+            en a une en attente, sans devoir la retrouver ailleurs. */}
+        {pendingReviews.map((row) => (
+          <TouchableOpacity key={row.eventId} style={styles.reviewPrompt} onPress={() => openReview(row)}>
+            <Text style={styles.reviewPromptTitle}>⭐ Donne ton avis sur « {row.name} »</Text>
+            <Text style={styles.reviewPromptMeta}>{new Date(row.startsAt).toLocaleDateString('fr-FR')} · {row.creatorUsername}{row.venueName ? ` · ${row.venueName}` : ''}</Text>
+          </TouchableOpacity>
+        ))}
+
+        {currentEvent ? <>
+          {/* Refonte Soirées (spec Adel 22/09/2026) : trois sous-onglets
+              quand un événement est affiché -- Lobby (infos + RSVP +
+              participants), Classement (podium Battle, ligne utilisateur
+              surlignée), Playlist (morceaux de la soirée). */}
+          {!isPendingPreview ? <View style={styles.partyAccordion} accessibilityLabel="Navigation de la soirée">
+            <TouchableOpacity style={[styles.partyAccordionRow, partySection === 'EVENT' && styles.partyAccordionRowOn]} onPress={() => { setPartySection('EVENT'); setEventTab('LOBBY'); }} accessibilityRole="tab" accessibilityState={{ selected: partySection === 'EVENT' }}>
+              <View style={styles.partyAccordionIcon}><Text style={styles.partyAccordionIconText}>♪</Text></View><View style={styles.partyAccordionCopy}><Text style={styles.partyAccordionTitle}>La soirée</Text></View>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.partyAccordionRow, partySection === 'DETAILS' && styles.partyAccordionRowOn]} onPress={() => { setPartySection('DETAILS'); setEventTab('CLASSEMENT'); }} accessibilityRole="tab" accessibilityState={{ selected: partySection === 'DETAILS' }}>
+              <View style={styles.partyAccordionIcon}><Text style={styles.partyAccordionIconText}>♛</Text></View><View style={styles.partyAccordionCopy}><Text style={styles.partyAccordionTitle}>Activité</Text></View>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.partyAccordionRow, partySection === 'PLAYLIST' && styles.partyAccordionRowOn]} onPress={() => { setPartySection('PLAYLIST'); setEventTab('PLAYLIST'); }} accessibilityRole="tab" accessibilityState={{ selected: partySection === 'PLAYLIST' }}>
+              <View style={styles.partyAccordionIcon}><Text style={styles.partyAccordionIconText}>♫</Text></View><View style={styles.partyAccordionCopy}><Text style={styles.partyAccordionTitle}>Playlist</Text></View>
+            </TouchableOpacity>
+          </View> : null}
+          {eventTab === 'LOBBY' || isPendingPreview ? <>
+          {/* Adel (08/09/2026) : "j'imagine demain un utilisateur qui va
+              mettre un très grand texte ... toutes les fonctions YouTube
+              etc. ... beaucoup de place sur l'étiquette pourquoi t'utilises
+              toute la même carte" -- la photo devient une bannière fixe en
+              haut (comme une pochette), tout le texte (nom, date, avis,
+              description, liens) vit dans un bloc en dessous, à fond plein :
+              ça peut grandir sans jamais recouvrir la photo. */}
+          {isOwnEvent && currentEvent.moderationStatus === 'PENDING' ? <View style={styles.pendingTopBanner}><Text style={styles.pendingTopBannerText}>● EN COURS DE VALIDATION LOKI · PHOTO ET TEXTE</Text></View> : null}
+          {isPendingPreview ? <View style={styles.pendingTopBanner}><Text style={styles.pendingTopBannerText}>● EN COURS DE VALIDATION · APERÇU UNIQUEMENT</Text></View> : null}
+          <SwipeDeck resetKey={currentEvent.id} enabled={busyId!==currentEvent.id && !isOwnEvent && !isPendingPreview} onSwipeLeft={()=>chooseRsvp(currentEvent.id,'NOT_GOING',true)} onSwipeRight={()=>chooseRsvp(currentEvent.id,'GOING',true)} leftLabel="NON" rightLabel="J'Y VAIS" hint={isPendingPreview ? 'Aperçu en validation · les actions seront disponibles après approbation' : isOwnEvent ? 'Aperçu : voici comment tes invités verront cette carte' : 'Glisse pour répondre à l\u2019invitation · les boutons fonctionnent aussi'}>
+            <View style={styles.card}>
+              {/* Refonte Soirées (spec Adel 22/09/2026) : hero gradient
+                  violet 180px, image par-dessus si présente, badge EN COURS
+                  pulsant quand l'événement est en train de se dérouler. */}
+              <View style={styles.cardHero}>
+                <LinearGradient colors={[colors.primary, colors.primaryDark]} style={styles.cardHeroGradient}>
+                  {currentEvent.imageUrl ? <Image source={{ uri: currentEvent.imageUrl }} style={styles.cardHeroImage} resizeMode="cover" /> : null}
+                  <View style={styles.cardHeroOverlay} />
+                  <View style={styles.badgeRow}>
+                    <View style={styles.badge}><Text style={styles.badgeText}>ÉVÉNEMENT</Text></View>
+                    <View style={styles.audienceBadge}><Text style={styles.audienceBadgeText}>{currentEvent.audienceMode === 'ADULTS_18_PLUS' ? '18+' : currentEvent.audienceMode === 'FAMILY' ? 'FAMILLE' : 'TOUT PUBLIC'}</Text></View>
+                    {isEventLive && currentEvent.moderationStatus === 'APPROVED' ? <LivePulseBadge /> : null}
+                    {/* Statut de modération visible au créateur :
+                        PENDING = rouge clignotant, REJECTED = rouge fixe,
+                        APPROVED = vert. Tant que l'événement n'est pas
+                        approuvé, on n'affiche pas le badge vert EN COURS. */}
+                    {isPendingPreview ? <PendingModerationBadge /> : null}
+                    {user?.id === currentEvent.creatorId && currentEvent.moderationStatus === 'DRAFT' ? <View style={styles.draftBadge}><Text style={styles.draftBadgeText}>✎ BROUILLON</Text></View> : null}
+                    {user?.id === currentEvent.creatorId && currentEvent.moderationStatus === 'PENDING' ? <PendingModerationBadge /> : null}
+                    {user?.id === currentEvent.creatorId && currentEvent.moderationStatus === 'REJECTED' ? <View style={styles.rejectedBadge}><Text style={styles.rejectedBadgeText}>✕ REFUSÉE</Text></View> : null}
+                    {user?.id === currentEvent.creatorId && currentEvent.moderationStatus === 'APPROVED' ? <View style={styles.approvedBadge}><Text style={styles.approvedBadgeText}>✓ VALIDÉE</Text></View> : null}
+                  </View>
+                </LinearGradient>
+              </View>
+              <View style={styles.cardBody}>
+                {user?.id === currentEvent.creatorId && currentEvent.photoNote ? <Text style={styles.moderationNote}>Photo : {currentEvent.photoNote}</Text> : null}
+                {user?.id === currentEvent.creatorId && currentEvent.textNote ? <Text style={styles.moderationNote}>Texte : {currentEvent.textNote}</Text> : null}
+                <Text style={styles.eventName}>{currentEvent.name}</Text>
+                {isPendingPreview ? <View style={styles.pendingPreviewLock}><Text style={styles.pendingPreviewLockText}>Loki vérifie cette annonce. Aucune date, adresse, coordonnée, paiement ou réponse n’est disponible avant validation.</Text></View> : null}
+                {!isPendingPreview ? <Text style={styles.date}>{dateText}</Text> : null}
+                {!isPendingPreview ? <Text style={styles.meta}>{[currentEvent.venueName,currentEvent.countryCode].filter(Boolean).join(' · ')}</Text> : null}
+                {!isPendingPreview && currentEvent.ticketPriceCents ? <Text style={styles.rsvpCountsText}>🎟 Entrée : {(currentEvent.ticketPriceCents / 100).toFixed(2)}€</Text> : null}
+                {!isPendingPreview && currentEventReviewSummary && currentEventReviewSummary.reviewCount > 0 ? <Text style={styles.reviewSummary}>⭐ {currentEventReviewSummary.averageRating.toFixed(1)} · {currentEventReviewSummary.reviewCount} avis</Text> : null}
+                {user?.id === currentEvent.creatorId && rsvpCounts && (rsvpCounts.going + rsvpCounts.maybe + rsvpCounts.notGoing) > 0 ? <Text style={styles.rsvpCountsText}>✓ {rsvpCounts.going} participent · {rsvpCounts.maybe} peut-être · {rsvpCounts.notGoing} ne viennent pas</Text> : null}
+                {user?.id === currentEvent.creatorId && ticketSales.filter((s) => s.status === 'PENDING').length > 0 ? (
+                  <View style={{ marginTop: 10 }}>
+                    <Text style={styles.rsvpToggleLabel}>💳 Billets à confirmer</Text>
+                    {ticketSales.filter((s) => s.status === 'PENDING').map((sale) => (
+                      <View key={sale.id} style={[styles.rsvpToggleRow, { alignItems: 'center', marginTop: 6 }]}>
+                        <View style={{ flex: 1 }}><Text style={styles.rsvpToggleLabel}>@{sale.counterpartUsername} · {sale.eventName}</Text><Text style={styles.rsvpToggleHint}>{(sale.amountCents / 100).toFixed(2)}€ -- pas encore confirmé</Text></View>
+                        <TouchableOpacity style={styles.myRankingButton} disabled={ticketConfirmBusyId === sale.id} onPress={() => void confirmTicketPaid(sale)}>
+                          <Text style={styles.myRankingButtonText}>{ticketConfirmBusyId === sale.id ? '…' : '✓ PAYÉ'}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+                {!isPendingPreview && currentEvent.djArtistNames.length?<Text style={styles.dj}>{currentEvent.djArtistNames.map((n)=>`${n.replace(/^@+/,'')}`).join(' · ')}</Text>:null}
+                {/* Adel (08/09/2026) : "c'est vraiment pas beau, il y a deux
+                    textes ... trouve une solution avec un petit bouton ...
+                    en savoir plus, comme ça ils auront toutes les
+                    informations" -- meme logique que le popup des
+                    notifications : aperçu court sur la carte, "En savoir
+                    plus" ouvre la photo complète (jamais rognée) + le texte
+                    intégral + YouTube, puis on répond juste après. */}
+                {currentEvent.description?<Text style={styles.description} numberOfLines={3}>{currentEvent.description}</Text>:null}
+                {!isPendingPreview && (currentEvent.description || currentEvent.imageUrls.length > 1) ? <TouchableOpacity style={styles.moreLink} onPress={() => setEventDetailOpen(true)}><Text style={styles.moreLinkText}>En savoir plus ›</Text></TouchableOpacity> : null}
+                {!isPendingPreview && currentEvent.organizerPhone ? <View style={styles.eventLinksRow}><TouchableOpacity style={styles.callOrganizerLink} onPress={()=>{void Linking.openURL(`tel:${currentEvent.organizerPhone}`);}}><View style={styles.callOrganizerIcon}><Text style={styles.callOrganizerIconText}>📞</Text></View><View><Text style={styles.callOrganizerLabel}>Appeler l’organisateur</Text><Text style={styles.callOrganizerNumber}>{currentEvent.organizerPhone}</Text></View></TouchableOpacity></View> : null}
+                {isPendingPreview
+                  ? null
+                  : isOwnEvent
+                  ? <View style={styles.currentAnswer}><Text style={styles.currentAnswerText}>👁 Aperçu — ceci n’est pas une réponse</Text></View>
+                  : <View style={[styles.currentAnswer, currentRsvp==='GOING'&&styles.currentAnswerGoing, currentRsvp==='NOT_GOING'&&styles.currentAnswerNotGoing]}><Text style={[styles.currentAnswerText, currentRsvp==='GOING'&&styles.currentAnswerTextGoing, currentRsvp==='NOT_GOING'&&styles.currentAnswerTextNotGoing]}>{currentRsvp?RSVP_LABEL[currentRsvp]:'Pas encore de réponse'}</Text></View>}
+              </View>
+            </View>
+          </SwipeDeck>
+          {/* Adel (08/09/2026) : "pourquoi tu utilises pas des boutons
+              normal ... je participe, je ne participe pas avec des vrais
+              boutons ... le même code couleur si je participe ça reste en
+              jaune, je participe pas ça lui met une carte en rouge" --
+              vrais boutons libellés, jaune plein = participe, rouge =
+              ne participe pas, cohérent avec la pastille de réponse. */}
+          {!isOwnEvent && !isPendingPreview ? <>
+            <View style={styles.rsvpMainRow}>
+              <TouchableOpacity style={[styles.rsvpButton,styles.rsvpButtonNo]} disabled={busyId===currentEvent.id} onPress={()=>void chooseRsvp(currentEvent.id,'NOT_GOING',true)}>{busyId===currentEvent.id?<ActivityIndicator color={colors.pass}/>:<Text style={styles.rsvpButtonNoText}>✕ Je passe</Text>}</TouchableOpacity>
+              <TouchableOpacity style={[styles.rsvpButton,styles.rsvpButtonYes]} disabled={busyId===currentEvent.id} onPress={()=>void chooseRsvp(currentEvent.id,'GOING',true)}>{busyId===currentEvent.id?<ActivityIndicator color={colors.background}/>:<Text style={styles.rsvpButtonYesText}>{currentEvent.ticketPriceCents && rsvps[currentEvent.id] !== 'GOING' ? `🎟 Payer ${(currentEvent.ticketPriceCents / 100).toFixed(2)}€` : '✓ J\u2019y vais'}</Text>}</TouchableOpacity>
+            </View>
+            <View style={styles.rsvpMaybeRow}><TouchableOpacity style={[styles.maybeAction,currentRsvp==='MAYBE'&&styles.maybeActionOn]} onPress={()=>void chooseRsvp(currentEvent.id,'MAYBE')}><Text style={styles.maybeText}>PEUT-ÊTRE</Text></TouchableOpacity></View>
+          </> : null}
+          <View style={styles.secondaryRow}><TouchableOpacity style={styles.secondary} onPress={nextEvent}><Text style={styles.secondaryText}>Suivant</Text></TouchableOpacity>{!isPendingPreview ? <TouchableOpacity style={styles.secondary} onPress={()=>shareEvent(currentEvent.id,currentEvent.name).catch(()=>{})}><Text style={styles.secondaryText}>↗ Partager</Text></TouchableOpacity> : null}</View>
+          {/* Adel (08/09/2026) : "il pourra dire que je telecharge mon QR
+              code ou un bouton QR code" -- reserve a qui participe a un
+              evenement qui impose le QR. */}
+          {!isOwnEvent && currentEvent.requireQrCode && currentRsvp === 'GOING' ? <TouchableOpacity style={styles.ticketButton} onPress={() => void openMyTicket()}><Text style={styles.ticketButtonText}>🎟 Mon billet</Text></TouchableOpacity> : null}
+          {/* Adel (08/09/2026) : "il puisse effacer les evenements qu'il a
+              deja mis, tous les modifier ... voir tous les participants" --
+              reserve a l'organisateur de CETTE soiree. Modifier reste
+              possible tant que ce n'est pas APPROVED ; une fois approuve,
+              c'est verrouille cote serveur (event_locked_after_approval). */}
+          {user?.id === currentEvent.creatorId ? <View style={styles.secondaryRow}>
+            {currentEvent.moderationStatus !== 'APPROVED' ? <TouchableOpacity style={styles.secondary} onPress={()=>openEdit(currentEvent)}><Text style={styles.secondaryText}>✎ Modifier</Text></TouchableOpacity> : null}
+            <TouchableOpacity style={styles.secondary} onPress={()=>void openParticipants(currentEvent)}><Text style={styles.secondaryText}>👥 Participants</Text></TouchableOpacity>
+            <TouchableOpacity style={[styles.secondary,styles.secondaryDanger]} disabled={eventBusyAction==='delete'} onPress={()=>deleteEvent(currentEvent)}>{eventBusyAction==='delete'?<ActivityIndicator color={colors.pass}/>:<Text style={[styles.secondaryText,styles.secondaryDangerText]}>Supprimer</Text>}</TouchableOpacity>
+          </View> : null}
+          </> : eventTab === 'CLASSEMENT' ? renderEventClassement() : (
+            <View style={styles.playlistPanel}>
+              <Text style={styles.playlistPanelTitle}>PLAYLIST DE LA SOIRÉE</Text>
+              {eventPlaylistLoading ? (
+                <View style={styles.trackEmpty}><ActivityIndicator color={colors.primaryLight} /></View>
+              ) : eventPlaylist.length ? (
+                eventPlaylist.map((track, index) => (
+                  <View key={`track-${track.id ?? index}`} style={styles.trackRow}>
+                    {track.artworkUrl ? (
+                      <Image source={{ uri: track.artworkUrl }} style={styles.trackThumb} />
+                    ) : (
+                      <View style={styles.trackThumb} />
+                    )}
+                    <View style={styles.trackInfo}>
+                      <Text numberOfLines={1} style={styles.trackTitle}>{track.title}</Text>
+                      <Text numberOfLines={1} style={styles.trackArtist}>{track.artist}</Text>
+                    </View>
+                    <Text style={styles.trackAction}>▶</Text>
+                    <Text style={styles.trackAction}>♡</Text>
+                  </View>
+                ))
+              ) : (
+                <View style={styles.trackEmpty}><Text style={styles.trackEmptyText}>Aucun morceau proposé pour cet événement</Text></View>
+              )}
+            </View>
+          )}
+        </> : null}
+        </>}
+      </> : null}
+    </ScrollView>
+
+    {renderRankingModals()}
+    <KeepModal visible={createOpen} transparent animationType="slide" onRequestClose={resetEventForm}><View style={styles.backdrop}><View style={styles.sheet}><View style={styles.modalHeader}><Text style={styles.modalTitle}>{editingEventId ? 'Modifier l’événement' : 'Créer un événement'}</Text><TouchableOpacity onPress={resetEventForm}><Text style={styles.close}>Fermer</Text></TouchableOpacity></View><ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Nom de l’événement" placeholderTextColor={colors.textMuted}/>
       {/* Adel (08/09/2026) : "le truc photo tu le remontes un peu plus
           haut" -- juste sous le nom, avant la date. "il puisse ajouter
@@ -1224,16 +1784,31 @@ export default function PartiesScreen({ navigation, route }: any) {
             "utiliser ma position", comme Airbnb/Eventbrite quand on cree
             l'evenement depuis le lieu meme. */}
         <TouchableOpacity style={styles.venueLocateButton} onPress={() => void useMyLocationForVenue()} disabled={locatingVenue} accessibilityLabel="Utiliser ma position actuelle">
-          {locatingVenue ? <ActivityIndicator color="#8B5CF6"/> : <Text style={styles.venueLocateIcon}>📍</Text>}
+          {locatingVenue ? <ActivityIndicator color={colors.primary}/> : <Text style={styles.venueLocateIcon}>📍</Text>}
         </TouchableOpacity>
       </View>
-      {venueSearchBusy ? <ActivityIndicator color="#8B5CF6" style={styles.venueSuggestionsLoading}/> : venueSuggestions.length ? <View style={styles.venueSuggestions}>{venueSuggestions.map((s, i) => (
+      {venueSearchBusy ? <ActivityIndicator color={colors.primary} style={styles.venueSuggestionsLoading}/> : venueSuggestions.length ? <View style={styles.venueSuggestions}>{venueSuggestions.map((s, i) => (
         <TouchableOpacity key={`${s.lat}-${s.lng}-${i}`} style={styles.venueSuggestionRow} onPress={() => pickVenueSuggestion(s)}>
           <Text style={styles.venueSuggestionPrimary} numberOfLines={1}>{s.primaryText}</Text>
           {s.secondaryText ? <Text style={styles.venueSuggestionSecondary} numberOfLines={1}>{s.secondaryText}</Text> : null}
         </TouchableOpacity>
       ))}</View> : null}
       <TextInput style={styles.input} value={countryCode} onChangeText={setCountryCode} placeholder="Pays (FR)" placeholderTextColor={colors.textMuted} autoCapitalize="characters" maxLength={2}/><TextInput style={[styles.input,styles.multiline]} value={description} onChangeText={setDescription} placeholder="Description" placeholderTextColor={colors.textMuted} multiline/>
+
+      <Text style={styles.audienceTitle}>Public de l’événement</Text>
+      <Text style={styles.audienceHint}>Choisis une fois. Loki Music utilise ce réglage pour éviter une invitation 18+ sur un compte mineur.</Text>
+      <View style={styles.audienceChoices}>
+        {([
+          ['GENERAL','Tout public','Communauté'],
+          ['ADULTS_18_PLUS','18+','Adultes uniquement'],
+          ['FAMILY','Famille','Famille / enfants'],
+        ] as [EventAudienceMode,string,string][]).map(([key,label,hint]) => (
+          <TouchableOpacity key={key} style={[styles.audienceChoice, audienceMode === key && styles.audienceChoiceOn]} onPress={() => setAudienceMode(key)} accessibilityRole="radio" accessibilityState={{ selected: audienceMode === key }}>
+            <Text style={[styles.audienceChoiceLabel, audienceMode === key && styles.audienceChoiceLabelOn]}>{label}</Text>
+            <Text style={styles.audienceChoiceHint}>{hint}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
       {/* Adel (17-18/09/2026) : "construis tout ce qui manque ... entrée
           payante" -- même modèle que le marketplace : lien de paiement
@@ -1276,11 +1851,11 @@ export default function PartiesScreen({ navigation, route }: any) {
       {/* Adel (08/09/2026) : "publie sans notification pour moi c'est pas
           logique" -- un seul bouton desormais, qui notifie toujours à la
           création. */}
-      <TouchableOpacity style={styles.publish} onPress={()=>void publish()} disabled={createBusy}>{createBusy?<ActivityIndicator color="#FFF"/>:<Text style={styles.publishText}>{editingEventId ? 'ENREGISTRER LES MODIFICATIONS' : 'PUBLIER + NOTIFIER'}</Text>}</TouchableOpacity>
-    </ScrollView></View></View></Modal>
+      <TouchableOpacity style={styles.publish} onPress={()=>void publish()} disabled={createBusy}>{createBusy?<ActivityIndicator color={colors.white}/>:<Text style={styles.publishText}>{editingEventId ? 'ENREGISTRER LES MODIFICATIONS' : 'PUBLIER + NOTIFIER'}</Text>}</TouchableOpacity>
+    </ScrollView></View></View></KeepModal>
 
     {/* Adel (08/09/2026) : "voir tous les participants" */}
-    <Modal visible={participantsOpen} transparent animationType="slide" onRequestClose={() => setParticipantsOpen(false)}>
+    <KeepModal visible={participantsOpen} transparent animationType="slide" onRequestClose={() => setParticipantsOpen(false)}>
       <View style={styles.backdrop}><View style={styles.sheet}>
         <View style={styles.modalHeader}><Text style={styles.modalTitle}>Participants</Text><TouchableOpacity onPress={() => setParticipantsOpen(false)}><Text style={styles.close}>Fermer</Text></TouchableOpacity></View>
         {/* Adel (08/09/2026) : "il y a un code, je sais pas exactement à
@@ -1291,9 +1866,22 @@ export default function PartiesScreen({ navigation, route }: any) {
             aucun code, si c'est plus simple. */}
         <View style={styles.checkinRow}>
           <TextInput style={[styles.input, styles.checkinInput]} value={checkinCode} onChangeText={setCheckinCode} placeholder="Code du billet" placeholderTextColor={colors.textMuted} autoCapitalize="characters"/>
-          <TouchableOpacity style={styles.checkinButton} disabled={checkinBusy || !checkinCode.trim()} onPress={() => void submitCheckinCode()}>{checkinBusy ? <ActivityIndicator color="#111"/> : <Text style={styles.checkinButtonText}>Valider</Text>}</TouchableOpacity>
+          <TouchableOpacity style={styles.checkinButton} disabled={checkinBusy || !checkinCode.trim()} onPress={() => void submitCheckinCode()}>{checkinBusy ? <ActivityIndicator color={colors.background}/> : <Text style={styles.checkinButtonText}>Valider</Text>}</TouchableOpacity>
         </View>
         <Text style={styles.checkinHint}>Le code est celui affiché sous le QR du participant (bouton « 🎟 Mon billet » de son côté) — utile s’il ne peut pas te montrer son écran. Sinon, touche directement « Présent ? » à côté de son nom, sans code.</Text>
+        {/* Refonte Soirées (spec Adel 22/09/2026) : grille d'avatars 48×48
+            des participants (initiales, comme partout dans l'app) au-dessus
+            de la liste détaillée -- la liste complète reste en dessous. */}
+        {!participantsLoading && participants.length ? (
+          <View style={styles.participantGrid}>
+            {participants.map((p) => (
+              <View key={p.profileId} style={styles.participantAvatarWrap}>
+                <View style={[styles.participantAvatar, p.status === 'MAYBE' && styles.participantAvatarMaybe, p.status === 'NOT_GOING' && styles.participantAvatarNotGoing]}><Text style={styles.participantAvatarInitial}>{p.username.slice(0, 1).toUpperCase()}</Text></View>
+                <Text numberOfLines={1} style={styles.participantAvatarName}>{p.username}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
         <ScrollView showsVerticalScrollIndicator={false}>
           {participantsLoading ? <ActivityIndicator color={colors.primaryLight}/> : participants.length ? participants.map((p) => (
             <View key={p.profileId} style={styles.participantRow}>
@@ -1303,20 +1891,20 @@ export default function PartiesScreen({ navigation, route }: any) {
               </View>
               <Text style={[styles.participantStatus, p.status==='GOING'&&styles.participantStatusGoing, p.status==='NOT_GOING'&&styles.participantStatusNotGoing]}>{RSVP_LABEL[p.status]}</Text>
               {p.status === 'GOING' ? <TouchableOpacity style={[styles.participantCheckinBtn, p.checkedInAt && styles.participantCheckinBtnOn]} disabled={checkinTogglingId===p.profileId} onPress={() => void toggleParticipantCheckin(p)}>
-                {checkinTogglingId===p.profileId ? <ActivityIndicator color="#111"/> : <Text style={[styles.participantCheckinBtnText, p.checkedInAt && styles.participantCheckinBtnTextOn]}>{p.checkedInAt ? '✓' : 'Présent ?'}</Text>}
+                {checkinTogglingId===p.profileId ? <ActivityIndicator color={colors.background}/> : <Text style={[styles.participantCheckinBtnText, p.checkedInAt && styles.participantCheckinBtnTextOn]}>{p.checkedInAt ? '✓' : 'Présent ?'}</Text>}
               </TouchableOpacity> : null}
             </View>
           )) : <Text style={styles.meta}>Personne n’a encore répondu.</Text>}
         </ScrollView>
       </View></View>
-    </Modal>
+    </KeepModal>
 
     {/* Adel (08/09/2026) : "en savoir plus ... j'ai toute la deroulement du
         texte ... automatiquement quand j'ai fini j'appuie hop et remonte et
         je participe ou pas" -- toutes les photos jamais rognees (resizeMode
         contain), texte integral, puis reponse immediate qui referme le
         detail. */}
-    <Modal visible={eventDetailOpen && !!currentEvent} transparent animationType="slide" onRequestClose={() => setEventDetailOpen(false)}>
+    <KeepModal visible={eventDetailOpen && !!currentEvent} transparent animationType="slide" onRequestClose={() => setEventDetailOpen(false)}>
       <View style={styles.backdrop}><View style={styles.sheet}>
         <View style={styles.modalHeader}><Text style={styles.modalTitle}>{currentEvent?.name}</Text><TouchableOpacity onPress={() => setEventDetailOpen(false)}><Text style={styles.close}>Fermer</Text></TouchableOpacity></View>
         <ScrollView showsVerticalScrollIndicator={false}>
@@ -1334,13 +1922,13 @@ export default function PartiesScreen({ navigation, route }: any) {
           </View> : null}
         </ScrollView>
       </View></View>
-    </Modal>
+    </KeepModal>
 
     {/* Adel (08/09/2026) : "il pourra dire que je telecharge mon QR code ...
         l'integrer sur son agenda Google ... comme il sort de Apple" -- billet
         personnel (pseudo + QR) + export agenda (Google + .ics pour Apple/
         Outlook), sans nouvelle dependance native. */}
-    <Modal visible={ticketModalOpen} transparent animationType="fade" onRequestClose={() => setTicketModalOpen(false)}>
+    <KeepModal visible={ticketModalOpen} transparent animationType="fade" onRequestClose={() => setTicketModalOpen(false)}>
       <View style={styles.statsBackdrop}><View style={styles.ticketCard}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fermer" style={styles.statsClose} onPress={() => setTicketModalOpen(false)}><Text style={styles.statsCloseText}>×</Text></TouchableOpacity>
         {ticketLoading ? <ActivityIndicator color={colors.primaryLight} style={{ marginTop: 30 }}/> : myTicket && ticketStillVisible(myTicket) ? <>
@@ -1358,10 +1946,10 @@ export default function PartiesScreen({ navigation, route }: any) {
           </View>
         </> : <Text style={styles.meta}>Billet indisponible (l’évènement est déjà loin derrière nous).</Text>}
       </View></View>
-    </Modal>
+    </KeepModal>
 
     {/* Adel (08/09/2026) : "systeme d'etoile ... un commentaire" */}
-    <Modal visible={!!reviewTarget} transparent animationType="fade" onRequestClose={() => setReviewTarget(null)}>
+    <KeepModal visible={!!reviewTarget} transparent animationType="fade" onRequestClose={() => setReviewTarget(null)}>
       <View style={styles.backdrop}><View style={styles.reviewSheet}>
         <Text style={styles.modalTitle}>{reviewTarget?.name}</Text>
         <Text style={styles.reviewPromptMeta}>{reviewTarget ? new Date(reviewTarget.startsAt).toLocaleDateString('fr-FR') : ''}</Text>
@@ -1373,22 +1961,21 @@ export default function PartiesScreen({ navigation, route }: any) {
           ))}
         </View>
         <TextInput style={[styles.input, styles.multiline]} value={reviewComment} onChangeText={setReviewComment} placeholder="Ton commentaire (optionnel)" placeholderTextColor={colors.textMuted} multiline maxLength={500}/>
-        <TouchableOpacity style={styles.publish} onPress={() => void submitReview()} disabled={reviewBusy}>{reviewBusy ? <ActivityIndicator color="#FFF"/> : <Text style={styles.publishText}>ENVOYER MON AVIS</Text>}</TouchableOpacity>
+        <TouchableOpacity style={styles.publish} onPress={() => void submitReview()} disabled={reviewBusy}>{reviewBusy ? <ActivityIndicator color={colors.white}/> : <Text style={styles.publishText}>ENVOYER MON AVIS</Text>}</TouchableOpacity>
         <TouchableOpacity style={styles.publishSecondary} onPress={() => setReviewTarget(null)}><Text style={styles.publishSecondaryText}>Plus tard</Text></TouchableOpacity>
       </View></View>
-    </Modal>
-
-  </SafeAreaView>;
+    </KeepModal>
+</SafeAreaView>;
 }
 
-const styles=StyleSheet.create({
-container:{flex:1,backgroundColor:'#090610'},partiesTabs:{flexDirection:'row',gap:8,marginBottom:spacing.lg},partiesTabBtn:{flex:1,minHeight:40,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:'#151020',borderWidth:1,borderColor:'#312348'},partiesTabBtnOn:{backgroundColor:'#8B5CF6',borderColor:'#8B5CF6'},partiesTabText:{color:'#F8F6FC',fontSize:12,fontWeight:'900'},partiesTabTextOn:{color:'#FFF'},leaderboardPanel:{marginBottom:spacing.lg,padding:12,borderRadius:18,borderWidth:1,borderColor:'#40334B',backgroundColor:'#151020',gap:6},leaderboardHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},myRankingButton:{minHeight:30,paddingHorizontal:10,borderRadius:15,borderWidth:1,borderColor:'#8B5CF6',backgroundColor:'#21182F',alignItems:'center',justifyContent:'center'},myRankingButtonText:{color:'#FFF',fontSize:9,fontWeight:'900'},leaderboardTitle:{color:'#E5F266',fontSize:12,fontWeight:'900',letterSpacing:.8,marginBottom:2},leaderboardHint:{color:'#8F879D',fontSize:10,fontWeight:'700',marginBottom:2},leaderboardRow:{minHeight:38,flexDirection:'row',alignItems:'center',gap:9,paddingHorizontal:9,borderRadius:12,backgroundColor:'#1B1422'},leaderboardTrophy:{width:22,textAlign:'center',fontSize:13,color:'#FFF',fontWeight:'900'},leaderboardNameRow:{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',gap:6},leaderboardName:{flexShrink:1,color:'#FFF',fontSize:13,fontWeight:'900'},leaderboardWins:{color:'#E5F266',fontSize:11,fontWeight:'900'},leaderboardStats:{color:'#B79CFF',fontSize:11,fontWeight:'800'},leaderboardSpecialty:{color:'#E5F266',fontSize:10,fontWeight:'800',marginTop:1},leaderboardPresence:{color:'#6EE8A7',fontSize:10,fontWeight:'800',marginTop:1},leaderboardChevron:{color:'#8F879D',fontSize:16,fontWeight:'900',marginLeft:2},battleFullscreen:{flex:1,paddingHorizontal:12,paddingTop:4,paddingBottom:4},battleLauncher:{minHeight:72,marginTop:spacing.lg,marginBottom:spacing.md,paddingHorizontal:12,paddingVertical:10,borderRadius:17,backgroundColor:'#151020',borderWidth:1,borderColor:'#E5F266',flexDirection:'row',alignItems:'center',gap:9},battleLauncherIcon:{width:42,height:42,borderRadius:21,backgroundColor:'#2A1A14',borderWidth:1,borderColor:'#D6AA36',alignItems:'center',justifyContent:'center'},battleLauncherBolt:{fontSize:19},battleLauncherCopy:{flex:1,minWidth:0},battleLauncherKicker:{color:'#D6AA36',fontSize:12,fontWeight:'900',letterSpacing:1},battleLauncherKickerRow:{flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},battleLauncherFreeBadge:{minHeight:18,paddingHorizontal:7,borderRadius:9,backgroundColor:'#123D2C',borderWidth:1,borderColor:'#31C981',alignItems:'center',justifyContent:'center'},battleLauncherFreeBadgeText:{color:'#7CF2B9',fontSize:10,fontWeight:'900'},battleLauncherTitle:{color:'#FFFFFF',fontSize:16,fontWeight:'900',marginTop:1},battleLauncherMeta:{color:'#FFFFFF',fontSize:12,lineHeight:17,fontWeight:'700',marginTop:2},battleLauncherOpen:{color:'#E5F266',fontSize:12,fontWeight:'900'},content:{padding:spacing.xl,paddingBottom:spacing.xxxl},headerRow:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:spacing.md},title:{...typography.h1,color:'#F8F6FC'},subtitle:{color:'#FFFFFF',fontSize:14,lineHeight:19,marginTop:3,fontWeight:'700'},createButton:{minHeight:42,paddingHorizontal:12,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#8B5CF6'},createButtonLocked:{backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369'},createButtonText:{color:'#FFF',fontSize:12,fontWeight:'900'},creatorHint:{padding:10,borderRadius:13,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',marginBottom:spacing.lg},creatorHintText:{color:'#F8F6FC',fontSize:12,lineHeight:17,textAlign:'center',fontWeight:'800'},error:{color:colors.danger,textAlign:'center',paddingVertical:18},empty:{backgroundColor:'#151020',borderRadius:18,padding:spacing.lg,borderWidth:1,borderColor:'#312348'},emptyTitle:{color:'#F8F6FC',fontSize:15,fontWeight:'900',marginBottom:6},card:{borderRadius:26,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',overflow:'hidden'},cardBanner:{width:'100%',height:190,backgroundColor:'#0F0B15'},cardBody:{padding:20},badgeRow:{flexDirection:'row',alignItems:'center',flexWrap:'wrap',gap:8,marginBottom:2},badge:{alignSelf:'flex-start',paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(139,92,246,.16)'},badgeText:{color:'#B79CFF',fontSize:11,fontWeight:'900',letterSpacing:1},pendingBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(255,209,102,.14)',borderWidth:1,borderColor:'#FFD166'},pendingBadgeText:{color:'#FFD166',fontSize:10,fontWeight:'900'},rejectedBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(255,95,131,.14)',borderWidth:1,borderColor:'#FF5F83'},rejectedBadgeText:{color:'#FF5F83',fontSize:10,fontWeight:'900'},moderationNote:{color:'#FFB3C3',fontSize:11,lineHeight:15,fontWeight:'700',marginTop:8},eventName:{color:'#FFF',fontSize:28,lineHeight:32,fontWeight:'900',marginTop:10},date:{color:'#E5F266',fontSize:13,fontWeight:'900',marginTop:8},meta:{color:'#FFFFFF',fontSize:12,marginTop:5,fontWeight:'700'},dj:{color:'#E1D7FF',fontSize:12,fontWeight:'800',marginTop:5},description:{color:'#F8F6FC',fontSize:12,lineHeight:18,marginTop:14,fontWeight:'700'},reviewSummary:{color:'#FFD166',fontSize:12,fontWeight:'900',marginTop:6},rsvpCountsText:{color:'#B79CFF',fontSize:11,fontWeight:'800',marginTop:6},rsvpToggleRow:{flexDirection:'row',alignItems:'flex-start',gap:10,marginBottom:9,padding:10,borderRadius:14,backgroundColor:'#17121D',borderWidth:1,borderColor:'#3B2E4E'},rsvpToggleBox:{width:22,height:22,borderRadius:6,borderWidth:2,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center',marginTop:1},rsvpToggleBoxOn:{backgroundColor:'#8B5CF6'},rsvpToggleCheck:{color:'#FFF',fontSize:13,fontWeight:'900'},rsvpToggleLabel:{color:'#F8F6FC',fontSize:12,fontWeight:'800'},rsvpToggleHint:{color:'#8F879D',fontSize:10,lineHeight:14,fontWeight:'700',marginTop:2},eventPriceChip:{minHeight:36,paddingHorizontal:13,borderRadius:18,backgroundColor:'#17121D',borderWidth:1,borderColor:'#3B2E4E',alignItems:'center',justifyContent:'center'},eventPriceChipOn:{backgroundColor:'#3D2F10',borderColor:'#FFD166'},eventPriceChipText:{color:'#F8F6FC',fontSize:12,fontWeight:'900'},eventPriceChipTextOn:{color:'#FFD166'},reviewPrompt:{marginBottom:spacing.md,padding:12,borderRadius:16,borderWidth:1,borderColor:'#FFD166',backgroundColor:'#241D0F'},reviewPromptTitle:{color:'#FFD166',fontSize:12,fontWeight:'900'},reviewPromptMeta:{color:'#F8F6FC',fontSize:11,fontWeight:'700',marginTop:3},reviewSheet:{width:'100%',maxWidth:420,alignSelf:'center',borderRadius:26,padding:18,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},reviewStars:{flexDirection:'row',justifyContent:'center',gap:8,marginVertical:14},reviewStar:{color:'#FFD166',fontSize:34},moreLink:{marginTop:6},moreLinkText:{color:'#B79CFF',fontSize:12,fontWeight:'900'},detailImageScroll:{marginBottom:12},detailImage:{width:355,height:260,borderRadius:16,backgroundColor:'#0F0B15',marginRight:8},detailDescription:{color:'#F8F6FC',fontSize:13,lineHeight:20,fontWeight:'700',marginTop:10},eventLinksRow:{flexDirection:'row',flexWrap:'wrap',gap:8,marginTop:10},photoGalleryRow:{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:4},photoGalleryThumbWrap:{width:84,height:84},photoGalleryThumb:{width:84,height:84,borderRadius:14,backgroundColor:'#0F0B15'},photoGalleryRemove:{position:'absolute',top:-6,right:-6,width:22,height:22,borderRadius:11,backgroundColor:'#FF5F83',alignItems:'center',justifyContent:'center'},photoGalleryRemoveText:{color:'#2A0510',fontSize:12,fontWeight:'900'},photoGalleryAdd:{width:84,height:84,borderRadius:14,borderWidth:1,borderColor:'#3B2E4E',backgroundColor:'#0F0B15',alignItems:'center',justifyContent:'center'},photoGalleryAddText:{color:'#B79CFF',fontSize:11,fontWeight:'800',textAlign:'center'},photoGalleryHint:{color:'#8F879D',fontSize:10,fontWeight:'700',marginBottom:9},callOrganizerLink:{minHeight:52,paddingHorizontal:12,paddingVertical:7,borderRadius:16,backgroundColor:'#0F2A1D',borderWidth:1,borderColor:'#38D990',flexDirection:'row',alignItems:'center',gap:9},callOrganizerIcon:{width:32,height:32,borderRadius:16,backgroundColor:'#123D2C',alignItems:'center',justifyContent:'center'},callOrganizerIconText:{fontSize:15},callOrganizerLabel:{color:'#7CF2B9',fontSize:10,fontWeight:'900',letterSpacing:.3},callOrganizerNumber:{color:'#FFFFFF',fontSize:13,fontWeight:'900',marginTop:1},currentAnswer:{alignSelf:'flex-start',marginTop:16,paddingHorizontal:10,paddingVertical:6,borderRadius:radius.pill,backgroundColor:'#21182F'},currentAnswerText:{color:'#FFF',fontSize:12,fontWeight:'900'},currentAnswerGoing:{backgroundColor:'#123D2C',borderWidth:1,borderColor:'#38D990'},currentAnswerTextGoing:{color:'#7CF2B9'},currentAnswerNotGoing:{backgroundColor:'#3A1116',borderWidth:1,borderColor:'#FF5F83'},currentAnswerTextNotGoing:{color:'#FF9FB3'},rsvpMainRow:{flexDirection:'row',gap:10,marginTop:16},rsvpButton:{flex:1,minHeight:50,borderRadius:25,alignItems:'center',justifyContent:'center',borderWidth:2,paddingHorizontal:8},rsvpButtonNo:{borderColor:'#FF5F83',backgroundColor:'#2A121A'},rsvpButtonNoText:{color:'#FF5F83',fontSize:13,fontWeight:'900'},rsvpButtonYes:{borderColor:'#E5F266',backgroundColor:'#E5F266'},rsvpButtonYesText:{color:'#17130B',fontSize:13,fontWeight:'900'},rsvpMaybeRow:{alignItems:'center',marginTop:10},maybeAction:{minHeight:40,paddingHorizontal:18,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369'},maybeActionOn:{borderColor:'#B79CFF',backgroundColor:'#34234F'},maybeText:{color:'#F8F6FC',fontSize:12,fontWeight:'900'},secondaryRow:{flexDirection:'row',gap:8,marginTop:12},secondary:{flex:1,minHeight:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'#151020',borderWidth:1,borderColor:'#312348'},secondaryText:{color:'#F8F6FC',fontSize:12,fontWeight:'800'},secondaryDanger:{borderColor:'#FF6C8C'},secondaryDangerText:{color:'#FF6C8C'},participantRow:{flexDirection:'row',alignItems:'center',gap:8,minHeight:44,paddingHorizontal:4,borderBottomWidth:1,borderBottomColor:'#241D30'},participantNameRow:{flexDirection:'row',alignItems:'center',gap:6},participantName:{color:'#F8F6FC',fontSize:13,fontWeight:'800',flexShrink:1},participantStatus:{color:'#B79CFF',fontSize:11,fontWeight:'900'},participantStatusGoing:{color:'#38D990'},participantStatusNotGoing:{color:'#FF6C8C'},backdrop:{flex:1,backgroundColor:'rgba(0,0,0,.78)',justifyContent:'flex-end'},sheet:{maxHeight:'88%',backgroundColor:'#151020',borderTopLeftRadius:26,borderTopRightRadius:26,borderWidth:1,borderColor:'#493369',padding:18},modalHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:12},modalTitle:{color:'#FFF',fontSize:18,fontWeight:'900'},close:{color:'#E1D7FF',fontSize:12,fontWeight:'900'},input:{minHeight:48,borderRadius:14,borderWidth:1,borderColor:'#3B2E4E',backgroundColor:'#0F0B15',color:'#FFF',paddingHorizontal:12,marginBottom:9},venueInputRow:{flexDirection:'row',alignItems:'center',gap:8},venueInput:{flex:1},venueLocateButton:{width:48,height:48,borderRadius:14,marginBottom:9,backgroundColor:'#0F0B15',borderWidth:1,borderColor:'#3B2E4E',alignItems:'center',justifyContent:'center'},venueLocateIcon:{fontSize:18},venueSuggestions:{marginTop:-4,marginBottom:9,borderRadius:14,borderWidth:1,borderColor:'#3B2E4E',backgroundColor:'#17121D',overflow:'hidden'},venueSuggestionRow:{minHeight:44,paddingHorizontal:12,paddingVertical:8,borderBottomWidth:1,borderBottomColor:'#241B30'},venueSuggestionPrimary:{color:'#F8F6FC',fontSize:12,fontWeight:'800'},venueSuggestionSecondary:{color:'#8F879D',fontSize:10,fontWeight:'700',marginTop:1},venueSuggestionsLoading:{marginTop:-4,marginBottom:9},multiline:{minHeight:84,paddingTop:12,textAlignVertical:'top'},publish:{minHeight:50,borderRadius:25,backgroundColor:'#8B5CF6',alignItems:'center',justifyContent:'center',marginTop:5},publishText:{color:'#FFF',fontSize:12,fontWeight:'900'},publishSecondary:{minHeight:42,alignItems:'center',justifyContent:'center'},publishSecondaryText:{color:'#F8F6FC',fontSize:12,fontWeight:'800'},
-statsBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,.78)',alignItems:'center',justifyContent:'center',padding:spacing.lg},statsCard:{width:'100%',maxWidth:400,borderRadius:26,padding:20,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},myRankingCard:{width:'100%',maxWidth:400,maxHeight:'82%',borderRadius:26,padding:20,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369'},creditHistoryRow:{minHeight:38,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10,paddingHorizontal:10,borderRadius:12,backgroundColor:'#1B1422',marginBottom:5},creditHistoryLabel:{flex:1,color:'#FFF',fontSize:11,lineHeight:15,fontWeight:'800'},creditHistoryGain:{color:'#7FF2B7',fontSize:12,fontWeight:'900'},creditHistoryLoss:{color:'#FFB3C3',fontSize:12,fontWeight:'900'},creditHistoryNextCredit:{color:'#B79CFF',fontSize:11,lineHeight:15,fontWeight:'700',marginBottom:8},statsClose:{position:'absolute',top:12,right:12,width:34,height:34,borderRadius:17,backgroundColor:'#1F1830',alignItems:'center',justifyContent:'center',zIndex:2},statsCloseText:{color:'#FFF',fontSize:20,lineHeight:22,fontWeight:'700'},statsUsernameRow:{flexDirection:'row',alignItems:'center',gap:8,marginBottom:14,paddingRight:40},statsUsername:{color:'#FFF',fontSize:20,fontWeight:'900'},statsBigRow:{flexDirection:'row',gap:8},statsBigItem:{flex:1,alignItems:'center',paddingVertical:12,borderRadius:16,backgroundColor:'#1B1422'},statsBigValue:{color:'#E5F266',fontSize:22,fontWeight:'900'},statsBigLabel:{color:'#B79CFF',fontSize:10,fontWeight:'800',marginTop:2,textAlign:'center'},statsSmallRow:{flexDirection:'row',gap:5,marginTop:6},statsSmallItem:{flex:1,alignItems:'center',paddingVertical:7,borderRadius:12,backgroundColor:'#17121D'},statsSmallValue:{color:'#FFF',fontSize:11,fontWeight:'900'},statsSmallLabel:{color:'#8F879D',fontSize:9,fontWeight:'800',marginTop:1,textAlign:'center'},statsAvg:{color:'#FFF',fontSize:12,fontWeight:'700',textAlign:'center',marginTop:12},statsSectionTitle:{color:'#E5F266',fontSize:11,fontWeight:'900',letterSpacing:.8,marginTop:20,marginBottom:8},statsThemeRow:{minHeight:42,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,paddingHorizontal:12,borderRadius:14,backgroundColor:'#1B1422',marginBottom:6},statsThemeLabel:{color:'#FFF',fontSize:12,fontWeight:'900'},statsThemeValue:{color:'#B79CFF',fontSize:11,fontWeight:'800'},statsThemeEmpty:{color:'#B79CFF',fontSize:12,lineHeight:16,fontWeight:'700'},statsActionsRow:{flexDirection:'row',gap:8,marginTop:18},statsProfileButtonSmall:{flex:1,minHeight:48,borderRadius:24,backgroundColor:'#8B5CF6',borderWidth:1.5,borderColor:'#4E8DFF',alignItems:'center',justifyContent:'center'},statsProfileButtonText:{color:'#FFF',fontSize:11,fontWeight:'900'},
-incomingBanner:{marginBottom:spacing.md,padding:14,borderRadius:18,borderWidth:2,borderColor:'#E5F266',backgroundColor:'#1B1222'},incomingText:{color:'#F3EDF7',fontSize:13,lineHeight:18,fontWeight:'700'},incomingName:{color:'#FFF',fontWeight:'900'},incomingActions:{flexDirection:'row',gap:10,marginTop:10},incomingNo:{flex:1,minHeight:44,borderRadius:22,borderWidth:2,borderColor:'#8A7795',backgroundColor:'#211829',alignItems:'center',justifyContent:'center'},incomingNoText:{color:'#FFF',fontSize:13,fontWeight:'900'},incomingYes:{flex:1,minHeight:44,borderRadius:22,backgroundColor:'#E5F266',alignItems:'center',justifyContent:'center'},incomingYesText:{color:'#17130B',fontSize:13,fontWeight:'900'},incomingBusy:{opacity:.6},
-ticketButton:{minHeight:46,marginTop:10,borderRadius:23,backgroundColor:'#151020',borderWidth:1.5,borderColor:'#FFD166',alignItems:'center',justifyContent:'center'},ticketButtonText:{color:'#FFD166',fontSize:13,fontWeight:'900'},
-wheelSectionLabel:{color:'#B79CFF',fontSize:11,fontWeight:'900',letterSpacing:.6,marginBottom:6},wheelRow:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4,marginBottom:9,padding:8,borderRadius:16,backgroundColor:'#0F0B15',borderWidth:1,borderColor:'#3B2E4E'},wheelColon:{color:'#FFF',fontSize:18,fontWeight:'900'},wheelSummary:{color:'#E5F266',fontSize:12,fontWeight:'800',textAlign:'center',marginBottom:9,textTransform:'capitalize'},
-imagePickerButton:{minHeight:48,borderRadius:14,borderWidth:1,borderColor:'#3B2E4E',backgroundColor:'#0F0B15',marginBottom:9,alignItems:'center',justifyContent:'center',overflow:'hidden'},imagePickerPreview:{width:'100%',height:120},imagePickerText:{color:'#B79CFF',fontSize:12,fontWeight:'800',paddingVertical:12,paddingHorizontal:12,textAlign:'center'},
-checkinRow:{flexDirection:'row',gap:8,marginBottom:4},checkinInput:{flex:1,marginBottom:0},checkinButton:{minHeight:48,paddingHorizontal:16,borderRadius:14,backgroundColor:'#E5F266',alignItems:'center',justifyContent:'center'},checkinButtonText:{color:'#17130B',fontSize:12,fontWeight:'900'},checkinHint:{color:'#8F879D',fontSize:10,lineHeight:14,fontWeight:'700',marginBottom:10},
-participantTicket:{color:'#8F879D',fontSize:10,fontWeight:'800',marginTop:2},participantCheckinBtn:{minHeight:30,paddingHorizontal:10,borderRadius:15,borderWidth:1,borderColor:'#3B2E4E',backgroundColor:'#17121D',alignItems:'center',justifyContent:'center',marginLeft:8},participantCheckinBtnOn:{backgroundColor:'#38D990',borderColor:'#38D990'},participantCheckinBtnText:{color:'#F8F6FC',fontSize:10,fontWeight:'900'},participantCheckinBtnTextOn:{color:'#0B1F16'},
-ticketCard:{width:'100%',maxWidth:380,borderRadius:26,padding:22,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',alignItems:'center'},ticketEventName:{color:'#FFF',fontSize:18,fontWeight:'900',textAlign:'center',paddingRight:24},ticketMeta:{color:'#B79CFF',fontSize:12,fontWeight:'800',marginTop:4,textAlign:'center'},ticketQrFrame:{marginTop:18,padding:10,borderRadius:16,backgroundColor:'#FFF'},ticketQrImage:{width:200,height:200},ticketUsername:{color:'#FFD166',fontSize:16,fontWeight:'900',marginTop:14},ticketCode:{color:'#8F879D',fontSize:11,fontWeight:'800',letterSpacing:1,marginTop:2},ticketHint:{color:'#F8F6FC',fontSize:11,fontWeight:'700',marginTop:8,textAlign:'center'},ticketCalendarRow:{flexDirection:'row',gap:8,marginTop:18,width:'100%'},ticketCalendarButton:{flex:1,minHeight:42,borderRadius:21,backgroundColor:'#21182F',borderWidth:1,borderColor:'#493369',alignItems:'center',justifyContent:'center',paddingHorizontal:6},ticketCalendarButtonText:{color:'#F8F6FC',fontSize:10,fontWeight:'900',textAlign:'center'}
-});
+const styles=StyleSheet.create({pendingTopBanner:{minHeight:44,borderRadius:14,borderWidth:1.5,borderColor:colors.danger,backgroundColor:'rgba(255,92,114,.12)',paddingHorizontal:12,marginBottom:10,alignItems:'center',justifyContent:'center'},pendingTopBannerText:{color:colors.danger,fontSize:10,fontWeight:'900',letterSpacing:.5,textAlign:'center'},pendingPreviewLock:{marginTop:10,borderRadius:12,borderWidth:1,borderColor:colors.danger,backgroundColor:'rgba(255,92,114,.08)',padding:10},pendingPreviewLockText:{color:colors.textMutedGrey,fontSize:10,lineHeight:15,fontWeight:'800'},eventModeHeader:{minHeight:48,borderRadius:15,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,paddingHorizontal:12,marginBottom:12,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},eventModeTitle:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:.8},eventModeCount:{color:colors.textMutedGrey,fontSize:10,fontWeight:'800'},partyHome:{gap:10,marginTop:6,marginBottom:12},partyHomeQuestion:{color:colors.textPrimary,fontSize:22,fontWeight:'900'},partyHomeHint:{color:colors.textMuted,fontSize:13,lineHeight:18,marginBottom:4},partyHomeChoicePrimary:{borderColor:colors.primary,backgroundColor:colors.primaryFaint},partyHomeAccess:{fontSize:16},partyHomeChoice:{minHeight:74,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:14,paddingVertical:11,flexDirection:'row',alignItems:'center',gap:12},partyHomeIcon:{width:44,height:44,borderRadius:14,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center'},partyHomeIconText:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},partyHomeCopy:{flex:1,minWidth:0},partyHomeTitle:{color:colors.textPrimary,fontSize:16,fontWeight:'900'},partyHomeMeta:{color:colors.textMuted,fontSize:12,lineHeight:17,marginTop:3},partyHomeArrow:{color:colors.textPrimary,fontSize:24,fontWeight:'800'},partyFocusBack:{alignSelf:'flex-start',minHeight:38,borderRadius:12,borderWidth:1,borderColor:colors.border,paddingHorizontal:12,alignItems:'center',justifyContent:'center',marginBottom:8},partyFocusBackText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},partyAccordion:{flexDirection:'row',gap:8,marginBottom:12},partyAccordionRow:{flex:1,minWidth:0,minHeight:66,paddingHorizontal:6,paddingVertical:8,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},partyAccordionRowOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},partyAccordionIcon:{width:29,height:29,borderRadius:9,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center',marginBottom:5},partyAccordionIconText:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},partyAccordionCopy:{width:'100%',minWidth:0,alignItems:'center'},partyAccordionTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'900',textAlign:'center'},partyAccordionHint:{display:'none'},partyAccordionChevron:{display:'none'},
+container:{flex:1,backgroundColor:colors.background},partiesTabs:{width:'100%',flexDirection:'row',gap:8,marginBottom:spacing.lg},partiesTabBtn:{flex:1,minHeight:44,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},partiesTabBtnOn:{backgroundColor:colors.primary,borderColor:colors.primary},partiesTabText:{color:colors.white,fontSize:12,fontWeight:'900'},partiesTabTextOn:{color:colors.white},leaderboardPanel:{marginBottom:spacing.lg,padding:12,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,gap:6},leaderboardHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},myRankingButton:{minHeight:44,paddingHorizontal:10,borderRadius:15,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},myRankingButtonText:{color:colors.white,fontSize:9,fontWeight:'900'},leaderboardTitle:{color:colors.keep,fontSize:12,fontWeight:'900',letterSpacing:.8,marginBottom:2},leaderboardHint:{color:colors.textMuted,fontSize:10,fontWeight:'700',marginBottom:2},leaderboardRow:{minHeight:38,flexDirection:'row',alignItems:'center',gap:9,paddingHorizontal:9,borderRadius:12,backgroundColor:colors.backgroundElevated},leaderboardTrophy:{width:22,textAlign:'center',fontSize:13,color:colors.white,fontWeight:'900'},leaderboardNameRow:{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',gap:6},leaderboardName:{flexShrink:1,color:colors.white,fontSize:13,fontWeight:'900'},leaderboardWins:{color:colors.keep,fontSize:11,fontWeight:'900'},leaderboardStats:{color:colors.primaryLight,fontSize:11,fontWeight:'800'},leaderboardSpecialty:{color:colors.keep,fontSize:10,fontWeight:'800',marginTop:1},leaderboardPresence:{color:colors.keep,fontSize:10,fontWeight:'800',marginTop:1},leaderboardChevron:{color:colors.textMuted,fontSize:16,fontWeight:'900',marginLeft:2},battleFullscreen:{flex:1,paddingHorizontal:8,paddingTop:2,paddingBottom:0},battleLauncher:{minHeight:72,marginTop:spacing.lg,marginBottom:spacing.md,paddingHorizontal:12,paddingVertical:10,borderRadius:17,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.keep,flexDirection:'row',alignItems:'center',gap:9},battleLauncherIcon:{width:42,height:42,borderRadius:21,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.warning,alignItems:'center',justifyContent:'center'},battleLauncherBolt:{fontSize:19},battleLauncherCopy:{flex:1,minWidth:0},battleLauncherKicker:{color:colors.warning,fontSize:12,fontWeight:'900',letterSpacing:1},battleLauncherKickerRow:{flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},battleLauncherFreeBadge:{minHeight:18,paddingHorizontal:7,borderRadius:9,backgroundColor:'rgba(45,225,194,0.12)',borderWidth:1,borderColor:colors.keep,alignItems:'center',justifyContent:'center'},battleLauncherFreeBadgeText:{color:colors.keep,fontSize:10,fontWeight:'900'},battleLauncherTitle:{color:colors.white,fontSize:16,fontWeight:'900',marginTop:1},battleLauncherMeta:{color:colors.white,fontSize:12,lineHeight:17,fontWeight:'700',marginTop:2},battleLauncherOpen:{color:colors.keep,fontSize:12,fontWeight:'900'},content:{paddingHorizontal:Platform.OS === 'web' ? spacing.xl : 12,paddingTop:Platform.OS === 'web' ? spacing.xl : 10,paddingBottom:spacing.xxxl,width:'100%',maxWidth:Platform.OS === 'web' ? 1180 : undefined,alignSelf:'center'},headerRow:{width:'100%',flexDirection:'row',alignItems:'center',gap:10,marginBottom:spacing.md},title:{...typography.h1,color:colors.white,fontSize:24,lineHeight:28},subtitle:{color:colors.white,fontSize:14,lineHeight:19,marginTop:3,fontWeight:'700'},createButton:{minHeight:44,paddingHorizontal:12,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary},createButtonLocked:{backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},createButtonText:{color:colors.white,fontSize:12,fontWeight:'900'},eventHelpButton:{width:34,height:34,borderRadius:17,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},eventHelpButtonText:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},helpBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,.76)',justifyContent:'center'},helpCard:{width:'100%',maxWidth:460,alignSelf:'center',backgroundColor:colors.backgroundCard,borderRadius:18,borderWidth:1,borderColor:colors.border,padding:16,gap:14},helpHead:{flexDirection:'row',alignItems:'flex-start',gap:10},helpTitle:{color:colors.textPrimary,fontSize:19,fontWeight:'900'},helpHint:{color:colors.textMuted,fontSize:10,lineHeight:15,marginTop:4},helpClose:{width:32,height:32,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},helpCloseText:{color:colors.textPrimary,fontSize:20,fontWeight:'900',lineHeight:22},helpSteps:{gap:9},helpStep:{minHeight:56,borderRadius:15,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,padding:10,flexDirection:'row',alignItems:'center',gap:10},helpNo:{width:28,height:28,borderRadius:14,backgroundColor:colors.primary,color:'#FFF',fontSize:12,fontWeight:'900',textAlign:'center',lineHeight:28},helpCopy:{flex:1,minWidth:0},helpStepTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},helpText:{color:colors.textMuted,fontSize:10,lineHeight:15,marginTop:2},helpStatus:{color:colors.primaryLight,fontSize:11,lineHeight:16,fontWeight:'900'},helpDone:{minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},helpDoneText:{color:'#FFF',fontSize:11,fontWeight:'900'},creatorHint:{padding:10,borderRadius:13,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,marginBottom:spacing.lg},creatorHintText:{color:colors.white,fontSize:12,lineHeight:17,textAlign:'center',fontWeight:'800'},error:{color:colors.danger,textAlign:'center',paddingVertical:18},empty:{backgroundColor:colors.backgroundElevated,borderRadius:18,padding:spacing.lg,borderWidth:1,borderColor:colors.border},emptyTitle:{color:colors.white,fontSize:15,fontWeight:'900',marginBottom:6},card:{borderRadius:26,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,overflow:'hidden'},cardHero:{height:180,backgroundColor:colors.background},cardHeroGradient:{flex:1},cardHeroImage:{...StyleSheet.absoluteFillObject},cardHeroOverlay:{...StyleSheet.absoluteFillObject,backgroundColor:'rgba(91,63,224,0.35)'},cardBody:{padding:20},badgeRow:{position:'absolute',left:12,bottom:10,right:12,flexDirection:'row',alignItems:'center',flexWrap:'wrap',gap:8},badge:{alignSelf:'flex-start',paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(124,92,252,.16)'},badgeText:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:1},pendingBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(255,92,114,.16)',borderWidth:1.5,borderColor:colors.danger},pendingBadgeText:{color:colors.danger,fontSize:10,fontWeight:'900',letterSpacing:.4},rejectedBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(255,92,114,.14)',borderWidth:1,borderColor:colors.danger},rejectedBadgeText:{color:colors.danger,fontSize:10,fontWeight:'900'},approvedBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(45,225,194,.14)',borderWidth:1,borderColor:colors.success},approvedBadgeText:{color:colors.success,fontSize:10,fontWeight:'900'},moderationNote:{color:colors.pass,fontSize:11,lineHeight:15,fontWeight:'700',marginTop:8},eventName:{color:colors.white,fontSize:24,lineHeight:30,fontWeight:'900',marginTop:10},date:{color:colors.textMutedGrey,fontSize:14,fontWeight:'900',marginTop:8},meta:{color:colors.textMutedGrey,fontSize:14,marginTop:5,fontWeight:'700'},dj:{color:colors.primaryLight,fontSize:12,fontWeight:'800',marginTop:5},description:{color:colors.white,fontSize:12,lineHeight:18,marginTop:14,fontWeight:'700'},reviewSummary:{color:colors.warning,fontSize:12,fontWeight:'900',marginTop:6},rsvpCountsText:{color:colors.primaryLight,fontSize:11,fontWeight:'800',marginTop:6},rsvpToggleRow:{flexDirection:'row',alignItems:'flex-start',gap:10,marginBottom:9,padding:10,borderRadius:14,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},rsvpToggleBox:{width:22,height:22,borderRadius:6,borderWidth:2,borderColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:1},rsvpToggleBoxOn:{backgroundColor:colors.primary},rsvpToggleCheck:{color:colors.white,fontSize:13,fontWeight:'900'},rsvpToggleLabel:{color:colors.white,fontSize:12,fontWeight:'800'},rsvpToggleHint:{color:colors.textMuted,fontSize:10,lineHeight:14,fontWeight:'700',marginTop:2},audienceTitle:{color:colors.white,fontSize:13,fontWeight:'900',marginTop:4},audienceHint:{color:colors.textMuted,fontSize:10,lineHeight:15,fontWeight:'700',marginTop:3,marginBottom:8},audienceChoices:{flexDirection:'row',gap:7,marginBottom:12},audienceChoice:{flex:1,minHeight:58,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',paddingHorizontal:6},audienceChoiceOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},audienceChoiceLabel:{color:colors.white,fontSize:12,fontWeight:'900'},audienceChoiceLabelOn:{color:colors.primaryLight},audienceChoiceHint:{color:colors.textMuted,fontSize:9,fontWeight:'700',textAlign:'center',marginTop:2},audienceBadge:{paddingHorizontal:8,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(255,255,255,.12)',borderWidth:1,borderColor:'rgba(255,255,255,.28)'},audienceBadgeText:{color:colors.white,fontSize:9,fontWeight:'900',letterSpacing:.5},eventPriceChip:{minHeight:36,paddingHorizontal:13,borderRadius:18,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},eventPriceChipOn:{backgroundColor:colors.backgroundCard,borderColor:colors.warning},eventPriceChipText:{color:colors.white,fontSize:12,fontWeight:'900'},eventPriceChipTextOn:{color:colors.warning},reviewPrompt:{marginBottom:spacing.md,padding:12,borderRadius:16,borderWidth:1,borderColor:colors.warning,backgroundColor:colors.backgroundCard},reviewPromptTitle:{color:colors.warning,fontSize:12,fontWeight:'900'},reviewPromptMeta:{color:colors.white,fontSize:11,fontWeight:'700',marginTop:3},reviewSheet:{width:'100%',maxWidth:420,alignSelf:'center',borderRadius:26,padding:18,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},reviewStars:{flexDirection:'row',justifyContent:'center',gap:8,marginVertical:14},reviewStar:{color:colors.warning,fontSize:34},moreLink:{marginTop:6},moreLinkText:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},detailImageScroll:{marginBottom:12},detailImage:{width:355,height:260,borderRadius:16,backgroundColor:colors.background,marginRight:8},detailDescription:{color:colors.white,fontSize:13,lineHeight:20,fontWeight:'700',marginTop:10},eventLinksRow:{flexDirection:'row',flexWrap:'wrap',gap:8,marginTop:10},photoGalleryRow:{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:4},photoGalleryThumbWrap:{width:84,height:84},photoGalleryThumb:{width:84,height:84,borderRadius:14,backgroundColor:colors.background},photoGalleryRemove:{position:'absolute',top:-6,right:-6,width:22,height:22,borderRadius:11,backgroundColor:colors.pass,alignItems:'center',justifyContent:'center'},photoGalleryRemoveText:{color:colors.white,fontSize:12,fontWeight:'900'},photoGalleryAdd:{width:84,height:84,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.background,alignItems:'center',justifyContent:'center'},photoGalleryAddText:{color:colors.primaryLight,fontSize:11,fontWeight:'800',textAlign:'center'},photoGalleryHint:{color:colors.textMuted,fontSize:10,fontWeight:'700',marginBottom:9},callOrganizerLink:{minHeight:52,paddingHorizontal:12,paddingVertical:7,borderRadius:16,backgroundColor:'rgba(45,225,194,0.10)',borderWidth:1,borderColor:colors.keep,flexDirection:'row',alignItems:'center',gap:9},callOrganizerIcon:{width:32,height:32,borderRadius:16,backgroundColor:'rgba(45,225,194,0.12)',alignItems:'center',justifyContent:'center'},callOrganizerIconText:{fontSize:15},callOrganizerLabel:{color:colors.keep,fontSize:10,fontWeight:'900',letterSpacing:.3},callOrganizerNumber:{color:colors.white,fontSize:13,fontWeight:'900',marginTop:1},currentAnswer:{alignSelf:'flex-start',marginTop:16,paddingHorizontal:10,paddingVertical:6,borderRadius:radius.pill,backgroundColor:colors.backgroundCard},currentAnswerText:{color:colors.white,fontSize:12,fontWeight:'900'},currentAnswerGoing:{backgroundColor:'rgba(45,225,194,0.12)',borderWidth:1,borderColor:colors.keep},currentAnswerTextGoing:{color:colors.keep},currentAnswerNotGoing:{backgroundColor:'rgba(255,92,114,0.12)',borderWidth:1,borderColor:colors.pass},currentAnswerTextNotGoing:{color:colors.pass},rsvpMainRow:{flexDirection:'row',gap:10,marginTop:16},rsvpButton:{flex:1,minHeight:48,borderRadius:24,alignItems:'center',justifyContent:'center',borderWidth:2,paddingHorizontal:8},rsvpButtonNo:{borderColor:colors.pass,backgroundColor:'rgba(255,92,114,0.10)'},rsvpButtonNoText:{color:colors.pass,fontSize:13,fontWeight:'900'},rsvpButtonYes:{borderColor:colors.keep,backgroundColor:colors.keep},rsvpButtonYesText:{color:colors.background,fontSize:13,fontWeight:'900'},rsvpMaybeRow:{alignItems:'center',marginTop:10},maybeAction:{minHeight:44,paddingHorizontal:18,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},maybeActionOn:{borderColor:colors.primaryLight,backgroundColor:colors.border},maybeText:{color:colors.white,fontSize:12,fontWeight:'900'},secondaryRow:{flexDirection:'row',gap:8,marginTop:12},secondary:{flex:1,minHeight:44,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},secondaryText:{color:colors.white,fontSize:12,fontWeight:'800'},secondaryDanger:{borderColor:colors.pass},secondaryDangerText:{color:colors.pass},participantRow:{flexDirection:'row',alignItems:'center',gap:8,minHeight:44,paddingHorizontal:4,borderBottomWidth:1,borderBottomColor:colors.backgroundCard},participantNameRow:{flexDirection:'row',alignItems:'center',gap:6},participantName:{color:colors.white,fontSize:13,fontWeight:'800',flexShrink:1},participantStatus:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},participantStatusGoing:{color:colors.keep},participantStatusNotGoing:{color:colors.pass},backdrop:{flex:1,backgroundColor:'rgba(0,0,0,.78)',justifyContent:'flex-end'},sheet:{maxHeight:'88%',backgroundColor:colors.backgroundElevated,borderTopLeftRadius:26,borderTopRightRadius:26,borderWidth:1,borderColor:colors.border,padding:18},modalHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:12},modalTitle:{color:colors.white,fontSize:18,fontWeight:'900'},close:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},input:{minHeight:48,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.background,color:colors.white,paddingHorizontal:12,marginBottom:9},venueInputRow:{flexDirection:'row',alignItems:'center',gap:8},venueInput:{flex:1},venueLocateButton:{width:48,height:48,borderRadius:14,marginBottom:9,backgroundColor:colors.background,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},venueLocateIcon:{fontSize:18},venueSuggestions:{marginTop:-4,marginBottom:9,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,overflow:'hidden'},venueSuggestionRow:{minHeight:44,paddingHorizontal:12,paddingVertical:8,borderBottomWidth:1,borderBottomColor:colors.backgroundCard},venueSuggestionPrimary:{color:colors.white,fontSize:12,fontWeight:'800'},venueSuggestionSecondary:{color:colors.textMuted,fontSize:10,fontWeight:'700',marginTop:1},venueSuggestionsLoading:{marginTop:-4,marginBottom:9},multiline:{minHeight:84,paddingTop:12,textAlignVertical:'top'},publish:{minHeight:50,borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:5},publishText:{color:colors.white,fontSize:12,fontWeight:'900'},publishSecondary:{minHeight:44,alignItems:'center',justifyContent:'center'},publishSecondaryText:{color:colors.white,fontSize:12,fontWeight:'800'},
+statsBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,.78)',alignItems:'center',justifyContent:'center',padding:spacing.lg},statsCard:{width:'100%',maxWidth:400,borderRadius:26,padding:20,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},myRankingCard:{width:'100%',maxWidth:400,maxHeight:'82%',borderRadius:26,padding:20,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},creditHistoryRow:{minHeight:38,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10,paddingHorizontal:10,borderRadius:12,backgroundColor:colors.backgroundElevated,marginBottom:5},creditHistoryLabel:{flex:1,color:colors.white,fontSize:11,lineHeight:15,fontWeight:'800'},creditHistoryGain:{color:colors.keep,fontSize:12,fontWeight:'900'},creditHistoryLoss:{color:colors.pass,fontSize:12,fontWeight:'900'},creditHistoryNextCredit:{color:colors.primaryLight,fontSize:11,lineHeight:15,fontWeight:'700',marginBottom:8},statsClose:{position:'absolute',top:10,right:10,width:44,height:44,borderRadius:17,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',zIndex:2},statsCloseText:{color:colors.white,fontSize:20,lineHeight:22,fontWeight:'700'},statsUsernameRow:{flexDirection:'row',alignItems:'center',gap:8,marginBottom:14,paddingRight:40},statsUsername:{color:colors.white,fontSize:20,fontWeight:'900'},statsBigRow:{flexDirection:'row',gap:8},statsBigItem:{flex:1,alignItems:'center',paddingVertical:12,borderRadius:16,backgroundColor:colors.backgroundElevated},statsBigValue:{color:colors.keep,fontSize:22,fontWeight:'900'},statsBigLabel:{color:colors.primaryLight,fontSize:10,fontWeight:'800',marginTop:2,textAlign:'center'},statsSmallRow:{flexDirection:'row',gap:5,marginTop:6},statsSmallItem:{flex:1,alignItems:'center',paddingVertical:7,borderRadius:12,backgroundColor:colors.backgroundElevated},statsSmallValue:{color:colors.white,fontSize:11,fontWeight:'900'},statsSmallLabel:{color:colors.textMuted,fontSize:9,fontWeight:'800',marginTop:1,textAlign:'center'},statsAvg:{color:colors.white,fontSize:12,fontWeight:'700',textAlign:'center',marginTop:12},statsSectionTitle:{color:colors.keep,fontSize:11,fontWeight:'900',letterSpacing:.8,marginTop:20,marginBottom:8},statsThemeRow:{minHeight:42,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,paddingHorizontal:12,borderRadius:14,backgroundColor:colors.backgroundElevated,marginBottom:6},statsThemeLabel:{color:colors.white,fontSize:12,fontWeight:'900'},statsThemeValue:{color:colors.primaryLight,fontSize:11,fontWeight:'800'},statsThemeEmpty:{color:colors.primaryLight,fontSize:12,lineHeight:16,fontWeight:'700'},statsActionsRow:{flexDirection:'row',gap:8,marginTop:18},statsProfileButtonSmall:{flex:1,minHeight:48,borderRadius:24,backgroundColor:colors.primary,borderWidth:1.5,borderColor:colors.info,alignItems:'center',justifyContent:'center'},statsProfileButtonText:{color:colors.white,fontSize:11,fontWeight:'900'},
+incomingBanner:{marginBottom:spacing.md,padding:14,borderRadius:18,borderWidth:2,borderColor:colors.keep,backgroundColor:colors.backgroundElevated},incomingText:{color:colors.white,fontSize:13,lineHeight:18,fontWeight:'700'},incomingName:{color:colors.white,fontWeight:'900'},incomingActions:{flexDirection:'row',gap:10,marginTop:10},incomingNo:{flex:1,minHeight:44,borderRadius:22,borderWidth:2,borderColor:colors.textMuted,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},incomingNoText:{color:colors.white,fontSize:13,fontWeight:'900'},incomingYes:{flex:1,minHeight:44,borderRadius:22,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},incomingYesText:{color:colors.background,fontSize:13,fontWeight:'900'},incomingBusy:{opacity:.6},
+ticketButton:{minHeight:46,marginTop:10,borderRadius:23,backgroundColor:colors.backgroundElevated,borderWidth:1.5,borderColor:colors.warning,alignItems:'center',justifyContent:'center'},ticketButtonText:{color:colors.warning,fontSize:13,fontWeight:'900'},
+wheelSectionLabel:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:.6,marginBottom:6},wheelRow:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4,marginBottom:9,padding:8,borderRadius:16,backgroundColor:colors.background,borderWidth:1,borderColor:colors.border},wheelColon:{color:colors.white,fontSize:18,fontWeight:'900'},wheelSummary:{color:colors.keep,fontSize:12,fontWeight:'800',textAlign:'center',marginBottom:9,textTransform:'capitalize'},
+imagePickerButton:{minHeight:48,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.background,marginBottom:9,alignItems:'center',justifyContent:'center',overflow:'hidden'},imagePickerPreview:{width:'100%',height:120},imagePickerText:{color:colors.primaryLight,fontSize:12,fontWeight:'800',paddingVertical:12,paddingHorizontal:12,textAlign:'center'},
+checkinRow:{flexDirection:'row',gap:8,marginBottom:4},checkinInput:{flex:1,marginBottom:0},checkinButton:{minHeight:48,paddingHorizontal:16,borderRadius:14,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},checkinButtonText:{color:colors.background,fontSize:12,fontWeight:'900'},checkinHint:{color:colors.textMuted,fontSize:10,lineHeight:14,fontWeight:'700',marginBottom:10},
+participantTicket:{color:colors.textMuted,fontSize:10,fontWeight:'800',marginTop:2},participantCheckinBtn:{minHeight:44,paddingHorizontal:10,borderRadius:15,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',marginLeft:8},participantCheckinBtnOn:{backgroundColor:colors.keep,borderColor:colors.keep},participantCheckinBtnText:{color:colors.white,fontSize:10,fontWeight:'900'},participantCheckinBtnTextOn:{color:colors.background},
+ticketCard:{width:'100%',maxWidth:380,borderRadius:26,padding:22,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center'},ticketEventName:{color:colors.white,fontSize:18,fontWeight:'900',textAlign:'center',paddingRight:24},ticketMeta:{color:colors.primaryLight,fontSize:12,fontWeight:'800',marginTop:4,textAlign:'center'},ticketQrFrame:{marginTop:18,padding:10,borderRadius:16,backgroundColor:colors.white},ticketQrImage:{width:200,height:200},ticketUsername:{color:colors.warning,fontSize:16,fontWeight:'900',marginTop:14},ticketCode:{color:colors.textMuted,fontSize:11,fontWeight:'800',letterSpacing:1,marginTop:2},ticketHint:{color:colors.white,fontSize:11,fontWeight:'700',marginTop:8,textAlign:'center'},ticketCalendarRow:{flexDirection:'row',gap:8,marginTop:18,width:'100%'},ticketCalendarButton:{flex:1,minHeight:44,borderRadius:21,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',paddingHorizontal:6},ticketCalendarButtonText:{color:colors.white,fontSize:10,fontWeight:'900',textAlign:'center'}
+,eventTabs:{flexDirection:'row',gap:8,marginBottom:12},eventTabBtn:{flex:1,minHeight:44,borderRadius:19,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},eventTabBtnOn:{backgroundColor:colors.primary,borderColor:colors.primary},eventTabText:{color:colors.white,fontSize:11,fontWeight:'900'},eventTabTextOn:{color:colors.white},liveBadge:{flexDirection:'row',alignItems:'center',gap:5,paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(45,225,194,0.16)',borderWidth:1,borderColor:colors.keep},liveBadgeDot:{width:7,height:7,borderRadius:4,backgroundColor:colors.keep},liveBadgeText:{color:colors.keep,fontSize:10,fontWeight:'900',letterSpacing:1},leaderboardRowMine:{backgroundColor:'rgba(124,92,252,0.22)',borderWidth:1,borderColor:colors.primary},participantGrid:{flexDirection:'row',flexWrap:'wrap',gap:10,marginBottom:12},participantAvatarWrap:{width:56,alignItems:'center',gap:3},participantAvatar:{width:48,height:48,borderRadius:24,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},participantAvatarNotGoing:{opacity:0.45},participantAvatarMaybe:{borderColor:colors.warning,borderWidth:2},participantAvatarInitial:{color:colors.white,fontSize:18,fontWeight:'900'},participantAvatarName:{color:colors.textMuted,fontSize:9,fontWeight:'800',textAlign:'center'},draftBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},draftBadgeText:{color:colors.textMutedGrey,fontSize:10,fontWeight:'900',letterSpacing:.4},podium:{flexDirection:'row',alignItems:'flex-end',justifyContent:'center',gap:8,marginBottom:10,marginTop:2},podiumCol:{flex:1,maxWidth:96,alignItems:'center',gap:3},podiumMedal:{fontSize:18},podiumAvatar:{width:40,height:40,borderRadius:20,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},podiumAvatarInitial:{color:colors.white,fontSize:15,fontWeight:'900'},podiumName:{color:colors.white,fontSize:10,fontWeight:'800',textAlign:'center',maxWidth:88},podiumBar:{width:'100%',borderRadius:10,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated},podiumBarFirst:{height:54,borderColor:colors.warning,backgroundColor:'rgba(255,180,84,0.14)'},podiumBarSecond:{height:42,borderColor:colors.primaryLight,backgroundColor:'rgba(167,139,250,0.14)'},podiumBarThird:{height:32,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,0.12)'},podiumScore:{color:colors.white,fontSize:14,fontWeight:'900'},playlistPanel:{marginBottom:spacing.lg,padding:12,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,gap:8},playlistPanelTitle:{color:colors.keep,fontSize:12,fontWeight:'900',letterSpacing:.8},trackRow:{flexDirection:'row',alignItems:'center',gap:10,minHeight:56,paddingHorizontal:6,borderRadius:12,backgroundColor:colors.backgroundCard},trackThumb:{width:48,height:48,borderRadius:8,backgroundColor:colors.backgroundElevated},trackInfo:{flex:1,minWidth:0},trackTitle:{color:colors.white,fontSize:13,fontWeight:'900'},trackArtist:{color:colors.textMuted,fontSize:11,fontWeight:'700',marginTop:2},trackAction:{color:colors.primaryLight,fontSize:18,fontWeight:'900',paddingHorizontal:6},trackEmpty:{paddingVertical:24,alignItems:'center'},trackEmptyText:{color:colors.textMuted,fontSize:12,fontWeight:'700',textAlign:'center'}});

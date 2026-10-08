@@ -12,16 +12,30 @@ describe('PublicUserProfileScreen — bouton SWIPE aussi visible que sur le prof
     expect(source).toContain("import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';");
   });
 
-  it('is a full-width primary (violet) button, same visual weight as the owner profile\'s ownerSwipeButton', () => {
-    expect(source).toContain("visitorSwipeButton:{minHeight:52,borderRadius:16,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',marginTop:12,width:'100%'}");
-    expect(source).toContain('<Text style={styles.visitorSwipeButtonText}>▶ SWIPE</Text>');
+  it('keeps SWIPE, TCHAT, BATTLE and PARTAGER in one aligned action row, same component as the owner profile', () => {
+    expect(source).toContain('<View style={styles.ownerQuickActions}>');
+    expect(source).toContain('▶ SWIPE');
+    expect(source).toContain('◉ TCHAT');
+    expect(source).toContain("{battleInviteBusy ? '⚡ ENVOI…' : '⚡ BATTLE'}");
+    expect(source).toContain('↗ PARTAGER');
   });
 
   it('is placed right after identity/bio, before the collection section, not buried in a small pill next to Follow', () => {
     const bioIdx = source.indexOf('{!!profile.bio && <Text style={styles.bio}>{profile.bio}</Text>}');
-    const swipeIdx = source.indexOf('visitorSwipeButton} onPress={() => openBrowseSwipe(null)}');
+    const swipeIdx = source.indexOf('▶ SWIPE');
+    const collectionIdx = source.indexOf('<SellerBoutique');
     expect(bioIdx).toBeGreaterThan(-1);
     expect(swipeIdx).toBeGreaterThan(bioIdx);
-    expect(swipeIdx - bioIdx).toBeLessThan(700);
+    expect(collectionIdx).toBeGreaterThan(swipeIdx);
+  });
+
+  it('keeps the canonical visitor actions visible from any entry point', () => {
+    expect(source).toContain('▶ SWIPE');
+    expect(source).toContain('◉ TCHAT');
+    expect(source).toContain('⚡ BATTLE');
+    expect(source).toContain('↗ PARTAGER');
+    expect(source).toContain('const openProfileChat =');
+    expect(source).toContain('useGlobalChatStore.getState().open');
+    expect(source).not.toContain('▶ APERÇU');
   });
 });

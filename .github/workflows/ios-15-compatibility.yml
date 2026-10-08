@@ -1,0 +1,68 @@
+name: Loki iOS 15.1 Compatibility
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/ios-15-compatibility.yml'
+      - 'packages/mobile/app.json'
+      - 'packages/mobile/modules/keep-shazam/**'
+      - 'packages/mobile/modules/keep-iap/**'
+
+permissions:
+  contents: read
+
+jobs:
+  compile-ios-15:
+    runs-on: macos-15
+    timeout-minutes: 50
+    env:
+      CI: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install workspace
+        run: npm ci
+      - name: Assert source target
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const app=JSON.parse(fs.readFileSync('packages/mobile/app.json','utf8'));
+          const plugin=(app.expo.plugins||[]).find(x=>Array.isArray(x)&&x[0]==='expo-build-properties');
+          if(plugin?.[1]?.ios?.deploymentTarget!=='15.1') throw new Error('Loki must target iOS 15.1');
+          for(const f of [
+            'packages/mobile/modules/keep-shazam/ios/KeepShazam.podspec',
+            'packages/mobile/modules/keep-iap/ios/KeepIAP.podspec'
+          ]){
+            if(!fs.readFileSync(f,'utf8').includes(":ios => '15.1'")) throw new Error(f+' must target iOS 15.1');
+          }
+          console.log('Source target iOS 15.1 confirmed');
+          NODE
+      - name: Generate iOS project
+        working-directory: packages/mobile
+        run: npx expo prebuild --platform ios --clean --no-install
+      - name: Assert generated deployment target
+        working-directory: packages/mobile
+        run: |
+          grep -R "IPHONEOS_DEPLOYMENT_TARGET = 15.1" ios/*.xcodeproj/project.pbxproj
+      - name: Install CocoaPods
+        working-directory: packages/mobile
+        run: npx pod-install ios
+      - name: Compile Loki with ShazamKit and StoreKit
+        working-directory: packages/mobile
+        shell: bash
+        run: |
+          set -o pipefail
+          workspace="$(find ios -maxdepth 1 -name '*.xcworkspace' -print -quit)"
+          test -n "$workspace"
+          scheme="$(xcodebuild -workspace "$workspace" -list -json | python3 -c 'import json,sys; d=json.load(sys.stdin); s=d.get("workspace",{}).get("schemes",[]); print("KEEP" if "KEEP" in s else (s[0] if s else ""))')"
+          test -n "$scheme"
+          xcodebuild             -workspace "$workspace"             -scheme "$scheme"             -configuration Debug             -sdk iphonesimulator             -destination 'generic/platform=iOS Simulator'             CODE_SIGNING_ALLOWED=NO             CODE_SIGNING_REQUIRED=NO             build | tee /tmp/loki-ios15-build.log
+          grep -q '\*\* BUILD SUCCEEDED \*\*' /tmp/loki-ios15-build.log
+          grep -q 'KeepShazam' ios/Podfile.lock
+          grep -q 'KeepIAP' ios/Podfile.lock

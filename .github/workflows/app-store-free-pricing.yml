@@ -1,0 +1,104 @@
+name: Loki App Store Free Pricing
+# sync-trigger-chatgpt: 2026-10-04T15:23:00Z
+# sync-trigger-live: 2026-10-04T14:24:00Z
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/app-store-free-pricing.yml'
+      - '.github/app-store-audit-trigger'
+
+permissions:
+  contents: read
+
+jobs:
+  price:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Set Loki Music app price to free
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        run: |
+          node <<'NODE'
+          const crypto=require('node:crypto');
+          const required=['ASC_API_KEY_P8_BASE64','ASC_KEY_ID','ASC_ISSUER_ID','ASC_APP_ID'];
+          if(required.some(k=>!process.env[k]?.trim()))throw new Error('Missing App Store Connect configuration');
+          const key=Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(),'base64');
+          const enc=x=>Buffer.from(JSON.stringify(x)).toString('base64url');
+          const now=Math.floor(Date.now()/1000);
+          const unsigned=enc({alg:'ES256',kid:process.env.ASC_KEY_ID.trim(),typ:'JWT'})+'.'+
+            enc({iss:process.env.ASC_ISSUER_ID.trim(),iat:now-30,exp:now+600,aud:'appstoreconnect-v1'});
+          const token=unsigned+'.'+crypto.sign('sha256',Buffer.from(unsigned),{key,dsaEncoding:'ieee-p1363'}).toString('base64url');
+
+          async function api(path,{method='GET',body,allow404=false}={}){
+            const res=await fetch('https://api.appstoreconnect.apple.com'+path,{
+              method,
+              headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+              body:body?JSON.stringify(body):undefined
+            });
+            if(allow404&&res.status===404)return null;
+            const txt=await res.text();
+            if(!res.ok)throw new Error(method+' '+path+' HTTP '+res.status+' '+txt.slice(0,900));
+            return txt?JSON.parse(txt):null;
+          }
+
+          (async()=>{
+            const appId=process.env.ASC_APP_ID.trim();
+            const existing=await api('/v1/apps/'+appId+'/appPriceSchedule?fields[appPriceSchedules]=baseTerritory,manualPrices',{allow404:true});
+            if(existing?.data){
+              const prices=await api('/v1/appPriceSchedules/'+existing.data.id+
+                '/manualPrices?include=appPricePoint,territory&fields[appPricePoints]=customerPrice,territory&fields[territories]=currency&limit=200');
+              const current=(prices.data||[]).find(p=>p.attributes?.startDate==null&&p.attributes?.endDate==null)||
+                (prices.data||[]).find(p=>p.attributes?.startDate==null);
+              const pointId=current?.relationships?.appPricePoint?.data?.id;
+              const point=(prices.included||[]).find(x=>x.type==='appPricePoints'&&x.id===pointId);
+              if(point && Number(point.attributes?.customerPrice)===0){
+                console.log('App price is already FREE.');
+                return;
+              }
+              throw new Error('A non-free price schedule already exists; refusing to overwrite automatically.');
+            }
+
+            const points=await api('/v1/apps/'+appId+
+              '/appPricePoints?filter[territory]=FRA&fields[appPricePoints]=customerPrice,proceeds,territory&include=territory&fields[territories]=currency&limit=200');
+            const free=(points.data||[]).find(p=>Number(p.attributes?.customerPrice)===0);
+            if(!free)throw new Error('Apple did not return a FREE price point for France.');
+
+            const tempId='${price0}';
+            await api('/v1/appPriceSchedules',{
+              method:'POST',
+              body:{
+                data:{
+                  type:'appPriceSchedules',
+                  attributes:{},
+                  relationships:{
+                    app:{data:{type:'apps',id:appId}},
+                    baseTerritory:{data:{type:'territories',id:'FRA'}},
+                    manualPrices:{data:[{type:'appPrices',id:tempId}]}
+                  }
+                },
+                included:[{
+                  type:'appPrices',
+                  id:tempId,
+                  attributes:{startDate:null,endDate:null},
+                  relationships:{
+                    appPricePoint:{data:{type:'appPricePoints',id:free.id}}
+                  }
+                }]
+              }
+            });
+
+            const verify=await api('/v1/apps/'+appId+'/appPriceSchedule?include=baseTerritory,manualPrices&fields[appPriceSchedules]=baseTerritory,manualPrices&fields[appPrices]=manual,startDate,endDate,appPricePoint,territory&fields[territories]=currency&limit[manualPrices]=50');
+            if(!verify?.data)throw new Error('Price schedule was not created.');
+            console.log('App price schedule created.');
+            console.log('Base territory France:',verify.data.relationships?.baseTerritory?.data?.id==='FRA');
+            console.log('Loki Music is configured as a FREE App Store app.');
+          })().catch(e=>{console.error(e.message||String(e));process.exit(1)});
+          NODE

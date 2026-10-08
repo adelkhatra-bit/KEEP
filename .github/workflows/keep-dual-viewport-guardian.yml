@@ -5,7 +5,15 @@ on:
     branches: ['reconcile/claude-main-20260825']
     paths:
       - 'packages/mobile/**'
+      - '!packages/mobile/**/__tests__/**'
+      - '!packages/mobile/**/*.test.ts'
+      - '!packages/mobile/**/*.test.tsx'
+      - '!packages/mobile/**/*.spec.ts'
+      - '!packages/mobile/**/*.spec.tsx'
       - 'packages/music/**'
+      - 'config/platform-parity-contract.json'
+      - 'scripts/verify-source-of-truth.cjs'
+      - 'scripts/verify-platform-behavior-parity.cjs'
       - '.github/workflows/keep-dual-viewport-guardian.yml'
   pull_request:
     branches: ['reconcile/claude-main-20260825']
@@ -16,6 +24,12 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '41 */6 * * *'
+
+# Never run this production-backed browser load in parallel with another
+# guardian. This prevents CI fan-out from starving GoTrue/Postgres.
+concurrency:
+  group: keep-production-supabase-browser-audits
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -29,18 +43,20 @@ jobs:
       EXPO_PUBLIC_SUPABASE_URL: https://rrhqsqzcplvmwxizqnla.supabase.co
       EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru
       EXPO_PUBLIC_DEMO_MODE: 'false'
-      EXPO_PUBLIC_KEEP_PREVIEW: '0'
+      EXPO_PUBLIC_KEEP_PREVIEW: '1'
       EXPO_PUBLIC_KEEP_REAL_RECOGNITION: 'false'
       EXPO_PUBLIC_API_URL: http://127.0.0.1:3010
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          ref: reconcile/claude-main-20260825
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Verify shared Mobile/Desktop source
+        run: node scripts/verify-source-of-truth.cjs
+      - name: Verify Mobile/Web behavior parity
+        run: node scripts/verify-platform-behavior-parity.cjs
       - name: Typecheck
         run: npm run type-check
       - name: Install Chromium
@@ -62,6 +78,22 @@ jobs:
       - name: Test KEEP critical loop — mobile 390x844 + desktop smoke 1440x900
         run: |
           mkdir -p artifacts/dual-viewport
+          # Chromium's built-in fake microphone is silent. Loki correctly rejects
+          # a silent capture, so feed a deterministic 440 Hz WAV instead.
+          python3 - <<'PY'
+          import math, struct, wave
+          rate = 44100
+          seconds = 30
+          with wave.open('/tmp/keep-tone.wav', 'wb') as out:
+              out.setnchannels(1)
+              out.setsampwidth(2)
+              out.setframerate(rate)
+              frames = bytearray()
+              for i in range(rate * seconds):
+                  sample = int(0.35 * 32767 * math.sin(2 * math.pi * 440 * i / rate))
+                  frames.extend(struct.pack('<h', sample))
+              out.writeframes(frames)
+          PY
           cat > keep-critical-loop.cjs <<'JS'
           const { chromium } = require('playwright');
           const fs = require('fs');
@@ -72,24 +104,60 @@ jobs:
           const BIO = 'Profil test mobile 390x844';
           const WEBSITE = 'https://keep.test/guardian390';
           const INSTAGRAM = 'https://instagram.com/guardian390';
-          const tabs = ['Écouter','Découvertes','Playlists','Soirées','Profil'];
+          const tabs = ['Loki Music','Découvertes','Playlists','Soirées','Profil'];
+
+          async function clickRobust(page, locator, label) {
+            let lastError;
+            for (let attempt = 1; attempt <= 5; attempt += 1) {
+              try {
+                await locator.waitFor({state:'visible',timeout:10000});
+                await locator.scrollIntoViewIfNeeded().catch(()=>{});
+                await page.keyboard.press('Escape').catch(()=>{});
+                await locator.click({timeout:3000});
+                return;
+              } catch (error) {
+                lastError = error;
+                await page.waitForTimeout(180 * attempt);
+              }
+            }
+            await locator.click({force:true,timeout:2000}).catch(()=>{ throw new Error(`${label}: ${String(lastError?.message || lastError || 'click failed')}`); });
+          }
 
           async function openKeep(page) {
-            await page.goto(ORIGIN,{waitUntil:'networkidle',timeout:60000});
+            await page.goto(ORIGIN,{waitUntil:'domcontentloaded',timeout:60000});
             const tryFree=page.getByText('ESSAYER GRATUITEMENT',{exact:true}).last();
-            if (await tryFree.isVisible().catch(()=>false)) await tryFree.click();
+            // Le splash peut disparaître entre isVisible() et le clic si une
+            // session locale est restaurée. Ne jamais faire échouer le test
+            // pour ce bouton transitoire : soit on clique, soit on continue
+            // vers les 5 onglets qui sont la vraie preuve que l'app est prête.
+            if (await tryFree.isVisible().catch(()=>false)) {
+              await tryFree.click({force:true,timeout:1500}).catch(()=>{});
+            }
             for (const tab of tabs) await page.getByText(tab,{exact:true}).last().waitFor({state:'visible',timeout:15000});
           }
 
           async function openEdit(page) {
-            await page.getByText('Profil',{exact:true}).last().click();
+            await clickRobust(page,page.getByText('Profil',{exact:true}).last(),'Profil tab');
             const menu=page.getByLabel('Menu du profil').last();
             await menu.waitFor({state:'visible',timeout:15000});
-            await menu.click();
-            const edit=page.getByText('Modifier le profil',{exact:true}).last();
+            await clickRobust(page,menu,'Profile menu');
+            let edit=page.getByText('Réglages du profil',{exact:true}).last();
+            if (!await edit.isVisible().catch(()=>false)) {
+              const backToMenu=page.getByText('‹ Menu',{exact:true}).last();
+              if (await backToMenu.isVisible().catch(()=>false)) {
+                await clickRobust(page,backToMenu,'Reset profile menu');
+                edit=page.getByText('Réglages du profil',{exact:true}).last();
+              }
+            }
             await edit.waitFor({state:'visible',timeout:15000});
-            await edit.click();
-            await page.getByPlaceholder('tonpseudo').last().waitFor({state:'visible',timeout:15000});
+            await clickRobust(page,edit,'Edit profile menu item');
+            const usernameField=page.getByPlaceholder('tonpseudo').last();
+            if (!await usernameField.isVisible().catch(()=>false)) {
+              const openSettings=page.getByText('OUVRIR LES REGLAGES',{exact:true}).last();
+              await openSettings.waitFor({state:'visible',timeout:15000});
+              await clickRobust(page,openSettings,'Open profile settings');
+            }
+            await usernameField.waitFor({state:'visible',timeout:15000});
           }
 
           async function assertProfileForm(page) {
@@ -102,15 +170,28 @@ jobs:
             if(await city.inputValue()!==CITY) throw new Error(`city not persisted: ${await city.inputValue()}`);
             if(await website.inputValue()!==WEBSITE) throw new Error(`website not persisted: ${await website.inputValue()}`);
             await page.getByText('France',{exact:true}).last().waitFor({state:'visible',timeout:15000});
-            await page.getByText('1990-01-01',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+            // La date est désormais rendue par un Selector accessible et non
+            // par un simple Text isolé : tester le vrai contrôle évite un
+            // faux négatif tout en vérifiant exactement la valeur persistée.
+            await page.getByLabel('Date de naissance : 1990-01-01').last().waitFor({state:'visible',timeout:15000});
           }
 
-          async function openAdvancedFromEdit(page) {
-            const advanced=page.getByText('Réglages avancés du profil',{exact:true}).last();
-            await advanced.waitFor({state:'visible',timeout:15000});
-            await advanced.scrollIntoViewIfNeeded();
-            await advanced.click();
-            await page.getByText('Réglages avancés',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+          async function openPublicProfileSettings(page) {
+            // Depuis Réglages du profil, l'onglet bas "Profil" existe encore
+            // dans le DOM mais il est caché derrière l'écran courant. Revenir
+            // par le vrai bouton de navigation évite de cliquer un doublon
+            // invisible.
+            const backToProfile=page.getByLabel('Retour au profil').last();
+            if (await backToProfile.isVisible().catch(()=>false)) {
+              await clickRobust(page,backToProfile,'Back to profile before public settings');
+            }
+            const menu=page.getByLabel('Menu du profil').last();
+            await menu.waitFor({state:'visible',timeout:15000});
+            await clickRobust(page,menu,'Open profile menu for public settings');
+            const entry=page.getByLabel('Réseaux & site web').last();
+            await entry.waitFor({state:'visible',timeout:15000});
+            await clickRobust(page,entry,'Public profile settings');
+            await page.getByText('Réseaux sociaux',{exact:true}).last().waitFor({state:'visible',timeout:15000});
           }
 
           async function assertNoOverflow(page,label) {
@@ -118,19 +199,74 @@ jobs:
             if(dims.scrollWidth>dims.width+1) throw new Error(`${label}: horizontal overflow ${JSON.stringify(dims)}`);
           }
 
+          async function assertProfileFreeAligned(page) {
+            // Contrat produit final : FREE vit dans la barre des compteurs,
+            // immédiatement à droite de Reprises. Il ne doit jamais être
+            // aligné/attaché au type de profil (Fan/Créateur/etc.).
+            const repriseLabel=page.getByText('Reprises',{exact:true}).last();
+            const free=page.getByLabel(/Free en mode démo|détail de mes Free/i).last();
+            await repriseLabel.waitFor({state:'visible',timeout:15000});
+            await free.waitFor({state:'visible',timeout:15000});
+            const repriseCard=repriseLabel.locator('..');
+            const [repriseBox,freeBox]=await Promise.all([repriseCard.boundingBox(),free.boundingBox()]);
+            if(!repriseBox||!freeBox) throw new Error('Profil: impossible de mesurer Reprises / FREE');
+            const repriseCenter=repriseBox.y+(repriseBox.height/2);
+            const freeCenter=freeBox.y+(freeBox.height/2);
+            if(Math.abs(repriseCenter-freeCenter)>6) {
+              throw new Error(`Profil: FREE n'est pas sur la ligne de Reprises ${JSON.stringify({repriseBox,freeBox})}`);
+            }
+            if(freeBox.x <= repriseBox.x + repriseBox.width - 2) {
+              throw new Error(`Profil: FREE doit être immédiatement à droite de Reprises ${JSON.stringify({repriseBox,freeBox})}`);
+            }
+          }
+
           (async()=>{
-            const browser = await chromium.launch({ headless:true });
+            const browser = await chromium.launch({ headless:true, args:['--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream','--use-file-for-fake-audio-capture=/tmp/keep-tone.wav'] });
             const report=[];
 
             {
               const context=await browser.newContext({viewport:{width:1440,height:900},deviceScaleFactor:1});
               const page=await context.newPage();
               await openKeep(page);
-              await page.getByText('Profil',{exact:true}).last().click();
+
+              const assertResponsiveSurface = async (label, width, height) => {
+                await page.setViewportSize({ width, height });
+                await page.waitForTimeout(350);
+                const surface = await page.evaluate(() => {
+                  const root = document.getElementById('root');
+                  const box = root?.getBoundingClientRect();
+                  return {
+                    bodyText: (document.body?.innerText || '').trim().length,
+                    rootChildren: root?.children.length || 0,
+                    rootWidth: Math.round(box?.width || 0),
+                    rootHeight: Math.round(box?.height || 0),
+                    innerWidth,
+                    innerHeight,
+                  };
+                });
+                if (surface.bodyText < 10 || surface.rootChildren < 1) throw new Error(`${label}: blank application surface ${JSON.stringify(surface)}`);
+                if (surface.rootWidth < width - 2 || surface.rootHeight < height - 2) throw new Error(`${label}: root does not expand with viewport ${JSON.stringify(surface)}`);
+                for (const tab of tabs) await page.getByText(tab,{exact:true}).last().waitFor({state:'visible',timeout:10000});
+                await assertNoOverflow(page,label);
+              };
+
+              // Reproduit exactement le cas signalé : plein écran -> fenêtre réduite
+              // par DevTools/Inspecter -> téléphone -> retour plein écran, sans reload.
+              await assertResponsiveSurface('desktop-full-1440x900',1440,900);
+              await assertResponsiveSurface('desktop-inspector-900x700',900,700);
+              await assertResponsiveSurface('mobile-resize-390x844',390,844);
+              await assertResponsiveSurface('desktop-return-1440x900',1440,900);
+
+              // Cas exact utilisateur : Profil visible avec DevTools docké,
+              // puis fermeture / retour plein écran SANS reload.
+              await assertResponsiveSurface('profile-before-open-768x700',768,700);
+              await clickRobust(page,page.getByText('Profil',{exact:true}).last(),'Desktop Profil tab');
               await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
-              await assertNoOverflow(page,'desktop-1440x900');
+              await assertResponsiveSurface('profile-devtools-open-768x700',768,700);
+              await assertResponsiveSurface('profile-devtools-closed-1440x900',1440,900);
+              await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
               await page.screenshot({path:'artifacts/dual-viewport/desktop-1440x900-profile.png',fullPage:true});
-              report.push('desktop-1440x900: PASS');
+              report.push('desktop + profile resize 1440x900 -> 900x700 -> 390x844 -> 1440x900 + profile 768x700 -> 1440x900: PASS');
               await context.close();
             }
 
@@ -139,7 +275,7 @@ jobs:
               deviceScaleFactor:1,
               geolocation:{latitude:45.95,longitude:4.884},
             });
-            await context.grantPermissions(['geolocation'], {origin:ORIGIN});
+            await context.grantPermissions(['geolocation','microphone'], {origin:ORIGIN});
             const page=await context.newPage();
             const pageErrors=[];
             page.on('pageerror',e=>pageErrors.push(String(e)));
@@ -155,33 +291,114 @@ jobs:
             }));
 
             await openKeep(page);
-            await page.screenshot({path:'artifacts/dual-viewport/01-listen-idle.png',fullPage:true});
 
-            const start=page.getByLabel('Démarrer une écoute').last();
+            // Le mini-tour est une surcouche de première installation : on le
+            // ferme AVANT toute capture/mesure pour comparer le vrai accueil
+            // utilisé au quotidien sur mobile et desktop.
+            const skipCoach=page.getByLabel('Passer le mini-tour').last();
+            if(await skipCoach.isVisible().catch(()=>false)) {
+              await skipCoach.click({force:true});
+              await page.waitForTimeout(180);
+            }
+
+            await page.screenshot({path:'artifacts/dual-viewport/01-mobile-390x844-listen-idle.png',fullPage:true});
+
+            // Contrat visuel accueil 390x844 :
+            // - ouvrir « En savoir plus » ne doit déplacer ni le CTA ni les bulles ;
+            // - si Loki Pulse a des bulles pour ce compte, elles restent près des onglets ;
+            // - l'absence momentanée de recommandations ne doit pas faire échouer le layout.
+            {
+              const help=page.getByLabel('En savoir plus sur Loki Music').last();
+              const cta=page.getByLabel(/Trouver le morceau|Identifier un morceau/).last();
+              const rail=page.getByTestId('home-loki-pulse-track-bubbles').last();
+              await Promise.all([
+                help.waitFor({state:'visible',timeout:15000}),
+                cta.waitFor({state:'visible',timeout:15000}),
+              ]);
+              const railVisible=await rail.isVisible().catch(()=>false);
+              const beforeCta=await cta.boundingBox();
+              const beforeRail=railVisible ? await rail.boundingBox() : null;
+              await help.click({force:true});
+              await page.waitForTimeout(220);
+              const afterCta=await cta.boundingBox();
+              const afterRail=railVisible ? await rail.boundingBox() : null;
+              if(!beforeCta||!afterCta) throw new Error('Accueil: mesure CTA impossible');
+              if(Math.abs(beforeCta.y-afterCta.y)>3) throw new Error(`Accueil: IDENTIFIER bouge avec En savoir plus ${beforeCta.y} -> ${afterCta.y}`);
+              if(railVisible && beforeRail && afterRail){
+                if(Math.abs(beforeRail.y-afterRail.y)>3) throw new Error(`Accueil: bulles bougent avec En savoir plus ${beforeRail.y} -> ${afterRail.y}`);
+                const gap=afterRail.y-(afterCta.y+afterCta.height);
+                if(gap<12) throw new Error(`Accueil: espace CTA/bulles insuffisant (${gap}px)`);
+                const bottomTab=page.getByText('Loki Music',{exact:true}).last();
+                const tabBox=await bottomTab.boundingBox();
+                if(tabBox){
+                  const railBottom=afterRail.y+afterRail.height;
+                  const railToTabs=tabBox.y-railBottom;
+                  if(railToTabs>125) throw new Error(`Accueil: bulles trop hautes par rapport à la barre (${railToTabs}px)`);
+                }
+              }
+              await help.click({force:true});
+            }
+
+            // Même écran, même session, simplement redimensionné en ordinateur :
+            // la capture sert de référence directe Mobile ↔ Desktop.
+            await page.setViewportSize({width:1440,height:900});
+            await page.waitForTimeout(260);
+            await assertNoOverflow(page,'listen-idle-desktop-1440x900');
+            await page.screenshot({path:'artifacts/dual-viewport/01-desktop-1440x900-listen-idle.png',fullPage:true});
+            await page.setViewportSize({width:390,height:844});
+            await page.waitForTimeout(180);
+
+            // Tchat Loki : contrôle réel mini -> plein écran sur 390×844.
+            // Le plein écran doit être un vrai Modal, afficher la même liste
+            // de conversations, puis se fermer proprement avant de poursuivre.
+            const chatRobot=page.getByLabel(/Ouvrir le Tchat|Activer et ouvrir le Tchat/).last();
+            await chatRobot.waitFor({state:'visible',timeout:15000});
+            await clickRobust(page,chatRobot,'Open chat mini');
+            await page.getByTestId('loki-chat-mini').last().waitFor({state:'visible',timeout:15000});
+            const expandChat=page.getByLabel('Agrandir le tchat en plein écran').last();
+            await expandChat.waitFor({state:'visible',timeout:15000});
+            await clickRobust(page,expandChat,'Expand chat fullscreen');
+            const fullChat=page.getByTestId('loki-chat-fullscreen-modal').last();
+            await fullChat.waitFor({state:'visible',timeout:15000});
+            await page.getByLabel('Messagerie Loki plein écran').last().waitFor({state:'visible',timeout:15000});
+            await assertNoOverflow(page,'chat-fullscreen-390x844');
+            await page.screenshot({path:'artifacts/dual-viewport/01b-chat-fullscreen.png',fullPage:true});
+            await clickRobust(page,page.getByLabel('Fermer la messagerie').last(),'Close fullscreen chat');
+            await fullChat.waitFor({state:'hidden',timeout:15000});
+
+            const start=page.getByLabel(/Trouver le morceau|Identifier un morceau|Activer le micro|Démarrer une écoute/).last();
             await start.waitFor({state:'visible',timeout:15000});
-            await start.click();
+            await clickRobust(page,start,'Listen start');
             await page.getByText(/MICRO · (?:ANALYSE|ACTIF)/i).last().waitFor({state:'visible',timeout:15000});
-            const stop=page.getByText(/Terminer la session|Arrêter|End session/i).last();
+            const stop=page.getByLabel('Couper le micro').last();
             await stop.waitFor({state:'visible',timeout:15000});
             await page.screenshot({path:'artifacts/dual-viewport/02-listen-active.png',fullPage:true});
-            await stop.click();
+            await clickRobust(page,stop,'Listen stop');
             await start.waitFor({state:'visible',timeout:15000});
 
-            await page.getByText('Découvertes',{exact:true}).last().click();
+            await clickRobust(page,page.getByText('Découvertes',{exact:true}).last(),'Découvertes tab');
             await page.getByText('1 · DISTANCE',{exact:true}).last().waitFor({state:'visible',timeout:15000});
-            await page.getByText('Playlists',{exact:true}).last().click();
-            await page.getByText('Soirées',{exact:true}).last().click();
-            const openSalon=page.getByLabel('Ouvrir le Salon KEEP Battle').last();
-            await openSalon.waitFor({state:'visible',timeout:15000});
-            await openSalon.click();
-            await page.getByText('KEEP BATTLE',{exact:true}).last().waitFor({state:'visible',timeout:15000});
-            await page.getByText('10 secondes réelles d’écoute · 3 choix · aucun swipe',{exact:true}).last().waitFor({state:'visible',timeout:15000});
-            await page.getByText('JOUER SOLO',{exact:true}).last().waitFor({state:'visible',timeout:15000});
-            await page.getByText('BATTLE EN LIGNE',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+            await clickRobust(page,page.getByText('Playlists',{exact:true}).last(),'Playlists tab');
+            await clickRobust(page,page.getByText('Soirées',{exact:true}).last(),'Soirées tab');
+            // Le parcours validé ouvre désormais le vrai Battle directement :
+            // aucun onglet/lanceur "Salon musical" intermédiaire ne doit revenir.
+            const openBattle=page.getByLabel('Ouvrir directement Battle').last();
+            await openBattle.waitFor({state:'visible',timeout:15000});
+            await clickRobust(page,openBattle,'Open Battle directly');
+            // Le premier marqueur réellement rendu dans l'écran de configuration est FORMAT DU BATTLE.
+            await page.getByText('FORMAT DU BATTLE',{exact:true}).last().waitFor({state:'visible',timeout:20000});
+            await page.getByText('10 s / titre',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+            await page.getByLabel('Jouer en solo').last().waitFor({state:'visible',timeout:15000});
+            await page.getByLabel('Jouer en ligne').last().waitFor({state:'visible',timeout:15000});
             await assertNoOverflow(page,'battle-390x844');
             await page.screenshot({path:'artifacts/dual-viewport/03-battle-v3.png',fullPage:true});
-            await page.getByText('‹',{exact:true}).last().click();
+            await clickRobust(page,page.getByText('‹',{exact:true}).last(),'Close Battle');
             await page.getByText('Soirées',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+
+            await clickRobust(page,page.getByText('Profil',{exact:true}).last(),'Profil alignment check');
+            await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
+            await assertProfileFreeAligned(page);
+            await page.screenshot({path:'artifacts/dual-viewport/03b-profile-free-aligned.png',fullPage:true});
 
             await openEdit(page);
             await page.getByPlaceholder('tonpseudo').last().fill(USERNAME);
@@ -189,9 +406,9 @@ jobs:
             await page.getByPlaceholder('https://...').last().fill(WEBSITE);
 
             const cityInput=page.getByPlaceholder('Commence à saisir une ville').last();
-            const locate=page.getByText('⌖ Utiliser ma position',{exact:true}).last();
+            const locate=page.getByText('Utiliser ma position',{exact:true}).last();
             await locate.waitFor({state:'visible',timeout:15000});
-            await locate.click();
+            await clickRobust(page,locate,'Use my location');
             await page.waitForFunction((expected) => {
               const field=[...document.querySelectorAll('input,textarea')].find(el=>el.getAttribute('placeholder')==='Commence à saisir une ville');
               return Boolean(field && String(field.value || '')===expected);
@@ -200,45 +417,78 @@ jobs:
             await page.getByText('France',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await page.getByText(/Position trouvée/i).last().waitFor({state:'visible',timeout:15000});
 
-            await page.getByText('Choisir une date',{exact:true}).last().click();
-            await page.getByText('Date de naissance',{exact:true}).last().waitFor({state:'visible',timeout:15000});
-            await page.getByText('Valider la date',{exact:true}).last().click();
+            const birthDateSelector=page.getByLabel(/Date de naissance\s*:\s*/i).last();
+            await birthDateSelector.waitFor({state:'visible',timeout:15000});
+            // Flux modal : aucun Escape avant ouverture/validation. Le helper
+            // générique clickRobust ferme les modales et pouvait rendre ce
+            // test aléatoire sur 390×844.
+            await birthDateSelector.scrollIntoViewIfNeeded();
+            await birthDateSelector.click({force:true,timeout:5000});
+            const validateBirthDate=page.getByLabel('Valider la date de naissance').last();
+            await validateBirthDate.waitFor({state:'visible',timeout:15000});
+            // React Native Web rend ce bouton dans un portail Modal : à 390×844
+            // Playwright peut le déclarer "outside of the viewport" alors que
+            // le contrôle est bien rendu/visible. HTMLElement.click() déclenche
+            // le même onPress sans dépendre de la géométrie du portail.
+            await validateBirthDate.evaluate((el) => el.click());
             await page.getByText('1990-01-01',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await page.screenshot({path:'artifacts/dual-viewport/04-profile-location-date.png',fullPage:true});
 
             const save=page.getByText('Enregistrer sur cet appareil',{exact:true}).last();
             await save.waitFor({state:'visible',timeout:15000});
-            await save.click();
+            await clickRobust(page,save,'Save profile');
+            await page.getByText('✓ Profil enregistré',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+            await clickRobust(page,page.getByLabel('Retour au profil').last(),'Back to profile');
             await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
 
             await openEdit(page);
             await assertProfileForm(page);
-            await openAdvancedFromEdit(page);
+            await openPublicProfileSettings(page);
             const instagram=page.getByPlaceholder('Lien Instagram').last();
             await instagram.waitFor({state:'visible',timeout:15000});
             await instagram.fill(INSTAGRAM);
-            await page.getByLabel('Enregistrer Instagram').last().click();
+            await clickRobust(page,page.getByPlaceholder('Lien Instagram').last().locator('xpath=..').getByText('Enregistrer',{exact:true}),'Save Instagram');
             await page.getByText('Connecté au profil',{exact:true}).last().waitFor({state:'visible',timeout:15000});
-            await page.getByText('← Revenir aux Playlists',{exact:true}).last().click();
+            const backMenuAfterSocial=page.getByText('‹ Menu',{exact:true}).last();
+            if (await backMenuAfterSocial.isVisible().catch(()=>false)) {
+              await backMenuAfterSocial.click({force:true});
+              await page.waitForTimeout(120);
+            }
+            const closeMenuAfterSocial=page.getByText('Fermer',{exact:true}).last();
+            if (await closeMenuAfterSocial.isVisible().catch(()=>false)) {
+              await closeMenuAfterSocial.click({force:true});
+            }
+            await openEdit(page);
+            await clickRobust(page,page.getByText('← Revenir aux Playlists',{exact:true}).last(),'Return to Playlists');
             await page.getByText('Playlists',{exact:true}).last().waitFor({state:'visible',timeout:15000});
 
-            await page.reload({waitUntil:'networkidle',timeout:60000});
+            await page.reload({waitUntil:'domcontentloaded',timeout:60000});
             const tryFree=page.getByText('ESSAYER GRATUITEMENT',{exact:true}).last();
-            if(await tryFree.isVisible().catch(()=>false)) await tryFree.click();
+            if(await tryFree.isVisible().catch(()=>false)) await clickRobust(page,tryFree,'Guest trial after reload');
             await openEdit(page);
             await assertProfileForm(page);
-            await openAdvancedFromEdit(page);
+            await openPublicProfileSettings(page);
             const instagramReload=page.getByPlaceholder('Lien Instagram').last();
             await instagramReload.waitFor({state:'visible',timeout:15000});
             if(await instagramReload.inputValue()!==INSTAGRAM) throw new Error(`social not persisted: ${await instagramReload.inputValue()}`);
-            await page.getByText('← Revenir aux Playlists',{exact:true}).last().click();
+            const backMenuAfterReload=page.getByText('‹ Menu',{exact:true}).last();
+            if (await backMenuAfterReload.isVisible().catch(()=>false)) {
+              await backMenuAfterReload.click({force:true});
+              await page.waitForTimeout(120);
+            }
+            const closeMenuAfterReload=page.getByText('Fermer',{exact:true}).last();
+            if (await closeMenuAfterReload.isVisible().catch(()=>false)) {
+              await closeMenuAfterReload.click({force:true});
+            }
+            await openEdit(page);
+            await clickRobust(page,page.getByText('← Revenir aux Playlists',{exact:true}).last(),'Return to Playlists');
             await page.getByText('Playlists',{exact:true}).last().waitFor({state:'visible',timeout:15000});
 
             await assertNoOverflow(page,'mobile-390x844');
             if(pageErrors.length) throw new Error(`mobile page errors: ${pageErrors.join('\n')}`);
             await page.screenshot({path:'artifacts/dual-viewport/05-after-reload.png',fullPage:true});
 
-            report.push('mobile-390x844: PASS — listen/stop, discoveries, playlists, full-screen Battle V3, profile edit, GPS city+country, date, save, advanced settings, Instagram, playlists return, reload username+bio+website+city+country+date+social, no overflow');
+            report.push('mobile-390x844: PASS — chat mini→plein écran, listen/stop, discoveries, playlists, full-screen Battle V3, FREE aligned with profile type, profile edit, GPS city+country, date, save, profile menu social settings, Instagram, playlists return, reload username+bio+website+city+country+date+social, no overflow');
             fs.writeFileSync('artifacts/dual-viewport/report.txt',report.join('\n'));
             await context.close();
             await browser.close();

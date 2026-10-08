@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import Hint from '../components/Hint';
 import { supabase } from '../lib/supabaseClient';
 
 type FeatureFlagRow = {
@@ -58,11 +59,10 @@ export default function FeatureFlags() {
 
   return (
     <AdminLayout>
-      <div className="page-title">Feature Flags</div>
-      <div className="page-subtitle">Activation globale des fonctionnalités — Supabase réel</div>
+      <div className="page-title">Fonctions <Hint title="Fonctions" text={<>Activation globale des fonctionnalités — Supabase réel</>}/></div>
 
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
-      {!error && !loading && <div className="demo-banner">● MODE RÉEL — les changements sont persistés dans Supabase et tracés dans `audit_logs`.</div>}
+      {!error && !loading && <div className="demo-banner"><span className="real-pill">● Réel <Hint title="Mode réel" text="Les changements sont persistés dans Supabase et tracés dans `audit_logs`."/></span></div>}
       {loading && <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Chargement…</p>}
 
       {!loading && <table>

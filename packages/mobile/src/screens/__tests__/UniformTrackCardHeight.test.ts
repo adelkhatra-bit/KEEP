@@ -118,7 +118,7 @@ describe('Cartes de morceaux -- hauteur fixe + panneau dépliable (ProfilePublic
       expect(checkboxBlock).toContain('selectionCheck');
     });
 
-    it('"Donné par", Public/Privé, Supprimer and Vendre are passed as TrackActionRow children (the panel), never rendered outside it', () => {
+    it('"Donné par", Public/Privé and Supprimer stay in the panel while sale is represented only by the collection badge', () => {
       const rowIdx = myMusic.indexOf('<TrackActionRow');
       const closeIdx = myMusic.indexOf('</TrackActionRow>');
       expect(rowIdx).toBeGreaterThan(-1);
@@ -127,13 +127,15 @@ describe('Cartes de morceaux -- hauteur fixe + panneau dépliable (ProfilePublic
       expect(childrenBlock).toContain('trackSourceRow');
       expect(childrenBlock).toContain('visibilityTrackButton');
       expect(childrenBlock).toContain('deleteTrackButton');
-      expect(childrenBlock).toContain('sellTrackButton');
+      expect(childrenBlock).toContain("badge={offered ? { label: saleSelectionMode ? '◆ DÉJÀ PUBLIÉE' : `◆ Collection · ${offered.playlistName}`");
+      expect(childrenBlock).not.toContain('sellTrackButton');
     });
 
-    it('expandable is only true when there is a real local entry, and toggled through the same expandedTrackKeys state as before', () => {
+    it('keeps normal rows toggleable while management mode opens every real local row without removing the existing state', () => {
       expect(myMusic).toContain('const [expandedTrackKeys, setExpandedTrackKeys] = useState<Set<string>>(new Set());');
-      expect(myMusic).toContain('expandable={Boolean(localEntry)}');
-      expect(myMusic).toContain('onToggleExpand={() => toggleTrackExpanded(key)}');
+      expect(myMusic).toContain('expandable={!manageMusicMode && Boolean(localEntry)}');
+      expect(myMusic).toContain('expanded={manageMusicMode || expanded}');
+      expect(myMusic).toContain('onToggleExpand={manageMusicMode ? undefined : () => toggleTrackExpanded(key)}');
     });
   });
 });

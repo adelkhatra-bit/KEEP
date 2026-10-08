@@ -24,6 +24,9 @@
         "UIBackgroundModes": [
           "audio"
         ]
+      },
+      "entitlements": {
+        "aps-environment": "production"
       }
     },
     "android": {
@@ -39,7 +42,8 @@
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
-      ]
+      ],
+      "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -49,23 +53,9 @@
         "expo-build-properties",
         {
           "ios": {
-            "useFrameworks": "static"
+            "useFrameworks": "static",
+            "deploymentTarget": "15.1"
           }
-        }
-      ],
-      [
-        "expo-share-intent",
-        {
-          "iosShareExtensionName": "LokiShareExtension",
-          "iosHideView": true,
-          "iosActivationRules": {
-            "NSExtensionActivationSupportsWebURLWithMaxCount": 1,
-            "NSExtensionActivationSupportsWebPageWithMaxCount": 1,
-            "NSExtensionActivationSupportsText": true
-          },
-          "androidIntentFilters": [
-            "text/*"
-          ]
         }
       ],
       [
@@ -80,7 +70,14 @@
           "locationWhenInUsePermission": "Avec votre accord, Loki Music utilise votre position pour préremplir votre ville et votre pays et afficher les profils ou événements à proximité. Vous pouvez ensuite modifier ces informations manuellement."
         }
       ],
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "sounds": [
+            "./assets/keep_money.wav"
+          ]
+        }
+      ],
       "expo-localization",
       "expo-secure-store"
     ],

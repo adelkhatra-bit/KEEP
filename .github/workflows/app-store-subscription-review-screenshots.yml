@@ -1,0 +1,281 @@
+name: Loki Subscription Review Screenshots
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/app-store-subscription-review-screenshots.yml'
+
+concurrency:
+  group: loki-subscription-review-screenshots
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  review-shots:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: true
+      EXPO_PUBLIC_SUPABASE_URL: https://rrhqsqzcplvmwxizqnla.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru
+      EXPO_PUBLIC_DEMO_MODE: 'false'
+      EXPO_PUBLIC_KEEP_PREVIEW: '0'
+      EXPO_PUBLIC_KEEP_REAL_RECOGNITION: 'false'
+      EXPO_PUBLIC_API_URL: http://127.0.0.1:3010
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install chromium --with-deps
+
+      - name: Start Loki web runtime
+        working-directory: packages/mobile
+        run: |
+          node scripts/start-web.cjs --port 8081 --clear >/tmp/loki-sub-review.log 2>&1 &
+          for i in {1..120}; do
+            if grep -Fq '[KEEP WEB] READY http://localhost:8081' /tmp/loki-sub-review.log 2>/dev/null && curl -fsS http://127.0.0.1:8081 >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/loki-sub-review.log
+          exit 1
+
+      - name: Capture real subscription paywall
+        run: |
+          mkdir -p artifacts/subscription-review
+          cat > capture-subscriptions.cjs <<'JS'
+          const { chromium } = require('playwright');
+
+          async function enterGuest(page) {
+            const free=page.getByText('ESSAYER GRATUITEMENT',{exact:true}).last();
+            if(await free.isVisible().catch(()=>false)){
+              await free.click({force:true});
+              await page.waitForTimeout(1000);
+            }
+          }
+
+          async function closeCoach(page) {
+            const coach=page.getByLabel('Passer le mini-tour').last();
+            await coach.waitFor({state:'visible',timeout:3000}).catch(()=>{});
+            if(await coach.isVisible().catch(()=>false)){
+              await coach.click({force:true});
+              await coach.waitFor({state:'hidden',timeout:5000}).catch(()=>{});
+            }
+          }
+
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const context=await browser.newContext({
+              viewport:{width:428,height:926},
+              deviceScaleFactor:3,
+              locale:'fr-FR'
+            });
+            const page=await context.newPage();
+            page.on('dialog',d=>d.dismiss().catch(()=>{}));
+
+            await page.goto('http://127.0.0.1:8081/offers',{waitUntil:'domcontentloaded',timeout:60000});
+            await enterGuest(page);
+            await closeCoach(page);
+
+            if(!await page.getByText('Offre & crédits',{exact:true}).last().isVisible().catch(()=>false)){
+              await page.goto('http://127.0.0.1:8081/offers',{waitUntil:'domcontentloaded',timeout:60000});
+            }
+            await page.getByText('Offre & crédits',{exact:true}).last().waitFor({state:'visible',timeout:20000});
+            await page.waitForTimeout(1500);
+
+            const plans=[
+              ['PREMIUM','Premium'],
+              ['CREATOR_PRO','Creator Pro'],
+              ['VENUE_PRO','Venue Pro']
+            ];
+
+            for(const [code,label] of plans){
+              const plan=page.getByText(label,{exact:true}).last();
+              await plan.waitFor({state:'visible',timeout:20000});
+              await plan.evaluate(el=>el.scrollIntoView({block:'center',inline:'nearest'}));
+              await page.waitForTimeout(700);
+              await page.screenshot({
+                path:'artifacts/subscription-review/'+code+'.jpg',
+                type:'jpeg',
+                quality:94
+              });
+            }
+
+            console.log('Captured real Loki Offer & credits subscription cards.');
+            await context.close();
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          JS
+          node capture-subscriptions.cjs
+
+          python3 - <<'PY'
+          from pathlib import Path
+          def jpeg_size(raw):
+              if raw[:2] != b'\xff\xd8':
+                  raise SystemExit('Not JPEG')
+              i=2
+              sof={0xC0,0xC1,0xC2,0xC3,0xC5,0xC6,0xC7,0xC9,0xCA,0xCB,0xCD,0xCE,0xCF}
+              while i+9 < len(raw):
+                  if raw[i] != 0xFF:
+                      i+=1
+                      continue
+                  marker=raw[i+1]
+                  if marker in sof:
+                      h=int.from_bytes(raw[i+5:i+7],'big')
+                      w=int.from_bytes(raw[i+7:i+9],'big')
+                      return w,h
+                  if marker in (0xD8,0xD9):
+                      i+=2
+                      continue
+                  seg=int.from_bytes(raw[i+2:i+4],'big')
+                  i+=2+seg
+              raise SystemExit('JPEG dimensions not found')
+          for p in sorted(Path('artifacts/subscription-review').glob('*.jpg')):
+              size=jpeg_size(p.read_bytes())
+              print(p.name,size)
+              if size != (1284,2778):
+                  raise SystemExit(f'Wrong size {p}: {size}')
+          PY
+
+      - name: Upload subscription review screenshots to App Store Connect
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        run: |
+          node <<'NODE'
+          const fs=require('node:fs');
+          const path=require('node:path');
+          const crypto=require('node:crypto');
+
+          const required=['ASC_API_KEY_P8_BASE64','ASC_KEY_ID','ASC_ISSUER_ID','ASC_APP_ID'];
+          if(required.some(k=>!process.env[k]?.trim())) throw new Error('Missing App Store Connect configuration');
+
+          const key=Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(),'base64');
+          const enc=x=>Buffer.from(JSON.stringify(x)).toString('base64url');
+          const now=Math.floor(Date.now()/1000);
+          const unsigned=enc({alg:'ES256',kid:process.env.ASC_KEY_ID.trim(),typ:'JWT'})+'.'+
+            enc({iss:process.env.ASC_ISSUER_ID.trim(),iat:now-30,exp:now+900,aud:'appstoreconnect-v1'});
+          const token=unsigned+'.'+crypto.sign('sha256',Buffer.from(unsigned),{key,dsaEncoding:'ieee-p1363'}).toString('base64url');
+
+          async function api(p,{method='GET',body,allow404=false}={}){
+            const res=await fetch('https://api.appstoreconnect.apple.com'+p,{
+              method,
+              headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+              body:body?JSON.stringify(body):undefined
+            });
+            if(allow404&&res.status===404)return null;
+            const txt=await res.text();
+            if(!res.ok)throw new Error(method+' '+p+' HTTP '+res.status+' '+txt.slice(0,1000));
+            return txt?JSON.parse(txt):null;
+          }
+
+          async function uploadBinary(operation,buffer){
+            const headers={};
+            for(const h of operation.requestHeaders||[])headers[h.name]=h.value;
+            const chunk=buffer.subarray(operation.offset,operation.offset+operation.length);
+            const res=await fetch(operation.url,{method:operation.method||'PUT',headers,body:chunk});
+            if(!res.ok)throw new Error('Apple asset PUT failed HTTP '+res.status);
+          }
+
+          async function waitComplete(subscriptionId){
+            let last='UNKNOWN';
+            for(let i=0;i<45;i++){
+              const rel=await api('/v1/subscriptions/'+subscriptionId+
+                '/appStoreReviewScreenshot?fields[subscriptionAppStoreReviewScreenshots]=fileName,assetDeliveryState',
+                {allow404:true});
+              if(!rel?.data){
+                await new Promise(r=>setTimeout(r,2000));
+                continue;
+              }
+              const state=rel.data.attributes?.assetDeliveryState?.state||'UNKNOWN';
+              last=state;
+              if(['COMPLETE','UPLOAD_COMPLETE'].includes(state)) return {id:rel.data.id,state};
+              if(state==='FAILED'){
+                throw new Error('Subscription screenshot failed: '+JSON.stringify(rel.data.attributes?.assetDeliveryState?.errors||[]));
+              }
+              await new Promise(r=>setTimeout(r,2000));
+            }
+            throw new Error('Subscription screenshot did not complete, last state '+last);
+          }
+
+          (async()=>{
+            const appId=process.env.ASC_APP_ID.trim();
+            const groups=await api('/v1/apps/'+appId+
+              '/subscriptionGroups?include=subscriptions&fields[subscriptionGroups]=subscriptions&fields[subscriptions]=name,productId,state&limit=200&limit[subscriptions]=50');
+            const subs=(groups.included||[]).filter(x=>x.type==='subscriptions');
+            const fileByProduct={
+              'com.adelkhatra.keep.premium.monthly':'PREMIUM.jpg',
+              'com.adelkhatra.keep.creatorpro.monthly':'CREATOR_PRO.jpg',
+              'com.adelkhatra.keep.venuepro.monthly':'VENUE_PRO.jpg'
+            };
+
+            for(const sub of subs){
+              const productId=sub.attributes?.productId;
+              const fileName=fileByProduct[productId];
+              if(!fileName) continue;
+              const file=path.join('artifacts/subscription-review',fileName);
+              const buffer=fs.readFileSync(file);
+
+              const existing=await api('/v1/subscriptions/'+sub.id+
+                '/appStoreReviewScreenshot?fields[subscriptionAppStoreReviewScreenshots]=fileName,assetDeliveryState',
+                {allow404:true});
+              if(existing?.data){
+                await api('/v1/subscriptionAppStoreReviewScreenshots/'+existing.data.id,{method:'DELETE'});
+                console.log('Removed previous review screenshot for',productId);
+              }
+
+              const reservation=await api('/v1/subscriptionAppStoreReviewScreenshots',{
+                method:'POST',
+                body:{data:{
+                  type:'subscriptionAppStoreReviewScreenshots',
+                  attributes:{fileName,fileSize:buffer.length},
+                  relationships:{subscription:{data:{type:'subscriptions',id:sub.id}}}
+                }}
+              });
+              const shot=reservation.data;
+              for(const op of shot.attributes?.uploadOperations||[]) await uploadBinary(op,buffer);
+              const md5=crypto.createHash('md5').update(buffer).digest('hex');
+              await api('/v1/subscriptionAppStoreReviewScreenshots/'+shot.id,{
+                method:'PATCH',
+                body:{data:{
+                  type:'subscriptionAppStoreReviewScreenshots',
+                  id:shot.id,
+                  attributes:{uploaded:true,sourceFileChecksum:md5}
+                }}
+              });
+              const done=await waitComplete(sub.id);
+              console.log(productId,'review screenshot:',done.state);
+            }
+
+            const verify=await api('/v1/apps/'+appId+
+              '/subscriptionGroups?include=subscriptions&fields[subscriptionGroups]=subscriptions&fields[subscriptions]=productId,state,reviewNote&limit=200&limit[subscriptions]=50');
+            for(const sub of (verify.included||[]).filter(x=>x.type==='subscriptions')){
+              if(fileByProduct[sub.attributes?.productId]){
+                console.log(sub.attributes.productId,'state after screenshot:',sub.attributes?.state,
+                  'review note:',Boolean(sub.attributes?.reviewNote?.trim()));
+              }
+            }
+          })().catch(e=>{console.error(e.message||String(e));process.exit(1)});
+          NODE
+
+      - name: Upload review screenshot pack
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: loki-subscription-review-${{ github.run_id }}
+          path: artifacts/subscription-review/*.jpg
+          if-no-files-found: error
+          retention-days: 14

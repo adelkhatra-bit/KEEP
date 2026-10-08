@@ -1,5 +1,8 @@
 import React from 'react';
-import { Platform, Text } from 'react-native';
+import { isWebShareVisit, webShareVisitUsername } from '../services/webShareVisitor';
+import { useUserStore } from '../store/useUserStore';
+import { useAccountGateStore } from '../store/useAccountGateStore';
+import { Platform, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NavigationContainer, getStateFromPath } from '@react-navigation/native';
 import { navigationRef } from './navigationRef';
@@ -21,6 +24,8 @@ import MusicConnectionsScreen from '../screens/MusicConnectionsScreen';
 import OffersScreen from '../screens/OffersScreen';
 import PlaylistSalePanel from '../components/PlaylistSalePanel';
 import PlaylistSaleHistoryScreen from '../screens/PlaylistSaleHistoryScreen';
+import { useGameSessionStore } from '../store/useGameSessionStore';
+import { confirmLeaveGame } from '../services/gameExitGuard';
 
 const Tab = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator();
@@ -108,6 +113,15 @@ function MainTabs() {
   return (
     <Tab.Navigator
       initialRouteName="Listen"
+      // Adel (29/09/2026) : toucher un autre onglet pendant un Solo en cours
+      // -> popup « Quitter la partie ? » (la partie est déjà décomptée).
+      screenListeners={({ navigation, route }) => ({
+        tabPress: (e) => {
+          if (!useGameSessionStore.getState().isGameInProgress || route.name === 'Parties') return;
+          e.preventDefault();
+          confirmLeaveGame(() => navigation.navigate(route.name));
+        },
+      })}
       screenOptions={{
         tabBarActiveTintColor: TAB.active,
         tabBarInactiveTintColor: TAB.inactive,
@@ -128,7 +142,7 @@ function MainTabs() {
         name="Listen"
         component={HomeScreenCompact}
         options={{
-          tabBarLabel: 'Écouter',
+          tabBarLabel: 'Loki Music',
           tabBarIcon: ({ color }) => <TabIcon icon="◉" color={color} />,
         }}
       />
@@ -140,9 +154,78 @@ function MainTabs() {
   );
 }
 
+const TAB_ITEMS: Array<{ name: string; label: string; icon: string }> = [
+  { name: 'Listen', label: 'Loki Music', icon: '◉' },
+  { name: 'Discover', label: 'Découvertes', icon: '♫' },
+  { name: 'MyMusic', label: 'Playlists', icon: '☷' },
+  { name: 'Parties', label: 'Soirées', icon: '♬' },
+  { name: 'Profile', label: 'Profil', icon: '◯' },
+];
+
+/**
+ * Barre des 5 onglets TOUJOURS visible (Adel, 05/10/2026 : « la barre de tâche est visible tout le temps, très important »).
+ * Les écrans empilés hors des onglets (Mes sessions, Notifications, Offres, Réglages, profil d'un membre…) cachaient la barre ;
+ * on la remet sous eux, identique à celle des onglets, et un appui revient à l'onglet choisi (garde « Quitter la partie ? » comprise).
+ */
+function PersistentTabBar() {
+  const insets = useSafeAreaInsets();
+  const [rootRoute, setRootRoute] = React.useState<string>('Main');
+  React.useEffect(() => {
+    const read = () => setRootRoute(navigationRef.isReady() ? (navigationRef.getRootState()?.routes?.[navigationRef.getRootState().index ?? 0]?.name ?? 'Main') : 'Main');
+    read();
+    const unsubscribe = navigationRef.addListener('state', read);
+    const readyTimer = setTimeout(read, 400);
+    return () => { unsubscribe(); clearTimeout(readyTimer); };
+  }, []);
+  if (rootRoute === 'Main') return null;
+  return (
+    <View
+      testID="persistent-tab-bar"
+      style={{ flexDirection: 'row', backgroundColor: TAB.bg, borderTopColor: TAB.border, borderTopWidth: 1, height: 60 + insets.bottom, paddingBottom: 8 + insets.bottom, paddingTop: 7 }}
+    >
+      {TAB_ITEMS.map((item) => (
+        <TouchableOpacity
+          key={item.name}
+          style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+          accessibilityRole="button"
+          accessibilityLabel={`Aller à l’onglet ${item.label}`}
+          testID={`persistent-tab-${item.name}`}
+          onPress={() => {
+            if (!navigationRef.isReady()) return;
+            // Visiteur web d'un lien partagé : même barre que connecté, mais les onglets demandent un compte (fonction bloquée).
+            if (isWebShareVisit() && useUserStore.getState().isLocalGuest) { useAccountGateStore.getState().requestAccount('create', webShareVisitUsername()); return; }
+            const go = () => (navigationRef.navigate as any)('Main', { screen: item.name });
+            if (useGameSessionStore.getState().isGameInProgress && item.name !== 'Parties') confirmLeaveGame(go);
+            else go();
+          }}
+        >
+          <TabIcon icon={item.icon} color={TAB.inactive} />
+          <Text style={{ fontSize: 10, fontWeight: '700', color: TAB.inactive }}>{item.label}</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
+// Visiteur web d'un lien partagé (invité) : il voit le profil partagé « comme connecté », mais tout autre écran est une
+// fonction bloquée : on le ramène sur le profil et on propose de créer un compte (Adel, 06/10/2026).
+function guardWebShareVisitor(state: any) {
+  if (!isWebShareVisit() || !useUserStore.getState().isLocalGuest) return;
+  const route = state?.routes?.[state?.index ?? 0];
+  if (!route || route.name === 'PublicProfile') return;
+  const username = webShareVisitUsername();
+  setTimeout(() => {
+    if (!navigationRef.isReady()) return;
+    (navigationRef.navigate as any)('PublicProfile', { username });
+    useAccountGateStore.getState().requestAccount('create', username);
+  }, 0);
+}
+
 export default function Navigation() {
   return (
-    <NavigationContainer ref={navigationRef} linking={linking}>
+    <NavigationContainer ref={navigationRef} linking={linking} onStateChange={guardWebShareVisitor}>
+      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1 }}>
       <RootStack.Navigator initialRouteName="Main" screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="Main" component={MainTabs} />
         <RootStack.Screen name="SessionRecap" component={SessionRecapScreen} />
@@ -156,6 +239,9 @@ export default function Navigation() {
         <RootStack.Screen name="AppleMusicConnect" component={AppleMusicConnectScreen} />
         <RootStack.Screen name="MusicConnections" component={MusicConnectionsScreen} />
       </RootStack.Navigator>
+      </View>
+      <PersistentTabBar />
+      </View>
     </NavigationContainer>
   );
 }
