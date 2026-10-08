@@ -34,10 +34,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-10-08T03:37:00.722Z
+- Régénéré le : 2026-10-08T03:37:53.637Z
 - Branche : `copilot/reconcile-claude-main-20260825`
-- Dernier commit : `d6dfca9` (d6dfca99d518284e8413e7281ffba446964a077d) — Ajouter la santé serveur dédupliquée et le triage groupé Super Admin
-- Date du dernier commit : 2026-10-08T03:30:09Z
+- Dernier commit : `74740fd` (74740fd99a2e76cc09942b22672d6226e277514b) — Exiger une livraison confirmée post-échec pour rétablir les files
+- Date du dernier commit : 2026-10-08T03:37:14Z
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -124,6 +124,7 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
+- `74740fd` (2026-10-08, copilot-swe-agent[bot]) — Exiger une livraison confirmée post-échec pour rétablir les files
 - `d6dfca9` (2026-10-08, copilot-swe-agent[bot]) — Ajouter la santé serveur dédupliquée et le triage groupé Super Admin
 - `8f85603` (2026-10-08, copilot-swe-agent[bot]) — Initial plan
 - `fa193cc` (2026-10-08, adelkhatra-bit) — ci: repare les 2 robots (Human Guardian + diagnostic tchat)
@@ -146,7 +147,7 @@ agent) et messages des sessions de chat (non versionnés).
 ## 4. Points ouverts
 
 - **08/10/2026 — issue #57, revue Copilot** : Santé serveur et triage groupé ajoutés sans autre runtime/table. Tests SQL isolés, admin typecheck/export et navigateur fixtures 390/1440 ; migrations santé/groupes NON APPLIQUÉES, fonction santé NON DÉPLOYÉE. Valeurs de production de l’issue non revérifiées sans accès Supabase authentifié. Intégration et contrôle réel des alertes Brevo restent nécessaires ; rapport et captures : `docs/SUPERADMIN_AUDIT.md`.
-- Revue #57 : premier SHA distant confirmé `d6dfca99d518284e8413e7281ffba446964a077d` ; garde des rétablissements des files renforcé, 11/11 tests serveur. Nouvelle analyse CodeQL après correction du mock Apple ; revue automatique indisponible remplacée par une revue indépendante.
+- Revue #57 : premier SHA distant confirmé `d6dfca99d518284e8413e7281ffba446964a077d` ; garde des rétablissements des files renforcé, 11/11 tests serveur. CodeQL relancé après correction du mock Apple mais analyse ignorée par le moteur (« aucun changement ») ; revue automatique indisponible remplacée par une revue indépendante puis seconde relecture sans bug restant identifié.
 
 - **07/10/2026 — IDEA-189, LOCAL_ONLY** : tableau versions/preuves dans Opérations existant, SHA/test obligatoires pour les nouveaux « Corrigé », compteurs exacts avec erreurs honnêtes, actionlint épinglé et synthèse GitHub lecture seule. Typechecks admin/mobile, build admin, 1377 tests mobile, PostgreSQL isolé et navigateur fixtures 390/1440 réussis. Migration `/home/runner/work/KEEP/KEEP/supabase/migrations/20261006235000_problem_report_evidence.sql` non appliquée ; intégration/CI/livraison restent à faire par le parent, sans PASS global. Actionlint global hérité rouge, version publique DNS indisponible, TestFlight inconnu. Détails dans `/home/runner/work/KEEP/KEEP/.context/activeContext.md` et `/home/runner/work/KEEP/KEEP/AGENT_MESSAGES.md`.
 
