@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import AdminLayout from '../components/AdminLayout';
 import Hint from '../components/Hint';
 import { supabase } from '../lib/supabaseClient';
@@ -274,9 +275,9 @@ export default function Operations() {
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.55, marginBottom: 12 }}>
           La recherche et la fiche complète d’un utilisateur (plan, actions, numéro support) vivent dans « Utilisateurs », pour ne pas avoir deux annuaires à maintenir.
         </p>
-        <a href="/users" style={{ display: 'inline-block', padding: '10px 14px', borderRadius: 8, background: 'var(--primary)', color: '#fff', textDecoration: 'none', fontWeight: 800 }}>
+        <Link href="/users" style={{ display: 'inline-block', padding: '10px 14px', borderRadius: 8, background: 'var(--primary)', color: '#fff', textDecoration: 'none', fontWeight: 800 }}>
           Ouvrir « Utilisateurs »
-        </a>
+        </Link>
       </div>
     </AdminLayout>
   );

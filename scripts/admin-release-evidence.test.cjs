@@ -83,3 +83,10 @@ test('UI et RPC restent dans admin existant, pas export des messages privés', (
   assert.match(reports, /admin_problem_reports_with_evidence/);
   assert.doesNotMatch(reports, /onClick=\{\(\) => void setStatus\(r\.id, 'FIXED'\)/);
 });
+
+test('le raccourci Utilisateurs conserve le basePath via le routeur Next', () => {
+  const operations = fs.readFileSync(path.join(root, 'packages/admin/pages/operations.tsx'), 'utf8');
+  assert.match(operations, /import Link from 'next\/link'/);
+  assert.match(operations, /<Link href="\/users"/);
+  assert.doesNotMatch(operations, /<a href="\/users"/);
+});

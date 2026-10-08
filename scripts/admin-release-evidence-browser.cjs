@@ -82,6 +82,15 @@ async function scenario(browser, width, height) {
   assert.match(await evidence.innerText(), /Preuve incomplète/);
   assert.match(await evidence.innerText(), /SHA du site · test à vérifier/);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `Débordement operations ${width}`);
+  const usersLink = page.getByRole('link', { name: 'Ouvrir « Utilisateurs »', exact: true });
+  assert.equal(await usersLink.getAttribute('href'), `${url.pathname}/users/`);
+  await usersLink.click();
+  await page.waitForURL(`${base}/users/`);
+  const usersResponse = await page.reload();
+  assert.equal(usersResponse.status(), 200, 'Utilisateurs accessible après clic et reload sous le basePath');
+  await page.goto(`${base}/operations/`);
+  await evidence.waitFor();
+  await page.waitForFunction(() => document.querySelector('section[aria-label="Versions et preuves"]')?.textContent.includes('aaaaaaaa'));
   await evidence.getByText('En savoir plus', { exact: true }).click();
   assert.match(await evidence.innerText(), /pas une version installée partout/);
   await page.reload();
