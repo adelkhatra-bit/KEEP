@@ -140,8 +140,10 @@ async function loadLokiPulseUncoalesced(limit = 36, profileId?: string): Promise
       const retry = await supabase.rpc('keep_loki_pulse', { p_limit: safeLimit });
       if (!retry.error) {
         const refreshed = mergeTasteRecommendations(normalizePulseRows(retry.data), await loadTasteRecommendations(), safeLimit);
-        if (profileId && refreshed.length) await writePulseCache(profileId, refreshed);
-        return refreshed;
+        if (refreshed.length) {
+          if (profileId) await writePulseCache(profileId, refreshed);
+          return refreshed;
+        }
       }
     } catch {
       // Provider expansion is additive; a temporary provider failure must not
