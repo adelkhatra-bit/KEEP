@@ -19,6 +19,57 @@ function load(file, requireFn = require) {
 const api = load(shared);
 const secrets = async (key) => key === 'ACRCLOUD_HOST' ? 'identify-eu-west-1.acrcloud.com' : 'fixture-only';
 
+test('messages Super Admin en français, codes techniques séparés et réponses fournisseur privées', async () => {
+  const original = global.fetch;
+  const cases = [
+    ['validateBrevoApiKey', 200, {}, true, 'ACTIVE', 'BREVO_HTTP_200', 'Clé Brevo vérifiée par le fournisseur.'],
+    ['validateBrevoApiKey', 401, {}, false, 'ERROR', 'BREVO_HTTP_401', "Brevo refuse cette clé API. Rien n'a été enregistré."],
+    ['validateBrevoApiKey', 403, {}, false, 'ERROR', 'BREVO_HTTP_403', "Brevo refuse cette clé API. Rien n'a été enregistré."],
+    ['validateBrevoApiKey', 503, {}, false, 'ERROR', 'BREVO_HTTP_503', "Brevo n'a pas confirmé la clé. Rien n'a été enregistré."],
+    ['validateYouTubeApiKey', 200, {}, true, 'ACTIVE', 'YOUTUBE_HTTP_200', 'Clé YouTube Data API vérifiée.'],
+    ...['quotaExceeded', 'dailyLimitExceeded', 'rateLimitExceeded'].map(reason =>
+      ['validateYouTubeApiKey', 403, { error: { errors: [{ reason }] } }, true, 'EXHAUSTED', 'YOUTUBE_QUOTA_EXHAUSTED',
+        'Clé YouTube reconnue, mais quota fournisseur épuisé ou limité.']),
+    ...['accessNotConfigured', 'serviceDisabled'].map(reason =>
+      ['validateYouTubeApiKey', 403, { error: { errors: [{ reason }] } }, true, 'ERROR', 'YOUTUBE_HTTP_403',
+        "Clé Google reconnue, mais YouTube Data API n'est pas activée sur ce projet."]),
+    ['validateYouTubeApiKey', 403, {}, false, 'ERROR', 'YOUTUBE_HTTP_403', "YouTube refuse cette clé. Rien n'a été enregistré."],
+    ...[0, 1001, 2004].map(code =>
+      ['validateAcrCloudCredentials', 200, { status: { code } }, true, 'ACTIVE', `ACRCLOUD_HTTP_200_CODE_${code}`,
+        'Identifiants ACRCloud vérifiés par le fournisseur.']),
+    ...[3003, 3015].map(code =>
+      ['validateAcrCloudCredentials', 200, { status: { code } }, true, 'EXHAUSTED', `ACRCLOUD_HTTP_200_CODE_${code}`,
+        'Identifiants ACRCloud reconnus, mais quota fournisseur épuisé ou limité.']),
+    ['validateAcrCloudCredentials', 401, { status: { code: 3000 } }, false, 'ERROR', 'ACRCLOUD_HTTP_401_CODE_3000',
+      "ACRCloud n'a pas validé ces identifiants. Vérifie l'hôte, la clé et le secret."],
+    ['validateAcrCloudCredentials', 503, {}, false, 'ERROR', 'ACRCLOUD_HTTP_503_CODE_-1',
+      "ACRCloud n'a pas validé ces identifiants. Vérifie l'hôte, la clé et le secret."],
+  ];
+  const checkMessage = result => {
+    assert.doesNotMatch(result.message, /^[A-Z][A-Z0-9_]+(?:\b|_)/, result.message);
+    assert.doesNotMatch(result.message, /fixture-only/);
+    assert.match(result.code, /^[A-Z][A-Z0-9_-]+$/);
+  };
+  try {
+    for (const [name, http, body, valid, status, code, message] of cases) {
+      global.fetch = async () => new Response(JSON.stringify({ ...body, message: 'fixture-only' }), { status: http });
+      const result = name === 'validateAcrCloudCredentials'
+        ? await api[name]('identify-eu-west-1.acrcloud.com', 'fixture-only', 'fixture-only')
+        : await api[name]('fixture-only');
+      checkMessage(result);
+      assert.deepEqual({ valid: result.valid, status: result.status, code: result.code, message: result.message },
+        { valid, status, code, message });
+      if (name === 'validateAcrCloudCredentials') assert.equal(result.providerCode, body.status?.code ?? -1);
+    }
+    global.fetch = async () => { throw new Error('An invalid host must not be requested'); };
+    const invalid = await api.validateAcrCloudCredentials('127.0.0.1', 'fixture-only', 'fixture-only');
+    checkMessage(invalid);
+    assert.equal(invalid.code, 'ACRCLOUD_INVALID_HOST');
+    assert.equal(invalid.valid, false);
+    assert.equal(invalid.status, 'ERROR');
+  } finally { global.fetch = original; }
+});
+
 test('typecheck strict Edge : dépendances npm réelles, déclarations runtime Deno minimales', () => {
   const options = { noEmit: true, strict: true, target: ts.ScriptTarget.ES2022,
     module: ts.ModuleKind.ESNext, moduleResolution: ts.ModuleResolutionKind.Bundler,

@@ -2687,3 +2687,10 @@ Issue #57 prête en revue : 9 tests santé serveur, 7 tests SQL signalements, 13
 ## [2026-10-08T03:37:53.594Z] codex
 
 Clôture issue #57 : 11 tests santé, 7 SQL groupes et 13 UI réussis ; export et Chromium fixtures 390/1440. Revue indépendante et relecture correctifs sans bug restant identifié. Secrets propres ; CodeQL relancé mais analyse ignorée par le moteur, revue intégrée indisponible. Production non revérifiée, migrations/fonction non déployées. Rapport docs/SUPERADMIN_AUDIT.md.
+## [2026-10-08T10:41:50.412Z] codex
+
+PR #58 commentaire 6058058365 : restaurer les diagnostics fournisseurs en français, codes séparés, tests ciblés ; CI PR action_required sans jobs, échec tchat canonique préexistant hors périmètre. Aucun déploiement.
+
+## [2026-10-08T10:44:24.710Z] codex
+
+PR #58 commentaire 6058058365 corrigé : messages français + code séparé ; 12/12 Santé avec typecheck Edge, contrat produit réussi, revue ciblée sans bug certain. CI action_required sans jobs ; garde source refuse base distante 639f499 non intégrée. Aucun contournement, fusion supplémentaire ni déploiement. Rapport docs/SUPERADMIN_AUDIT.md.

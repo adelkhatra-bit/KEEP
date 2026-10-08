@@ -34,10 +34,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-10-08T03:37:53.637Z
+- Régénéré le : 2026-10-08T10:44:24.756Z
 - Branche : `copilot/reconcile-claude-main-20260825`
-- Dernier commit : `74740fd` (74740fd99a2e76cc09942b22672d6226e277514b) — Exiger une livraison confirmée post-échec pour rétablir les files
-- Date du dernier commit : 2026-10-08T03:37:14Z
+- Dernier commit : `a74263e` (a74263eb6f8ad93385bb4aa407a95484f3ae2fe5) — Consigner les preuves de revue et les limites de validation #57
+- Date du dernier commit : 2026-10-08T03:38:15Z
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -124,10 +124,12 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
+- `a74263e` (2026-10-08, copilot-swe-agent[bot]) — Consigner les preuves de revue et les limites de validation #57
 - `74740fd` (2026-10-08, copilot-swe-agent[bot]) — Exiger une livraison confirmée post-échec pour rétablir les files
 - `d6dfca9` (2026-10-08, copilot-swe-agent[bot]) — Ajouter la santé serveur dédupliquée et le triage groupé Super Admin
 - `8f85603` (2026-10-08, copilot-swe-agent[bot]) — Initial plan
 - `fa193cc` (2026-10-08, adelkhatra-bit) — ci: repare les 2 robots (Human Guardian + diagnostic tchat)
+- `4848381` (2026-10-08, adelkhatra-bit) — db: miroir des migrations deja en prod (gouts, tests, tableau de bord, vues story 24 h)
 <!-- AUTO:RECENT-COMMITS:END -->
 
 Détail complet de chaque mission : `AGENT_MESSAGES.md` (journal narratif par
@@ -145,6 +147,8 @@ agent) et messages des sessions de chat (non versionnés).
 - Les builds iOS utilisent `--freeze-credentials` pour empêcher EAS d'essayer de réparer/créer des credentials pendant un job non interactif.
 
 ## 4. Points ouverts
+
+- **08/10/2026 — PR #58, commentaire 6058058365** : messages français avec champ `code` séparé ; Santé 12/12 avec typecheck Edge et contrat produit réussis. CI revue `action_required` sans jobs ; garde source bloqué car base avancée à `639f499` non intégrée. Autorisation Actions et synchronisation de revue nécessaires avant fusion ; aucun PASS CI ni déploiement.
 
 - **08/10/2026 — issue #57, revue Copilot** : Santé serveur et triage groupé ajoutés sans autre runtime/table. Tests SQL isolés, admin typecheck/export et navigateur fixtures 390/1440 ; migrations santé/groupes NON APPLIQUÉES, fonction santé NON DÉPLOYÉE. Valeurs de production de l’issue non revérifiées sans accès Supabase authentifié. Intégration et contrôle réel des alertes Brevo restent nécessaires ; rapport et captures : `docs/SUPERADMIN_AUDIT.md`.
 - Revue #57 : premier SHA distant confirmé `d6dfca99d518284e8413e7281ffba446964a077d` ; garde des rétablissements des files renforcé, 11/11 tests serveur. CodeQL relancé après correction du mock Apple mais analyse ignorée par le moteur (« aucun changement ») ; revue automatique indisponible remplacée par une revue indépendante puis seconde relecture sans bug restant identifié.

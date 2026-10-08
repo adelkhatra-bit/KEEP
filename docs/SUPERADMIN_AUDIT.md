@@ -2,6 +2,12 @@
 
 ## Issue #57 — rapport de validation du 08/10/2026
 
+### Relecture PR #58 — commentaire 6058058365
+- Validateurs Brevo/YouTube/ACRCloud : phrases françaises contrôlées dans `message`, diagnostic technique dans `code` ; décisions `valid`/`status` et `providerCode` conservés. Aucun corps fournisseur recopié dans les messages.
+- `node --test scripts/system-health.test.cjs` : **12/12 réussis**, dont matrice succès/refus/quota/API désactivée/hôte invalide et typecheck Edge strict. PostgreSQL local démarré après le premier essai qui échouait faute de socket ; aucun accès production. `node scripts/verify-product-contract.cjs` réussi ; revue ciblée sans bug certain.
+- CI distante : [CodeQL PR 37723029001](https://github.com/adelkhatra-bit/KEEP/actions/runs/37723029001) et les autres contrôles de la revue sont `action_required`, sans jobs ni logs d’échec. Une autorisation GitHub est nécessaire ; aucun PASS CI revendiqué. Échec tchat mobile canonique préexistant : run 37711629482, hors correctif.
+- `verify-source-of-truth` refuse maintenant la revue périmée : base distante récupérée `639f499db992d6d01fcaff1282d56eee04760e20` non ancêtre du HEAD de revue. Garde inchangé ; synchronisation de la revue à effectuer avant fusion, pas de fusion supplémentaire dans ce correctif ciblé.
+
 **TEST MODE RÉEL production : NON EXÉCUTÉ dans cette session.** Aucun connecteur/accès Supabase authentifié disponible dans ce clone. Les nombres ci-dessous sont les valeurs de production fournies dans l’issue, pas une nouvelle mesure. Aucune écriture, migration ni fonction déployée en production ; aucune réception d’e-mail admin revendiquée.
 
 | Source : issue #57, 08/10 vers 05 h | Valeur fournie |

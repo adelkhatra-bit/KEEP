@@ -189,7 +189,7 @@ async function validateMusicApiClientId(value: string) {
   }
 }
 
-type GenericIntegrationValidation = { valid: boolean; status: "ACTIVE" | "EXHAUSTED" | "ERROR"; message: string };
+type GenericIntegrationValidation = { valid: boolean; status: "ACTIVE" | "EXHAUSTED" | "ERROR"; message: string; code?: string };
 
 function validateStructuredIntegrationValue(key: string, value: string): GenericIntegrationValidation | null {
   const clean = value.trim();
@@ -296,7 +296,7 @@ async function validatePipedreamCredentials(clientId: string, clientSecret: stri
   }
 }
 
-type AcrCloudValidation = { valid: boolean; status: "ACTIVE" | "EXHAUSTED" | "ERROR"; message: string; providerCode?: number };
+type AcrCloudValidation = { valid: boolean; status: "ACTIVE" | "EXHAUSTED" | "ERROR"; message: string; code?: string; providerCode?: number };
 
 function normalizeAcrCloudHost(value: string) {
   return value.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/+$/, "");

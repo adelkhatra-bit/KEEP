@@ -1,5 +1,9 @@
 # KEEP — Contexte actif
 
+## PR #58 — commentaire 6058058365, 08/10/2026
+- Messages Brevo/YouTube/ACRCloud remis en français, code séparé ; aucune modification UI, schéma, authentification ou décision de validation. Suite Santé 12/12, typecheck Edge et contrat produit réussis ; revue ciblée sans bug certain.
+- CI de revue `action_required` sans jobs (CodeQL 37723029001) ; base canonique avancée à `639f499`, garde source refuse la revue périmée. Aucun contournement ni fusion supplémentaire ; autorisation Actions et synchronisation nécessaires avant CI verte/fusion. Aucun déploiement.
+
 ## IDEA-189 — versions / preuves / contrôles (07/10/2026, LOCAL_ONLY)
 - Branche de revue conservée, HEAD `08a116e7`, base canonique `0138b4e5f93e8271735857fe3f9b885802e6ee61` confirmée après fetch + approfondissement de l’historique superficiel. Aucun commit/push/deploiement/report_progress ni écriture production. Aucun changement mobile App/Navigation/Stories, dépendances du dépôt inchangées.
 - `/home/runner/work/KEEP/KEEP/packages/admin/pages/operations.tsx` étendu par `/home/runner/work/KEEP/KEEP/packages/admin/components/ReleaseEvidence.tsx` : version.json canonique observé, dernière app native signalée, compteurs exacts ou indisponibles, correctifs bornés à 100 avec liens SHA/test et registre existant. Aucun export public de signalements. Les compteurs push existants ne retombent plus à zéro sur erreur.

@@ -15,6 +15,7 @@ Rapport d'audit externe : `docs/AUDIT_EXTERNE_2026-10-06.md`. Notifications : `d
 ## Journal (récent d'abord)
 | Date | Branche | Commit | Fonction | Preuve |
 |---|---|---|---|---|
+| 08/10/2026 | copilot/reconcile-claude-main-20260825 (revue) | voir commit du correctif 6058058365 | Diagnostics fournisseurs français et code technique séparé, sans modifier les décisions de validation | Santé 12/12 + typecheck Edge strict, contrat produit réussi ; CI action_required et garde source bloqué par base avancée, pas de PASS global |
 | 08/10/2026 | copilot/reconcile-claude-main-20260825 (revue) | voir commit de clôture | Clôture #57 : secrets propres et seconde revue indépendante sans nouveau bug | Relance CodeQL ignorée (« aucun changement »), pas de validation complète du dernier SHA ni de production revendiquée |
 | 08/10/2026 | copilot/reconcile-claude-main-20260825 (revue) | d6dfca99d518284e8413e7281ffba446964a077d partagé ; correctif de revue dans le commit suivant | Santé files : ancien succès et ticket Expo accepté ne prouvent plus le rétablissement | 11/11 tests serveur PostgreSQL isolé ; revue indépendante, aucune validation production |
 | 08/10/2026 | copilot/reconcile-claude-main-20260825 (revue) | voir commit de cette revue, base fa193cc537d47132053163cc842a98756b2a1fff | Issue #57 : santé persistée, alertes incident, résumé, groupes et SHA/test, pays/devise uniques | Tests locaux SQL isolés et navigateur fixtures 390/1440, typecheck/export admin ; rapport docs/SUPERADMIN_AUDIT.md ; migrations/fonction non déployées, production non revérifiée |

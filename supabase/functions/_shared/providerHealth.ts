@@ -10,7 +10,7 @@ export type HealthResult = {
 type SecretReader = (key: string) => Promise<string>;
 type JsonPayload = Record<string, any> | null;
 
-// All diagnostics are controlled codes: upstream bodies may echo credentials.
+// Diagnostics are controlled: upstream bodies may echo credentials.
 async function request(url: string, options: RequestInit = {}): Promise<{ response: Response; body: JsonPayload }> {
   const response = await fetch(url, { ...options, redirect: "error", signal: AbortSignal.timeout(8000) });
   const body = await response.json().catch(() => null);
@@ -21,20 +21,33 @@ export async function validateBrevoApiKey(key: string) {
   const { response } = await request("https://api.brevo.com/v3/account", {
     headers: { "api-key": key, accept: "application/json" },
   });
-  return { valid: response.ok, status: response.ok ? "ACTIVE" : "ERROR", message: response.ok ? "Clé Brevo vérifiée par le fournisseur." : `BREVO_HTTP_${response.status}` };
+  return {
+    valid: response.ok, status: response.ok ? "ACTIVE" : "ERROR",
+    message: response.ok ? "Clé Brevo vérifiée par le fournisseur."
+      : [401, 403].includes(response.status) ? "Brevo refuse cette clé API. Rien n'a été enregistré."
+      : "Brevo n'a pas confirmé la clé. Rien n'a été enregistré.",
+    code: `BREVO_HTTP_${response.status}`,
+  };
 }
 
 export async function validateYouTubeApiKey(key: string) {
   const { response, body } = await request(`https://www.googleapis.com/youtube/v3/videos?part=id&id=dQw4w9WgXcQ&key=${encodeURIComponent(key)}`);
   const quota = /quota|dailyLimit|rateLimit/i.test(String(body?.error?.errors?.[0]?.reason || ""));
   const disabled = /accessNotConfigured|serviceDisabled/i.test(String(body?.error?.errors?.[0]?.reason || ""));
-  return { valid: response.ok || quota || disabled, status: response.ok ? "ACTIVE" : quota ? "EXHAUSTED" : "ERROR", message: response.ok ? "Clé YouTube Data API vérifiée." : quota ? "YOUTUBE_QUOTA_EXHAUSTED" : `YOUTUBE_HTTP_${response.status}` };
+  return {
+    valid: response.ok || quota || disabled, status: response.ok ? "ACTIVE" : quota ? "EXHAUSTED" : "ERROR",
+    message: response.ok ? "Clé YouTube Data API vérifiée."
+      : quota ? "Clé YouTube reconnue, mais quota fournisseur épuisé ou limité."
+      : disabled ? "Clé Google reconnue, mais YouTube Data API n'est pas activée sur ce projet."
+      : "YouTube refuse cette clé. Rien n'a été enregistré.",
+    code: quota && !response.ok ? "YOUTUBE_QUOTA_EXHAUSTED" : `YOUTUBE_HTTP_${response.status}`,
+  };
 }
 
 export async function validateAcrCloudCredentials(hostValue: string, accessKey: string, accessSecret: string) {
   const host = hostValue.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/+$/, "");
   if (!/^[a-z0-9.-]+\.acrcloud\.com$/.test(host) || host.includes("..") || host.length > 180) {
-    return { valid: false, status: "ERROR", message: "ACRCLOUD_INVALID_HOST" };
+    return { valid: false, status: "ERROR", message: "Hôte ACRCloud invalide. Utilise l'adresse fournie par ton projet ACRCloud.", code: "ACRCLOUD_INVALID_HOST" };
   }
   const timestamp = String(Math.floor(Date.now() / 1000));
   const encoder = new TextEncoder();
@@ -56,7 +69,13 @@ export async function validateAcrCloudCredentials(hostValue: string, accessKey: 
   const code = Number(body?.status?.code ?? -1);
   const accepted = response.ok && [0, 1001, 2004].includes(code);
   const exhausted = response.ok && [3003, 3015].includes(code);
-  return { valid: accepted || exhausted, status: accepted ? "ACTIVE" : exhausted ? "EXHAUSTED" : "ERROR", message: accepted ? "Credentials ACRCloud vérifiés par le fournisseur." : `ACRCLOUD_HTTP_${response.status}_CODE_${code}`, providerCode: code };
+  return {
+    valid: accepted || exhausted, status: accepted ? "ACTIVE" : exhausted ? "EXHAUSTED" : "ERROR",
+    message: accepted ? "Identifiants ACRCloud vérifiés par le fournisseur."
+      : exhausted ? "Identifiants ACRCloud reconnus, mais quota fournisseur épuisé ou limité."
+      : "ACRCloud n'a pas validé ces identifiants. Vérifie l'hôte, la clé et le secret.",
+    code: `ACRCLOUD_HTTP_${response.status}_CODE_${code}`, providerCode: code,
+  };
 }
 
 async function appleToken(secret: SecretReader) {
