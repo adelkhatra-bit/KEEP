@@ -1,10 +1,11 @@
 import type { AppProps } from 'next/app';
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import '../styles/globals.css';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 import { APP_NAME } from '../lib/brand';
 
-type AuthState = 'checking' | 'signed_out' | 'checking_role' | 'allowed' | 'forbidden';
+type AuthState = 'checking' | 'signed_out' | 'checking_role' | 'allowed' | 'forbidden' | 'role_check_failed';
+type RoleCheck = 'allowed' | 'denied' | 'error';
 const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'FINANCE', 'MARKETING', 'MODERATOR', 'TECH'];
 
 function LiveMarker() {
@@ -15,11 +16,14 @@ function LiveMarker() {
   return <div style={{ position:'fixed',bottom:10,right:10,zIndex:200,background:'#22c55e',color:'#07110a',borderRadius:999,padding:'7px 11px',fontSize:11,fontWeight:900,letterSpacing:.7 }}>{APP_NAME} LIVE · RECONCILE</div>;
 }
 
-async function hasActiveAdminRole():Promise<boolean>{
-  if(!supabase)return false;
+// Tri-etat volontaire : une erreur reseau/serveur ('error') n'est PAS un refus
+// ('denied'). Seul un refus explicite peut fermer la session ; une panne
+// passagere ne doit jamais deconnecter le Super Admin.
+async function checkAdminRole():Promise<RoleCheck>{
+  if(!supabase)return 'error';
   const {data,error}=await supabase.rpc('get_my_admin_role');
-  if(error||!data)return false;
-  return ADMIN_ROLES.includes(String(data));
+  if(error)return 'error';
+  return data&&ADMIN_ROLES.includes(String(data))?'allowed':'denied';
 }
 
 function friendlyAuthError(message?:string){
@@ -58,6 +62,23 @@ function AdminLogin(){
   const [showPassword,setShowPassword]=useState(false);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
+  const [info,setInfo]=useState('');
+
+  // Meme chemin que « mot de passe oublie » de l'application : keep-auth-email
+  // genere le lien (API admin) et l'envoie par Brevo -- jamais le SMTP du
+  // Dashboard Supabase. Reponse volontairement identique que le compte existe
+  // ou non (anti-enumeration). Le lien ouvre l'URL canonique KEEP pour choisir
+  // le nouveau mot de passe ; il s'applique ensuite ici (meme compte).
+  const forgotPassword=async()=>{
+    if(!supabase)return;
+    const email=normalizeAdminEmail(identity);
+    if(!email){setError('Saisis d’abord l’adresse e-mail de ton compte Super Admin.');setInfo('');return;}
+    setBusy(true);setError('');setInfo('');
+    const {data,error:fnError}=await supabase.functions.invoke('keep-auth-email',{body:{action:'recovery',email}});
+    setBusy(false);
+    if(fnError||!data?.ok){setError('Envoi impossible pour le moment. Réessaie dans quelques minutes.');return;}
+    setInfo('Si cette adresse correspond à un compte, un e-mail de réinitialisation vient d’être envoyé. Choisis ton nouveau mot de passe via le lien, puis reviens ici.');
+  };
 
   const signIn=async(e:FormEvent)=>{
     e.preventDefault();
@@ -76,7 +97,7 @@ function AdminLogin(){
   return <main style={page}><LiveMarker/><form onSubmit={signIn} style={card}>
     <div style={brand}>{APP_NAME}</div>
     <h1 style={title}>Super Admin</h1>
-    <p style={muted}>Connexion sécurisée par adresse e-mail et mot de passe. Aucun lien e-mail n’est envoyé et aucune redirection externe n’est utilisée.</p>
+    <p style={muted}>Connexion sécurisée par adresse e-mail et mot de passe. Aucun lien e-mail n’est envoyé pour se connecter ; seul « Mot de passe oublié ? » envoie un e-mail de réinitialisation.</p>
     <label style={label}>Adresse e-mail Super Admin</label>
     <input type="email" value={identity} onChange={(e)=>setIdentity(e.target.value)} autoComplete="username" placeholder="nom@exemple.com" style={input}/>
     <label style={label}>Mot de passe</label>
@@ -85,38 +106,53 @@ function AdminLogin(){
       <button type="button" aria-label={showPassword?'Masquer le mot de passe':'Afficher le mot de passe'} onClick={()=>setShowPassword(v=>!v)} style={eyeButton}>{showPassword?'◉':'◎'}</button>
     </div>
     {error?<p style={{color:'#fb7185',margin:'10px 0 0'}}>{error}</p>:null}
+    {info?<p style={{color:'#4ade80',margin:'10px 0 0',lineHeight:1.5}}>{info}</p>:null}
     <button type="submit" disabled={busy||!identity.trim()||!password} style={button}>{busy?'Connexion…':'SE CONNECTER'}</button>
+    <button type="button" onClick={()=>void forgotPassword()} disabled={busy} style={linkButton}>Mot de passe oublié ?</button>
     <p style={hint}>Seuls les comptes présents dans `admin_users` avec un rôle actif peuvent entrer. À la première connexion, un mot de passe temporaire valide peut être activé automatiquement une seule fois.</p>
   </form></main>;
 }
 
 export default function App({Component,pageProps}:AppProps){
   const [state,setState]=useState<AuthState>('checking');
+  const stateRef=useRef<AuthState>('checking');
+  const update=(next:AuthState)=>{stateRef.current=next;setState(next);};
+  const resolveRef=useRef<()=>Promise<void>>(async()=>{});
   useEffect(()=>{
     const client=supabase;
-    if(!client){setState('signed_out');return;}
+    if(!client){update('signed_out');return;}
     let active=true;
     const resolve=async()=>{
       const {data}=await client.auth.getSession();
       if(!active)return;
       const user=data.session?.user;
-      if(!user){setState('signed_out');return;}
-      setState('checking_role');
-      const allowed=await hasActiveAdminRole();
+      if(!user){update('signed_out');return;}
+      if(stateRef.current!=='allowed')update('checking_role');
+      const role=await checkAdminRole();
       if(!active)return;
+      // Panne reseau/serveur : on garde la session et on propose de reessayer.
+      if(role==='error'){if(stateRef.current!=='allowed')update('role_check_failed');return;}
       // Adel (11/09/2026, audit) : signOut() global par defaut deconnectait
       // aussi l'utilisateur de tous ses AUTRES appareils/sessions (mobile
       // compris) des qu'un compte valide mais sans role admin actif tentait
       // ce login -- confirme en direct (session mobile coupee pendant ce
       // test). scope:'local' limite la deconnexion a cet onglet Super Admin.
-      if(!allowed){await client.auth.signOut({scope:'local'});setState('forbidden');return;}
-      setState('allowed');
+      if(role==='denied'){await client.auth.signOut({scope:'local'});update('forbidden');return;}
+      update('allowed');
     };
+    resolveRef.current=resolve;
     void resolve();
-    const {data:sub}=client.auth.onAuthStateChange(()=>void resolve());
+    // TOKEN_REFRESHED / INITIAL_SESSION ne changent ni l'identite ni le role :
+    // les retraiter demontait la page en cours (formulaires perdus) et
+    // multipliait les occasions d'echec du controle de role.
+    const {data:sub}=client.auth.onAuthStateChange((event)=>{
+      if(event==='TOKEN_REFRESHED'||event==='INITIAL_SESSION')return;
+      void resolve();
+    });
     return()=>{active=false;sub.subscription.unsubscribe();};
   },[]);
   if(state==='checking'||state==='checking_role')return <main style={page}><LiveMarker/><div style={{color:'#fff'}}>Vérification de la session…</div></main>;
+  if(state==='role_check_failed')return <main style={page}><LiveMarker/><div style={card}><div style={brand}>{APP_NAME}</div><h1 style={title}>Connexion conservée</h1><p style={muted}>Impossible de vérifier ton rôle pour le moment (réseau ou serveur). Ta session n’a pas été fermée.</p><button type="button" style={button} onClick={()=>{update('checking_role');void resolveRef.current();}}>RÉESSAYER</button></div></main>;
   if(state!=='allowed')return <AdminLogin/>;
   return <><LiveMarker/><Component {...pageProps}/></>;
 }
@@ -132,4 +168,5 @@ const passwordRow={display:'flex',alignItems:'center',borderRadius:12,border:'1p
 const passwordInput={flex:1,minWidth:0,padding:14,border:0,outline:'none',background:'transparent',color:'#fff',fontSize:16} as const;
 const eyeButton={width:50,alignSelf:'stretch',border:0,borderLeft:'1px solid #3b3150',background:'#120e1b',color:'#a78bfa',fontSize:20,cursor:'pointer'} as const;
 const button={width:'100%',marginTop:20,padding:14,border:0,borderRadius:999,background:'#7c3aed',color:'#fff',fontSize:16,fontWeight:800,cursor:'pointer'} as const;
+const linkButton={width:'100%',marginTop:10,padding:12,border:0,background:'transparent',color:'#a78bfa',fontSize:14,fontWeight:700,cursor:'pointer',textDecoration:'underline'} as const;
 const hint={margin:'14px 0 0',color:'#7f768c',fontSize:12,lineHeight:1.5} as const;

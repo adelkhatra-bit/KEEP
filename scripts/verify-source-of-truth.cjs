@@ -95,6 +95,16 @@ for (const expected of ['{APP_NAME} LIVE · RECONCILE', 'admin_users', 'signInWi
 if (/signInWithOtp|Recevoir un lien de secours|emailRedirectTo/i.test(admin)) failures.push('BROKEN ADMIN MAGIC-LINK FLOW REINTRODUCED');
 if (admin.includes("const DEMO_PASSWORD = '1234'")) failures.push('DEMO ADMIN PASSWORD REINTRODUCED');
 
+// Garde-fous anti-deconnexion Super Admin : un signOut() GLOBAL (sans scope local)
+// revoque tous les refresh tokens du compte, donc la session Super Admin aussi.
+for (const rel of ['packages/admin/pages/_app.tsx', 'packages/mobile/src/services/authService.ts', 'packages/mobile/src/services/accountDeletionService.ts']) {
+  const src = fs.readFileSync(path.join(root, rel), 'utf8');
+  for (const m of src.matchAll(/\.signOut\(([^)]*)\)/g)) {
+    if (!/scope\s*:\s*'local'/.test(m[1])) failures.push(`GLOBAL signOut() FORBIDDEN (kills Super Admin session): ${rel}`);
+  }
+}
+if (!admin.includes("keep-auth-email") || !admin.includes('Mot de passe oublié')) failures.push('ADMIN FORGOT-PASSWORD NOT WIRED TO keep-auth-email');
+
 const sharing = fs.readFileSync(path.join(root, 'packages/mobile/src/services/sharingService.ts'), 'utf8');
 if (!sharing.includes('shareProfileByEmail')) failures.push('USER-OWNED EMAIL SHARE MISSING');
 const hasCanonicalProfileBuilder = sharing.includes('buildPublicProfileLink')

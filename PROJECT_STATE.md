@@ -141,6 +141,8 @@ agent) et messages des sessions de chat (non versionnés).
 
 ## 4. Points ouverts
 
+- **Super Admin (09/10/2026)** : deconnexions corrigees (signOut local + controle de role tolerant aux pannes) et « Mot de passe oublie » branche sur `keep-auth-email`. A verifier par Adel : reglages Supabase Dashboard > Auth > Sessions (Single session per user, Time-box, Inactivity timeout doivent rester vides) et test reel du mail de reinitialisation depuis `/admin-preview/`.
+
 - **Test device en attente (Adel)** : préchargement audio Battle (latence),
   correctif micro/preview, anti-Shazam (« lance Shazam pendant la preview »).
   Aucun de ces tests n'a pu être fait depuis cet environnement (pas de

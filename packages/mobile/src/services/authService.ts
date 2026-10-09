@@ -318,7 +318,11 @@ export function createAuthService(client: SupabaseClient): AuthService {
     },
 
     async signOut() {
-      await client.auth.signOut();
+      // scope:'local' : un signOut() global revoque TOUS les refresh tokens du
+      // compte, donc aussi la session Super Admin (meme compte Supabase, meme
+      // navigateur) -- cause racine des deconnexions Super Admin quand on se
+      // deconnecte de l'application. On ne ferme que CET appareil/onglet.
+      await client.auth.signOut({ scope: 'local' });
     },
 
     onSessionChange(callback) {
