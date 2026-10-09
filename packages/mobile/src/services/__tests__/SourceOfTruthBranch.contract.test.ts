@@ -81,4 +81,19 @@ describe('source unique et branches de revue Copilot', () => {
   it('refuse une référence CI différente de la branche vérifiée', () => {
     expect(check('copilot/fix-stories', true, { GITHUB_REF_NAME: 'main' })).toContain('WRONG BRANCH');
   });
+  it('accepte une branche Claude contenant le produit récupéré, comme Copilot', () => {
+    expect(check('claude/fix-admin', true, { GITHUB_REF_NAME: 'claude/fix-admin', GITHUB_BASE_REF: canonical })).toBe('');
+    expect(check('claude/fix-admin', false)).toContain('AGENT BRANCH MUST CONTAIN');
+  });
+  it('CI pull_request : accepte une PR d\'une branche d\'agent vers la branche produit (référence « n/merge »)', () => {
+    const pr = { GITHUB_EVENT_NAME: 'pull_request', GITHUB_BASE_REF: canonical, GITHUB_REF_NAME: '84/merge' };
+    expect(check('', false, { ...pr, GITHUB_HEAD_REF: 'claude/fix-admin' })).toBe('');
+    expect(check('', false, { ...pr, GITHUB_HEAD_REF: 'copilot/fix-stories' })).toBe('');
+  });
+  it('CI pull_request : refuse une branche hors agent, une base autre que la branche produit (refus), et un push', () => {
+    const pr = { GITHUB_EVENT_NAME: 'pull_request', GITHUB_BASE_REF: canonical, GITHUB_REF_NAME: '84/merge' };
+    expect(check('', false, { ...pr, GITHUB_HEAD_REF: 'feature/x' })).toContain('WRONG BRANCH');
+    expect(check('', false, { ...pr, GITHUB_HEAD_REF: 'claude/x', GITHUB_BASE_REF: 'main' })).toContain('WRONG BRANCH');
+    expect(check('', false, { GITHUB_EVENT_NAME: 'push', GITHUB_REF_NAME: 'claude/x' })).toContain('WRONG BRANCH');
+  });
 });

@@ -12,12 +12,25 @@ const expectedPublicRoot = 'https://adelkhatra-bit.github.io/KEEP';
 if (process.env.GITHUB_REPOSITORY && process.env.GITHUB_REPOSITORY !== expectedRepository) {
   failures.push(`WRONG REPOSITORY: ${process.env.GITHUB_REPOSITORY}`);
 }
-// Une branche Copilot est une branche de revue, jamais une source de publication.
+// Une branche d'agent (Copilot, Claude) est une branche de revue, jamais une source de publication.
 // Elle doit contenir la référence produit récupérée avant toute validation.
+const agentBranchPrefixes = ['copilot/', 'claude/'];
 let verifiedAgentBranch = '';
+let verifiedAgentPullRef = '';
+// CI sur pull_request : GITHUB_REF_NAME vaut « <n>/merge » (jamais le nom de la branche).
+// On accepte uniquement une PR d'une branche d'agent dont la base est la branche canonique :
+// le checkout est alors le merge de cette branche dans la source canonique, qui la contient donc.
+// Aucun workflow de publication ne tourne sur pull_request : cela n'autorise aucune publication.
+if (
+  process.env.GITHUB_EVENT_NAME === 'pull_request'
+  && process.env.GITHUB_BASE_REF === expectedBranch
+  && agentBranchPrefixes.some((prefix) => String(process.env.GITHUB_HEAD_REF || '').startsWith(prefix))
+) {
+  verifiedAgentPullRef = process.env.GITHUB_REF_NAME || '';
+}
 try {
   const localBranch = execFileSync('git', ['branch', '--show-current'], { cwd: root, encoding: 'utf8' }).trim();
-  if (localBranch.startsWith('copilot/')) {
+  if (agentBranchPrefixes.some((prefix) => localBranch.startsWith(prefix))) {
     try {
       execFileSync('git', ['merge-base', '--is-ancestor', `refs/remotes/origin/${expectedBranch}`, 'HEAD'], { cwd: root, stdio: 'pipe' });
       verifiedAgentBranch = localBranch;
@@ -31,10 +44,10 @@ try {
   // repository + branch guards above.
 }
 
-if (process.env.GITHUB_REF_NAME && process.env.GITHUB_REF_NAME !== expectedBranch && process.env.GITHUB_REF_NAME !== verifiedAgentBranch) {
+if (process.env.GITHUB_REF_NAME && process.env.GITHUB_REF_NAME !== expectedBranch && process.env.GITHUB_REF_NAME !== verifiedAgentBranch && process.env.GITHUB_REF_NAME !== verifiedAgentPullRef) {
   failures.push(`WRONG BRANCH: ${process.env.GITHUB_REF_NAME}`);
 }
-if (verifiedAgentBranch && process.env.GITHUB_BASE_REF && process.env.GITHUB_BASE_REF !== expectedBranch) {
+if ((verifiedAgentBranch || verifiedAgentPullRef) && process.env.GITHUB_BASE_REF && process.env.GITHUB_BASE_REF !== expectedBranch) {
   failures.push(`WRONG AGENT REVIEW BASE: ${process.env.GITHUB_BASE_REF}`);
 }
 
