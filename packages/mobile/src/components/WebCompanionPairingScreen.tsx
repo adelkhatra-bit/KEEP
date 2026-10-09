@@ -51,6 +51,11 @@ export default function WebCompanionPairingScreen() {
       try {
         const result = await claimDesktopPairing(challenge.pairingId, challenge.token);
         if (!active) return;
+        if (result.status === 'CANCELLED') {
+          setMessage('Connexion refusée sur le téléphone.');
+          setSecondsLeft(0);
+          return;
+        }
         if (result.status === 'APPROVED' && result.actionLink) {
           rememberPendingWebPairing(challenge.pairingId, challenge.token);
           setMessage('Téléphone validé. Connexion de cet ordinateur…');

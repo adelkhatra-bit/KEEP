@@ -119,12 +119,28 @@ Deno.serve(async (req) => {
       const pairing = await pairingByProof(String(body?.pairingId ?? ""), String(body?.token ?? ""));
       if (!pairing) return json(404, { error: "pairing_not_found" });
       if (pairing.status === "EXPIRED") return json(410, { error: "pairing_expired" });
-      if (pairing.status === "CANCELLED") return json(410, { error: "pairing_cancelled" });
+      if (pairing.status === "CANCELLED") return json(200, { ok: true, status: "CANCELLED" });
       if (pairing.status === "APPROVED" && pairing.action_link) {
         return json(200, { ok: true, status: "APPROVED", actionLink: pairing.action_link });
       }
       if (pairing.status === "CLAIMED") return json(200, { ok: true, status: "CLAIMED" });
       return json(200, { ok: true, status: "WAITING" });
+    }
+
+    if (action === "cancel") {
+      const auth = await requireUser(req);
+      if ("error" in auth) return auth.error;
+      const pairing = await pairingByProof(String(body?.pairingId ?? ""), String(body?.token ?? ""));
+      if (!pairing) return json(404, { error: "pairing_not_found" });
+      if (pairing.status === "CANCELLED") return json(200, { ok: true, status: "CANCELLED" });
+      if (pairing.status !== "WAITING") return json(409, { error: "pairing_not_waiting", status: pairing.status });
+      const { data: cancelled, error } = await admin.from("web_pairings")
+        .update({ status: "CANCELLED", action_link: null })
+        .eq("id", pairing.id).eq("status", "WAITING")
+        .select("id").maybeSingle();
+      if (error) throw error;
+      if (!cancelled) return json(409, { error: "pairing_state_changed" });
+      return json(200, { ok: true, status: "CANCELLED" });
     }
 
     if (action === "approve") {
@@ -147,13 +163,14 @@ Deno.serve(async (req) => {
       }
 
       const now = new Date().toISOString();
-      const { error } = await admin.from("web_pairings").update({
+      const { data: approved, error } = await admin.from("web_pairings").update({
         status: "APPROVED",
         approved_user_id: auth.user.id,
         action_link: actionLink,
         approved_at: now,
-      }).eq("id", pairing.id).eq("status", "WAITING");
+      }).eq("id", pairing.id).eq("status", "WAITING").select("id").maybeSingle();
       if (error) throw error;
+      if (!approved) return json(409, { error: "pairing_state_changed" });
       return json(200, { ok: true, status: "APPROVED", deviceLabel: pairing.device_label });
     }
 

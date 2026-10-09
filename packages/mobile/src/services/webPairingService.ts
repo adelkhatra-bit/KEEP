@@ -60,6 +60,10 @@ export async function approveDesktopPairing(pairingId: string, token: string): P
   });
 }
 
+export async function cancelDesktopPairing(pairingId: string, token: string): Promise<{ status: string }> {
+  return invoke<{ ok: true; status: string }>({ action: 'cancel', pairingId, token });
+}
+
 export function parsePairingDeepLink(url: string): { pairingId: string; token: string } | null {
   try {
     const parsed = new URL(url);

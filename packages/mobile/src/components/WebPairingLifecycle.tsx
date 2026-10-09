@@ -7,6 +7,7 @@ import { useUserStore } from '../store/useUserStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import {
   approveDesktopPairing,
+  cancelDesktopPairing,
   clearPendingWebPairing,
   clearWebCompanionSessionId,
   currentWebCompanionSessionId,
@@ -53,25 +54,31 @@ export default function WebPairingLifecycle() {
     if (!user || isLocalGuest || isDemoMode) return;
 
     approvingRef.current = true;
-    void approveDesktopPairing(pendingApproval.pairingId, pendingApproval.token)
-      .then((result) => {
-        setPendingApproval(null);
-        Alert.alert(
-          'Ordinateur autorisé',
-          result.deviceLabel ? `${result.deviceLabel} peut maintenant ouvrir ton compte Loki Music.` : 'Retourne sur ton ordinateur : la connexion est autorisée.',
-        );
-      })
-      .catch((error: any) => {
-        Alert.alert(
-          'Connexion ordinateur',
-          String(error?.message || '').includes('pairing_expired')
-            ? 'Ce QR code a expiré. Génère un nouveau QR sur l’ordinateur.'
-            : 'Impossible d’autoriser cet ordinateur. Génère un nouveau QR et réessaie.',
-        );
-      })
-      .finally(() => {
-        approvingRef.current = false;
-      });
+    const request = pendingApproval;
+    const decide = (approve: boolean) => {
+      setPendingApproval(null);
+      const action = approve ? approveDesktopPairing : cancelDesktopPairing;
+      void action(request.pairingId, request.token)
+        .then(() => {
+          Alert.alert(
+            approve ? 'Ordinateur autorisé' : 'Connexion annulée',
+            approve ? 'Retourne sur ton ordinateur.' : 'Cette demande ne peut plus connecter cet ordinateur.',
+          );
+        })
+        .catch(() => {
+          Alert.alert('Connexion ordinateur', 'La demande n’a pas été confirmée. Réessaie depuis le QR de ton ordinateur.');
+        })
+        .finally(() => { approvingRef.current = false; });
+    };
+    Alert.alert(
+      'Connecter cet ordinateur ?',
+      'Approuve uniquement si tu viens de scanner le QR affiché sur ton propre ordinateur.',
+      [
+        { text: 'Annuler', style: 'cancel', onPress: () => decide(false) },
+        { text: 'Approuver', onPress: () => decide(true) },
+      ],
+      { cancelable: false },
+    );
   }, [pendingApproval, user?.id, isLocalGuest, isDemoMode]);
 
   React.useEffect(() => {
