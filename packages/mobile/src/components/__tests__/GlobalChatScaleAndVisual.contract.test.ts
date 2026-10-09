@@ -18,6 +18,15 @@ describe('global chat scale and visual proof contract', () => {
     expect(workflow).toContain("EXPO_PUBLIC_KEEP_CHAT_VISUAL_TEST: '1'");
   });
 
+  it('le gardien mobile + ordinateur pose le même drapeau, sinon il ne trouve pas le bouton « Ouvrir le Tchat »', () => {
+    const guardian = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '..', '..', '.github', 'workflows', 'keep-dual-viewport-guardian.yml'), 'utf8').replace(/\r\n/g, '\n');
+    expect(guardian).toContain("EXPO_PUBLIC_KEEP_PREVIEW: '1'");
+    expect(guardian).toContain("EXPO_PUBLIC_KEEP_CHAT_VISUAL_TEST: '1'");
+    expect(guardian).toContain('Ouvrir le Tchat|Activer et ouvrir le Tchat');
+    // Libellé aperçu sans drapeau : volontairement différent de celui que le gardien cherche.
+    expect(dock).toContain("previewOnly && !visualTestPreview ? 'Se connecter pour ouvrir le Tchat'");
+  });
+
   it('captures the actual full-screen 390x844 chat design', () => {
     expect(workflow).toContain("getByTestId('loki-chat-fullscreen-modal')");
     expect(workflow).toContain("keep-chat-fullscreen-390x844.png");
