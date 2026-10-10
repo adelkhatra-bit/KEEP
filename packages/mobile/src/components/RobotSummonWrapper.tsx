@@ -1,5 +1,6 @@
 import React from 'react';
 import { View } from 'react-native';
+import { currentScreenName } from '../services/problemReportService';
 import { TapSummonDetector } from '../services/robotHelp';
 import { useUserStore } from '../store/useUserStore';
 import { useGameSessionStore } from '../store/useGameSessionStore';
@@ -27,7 +28,7 @@ function onTapCapture(event: any): void {
     const y = Number(event?.nativeEvent?.pageY ?? 0);
     if (detector.tap(x, y, Date.now())) {
       const { summonRobot } = require('../services/robotCoachService');
-      void summonRobot(user.user.username ?? '');
+      void summonRobot(user.user.username ?? '', currentScreenName());
     }
   } catch { /* l'appel du robot ne doit jamais gêner l'application */ }
 }

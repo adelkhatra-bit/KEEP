@@ -89,5 +89,17 @@
       "Battle audio",
       "push notifications"
     ]
+  },
+  "designProfiles": {
+    "rule": "Les fonctions sont identiques sur téléphone et ordinateur ; seul le DESIGN est séparé, par profil (mobile / desktop / wide) défini UNE fois dans designProfile.ts. Aucun écran dupliqué. La connexion ordinateur reste QR uniquement.",
+    "source": "packages/mobile/src/theme/designProfile.ts",
+    "pageZoomImplementedIn": [
+      "packages/mobile/index.js",
+      "packages/mobile/scripts/fix-web-export.cjs"
+    ],
+    "breakpoints": {
+      "desktopMinWidth": 1100,
+      "wideMinWidth": 1700
+    }
   }
 }

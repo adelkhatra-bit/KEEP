@@ -73,14 +73,17 @@ async function speakOncePerDay(text: string): Promise<void> {
 }
 
 /** Secousse (Adel, 06/10/2026) : le robot propose plusieurs directions ; « Un souci » ouvre le signalement. */
-export async function summonRobotMenu(username: string): Promise<boolean> {
-  const { SHAKE_ACTIONS } = require('./robotHelp');
-  const name = String(username || '').trim().replace(/^@+/, '');
-  return robotSay('ROBOT_CALL', { text: `On fait quoi${name ? `, ${name}` : ''} ?`, actions: SHAKE_ACTIONS, force: true });
+export async function summonRobotMenu(username: string, routeName?: string | null): Promise<boolean> {
+  // Menu adapté à la rubrique où se trouve l'utilisateur (scénario du robot, IDEA-205).
+  const { scenarioForRoute } = require('./robotSectionScenario');
+  const { text, actions } = scenarioForRoute(routeName, username, Date.now());
+  return robotSay('ROBOT_CALL', { text, actions, force: true });
 }
 
 /** Appel du robot (5 touchers rapprochés) : « Qu'est-ce que je peux faire pour toi, {pseudo} ? » + les trois propositions, à voix haute. */
-export async function summonRobot(username: string): Promise<boolean> {
+export async function summonRobot(username: string, routeName?: string | null): Promise<boolean> {
+  const { sectionOfRoute } = require('./robotSectionScenario');
+  if (sectionOfRoute(routeName) !== 'OTHER') return summonRobotMenu(username, routeName);
   const seed = Date.now();
   const spoke = await robotSay('ROBOT_CALL', { text: composeCall(username, seed), actions: HELP_ACTIONS, force: true });
   if (spoke) {

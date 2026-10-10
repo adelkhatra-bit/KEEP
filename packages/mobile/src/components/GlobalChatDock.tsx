@@ -10,6 +10,7 @@ import { speakLokiText } from '../services/lokiSpeechService';
 import { playNotificationCue, primeNotificationAudio } from '../services/notificationSoundService';
 import { navigateToSharedProfile, navigationRef } from '../navigation/navigationRef';
 import { useRobotMessageStore } from '../store/useRobotMessageStore';
+import { useDesignProfile } from '../theme/designProfile';
 import StoryVisitorToast from './StoryVisitorToast';
 import { ROBOT_ACTIONS } from '../services/robotCoachMessages';
 import { markRobotActive, robotExplain, robotWelcome } from '../services/robotCoachService';
@@ -119,6 +120,7 @@ export default function GlobalChatDock() {
   const drawerPeek = useRef(new Animated.Value(0)).current;
   const nudge = useRef(new Animated.Value(0)).current;
   // Message du robot (Adel, 05/10/2026) : « sessions en attente », « plus de FREE / de Solo » -- une bulle à côté du robot, pas une notification.
+  const designProfile = useDesignProfile();
   const robotMessage = useRobotMessageStore((state) => state.message);
   const dismissRobotMessage = useRobotMessageStore((state) => state.dismiss);
   const robotQuiet = useRobotMessageStore((state) => state.quiet > 0);
@@ -1017,7 +1019,7 @@ export default function GlobalChatDock() {
             <View style={styles.fabDepthMid} />
             <View style={[styles.fabFace, side === 'left' ? styles.fabFaceLeft : styles.fabFaceRight]}>
               <View style={styles.drawerGrip}><View style={styles.drawerGripLine}/><View style={styles.drawerGripLine}/><View style={styles.drawerGripLine}/></View>
-              <View style={styles.robotHead}>
+              <View style={[styles.robotHead, { transform: [{ scale: designProfile.botScale }] }]}>
                 <View style={styles.robotAntenna} />
                 <View style={styles.robotEyes}><View style={styles.robotEye}/><View style={styles.robotEye}/></View>
                 <View style={styles.robotMouth}/>
