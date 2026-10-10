@@ -1,5 +1,8 @@
 # IDEAS INBOX — boîte à idées d'Adel (source unique)
 
+## Demande du 10/10/2026 — véritable espace ordinateur pour DJ et établissements
+- **IDÉE · EN COURS D'AUDIT** : sur ordinateur, exploiter la largeur utile (pas de téléphone simplement zoomé) pour un tableau de bord lisible et cohérent avec les cinq onglets existants ; DJ, restaurant et organisateur doivent pouvoir écouter/enregistrer une session, retrouver les morceaux, préparer une soirée ou un événement, inviter par QR code, consulter les participants et retrouver les mêmes données sur téléphone. Réutiliser le composant `DesktopMusicWorkspaceRail`, les services de sessions, événements, invitations et QR existants ; ne créer aucune seconde application, ne pas modifier `App.tsx`, `Navigation.tsx` ou les cinq onglets. **Audit code 10/10** : rail desktop présent uniquement sur Écouter et à partir de 1100 px ; accueil central limité (`idleHero` maxWidth 692, `topBar` maxWidth 720), Soirées `content` maxWidth 1180 ; appareil Desktop Commander hors ligne, rendu réel 1440×900 et parcours DJ→événement→QR non vérifiés. Ne pas déclarer LIVRÉE sans captures 390×844/1440×900, parcours complet, CI et SHA déployé.
+
 ## Demande du 06/10/2026 — gouvernance des livraisons
 - **IDEA-189 · EN COURS — LOCAL_ONLY, plan validé par Adel** : vérifier les améliorations prêtes sans affaiblir les gardes ; tableau simple dans le Super Admin existant (version site réellement observée, dernière app signalée, problèmes ouverts, correctifs et tests), traçabilité bug → SHA → anti-régression, actionlint gratuit épinglé et synthèse des contrôles GitHub en lecture seule. Aucun commit, push, déploiement ni écriture production pendant cette passe.
 
