@@ -5,6 +5,7 @@ import { checkConnectedLibraries } from './connectedMusicLibrary';
 import { notifyRecognitionOutsideKeep } from './recognitionNotificationService';
 import { useSessionStore } from '../store/useSessionStore';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
+import { useUserStore } from '../store/useUserStore';
 
 function newId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -29,7 +30,9 @@ async function withSoftTimeout<T>(promise: Promise<T>, timeoutMs: number): Promi
 function persistCurrentSession() {
   const state = useSessionStore.getState();
   if (!state.isActive || !state.sessionId || !state.startedAt || state.tracks.length === 0) return;
+  const identity = useUserStore.getState();
   useSessionHistoryStore.getState().upsertSession({
+    ownerUserId: identity.user && !identity.isDemoMode && !identity.isLocalGuest ? identity.user.id : undefined,
     id: state.sessionId,
     startedAt: state.startedAt,
     endedAt: null,
