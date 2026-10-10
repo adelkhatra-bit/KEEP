@@ -1,5 +1,20 @@
 import { canonicalArtistIdentity, primaryArtistName, type CanonicalTrack } from '@keep/music';
 
+/** Taxonomie partagée avec la base : variantes orthographiques d'un genre = même dossier. */
+function styleKey(value: string): string {
+  const normalized = value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const aliases: Record<string, string> = {
+    rap: 'hiphoprap', hiphop: 'hiphoprap', hiphoprap: 'hiphoprap', hiphoprapmusic: 'hiphoprap',
+    rb: 'rbsoul', rbsoul: 'rbsoul', rhythmandblues: 'rbsoul',
+    afrobeat: 'afrobeats', afrobeats: 'afrobeats',
+    rai: 'rai', raimaghreb: 'rai', raidumaghreb: 'rai',
+    electronic: 'electronic', electronique: 'electronic', electronica: 'electronic',
+    classique: 'classical', classical: 'classical',
+    kpop: 'kpop', koreanpop: 'kpop',
+  };
+  return aliases[normalized] || normalized;
+}
+
 /** Source unique du tri par style (onglet Styles de « Trier ma musique » et profil) : un morceau apparaît dans chacun de ses genres, jamais deux fois dans le même. */
 export function groupTracksByStyle(tracks: CanonicalTrack[]): Array<{ genre: string; tracks: CanonicalTrack[] }> {
   const map = new Map<string, { label: string; tracks: CanonicalTrack[] }>();
@@ -7,7 +22,7 @@ export function groupTracksByStyle(tracks: CanonicalTrack[]): Array<{ genre: str
     const genres = (track.genres ?? []).map((genre) => genre.trim()).filter(Boolean);
     const labels = genres.length ? genres : ['Sans genre'];
     for (const genre of labels) {
-      const key = genre.toLocaleLowerCase('fr-FR').replace(/\s+/g, ' ');
+      const key = styleKey(genre);
       const current = map.get(key) ?? { label: genre, tracks: [] };
       if (!current.tracks.some((row) => row.id === track.id)) current.tracks.push(track);
       map.set(key, current);
