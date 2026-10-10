@@ -2,7 +2,8 @@ import type { LokiPulseItem } from './lokiPulseService';
 
 /** Les recommandations de goût passent devant, sans doublon avec le Pulse existant. */
 export function mergeTasteRecommendations(items: LokiPulseItem[], recommendations: LokiPulseItem[], limit: number): LokiPulseItem[] {
-  if (!recommendations.length) return items;
+  // Même sans suggestions externes, le flux brut peut contenir plusieurs fiches
+  // fournisseur pour une même chanson : dédupliquer systématiquement.
   const seen = new Set<string>();
   const out: LokiPulseItem[] = [];
   const seenSongs = new Set<string>();
