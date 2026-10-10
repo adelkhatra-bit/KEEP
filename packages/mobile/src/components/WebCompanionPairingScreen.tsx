@@ -19,6 +19,25 @@ export function pairingQrSize(windowHeight: number, pageZoom = 1): number {
   return Math.max(120, Math.min(220, Math.round(visible - 420)));
 }
 
+/** Lien magique refusé (expiré / déjà utilisé) : Supabase revient avec `#error=…&error_code=otp_expired` (Adel 10/10/2026, photo PC). */
+export function readAuthLinkError(hash: string): string | null {
+  const raw = String(hash || '').replace(/^#/, '');
+  if (!raw) return null;
+  const params = new URLSearchParams(raw);
+  const code = params.get('error_code') || params.get('error');
+  if (!code) return null;
+  return code === 'otp_expired' || code === 'access_denied'
+    ? 'Le lien de connexion a expiré ou a déjà servi. Scanne le nouveau QR avec ton téléphone.'
+    : 'La connexion de cet ordinateur a échoué. Scanne le nouveau QR avec ton téléphone.';
+}
+
+// Une seule création de QR à la fois (le double rendu de React créait 2 jumelages à 3 s d'écart).
+let inflightCreate: Promise<DesktopPairingChallenge> | null = null;
+function createOnce(): Promise<DesktopPairingChallenge> {
+  if (!inflightCreate) inflightCreate = createDesktopPairing().finally(() => { inflightCreate = null; });
+  return inflightCreate;
+}
+
 export default function WebCompanionPairingScreen() {
   const { width, height } = useWindowDimensions();
   const qrSize = pairingQrSize(height, designProfileForWidth(width).pageZoom);
@@ -27,17 +46,27 @@ export default function WebCompanionPairingScreen() {
   const [message, setMessage] = React.useState('Préparation de la connexion…');
   const [secondsLeft, setSecondsLeft] = React.useState(0);
 
+  const linkErrorRef = React.useRef<string | null>(null);
+  if (linkErrorRef.current === null && typeof window !== 'undefined' && window.location) {
+    const err = readAuthLinkError(window.location.hash);
+    if (err) {
+      linkErrorRef.current = err;
+      clearDesktopChallenge();
+      try { window.history.replaceState(null, '', window.location.pathname + window.location.search); } catch { /* sans effet */ }
+    }
+  }
+
   const create = React.useCallback(async (forceNew = true) => {
     setLoading(true);
     setMessage('Préparation de la connexion…');
     try {
       // Après un rechargement de la page, on reprend le MÊME QR (déjà scanné ou en cours) au lieu d'en créer un autre.
       const saved = forceNew ? null : loadDesktopChallenge();
-      const next = saved ?? await createDesktopPairing();
+      const next = saved ?? await createOnce();
       if (!saved) saveDesktopChallenge(next);
       setChallenge(next);
       setSecondsLeft(Math.max(0, Math.ceil((new Date(next.expiresAt).getTime() - Date.now()) / 1000)));
-      setMessage('Scanne ce QR code avec ton téléphone connecté à Loki Music.');
+      setMessage(linkErrorRef.current ?? 'Scanne ce QR code avec ton téléphone connecté à Loki Music.');
     } catch {
       setChallenge(null);
       setMessage('Impossible de créer le QR pour le moment.');
