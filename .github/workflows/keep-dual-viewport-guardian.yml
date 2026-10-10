@@ -366,7 +366,11 @@ jobs:
             await page.getByLabel('Messagerie Loki plein écran').last().waitFor({state:'visible',timeout:15000});
             await assertNoOverflow(page,'chat-fullscreen-390x844');
             await page.screenshot({path:'artifacts/dual-viewport/01b-chat-fullscreen.png',fullPage:true});
-            await clickRobust(page,page.getByLabel('Fermer la messagerie').last(),'Close fullscreen chat');
+            // ERR-125/126 : « .last() » sur toute la page pouvait viser un bouton caché d'une autre instance du tchat.
+            // On cible le bouton DANS la fenêtre plein écran (plus strict) et on journalise tous les candidats pour diagnostic.
+            const closeCandidates=await page.getByLabel('Fermer la messagerie').evaluateAll(els=>els.map(e=>{const r=e.getBoundingClientRect();return {w:Math.round(r.width),h:Math.round(r.height),x:Math.round(r.x),y:Math.round(r.y),inFullscreen:!!e.closest('[data-testid="loki-chat-fullscreen-modal"]')};}));
+            console.log('close-buttons',JSON.stringify(closeCandidates));
+            await clickRobust(page,fullChat.getByLabel('Fermer la messagerie').last(),'Close fullscreen chat');
             await fullChat.waitFor({state:'hidden',timeout:15000});
 
             const start=page.getByLabel(/Trouver le morceau|Identifier un morceau|Activer le micro|Démarrer une écoute/).last();
