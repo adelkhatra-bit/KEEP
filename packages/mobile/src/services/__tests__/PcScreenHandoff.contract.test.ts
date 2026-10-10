@@ -4,6 +4,7 @@ import path from 'path';
 const root = path.resolve(__dirname, '..', '..', '..', '..', '..');
 const source = (p: string) => fs.readFileSync(path.join(root, p), 'utf8');
 
+jest.mock('react-native', () => ({ Platform: { OS: 'web' } }));
 jest.mock('../supabaseClient', () => ({ supabase: null }));
 
 describe('PC QR : ouverture réelle des cinq onglets', () => {
