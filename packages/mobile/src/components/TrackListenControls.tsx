@@ -146,7 +146,12 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
   const resumeListeningOnStop = (isPlaying: boolean) => {
     if (isPlaying) return;
     const session = useSessionStore.getState();
-    if (session.micPaused) session.resumeListening();
+    if (session.micPaused) {
+      Alert.alert('Reprendre la détection musicale ?', 'Le micro est en pause après cet extrait.', [
+        { text: 'Rester en pause', style: 'cancel' },
+        { text: 'Reprendre', onPress: () => useSessionStore.getState().resumeListening() },
+      ]);
+    }
   };
 
   const playSnippetNow = async (durationMillis: number) => {
