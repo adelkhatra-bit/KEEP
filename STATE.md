@@ -57,3 +57,4 @@ Rapport d'audit externe : `docs/AUDIT_EXTERNE_2026-10-06.md`. Notifications : `d
 2026-10-10 · claude/superadmin-session-forgot-password-v2 · audit lenteur Solo (17,3 s mesuré) + migration prête non appliquée
 2026-10-10 · claude/superadmin-session-forgot-password-v2 · IDEA-213 testeuse Flo (Android) en attente de fusion PR #84
 2026-10-10 · claude/superadmin-session-forgot-password-v2 · total j'aime sur ma story · jest 292/1420 OK
+2026-10-10 · claude/superadmin-session-forgot-password-v2 · story éternelle (boutique sans âge) corrigée · jest 293/1422 OK

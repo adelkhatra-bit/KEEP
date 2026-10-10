@@ -400,6 +400,17 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
       Alert.alert('Ajout impossible', 'Seules tes musiques gardées en public peuvent aller en story. Réessaie dans un instant.', [{ text: 'OK', style: 'cancel' }]);
     } finally { setPinBusy(''); }
   };
+  // Une story s'éteint à 24 h même si l'écran reste ouvert (Adel 10/10/2026) : purge toutes les minutes (pas de réseau).
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setOwnStory((current) => (current ? pruneExpiredStory(current) : current));
+      setStories((list) => {
+        const next = list.map((story) => (story.suggestion || story.styleMatch ? story : pruneExpiredStory(story))).filter((story): story is MusicStory => Boolean(story));
+        return next.length === list.length && next.every((story, i) => story === list[i]) ? list : next;
+      });
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
   const isOwnOpen = openStory?.profileId === viewer.id;
   // Total des j'aime sur ma story (Adel 10/10/2026 : « je ne vois pas le nombre de j'aime ») : lecture publique de track_likes, indépendante du lecteur.
   const [ownLikeTotal, setOwnLikeTotal] = useState<number | null>(null);

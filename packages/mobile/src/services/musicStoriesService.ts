@@ -426,7 +426,7 @@ export async function loadSaleCollectionStoryTracks(profileIds: string[]): Promi
 /** Associe chaque musique en vente d'une story à son offre (nombre de titres + prix) ; sans offre connue : l'offre la plus récente du vendeur. */
 export function buildSaleInfo(
   items: Array<{ trackId: string; offerId?: string }>,
-  offers: Array<{ offerId: string; count: number; mode: 'MONEY' | 'FREE' | 'BOTH'; priceLabel: string }>,
+  offers: Array<{ offerId: string; count: number; mode: 'MONEY' | 'FREE' | 'BOTH'; priceLabel: string; createdAt?: string }>,
 ): Record<string, SaleStoryInfo> {
   const out: Record<string, SaleStoryInfo> = {};
   if (!offers.length) return out;
@@ -439,8 +439,8 @@ export function buildSaleInfo(
 }
 
 /** Offres actives de ces vendeurs : nombre de titres + prix (une seule requête). */
-export async function loadSaleOffersMeta(sellerIds: string[]): Promise<Map<string, Array<{ offerId: string; count: number; mode: 'MONEY' | 'FREE' | 'BOTH'; priceLabel: string }>>> {
-  const out = new Map<string, Array<{ offerId: string; count: number; mode: 'MONEY' | 'FREE' | 'BOTH'; priceLabel: string }>>();
+export async function loadSaleOffersMeta(sellerIds: string[]): Promise<Map<string, Array<{ offerId: string; count: number; mode: 'MONEY' | 'FREE' | 'BOTH'; priceLabel: string; createdAt?: string }>>> {
+  const out = new Map<string, Array<{ offerId: string; count: number; mode: 'MONEY' | 'FREE' | 'BOTH'; priceLabel: string; createdAt?: string }>>();
   if (!supabase || !sellerIds.length) return out;
   const { data, error } = await supabase.rpc('keep_playlist_sale_story_offers', { p_seller_ids: sellerIds });
   if (error) return out;
@@ -448,10 +448,21 @@ export async function loadSaleOffersMeta(sellerIds: string[]): Promise<Map<strin
     if (!row?.seller_id || !row?.offer_id) continue;
     const mode = (String(row.payment_mode ?? 'MONEY').toUpperCase() === 'FREE' ? 'FREE' : String(row.payment_mode).toUpperCase() === 'BOTH' ? 'BOTH' : 'MONEY') as 'MONEY' | 'FREE' | 'BOTH';
     const list = out.get(String(row.seller_id)) ?? [];
-    list.push({ offerId: String(row.offer_id), count: Number(row.track_count ?? 0), mode, priceLabel: formatSaleOfferPrice(mode, Number(row.price_cents ?? 0), row.free_price == null ? null : Number(row.free_price), String(row.currency_code ?? 'EUR')) });
+    list.push({ createdAt: row.created_at ? String(row.created_at) : undefined, offerId: String(row.offer_id), count: Number(row.track_count ?? 0), mode, priceLabel: formatSaleOfferPrice(mode, Number(row.price_cents ?? 0), row.free_price == null ? null : Number(row.free_price), String(row.currency_code ?? 'EUR')) });
     out.set(String(row.seller_id), list);
   }
   return out;
+}
+
+/**
+ * Une story dure 24 h (Adel, 10/10/2026 : « au-delà des 24 heures ça disparaît »). Les cartes « boutique » d'un profil ne doivent donc
+ * apparaître que si au moins une de ses offres a été mise en vente depuis moins de 24 h ; sinon la boutique reste sur le profil, pas en story.
+ */
+export function hasFreshSaleOffer(offers: Array<{ createdAt?: string }> | undefined, now = Date.now()): boolean {
+  return (offers ?? []).some((offer) => {
+    const at = new Date(offer.createdAt || '').getTime();
+    return Number.isFinite(at) && now - at < STORY_WINDOW_HOURS * 3600 * 1000;
+  });
 }
 
 export async function enrichStoriesWithSales(stories: MusicStory[]): Promise<MusicStory[]> {
@@ -461,13 +472,13 @@ export async function enrichStoriesWithSales(stories: MusicStory[]): Promise<Mus
     Promise.allSettled(head.map((story) => loadPlaylistSaleProfilePreviewSampler(story.profileId))),
     loadMaskedStoryPins(head.map((story) => story.profileId)).catch(emptyMap),
     loadSaleCollectionStoryTracks(head.map((story) => story.profileId)).catch(emptyMap),
-    loadSaleOffersMeta(head.map((story) => story.profileId)).catch(() => new Map<string, Array<{ offerId: string; count: number; mode: 'MONEY' | 'FREE' | 'BOTH'; priceLabel: string }>>()),
+    loadSaleOffersMeta(head.map((story) => story.profileId)).catch(() => new Map<string, Array<{ offerId: string; count: number; mode: 'MONEY' | 'FREE' | 'BOTH'; priceLabel: string; createdAt?: string }>>()),
   ]);
   return stories.map((story, index) => {
     const result = index < head.length ? results[index] : null;
     const pins = masked.get(story.profileId) ?? [];
     const collection = collections.get(story.profileId) ?? [];
-    const sampler = result && result.status === 'fulfilled' ? result.value : [];
+    const sampler = result && result.status === 'fulfilled' && hasFreshSaleOffer(offersBySeller.get(story.profileId)) ? result.value : [];
     if (!pins.length && !sampler.length && !collection.length) return story;
     const withPins = mergeSaleTracks(story, pins, MAX_MASKED_PINS_PER_STORY);
     const withCollection = mergeSaleTracks(withPins, collection, MAX_COLLECTION_TRACKS_PER_STORY);
@@ -494,9 +505,9 @@ export async function loadSaleOnlyStories(viewerId: string, existing: MusicStory
   if (!ids.length) return [];
   const results = await Promise.allSettled(ids.map((id) => loadPlaylistSaleProfilePreviewSampler(id)));
   const collections = await loadSaleCollectionStoryTracks(ids).catch(() => new Map<string, Array<{ trackId: string; previewUrl: string; pinnedAt: string }>>());
-  const offersBySeller = await loadSaleOffersMeta(ids).catch(() => new Map<string, Array<{ offerId: string; count: number; mode: 'MONEY' | 'FREE' | 'BOTH'; priceLabel: string }>>());
+  const offersBySeller = await loadSaleOffersMeta(ids).catch(() => new Map<string, Array<{ offerId: string; count: number; mode: 'MONEY' | 'FREE' | 'BOTH'; priceLabel: string; createdAt?: string }>>());
   const withSales = ids
-    .map((id, index) => ({ id, samples: results[index].status === 'fulfilled' ? (results[index] as PromiseFulfilledResult<Array<{ trackId: string; previewUrl: string }>>).value : [] }))
+    .map((id, index) => ({ id, samples: results[index].status === 'fulfilled' && hasFreshSaleOffer(offersBySeller.get(id)) ? (results[index] as PromiseFulfilledResult<Array<{ trackId: string; previewUrl: string }>>).value : [] }))
     .filter((row) => row.samples.length > 0)
     .slice(0, MAX_STORIES_WITH_SALES);
   if (!withSales.length) return [];
