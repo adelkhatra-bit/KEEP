@@ -941,10 +941,14 @@ export default function HomeScreenCompact({ navigation }: any) {
           <Text style={{ color: C.green, fontSize: 12, marginTop: 8, fontWeight: '800' }}>● Le micro continue d’écouter</Text>
           <Text style={s.modalBody}>{tracks.length} morceau{tracks.length > 1 ? 'x' : ''} détecté{tracks.length > 1 ? 's' : ''} · {tracks.filter((x) => x.status === 'pending').length} à swiper</Text>
           <ScrollView style={{ maxHeight: 215, marginTop: 10 }}>
-            {tracks.length === 0 ? <Text style={s.modalBody}>Les morceaux reconnus apparaissent ici.</Text> : tracks.slice(0, 8).map((entry) => (
-              <View key={entry.id} style={{ borderBottomWidth: 1, borderBottomColor: C.line, paddingVertical: 8 }}>
-                <Text style={{ color: C.text, fontSize: 13, fontWeight: '700' }} numberOfLines={1}>{entry.track.title} — {entry.track.artist}</Text>
-                <Text style={{ color: C.muted, fontSize: 11 }}>{entry.status === 'kept' ? 'Gardé' : entry.status === 'passed' ? 'Passé' : entry.status === 'already_saved' ? 'Déjà gardé' : 'À swiper'}</Text>
+            {tracks.length === 0 ? <Text style={s.modalBody}>Les morceaux reconnus apparaissent ici.</Text> : tracks.map((entry) => (
+              <View key={entry.id} style={{ borderBottomWidth: 1, borderBottomColor: C.line, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <TrackCover track={entry.track} style={{ width: 46, height: 46, borderRadius: 8 }} fallbackStyle={{ width: 46, height: 46, borderRadius: 8 }} fallbackTextStyle={{ fontSize: 18 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: C.text, fontSize: 13, fontWeight: '700' }} numberOfLines={1}>{entry.track.title}</Text>
+                  <Text style={{ color: C.muted, fontSize: 12 }} numberOfLines={1}>{entry.track.artist}</Text>
+                  <Text style={{ color: C.muted, fontSize: 11 }}>{entry.status === 'kept' ? 'Gardé' : entry.status === 'passed' ? 'Passé' : entry.status === 'already_saved' ? 'Déjà gardé' : 'À swiper'}</Text>
+                </View>
               </View>
             ))}
           </ScrollView>
