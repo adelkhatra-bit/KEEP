@@ -10,7 +10,8 @@ type CloudRow = {
   deleted_at: string | null;
 };
 
-const PULL_EVERY_MS = 12000;
+const PULL_EVERY_MS = 12000; // filet de sécurité si Realtime est temporairement déconnecté
+const REALTIME_DEBOUNCE_MS = 180;
 const WRITE_DELAY_MS = 900;
 
 function validSnapshot(value: unknown): value is KeepSession {
@@ -47,6 +48,7 @@ export function startCrossDeviceSessionSync(userId: string): () => void {
   let writing = false;
   let applying = false;
   let flushTimer: ReturnType<typeof setTimeout> | null = null;
+  let realtimePullTimer: ReturnType<typeof setTimeout> | null = null;
   const pending = new Map<string, KeepSession>();
   const tombstones = new Set<string>();
   const seenLocal = new Map<string, string>();
@@ -201,12 +203,29 @@ export function startCrossDeviceSessionSync(userId: string): () => void {
     } finally { reading = false; }
   }
 
+  // Propagation quasi immédiate des changements PC ↔ iPhone. Les notifications
+  // utilisent déjà Realtime ; le miroir des sessions doit aussi recevoir les
+  // INSERT/UPDATE de keep_device_sessions (publication configurée côté SQL).
+  // Le polling à 12 s reste un repli lors d'une coupure de websocket.
+  const channel = client.channel('device-session-sync-' + userId + '-' + Math.random().toString(36).slice(2, 8))
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'keep_device_sessions', filter: 'user_id=eq.' + userId,
+    }, () => {
+      if (!sameIdentity() || realtimePullTimer) return;
+      realtimePullTimer = setTimeout(() => {
+        realtimePullTimer = null;
+        void pull().then(flush);
+      }, REALTIME_DEBOUNCE_MS);
+    }).subscribe();
+
   const unsubscribe = useSessionHistoryStore.subscribe(scan);
   const timer = setInterval(() => { void pull().then(flush); }, PULL_EVERY_MS);
   void pull();
   return () => {
     stopped = true;
     unsubscribe();
+    void client.removeChannel(channel);
+    if (realtimePullTimer) clearTimeout(realtimePullTimer);
     clearInterval(timer);
     if (flushTimer) clearTimeout(flushTimer);
   };
