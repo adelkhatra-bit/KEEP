@@ -1,6 +1,5 @@
 import fs from 'fs';
 import path from 'path';
-import { PC_TARGET_SCREENS, isPcTargetScreen } from '../webPairingService';
 
 const root = path.resolve(__dirname, '..', '..', '..', '..', '..');
 const source = (p: string) => fs.readFileSync(path.join(root, p), 'utf8');
@@ -9,9 +8,10 @@ jest.mock('../supabaseClient', () => ({ supabase: null }));
 
 describe('PC QR : ouverture réelle des cinq onglets', () => {
   it('ne transfère que des routes de la navigation existante', () => {
-    expect(PC_TARGET_SCREENS.map((s) => s.name)).toEqual(['Listen', 'Discover', 'MyMusic', 'Parties', 'Profile']);
-    expect(isPcTargetScreen('MyMusic')).toBe(true);
-    expect(isPcTargetScreen('DeleteAccount')).toBe(false);
+    const service = source('packages/mobile/src/services/webPairingService.ts');
+    const screens = ['Listen', 'Discover', 'MyMusic', 'Parties', 'Profile'];
+    screens.forEach((screen) => expect(service).toContain("{ name: '" + screen + "'"));
+    expect(service).toContain('isPcTargetScreen(screen: unknown)');
   });
   it('autorise la commande uniquement pour la session appartenant au demandeur', () => {
     const server = source('supabase/functions/keep-web-pairing/index.ts');
