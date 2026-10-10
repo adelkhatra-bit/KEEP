@@ -19,7 +19,7 @@ function b64url(data: Uint8Array) {
 }
 const encode = (value: unknown) => b64url(new TextEncoder().encode(JSON.stringify(value)));
 function pkcs8(pem: string) {
-  const clean = pem.replace(/\\n/g, "\n").replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\s/g, "");
+  const clean = pem.replace(/\\n/g, "\n").replace(/-----[A-Z ]+-----|\s/g, "");
   if (!/^[A-Za-z0-9+/=]+$/.test(clean) || clean.length < 80) throw new Error("invalid_musickit_key");
   const binary = atob(clean);
   return Uint8Array.from(binary, (character) => character.charCodeAt(0));
