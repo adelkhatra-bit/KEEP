@@ -17,11 +17,19 @@ import { supabase } from './supabaseClient';
  * rallumer le flag global pour tout le monde. Repli sur l'ancienne lecture
  * directe de la table si la RPC échoue (ex. schéma pas encore migré).
  */
-export async function isFeatureEnabled(key: string): Promise<boolean> {
-  if (!supabase) return false;
+export type FeatureFlagState = 'enabled' | 'disabled' | 'unavailable';
+
+/**
+ * Panne ≠ désactivé (incident 10/10/2026, ERR-132). Quand PostgREST répond 503
+ * (PGRST002), le droit d'accès est INCONNU : on le dit (`unavailable`) au lieu
+ * de l'afficher comme « fonction désactivée », et on n'active jamais par défaut
+ * une fonction dont le droit n'a pas été lu.
+ */
+export async function getFeatureState(key: string): Promise<FeatureFlagState> {
+  if (!supabase) return 'unavailable';
   try {
     const { data, error } = await supabase.rpc('keep_feature_flag_enabled_for_me', { p_key: key });
-    if (!error) return Boolean(data);
+    if (!error) return data ? 'enabled' : 'disabled';
   } catch {
     // repli ci-dessous
   }
@@ -31,11 +39,16 @@ export async function isFeatureEnabled(key: string): Promise<boolean> {
       .select('is_enabled_globally,rollout_percent')
       .eq('key', key)
       .maybeSingle();
-    if (error || !data) return false;
-    return Boolean((data as any).is_enabled_globally) && Number((data as any).rollout_percent ?? 100) > 0;
+    if (error) return 'unavailable';
+    if (!data) return 'disabled';
+    return Boolean((data as any).is_enabled_globally) && Number((data as any).rollout_percent ?? 100) > 0 ? 'enabled' : 'disabled';
   } catch {
-    return false;
+    return 'unavailable';
   }
+}
+
+export async function isFeatureEnabled(key: string): Promise<boolean> {
+  return (await getFeatureState(key)) === 'enabled';
 }
 
 

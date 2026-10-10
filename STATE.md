@@ -78,3 +78,4 @@ Rapport d'audit externe : `docs/AUDIT_EXTERNE_2026-10-06.md`. Notifications : `d
 - 2026-10-10 · claude/release-trigger-20261010 · annulation du × (b79f41c5) ; test dual-viewport ciblé sur la fenêtre plein écran + journal des candidats · preuve : à confirmer par le run CI
 - 2026-10-10 · claude/release-trigger-20261010 · dual-viewport : cause = Échap du test ferme le plein écran ; test corrigé sans Échap · preuve : journal run 38048905780 ; à confirmer par le prochain run
 2026-10-10 · claude/release-trigger-20261010 · 419d7e31 · audit CI : verify/verify-mobile/qr-runtime/design/CodeQL verts, dual-viewport rouge (ERR-132, base Supabase indisponible) · PR #86 NON fusionnée
+2026-10-10 · claude/release-trigger-20261010 · (ce commit) · ERR-132 : état indisponible ≠ désactivé (flags), rôle admin borné testé, 409 refresh, i18n bornée · jest mobile 296/296, tsc OK

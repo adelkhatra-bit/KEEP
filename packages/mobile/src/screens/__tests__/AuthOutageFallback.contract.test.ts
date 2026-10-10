@@ -16,7 +16,7 @@ describe('Supabase outage startup resilience', () => {
 
   it('uses cached identity only for transient auth failures, never a normal sign-out', () => {
     expect(auth).toContain("async function persistedSupabaseAuthSession(client: SupabaseClient)");
-    expect(auth).toContain("const persisted = transientAuthFailure(error) ? await persistedSupabaseAuthSession(client) : null;");
+    expect(auth).toContain("const persisted = sessionRestoreTransient(error) ? await persistedSupabaseAuthSession(client) : null;");
     expect(auth).toContain("if (persisted) return persisted;");
     expect(auth).toContain('return null;');
   });

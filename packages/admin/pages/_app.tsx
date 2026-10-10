@@ -3,10 +3,9 @@ import { FormEvent, useEffect, useRef, useState } from 'react';
 import '../styles/globals.css';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 import { APP_NAME } from '../lib/brand';
+import { checkAdminRole } from '../lib/adminRoleCheck';
 
 type AuthState = 'checking' | 'signed_out' | 'checking_role' | 'allowed' | 'forbidden' | 'role_check_failed';
-type RoleCheck = 'allowed' | 'denied' | 'error';
-const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'FINANCE', 'MARKETING', 'MODERATOR', 'TECH'];
 
 function LiveMarker() {
   // Adel (01/09/2026) : ce badge en haut à droite recouvrait la cloche de
@@ -16,28 +15,8 @@ function LiveMarker() {
   return <div style={{ position:'fixed',bottom:10,right:10,zIndex:200,background:'#22c55e',color:'#07110a',borderRadius:999,padding:'7px 11px',fontSize:11,fontWeight:900,letterSpacing:.7 }}>{APP_NAME} LIVE · RECONCILE</div>;
 }
 
-// Tri-etat volontaire : une erreur reseau/serveur ('error') n'est PAS un refus
-// ('denied'). Seul un refus explicite ferme la session ; une panne passagere ne
-// doit jamais deconnecter le Super Admin.
-// Délai maximal : sans lui, une base lente laissait « Vérification de la session… » indéfiniment
-// (aucune erreur, aucun bouton). Au-delà, on propose « Réessayer » sans fermer la session.
-const ROLE_CHECK_DEADLINE_MS = 12000;
 // Connexion Super Admin : au-delà de 20 s sans réponse du serveur d'authentification, on l'annonce clairement.
 const SIGN_IN_DEADLINE_MS = 20000;
-
-async function checkAdminRole():Promise<RoleCheck>{
-  if(!supabase)return 'error';
-  try{
-    const {data,error}=await Promise.race([
-      supabase.rpc('get_my_admin_role'),
-      new Promise<never>((_,reject)=>setTimeout(()=>reject(new Error('role_check_timeout')),ROLE_CHECK_DEADLINE_MS)),
-    ]);
-    if(error)return 'error';
-    return data&&ADMIN_ROLES.includes(String(data))?'allowed':'denied';
-  }catch{
-    return 'error';
-  }
-}
 
 function friendlyAuthError(message?:string){
   if(!message)return 'Impossible de se connecter pour le moment.';
@@ -136,7 +115,7 @@ export default function App({Component,pageProps}:AppProps){
       const user=data?.session?.user;
       if(!user){update('signed_out');return;}
       if(stateRef.current!=='allowed')update('checking_role');
-      const role=await checkAdminRole();
+      const role=await checkAdminRole(supabase);
       if(!active)return;
       // Panne reseau/serveur : on garde la session et on propose de reessayer.
       if(role==='error'){if(stateRef.current!=='allowed')update('role_check_failed');return;}

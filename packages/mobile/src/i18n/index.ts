@@ -72,10 +72,29 @@ i18n.use(initReactI18next).init({
  * historiques contenant encore du texte JSX en dur doivent être migrés vers
  * des clés i18n avant d'être réellement multilingues de bout en bout.
  */
-export async function activateRuntimeLanguage(languageCode = detectedLanguage): Promise<boolean> {
-  const target = String(languageCode || '').trim().toLowerCase();
-  if (!target) return false;
+// Panne Supabase (10/10/2026) : un seul chargement à la fois par langue, puis pause de 5 min après un échec,
+// pour ne pas ajouter de trafic (fonction + table de cache) pendant que le serveur est saturé.
+const RUNTIME_LANGUAGE_RETRY_PAUSE_MS = 5 * 60 * 1000;
+const runtimeLanguageInFlight = new Map<string, Promise<boolean>>();
+const runtimeLanguageFailedAt = new Map<string, number>();
 
+export function activateRuntimeLanguage(languageCode = detectedLanguage): Promise<boolean> {
+  const target = String(languageCode || '').trim().toLowerCase();
+  if (!target) return Promise.resolve(false);
+  if (bundledLanguage(target)) return loadRuntimeLanguage(target);
+  const pending = runtimeLanguageInFlight.get(target);
+  if (pending) return pending;
+  const failedAt = runtimeLanguageFailedAt.get(target);
+  if (failedAt && Date.now() - failedAt < RUNTIME_LANGUAGE_RETRY_PAUSE_MS) return Promise.resolve(false);
+  const run = loadRuntimeLanguage(target).then((ok) => {
+    if (ok) runtimeLanguageFailedAt.delete(target); else runtimeLanguageFailedAt.set(target, Date.now());
+    return ok;
+  }).finally(() => { runtimeLanguageInFlight.delete(target); });
+  runtimeLanguageInFlight.set(target, run);
+  return run;
+}
+
+async function loadRuntimeLanguage(target: string): Promise<boolean> {
   if (bundledLanguage(target)) {
     await i18n.changeLanguage(target);
     return true;

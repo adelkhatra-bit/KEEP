@@ -13,7 +13,7 @@ import { loadCurrentPlanCode, loadDemoDiscoveryLocked } from '../services/planSe
 import ProfileCertificationBadge from '../components/ProfileCertificationBadge';
 import ProfileCounterRow from '../components/ProfileCounterRow';
 import { loadPublicProfileSnapshot, PublicProfileSnapshot } from '../services/publicProfileStateService';
-import { isFeatureEnabled } from '../services/featureFlagService';
+import { getFeatureState, isFeatureEnabled } from '../services/featureFlagService';
 import MotionActionButton from '../components/MotionActionButton';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import { CreatorEvent, EventRsvpCounts, EventRsvpStatus, loadEventRsvpCounts, loadMyRsvps, loadUpcomingEvents, setEventRsvp } from '../services/creatorEventService';
@@ -98,7 +98,9 @@ export default function DiscoverScreen({ navigation, route }: any) {
   // chaque ouverture ; une fois vérifiée, false coupe réellement l'écran.
   const [localDiscoveryEnabled, setLocalDiscoveryEnabled] = useState(true);
   const [localDiscoveryChecked, setLocalDiscoveryChecked] = useState(false);
-  useEffect(() => { let live = true; isFeatureEnabled('local_discovery').then((enabled) => { if (live) { setLocalDiscoveryEnabled(enabled); setLocalDiscoveryChecked(true); } }); return () => { live = false; }; }, []);
+  const [localDiscoveryUnavailable, setLocalDiscoveryUnavailable] = useState(false);
+  const [localDiscoveryRetry, setLocalDiscoveryRetry] = useState(0);
+  useEffect(() => { let live = true; getFeatureState('local_discovery').then((state) => { if (live) { setLocalDiscoveryEnabled(state === 'enabled'); setLocalDiscoveryUnavailable(state === 'unavailable'); setLocalDiscoveryChecked(true); } }); return () => { live = false; }; }, [localDiscoveryRetry]);
   const [demoDiscoveryLocked, setDemoDiscoveryLocked] = useState(true);
   useEffect(() => {
     let live = true;
@@ -602,7 +604,10 @@ export default function DiscoverScreen({ navigation, route }: any) {
             <View style={[styles.discoveryModeButton, styles.discoveryModeButtonOn]} accessibilityRole="text" accessibilityLabel="Personnes, rubrique sélectionnée mais temporairement indisponible"><Text style={[styles.discoveryModeText, styles.discoveryModeTextOn]}>PERSONNES</Text></View>
             {eventsFeatureEnabled ? <TouchableOpacity style={styles.discoveryModeButton} onPress={() => setDiscoverMode('EVENTS')}><Text style={styles.discoveryModeText}>ÉVÉNEMENTS</Text></TouchableOpacity> : null}
           </View>
-          <View style={styles.emptyCard}><Text style={styles.mutedHint}>La découverte de personnes est temporairement indisponible. Les événements restent accessibles ci-dessus.</Text></View>
+          <View style={styles.emptyCard}>
+            <Text style={styles.mutedHint}>{localDiscoveryUnavailable ? 'Connexion à Loki Music momentanément ralentie : le droit d’accès à Découvertes n’a pas pu être vérifié. Ce n’est pas une désactivation.' : 'La découverte de personnes est temporairement indisponible. Les événements restent accessibles ci-dessus.'}</Text>
+            {localDiscoveryUnavailable ? <TouchableOpacity onPress={() => { setLocalDiscoveryChecked(false); setLocalDiscoveryRetry((n) => n + 1); }} accessibilityRole="button" accessibilityLabel="Réessayer de charger Découvertes"><Text style={styles.discoveryModeText}>Réessayer</Text></TouchableOpacity> : null}
+          </View>
         </ScrollView>
 </SafeAreaView>
     );
