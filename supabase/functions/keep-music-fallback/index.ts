@@ -68,7 +68,7 @@ async function allowFallback(identityHash: string) {
   const { data, error } = await admin.rpc("service_allow_recognition", {
     p_identity_hash: identityHash,
     p_limit: 1,
-    p_window_seconds: 20,
+    p_window_seconds: 8, // 10/10/2026 décision Adel : 1 essai ACRCloud / 8 s
   });
   if (error) throw error;
   return Boolean(data);
