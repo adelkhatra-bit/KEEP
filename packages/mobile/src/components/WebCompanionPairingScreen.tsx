@@ -1,28 +1,72 @@
 import React from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { colors } from '../theme/colors';
+import { designProfileForWidth } from '../theme/designProfile';
 import {
   claimDesktopPairing,
+  clearDesktopChallenge,
   createDesktopPairing,
   DesktopPairingChallenge,
+  loadDesktopChallenge,
   rememberPendingWebPairing,
+  saveDesktopChallenge,
 } from '../services/webPairingService';
 
+/** Taille du QR selon la hauteur réellement visible (Adel 10/10/2026 : « l'écran est coupé, fais le QR plus petit »). */
+export function pairingQrSize(windowHeight: number, pageZoom = 1): number {
+  const visible = windowHeight / Math.max(1, pageZoom);
+  return Math.max(120, Math.min(220, Math.round(visible - 420)));
+}
+
+function currentHash(): string {
+  try { return String(window.location.hash || ''); } catch { return ''; }
+}
+
+/** Lien magique refusé (expiré / déjà utilisé) : Supabase revient avec `#error=…&error_code=otp_expired` (Adel 10/10/2026, photo PC). */
+export function readLinkMessage(hash: string): string | null {
+  const raw = String(hash || '').replace(/^#/, '');
+  if (!raw) return null;
+  const params = new URLSearchParams(raw);
+  const code = params.get('error_code') || params.get('error');
+  if (!code) return null;
+  return code === 'otp_expired' || code === 'access_denied'
+    ? 'Le lien de connexion a expiré ou a déjà servi. Scanne le nouveau QR avec ton téléphone.'
+    : 'La connexion de cet ordinateur a échoué. Scanne le nouveau QR avec ton téléphone.';
+}
+
+// Une seule création de QR à la fois (le double rendu de React créait 2 jumelages à 3 s d'écart).
+let inflightCreate: Promise<DesktopPairingChallenge> | null = null;
+function createOnce(): Promise<DesktopPairingChallenge> {
+  if (!inflightCreate) inflightCreate = createDesktopPairing().finally(() => { inflightCreate = null; });
+  return inflightCreate;
+}
+
 export default function WebCompanionPairingScreen() {
+  const { width, height } = useWindowDimensions();
+  const qrSize = pairingQrSize(height, designProfileForWidth(width).pageZoom);
   const [challenge, setChallenge] = React.useState<DesktopPairingChallenge | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [message, setMessage] = React.useState('Préparation de la connexion…');
   const [secondsLeft, setSecondsLeft] = React.useState(0);
 
-  const create = React.useCallback(async () => {
+  // Affichage seulement : l'adresse ne pilote AUCUNE action de sécurité. Elle est lue une fois, puis nettoyée sans condition.
+  const linkErrorRef = React.useRef<string | null>(readLinkMessage(currentHash()));
+  React.useEffect(() => {
+    try { window.history.replaceState(null, '', window.location.pathname + window.location.search); } catch { /* sans effet */ }
+  }, []);
+
+  const create = React.useCallback(async (forceNew = true) => {
     setLoading(true);
     setMessage('Préparation de la connexion…');
     try {
-      const next = await createDesktopPairing();
+      // Après un rechargement de la page, on reprend le MÊME QR (déjà scanné ou en cours) au lieu d'en créer un autre.
+      const saved = forceNew ? null : loadDesktopChallenge();
+      const next = saved ?? await createOnce();
+      if (!saved) saveDesktopChallenge(next);
       setChallenge(next);
       setSecondsLeft(Math.max(0, Math.ceil((new Date(next.expiresAt).getTime() - Date.now()) / 1000)));
-      setMessage('Scanne ce QR code avec ton téléphone connecté à Loki Music.');
+      setMessage(linkErrorRef.current ?? 'Scanne ce QR code avec ton téléphone connecté à Loki Music.');
     } catch {
       setChallenge(null);
       setMessage('Impossible de créer le QR pour le moment.');
@@ -32,7 +76,7 @@ export default function WebCompanionPairingScreen() {
   }, []);
 
   React.useEffect(() => {
-    void create();
+    void create(false);
   }, [create]);
 
   React.useEffect(() => {
@@ -58,6 +102,7 @@ export default function WebCompanionPairingScreen() {
         }
         if (result.status === 'APPROVED' && result.actionLink) {
           rememberPendingWebPairing(challenge.pairingId, challenge.token);
+          clearDesktopChallenge();
           setMessage('Téléphone validé. Connexion de cet ordinateur…');
           window.location.assign(result.actionLink);
           return;
@@ -78,17 +123,17 @@ export default function WebCompanionPairingScreen() {
   const locked = !loading && (!challenge || secondsLeft <= 0);
 
   return (
-    <View style={s.container} testID="loki-web-companion-pairing">
+    <ScrollView style={s.scroll} contentContainerStyle={s.container} testID="loki-web-companion-pairing" showsVerticalScrollIndicator={false}>
       <View style={s.card}>
         <Text style={s.logo}>Loki Music</Text>
         <Text style={s.title}>Connexion ordinateur</Text>
         <Text style={s.body}>Ouvre Loki Music sur ton téléphone déjà connecté, puis scanne ce QR code.</Text>
 
-        <View style={s.qrBox}>
+        <View style={[s.qrBox, { width: qrSize + 32, height: qrSize + 32 }]}>
           {loading ? <ActivityIndicator color={colors.primaryLight} size="large" /> : locked ? (
             <Text style={s.error} testID="loki-web-qr-locked">QR expiré — non scannable</Text>
           ) : challenge ? (
-            <QRCode value={challenge.qrUrl} size={220} backgroundColor="#FFFFFF" color="#000000" />
+            <QRCode value={challenge.qrUrl} size={qrSize} backgroundColor="#FFFFFF" color="#000000" />
           ) : <Text style={s.error}>QR indisponible</Text>}
         </View>
 
@@ -96,24 +141,25 @@ export default function WebCompanionPairingScreen() {
         {challenge && secondsLeft > 0 ? <Text style={s.timer}>Valable encore {secondsLeft} s</Text> : null}
 
         {!loading && (!challenge || secondsLeft <= 0) ? (
-          <TouchableOpacity style={s.button} onPress={() => { void create(); }} accessibilityRole="button" accessibilityLabel="Rafraîchir le QR">
+          <TouchableOpacity style={s.button} onPress={() => { void create(true); }} accessibilityRole="button" accessibilityLabel="Rafraîchir le QR">
             <Text style={s.buttonText}>RAFRAÎCHIR LE QR</Text>
           </TouchableOpacity>
         ) : null}
 
         <Text style={s.foot}>Aucune création de compte sur ordinateur. La connexion est autorisée depuis ton téléphone.</Text>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, minHeight: '100vh' as any, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  card: { width: '100%', maxWidth: 520, alignItems: 'center', borderRadius: 28, paddingHorizontal: 28, paddingVertical: 32, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
+  scroll: { flex: 1, backgroundColor: colors.background },
+  container: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
+  card: { width: '100%', maxWidth: 520, alignItems: 'center', borderRadius: 28, paddingHorizontal: 24, paddingVertical: 20, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
   logo: { color: colors.primaryLight, fontSize: 34, fontWeight: '900', letterSpacing: 2 },
   title: { marginTop: 12, color: colors.textPrimary, fontSize: 22, fontWeight: '900' },
   body: { marginTop: 10, color: colors.textSecondary, fontSize: 15, lineHeight: 22, textAlign: 'center' },
-  qrBox: { width: 252, height: 252, marginTop: 24, borderRadius: 24, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', padding: 16 },
+  qrBox: { marginTop: 16, borderRadius: 24, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', padding: 16 },
   status: { marginTop: 18, color: colors.textPrimary, fontSize: 14, fontWeight: '800', textAlign: 'center' },
   timer: { marginTop: 6, color: colors.textMuted, fontSize: 12 },
   error: { color: colors.danger, fontWeight: '800' },

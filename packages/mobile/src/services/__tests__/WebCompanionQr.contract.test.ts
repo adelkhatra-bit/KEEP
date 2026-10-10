@@ -21,7 +21,10 @@ describe('Web companion QR contract', () => {
     expect(edge).toContain("keep://pair?pairing_id=");
     expect(pairing).toContain("approveDesktopPairing");
     expect(lifecycle).toContain("Linking.addEventListener('url'");
-    expect(chatHost).toContain('<WebPairingLifecycle />');
+    // Une seule instance, montée à la racine (App.tsx) : deux montages = deux popups et deux approbations.
+    // App.tsx est protégé : l'instance unique vit dans AccountGateModal (monté toujours).
+    expect(chatHost).not.toContain('<WebPairingLifecycle');
+    expect((read('..', '..', 'components', 'AccountGateModal.tsx').match(/<WebPairingLifecycle \/>/g) || []).length).toBe(1);
   });
 
   it('stores no refresh token in the pairing backend and uses one-time magic-link auth', () => {
@@ -58,5 +61,31 @@ describe('Web companion QR contract', () => {
     expect(screen).toContain('RAFRAÎCHIR LE QR');
     expect(lifecycle).toContain('PairingUnusableError');
     expect(lifecycle).toContain('QR code expiré');
+  });
+
+  it('écran QR PC : défilable, QR adapté à la hauteur visible, plus de minHeight 100vh (texte coupé, 10/10/2026)', () => {
+    const screen = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'WebCompanionPairingScreen.tsx'), 'utf8');
+    expect(screen).toContain('<ScrollView');
+    expect(screen).toContain('pairingQrSize(');
+    expect(screen).not.toContain("minHeight: '100vh'");
+    expect(screen).toContain('size={qrSize}');
+  });
+
+  it('le QR survit à un rechargement du PC : approbation jamais perdue (10/10/2026)', () => {
+    const screen = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'WebCompanionPairingScreen.tsx'), 'utf8');
+    const svc = fs.readFileSync(path.join(__dirname, '..', 'webPairingService.ts'), 'utf8');
+    expect(screen).toContain('loadDesktopChallenge()');
+    expect(screen).toContain('saveDesktopChallenge(next)');
+    expect(screen).toContain('void create(false)');
+    expect(svc).toContain('sessionStorage');
+    expect(svc).not.toMatch(/refresh_token/);
+  });
+
+  it('lien magique expiré (#error=otp_expired) : message clair, adresse nettoyée, nouveau QR, une seule création (10/10/2026)', () => {
+    const screen = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'WebCompanionPairingScreen.tsx'), 'utf8');
+    expect(screen).toContain('readLinkMessage(');
+    expect(screen).toContain('replaceState');
+    expect(screen).toContain('createOnce()');
+    expect(screen).toContain('otp_expired');
   });
 });

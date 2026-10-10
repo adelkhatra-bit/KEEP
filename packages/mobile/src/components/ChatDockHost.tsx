@@ -1,6 +1,5 @@
 import React, { useEffect, useRef } from 'react';
 import GlobalChatDock from './GlobalChatDock';
-import WebPairingLifecycle from './WebPairingLifecycle';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
 import { useUserStore } from '../store/useUserStore';
 
@@ -34,8 +33,5 @@ export default function ChatDockHost({ active = true }: { active?: boolean }) {
 /** Robot de l'écran principal : retiré quand un aperçu l'héberge. */
 export function RootChatDock() {
   const hosted = useGlobalChatStore((state) => state.chatHosts.length > 0);
-  return <>
-    <WebPairingLifecycle />
-    {hosted ? null : <GlobalChatDock />}
-  </>;
+  return hosted ? null : <GlobalChatDock />;
 }

@@ -58,6 +58,7 @@ function AccountGateModalInner() {
 }
 
 export default function AccountGateModal() {
+  // Instance UNIQUE du jumelage ordinateur (montée toujours, connecté ou non) : deux montages = deux popups et deux approbations.
   return <><WebPairingLifecycle /><AccountGateModalInner /></>;
 }
 
