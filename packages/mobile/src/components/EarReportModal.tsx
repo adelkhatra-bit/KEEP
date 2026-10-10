@@ -7,7 +7,7 @@ import { approval, communityReport, earChallenges, earLevel, earPoints, type Ear
 
 const cap = (g: string) => g.charAt(0).toUpperCase() + g.slice(1);
 
-/** « Mon oreille » (Adel, 05/10/2026, IDEA-113) : niveau de connaisseur, défis personnalisés, statistiques de style (❤ 😐 👎) et rapport de communauté. */
+/** « Défi Loki · Ma progression » (Adel, 05/10/2026, IDEA-113) : niveau de connaisseur, défis personnalisés, statistiques de style (❤ 😐 👎) et rapport de communauté. */
 export default function EarReportModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const [raw, setRaw] = useState<EarRaw | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -25,7 +25,7 @@ export default function EarReportModal({ visible, onClose }: { visible: boolean;
       <View style={st.backdrop}>
         <View style={st.sheet} testID="ear-report">
           <View style={st.header}>
-            <Text style={st.title}>Mon oreille 👂</Text>
+            <Text style={st.title}>Défi Loki · Ma progression</Text>
             <TouchableOpacity style={st.close} onPress={onClose} accessibilityRole="button" accessibilityLabel="Fermer" testID="ear-report-close"><Text style={st.closeText}>✕</Text></TouchableOpacity>
           </View>
           {state === 'loading' ? <ActivityIndicator color={colors.white} style={{ margin: 24 }} /> : null}
@@ -40,6 +40,11 @@ export default function EarReportModal({ visible, onClose }: { visible: boolean;
                 <Text style={st.hint}>{lvl.next ? `Encore ${lvl.toNext} points pour « ${lvl.next.label} »` : 'Niveau maximum atteint'}</Text>
               </View>
 
+              <View style={st.storyMission} testID="loki-story-challenge">
+                <Text style={st.storyMissionTitle}>Défi communauté : raconte tes trouvailles</Text>
+                <Text style={st.body}>Chaque morceau découvert peut devenir une story musicale. Partage tes trouvailles gratuites, tes coups de cœur et tes collections proposées en FREE ou en euros selon les règles de la plateforme. Les stories font vivre ta communauté et donnent envie de revenir découvrir ton univers.</Text>
+                <Text style={st.hint}>Une story est un partage : elle ne débloque pas automatiquement un achat et aucun bonus FREE n'est promis sans règle serveur.</Text>
+              </View>
               <Text style={st.section}>Tes défis</Text>
               {earChallenges(raw).map((c) => (
                 <View key={c.key} style={st.challenge} testID={`ear-challenge-${c.key}`}>
@@ -83,6 +88,8 @@ const st = StyleSheet.create({
   close: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   closeText: { color: colors.white, fontSize: 20, fontWeight: '900' },
   scroll: { paddingBottom: 12 },
+  storyMission: { marginTop: 14, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: colors.primaryLight, backgroundColor: colors.backgroundElevated },
+  storyMissionTitle: { color: colors.white, fontSize: 16, fontWeight: '900' },
   levelBox: { alignItems: 'center', padding: 14, borderRadius: 16, borderWidth: 1, borderColor: '#FFD166', backgroundColor: 'rgba(255,209,102,0.08)' },
   levelIcon: { fontSize: 40 },
   levelName: { color: '#FFD166', fontSize: 22, fontWeight: '900', marginVertical: 4 },
