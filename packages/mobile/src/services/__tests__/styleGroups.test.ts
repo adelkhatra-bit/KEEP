@@ -7,6 +7,15 @@ describe('tri par style (Trier ma musique)', () => {
     const groups = groupTracksByStyle([t('1', ['Funk']), t('2', ['funk ']), t('3', ['R&B/Soul']), t('4', ['Hip-hop/Rap'])]);
     expect(groups.map((g) => [g.genre, g.tracks.length])).toEqual([['Funk', 2], ['Hip-hop/Rap', 1], ['R&B/Soul', 1]]);
   });
+  it('évite les doublons Rap / Hip-Hop, Afrobeats / Afrobeat et Raï / Rai', () => {
+    const groups = groupTracksByStyle([
+      t('1', ['Rap']), t('2', ['Hip-hop/Rap']),
+      t('3', ['Afrobeat']), t('4', ['Afrobeats']),
+      t('5', ['Raï']), t('6', ['Rai']),
+    ]);
+    expect(groups).toHaveLength(3);
+    expect(groups.map(group => group.tracks.length)).toEqual([2, 2, 2]);
+  });
   it('un morceau multi-genres apparaît dans chacun de ses styles, jamais deux fois dans le même', () => {
     const groups = groupTracksByStyle([t('1', ['Funk', 'funk', 'Soul'])]);
     expect(groups.map((g) => [g.genre, g.tracks.length]).sort()).toEqual([['Funk', 1], ['Soul', 1]]);
