@@ -11,7 +11,7 @@ interface RemoteConfigRow {
   updated_at?: string | null;
 }
 
-type GroupKey = 'GAINS' | 'SPEND' | 'BATTLE' | 'LEGAL' | 'GROWTH' | 'PLANS' | 'SERVICES' | 'LISTEN' | 'VIBES' | 'OTHER';
+type GroupKey = 'DESKTOP' | 'GAINS' | 'SPEND' | 'BATTLE' | 'LEGAL' | 'GROWTH' | 'PLANS' | 'SERVICES' | 'LISTEN' | 'VIBES' | 'OTHER';
 
 /**
  * Économie FREE (audit 07/10/2026, Adel : « j'ai la main sur tout ce qui fait gagner ou dépenser des FREE ») :
@@ -110,6 +110,8 @@ const FRIENDLY_LABELS: Record<string, string> = {
   free_monthly_bonus_venue_pro: 'Free offerts / mois · Venue Pro 29,99 €',
   free_cost_per_keep: 'Prix en Free d’un morceau gardé (FREE/Premium)',
   web_share_free_cost: 'Prix en Free annoncé d’un partage de 24 h sur ordinateur (0 = gratuit)',
+  desktop_boutique_columns: 'Boutique PC · colonnes standard (2 à 4)',
+  desktop_boutique_columns_wide: 'Boutique PC · colonnes grands écrans (2 à 4)',
   battle_arena_stake_free_credits: 'Mise en Free pour un Battle en ligne',
   battle_duel_perfect_bonus_free: 'Bonus plateforme · victoire parfaite en Battle à 2 (Free)',
   // Adel (04/09/2026) : "c'est deloyal qui perdent tous ... le premier
@@ -134,6 +136,7 @@ function editableValue(row: RemoteConfigRow) {
 }
 
 function groupFor(key: string): GroupKey {
+  if (key.startsWith('desktop_')) return 'DESKTOP';
   if (ECONOMY[key]) return ECONOMY[key].group;
   if (key.startsWith('legal_')) return 'LEGAL';
   if (key.startsWith('growth_') || key.startsWith('referral_')) return 'GROWTH';
@@ -145,6 +148,7 @@ function groupFor(key: string): GroupKey {
 }
 
 const GROUPS: Array<{ key: GroupKey; title: string; subtitle: string }> = [
+  { key: 'DESKTOP', title: 'Apparence ordinateur', subtitle: 'Réglages réels du bureau Loki Music. Les colonnes de boutique s’adaptent à la fenêtre PC ; la version mobile et les cinq onglets restent inchangés.' },
   { key: 'GAINS', title: 'Gagner', subtitle: 'Tout ce qui fait GAGNER des FREE aux utilisateurs. Le bonus d’inscription et les FREE mensuels des abonnés se règlent dans Formules. Partager son profil ne donne pas de FREE : les paliers de partage donnent des Découvertes et des essais Vibes (Croissance).' },
   { key: 'SPEND', title: 'Dépenser', subtitle: 'Tout ce qui fait DÉPENSER des FREE.' },
   { key: 'BATTLE', title: 'Battle', subtitle: 'Mises, parties SOLO et packs. Le gain SOLO parfait (3 / 6 / 8 / 12 FREE selon le nombre de manches) est encore fixé dans le serveur : il deviendra réglable ici avec ton « OK base ».' },
@@ -192,6 +196,11 @@ export default function RemoteConfig() {
       if (typeof row.value !== 'string') {
         try { value = JSON.parse(raw); }
         catch { throw new Error('Valeur JSON invalide.'); }
+      }
+      if (row.key === 'desktop_boutique_columns' || row.key === 'desktop_boutique_columns_wide') {
+        if (typeof value !== 'number' || !Number.isInteger(value) || value < 2 || value > 4) {
+          throw new Error('Choisis un nombre entier de colonnes entre 2 et 4.');
+        }
       }
       const { error: rpcError } = await supabase.rpc('admin_remote_config_set', { p_key: row.key, p_value: value, p_description: row.description });
       if (rpcError) throw rpcError;
