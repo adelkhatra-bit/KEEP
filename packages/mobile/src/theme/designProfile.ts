@@ -1,6 +1,6 @@
 // Séparation du DESIGN téléphone / ordinateur (Adel, 10/10/2026, IDEA-206) : les fonctions sont identiques, seul le design diffère.
 // UNE seule source des mesures propres à l'appareil (aucun écran dupliqué, aucun fichier .web/.native : contrat platform-parity).
-// Les facteurs de zoom ci-dessous sont ceux appliqués à #root dans index.js et scripts/fix-web-export.cjs (un test les garde égaux).
+// Le zoom global reste à 1 sur PC : la largeur est exploitée par les layouts (grilles/colonnes), jamais par une version mobile agrandie.
 import { useWindowDimensions } from 'react-native';
 
 export type DesignProfileKind = 'mobile' | 'desktop' | 'wide';
@@ -18,8 +18,8 @@ export const WIDE_MIN_WIDTH = 1700;
 
 export const DESIGN_PROFILES: Record<DesignProfileKind, DesignProfile> = {
   mobile: { kind: 'mobile', pageZoom: 1, botScale: 1.15 },
-  desktop: { kind: 'desktop', pageZoom: 1.2, botScale: 1.2 },
-  wide: { kind: 'wide', pageZoom: 1.4, botScale: 1.2 },
+  desktop: { kind: 'desktop', pageZoom: 1, botScale: 1.2 },
+  wide: { kind: 'wide', pageZoom: 1, botScale: 1.2 },
 };
 
 export function designProfileForWidth(width: number): DesignProfile {
