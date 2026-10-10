@@ -240,3 +240,11 @@ describe('Musique en vente dans une story : titres + prix, sélection (pas les t
     expect(track.album).toBe('Tu achètes son écoute, pas les titres');
   });
 });
+
+describe('Ma story : total des j\'aime visible (Adel 10/10/2026)', () => {
+  it('le bandeau « vues » affiche aussi le total des j\'aime', () => {
+    const bar = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'ProfileStoryBar.tsx'), 'utf8');
+    expect(bar).toContain('loadLikeCounts(openStory.tracks.map');
+    expect(bar).toContain('❤️ ${ownLikeTotal}');
+  });
+});

@@ -49,7 +49,7 @@ import { colors } from '../theme/colors';
 import { ownBadgeFor, ownBadgeMessage, pruneExpiredStory } from '../services/storyActivity';
 import { shareReferralLink } from '../services/referralShare';
 import { buildViewerDetail } from '../services/storyViewerDetail';
-import { loadMyLikesAmong, likeKey } from '../services/trackLikesService';
+import { loadMyLikesAmong, loadLikeCounts, likeKey } from '../services/trackLikesService';
 import { navigationRef } from '../navigation/navigationRef';
 import KeepModal from './KeepModal';
 
@@ -401,6 +401,16 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     } finally { setPinBusy(''); }
   };
   const isOwnOpen = openStory?.profileId === viewer.id;
+  // Total des j'aime sur ma story (Adel 10/10/2026 : « je ne vois pas le nombre de j'aime ») : lecture publique de track_likes, indépendante du lecteur.
+  const [ownLikeTotal, setOwnLikeTotal] = useState<number | null>(null);
+  useEffect(() => {
+    if (!isOwnOpen || !openStory) { setOwnLikeTotal(null); return undefined; }
+    let live = true;
+    loadLikeCounts(openStory.tracks.map((track) => track.id))
+      .then((map) => { if (live) setOwnLikeTotal(Object.values(map).reduce((sum, n) => sum + n, 0)); })
+      .catch(() => { if (live) setOwnLikeTotal(null); });
+    return () => { live = false; };
+  }, [isOwnOpen, openStory]);
   // Enchaînement (Adel 05/10/2026) : la story terminée, on propose tout de suite la suivante (non vues d'abord, la story vue repasse derrière).
   const nextStories = openStory
     ? stories.filter((story) => story.profileId !== openStory.profileId && story.profileId !== viewer.id && !story.suggestion && story.tracks.length > 0)
@@ -539,7 +549,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         // Adel 05/10/2026 : « tu écris trop » -- plus de phrase d'accroche sur la story d'un autre (elle nommait à tort le diffuseur comme crédité).
         headerExtra={isOwnOpen ? (
           <TouchableOpacity style={styles.viewsChip} onPress={() => setViewersOpen(true)} accessibilityRole="button" accessibilityLabel="Voir qui a vu ta story" testID="story-views-chip">
-            <Text style={styles.viewsChipText}>👁 {viewers ? `${viewers.length} vue${viewers.length > 1 ? 's' : ''}` : '… vues'} · Voir qui ›</Text>
+            <Text style={styles.viewsChipText}>👁 {viewers ? `${viewers.length} vue${viewers.length > 1 ? 's' : ''}` : '… vues'} {ownLikeTotal !== null ? ` · ❤️ ${ownLikeTotal}` : ''} · Voir qui ›</Text>
           </TouchableOpacity>
         ) : null}
         overlay={isOwnOpen && viewersOpen ? (
