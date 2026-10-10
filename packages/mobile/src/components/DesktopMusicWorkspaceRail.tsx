@@ -45,7 +45,7 @@ export default function DesktopMusicWorkspaceRail({
         </View>
         <Text style={s.section}>Accès rapide</Text>
         {shortcuts.map(({ title, screen, hint }) => (
-          <TouchableOpacity key={screen} style={s.link} onPress={() => navigation.navigate('Main', { screen })} accessibilityRole="button" accessibilityLabel={'Ouvrir ' + title}>
+          <TouchableOpacity key={screen} style={s.link} onPress={() => navigation.navigate(screen)} accessibilityRole="button" accessibilityLabel={'Ouvrir ' + title}>
             <Text style={s.linkName}>{title}</Text>
             <Text style={s.linkHint}>{hint}</Text>
           </TouchableOpacity>
