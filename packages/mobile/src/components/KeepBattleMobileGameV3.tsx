@@ -310,6 +310,9 @@ function buildBattleSession(pack: KeepBattleSoloPack, rounds: KeepBattleSoloRoun
     startedAt: now.toISOString(),
     endedAt: now.toISOString(),
     title: `Coups du Battle · ${now.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`,
+    // Propriétaire nécessaire au miroir Supabase PC ↔ mobile (RLS). Sans cet ID,
+    // la partie sauvegardée ne quittait jamais le stockage local de l'appareil.
+    ownerUserId: canLoadAuthenticatedBattleCredit() ? useUserStore.getState().user?.id : undefined,
     tracks,
   };
 }
@@ -343,6 +346,9 @@ function buildArenaSession(tracksPlayed: ArenaPlayedTrack[]): KeepSession {
     startedAt: now.toISOString(),
     endedAt: now.toISOString(),
     title: `Coups du Battle · ${now.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`,
+    // Propriétaire nécessaire au miroir Supabase PC ↔ mobile (RLS). Sans cet ID,
+    // la partie sauvegardée ne quittait jamais le stockage local de l'appareil.
+    ownerUserId: canLoadAuthenticatedBattleCredit() ? useUserStore.getState().user?.id : undefined,
     tracks,
   };
 }
