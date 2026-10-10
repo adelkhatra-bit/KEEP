@@ -31,6 +31,7 @@ import KeepVisibilityChoiceModal from '../components/KeepVisibilityChoiceModal';
 import { preloadTrackPreview, preloadTrackPreviewSegment, stopTrackPreview, stopTrackPreviewFast, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import KeepModal from '../components/KeepModal';
+import DesktopMusicWorkspaceRail from '../components/DesktopMusicWorkspaceRail';
 
 // Adel (05/10/2026) : les bandelettes (accueil + écoute) ne sont plus des listes fixes : elles viennent de la bibliothèque composée
 // `tickerMessageLibrary` (plus d'un million de messages, règles du système, défis, communauté, matchs) et ne se répètent pas d'une connexion à l'autre.
@@ -664,6 +665,7 @@ export default function HomeScreenCompact({ navigation }: any) {
     return (
       <SafeAreaView style={s.container}><PersonalThemeBackdrop />
         <TopBar navigation={navigation} readyCount={detected} />
+        <DesktopMusicWorkspaceRail navigation={navigation} onOpenSessions={openSessionHistorySafely} />
         {/* Accueil Écouter (Adel 29/09/2026 : "cette page n'est pas belle") --
             aligné sur la maquette validée docs/mockups/EcouteRedesign.html :
             fond aurora, pastilles micro/veille, grand cercle Loki "L" entouré de
@@ -761,6 +763,7 @@ export default function HomeScreenCompact({ navigation }: any) {
     <SafeAreaView style={s.container}><PersonalThemeBackdrop />
       <AuroraBackground active={isActive && !micIdle} />
       <TopBar navigation={navigation} readyCount={detected} title="À toi de jouer" onOpenSessions={() => setSessionPeekOpen(true)} />
+      <DesktopMusicWorkspaceRail navigation={navigation} onOpenSessions={() => setSessionPeekOpen(true)} />
 
       <ScrollView
         style={s.main}
