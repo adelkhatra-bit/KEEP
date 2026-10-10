@@ -6,6 +6,7 @@ import { unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { colors } from '../theme/colors';
 import type { PlaylistSaleOverlap, PublicPlaylistSaleOffer } from '../services/playlistSaleService';
 import KeepModal from './KeepModal';
+import { offerDisplayName } from '../services/offerDisplayName';
 
 // Adel (02/10/2026) : « boutique vendeur » validée (maquette Boutique Pépites
 // Loki). La Boutique musicale met en avant 3 collections « à la une » ;
@@ -119,13 +120,13 @@ function OfferCard({ offer, overlaps, unlocked, onPress, width }: { offer: Publi
       onPressIn={unlockWebAudioForGesture}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Écouter l'aperçu de ${offer.playlistName}, ${offer.trackCount} titres, ${unlocked ? 'débloquée' : offer.paymentMode !== 'FREE' && Platform.OS !== 'web' ? 'protégée' : salePriceLabel(offer)}`}
+      accessibilityLabel={`Écouter l'aperçu de ${offerDisplayName(offer)}, ${offer.trackCount} titres, ${unlocked ? 'débloquée' : offer.paymentMode !== 'FREE' && Platform.OS !== 'web' ? 'protégée' : salePriceLabel(offer)}`}
     >
       <LinearGradient colors={genreGradient(genre)} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.cover}>
         {ownedAll ? <Text style={s.coverOwned}>✓ DÉJÀ CHEZ TOI</Text> : overlap && overlap.missingCount > 0 ? <Text style={s.coverNew}>{overlap.missingCount} NOUVEAU{overlap.missingCount > 1 ? 'X' : ''}</Text> : null}
         <Text style={s.coverGenre} numberOfLines={1}>{genre.toUpperCase()}</Text>
       </LinearGradient>
-      <Text style={s.cardTitle} numberOfLines={2}>{offer.playlistName || 'Collection'}</Text>
+      <Text style={s.cardTitle} numberOfLines={2}>{offerDisplayName(offer)}</Text>
       <Text style={s.cardMeta}>{offer.trackCount} titre{offer.trackCount > 1 ? 's' : ''}</Text>
       <PriceToken offer={offer} unlocked={unlocked} />
     </TouchableOpacity>
@@ -269,7 +270,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
       </View>
 
       {drop ? (
-        <TouchableOpacity style={s.drop} onPressIn={unlockWebAudioForGesture} onPress={() => onOpenOffer(drop)} accessibilityRole="button" accessibilityLabel={`Pépite à la une : ${drop.playlistName}, ${drop.paymentMode !== 'FREE' && Platform.OS !== 'web' ? 'protégée' : salePriceLabel(drop)}`}>
+        <TouchableOpacity style={s.drop} onPressIn={unlockWebAudioForGesture} onPress={() => onOpenOffer(drop)} accessibilityRole="button" accessibilityLabel={`Pépite à la une : ${offerDisplayName(drop)}, ${drop.paymentMode !== 'FREE' && Platform.OS !== 'web' ? 'protégée' : salePriceLabel(drop)}`}>
           <LinearGradient colors={genreGradient(drop.genres?.[0] || 'Mix')} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.dropGradient}>
             <View style={s.dropHead}>
               <View style={s.dropLive}>
@@ -280,7 +281,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
             <View style={s.dropMain}>
               <View style={s.dropCopy}>
                 <Text style={s.dropFeatured}>★ PÉPITE À LA UNE</Text>
-                <Text style={s.dropTitle} numberOfLines={1}>{drop.playlistName || 'Collection'}</Text>
+                <Text style={s.dropTitle} numberOfLines={1}>{offerDisplayName(drop)}</Text>
                 <Text style={s.dropMeta} numberOfLines={1}>
                   {drop.trackCount} titres · {drop.genres?.[0] || 'Mix'}{ownerMode ? '' : dropNew > 0 ? ` · ${dropNew} nouveau${dropNew > 1 ? 'x' : ''} pour toi` : ' · déjà chez toi'}
                 </Text>

@@ -125,7 +125,7 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     // Toucher une carte de la boutique = même parcours (aperçu anonyme immersif).
     expect(profile).toContain('onOpenOffer={(offer) => openSaleFolder(offer)}');
     expect(profile).toContain('setImmersivePreviewOffer(offer);');
-    expect(boutique).toContain('Écouter l\'aperçu de ${offer.playlistName}');
+    expect(boutique).toContain('Écouter l\'aperçu de ${offerDisplayName(offer)}');
   });
 
   it('renders locked sale cards with a vivid dedicated palette', () => {

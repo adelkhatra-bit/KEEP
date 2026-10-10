@@ -56,3 +56,14 @@ describe('seller boutique', () => {
     expect(boutique).not.toContain('useNativeDriver: true');
   });
 });
+
+import { offerDisplayName } from '../../services/offerDisplayName';
+
+describe('Nom d\'offre : nombre de titres toujours réel', () => {
+  it('remplace le nombre figé dans le nom par le vrai', () => {
+    expect(offerDisplayName({ playlistName: 'Ma collection · 8 titres', trackCount: 10 })).toBe('Ma collection · 10 titres');
+    expect(offerDisplayName({ playlistName: 'Ma collection · 5 titres', trackCount: 1 })).toBe('Ma collection · 1 titre');
+    expect(offerDisplayName({ playlistName: 'Été 2026', trackCount: 12 })).toBe('Été 2026');
+    expect(offerDisplayName({ playlistName: '', trackCount: 0 })).toBe('Collection');
+  });
+});
