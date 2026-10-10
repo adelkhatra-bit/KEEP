@@ -44,6 +44,7 @@ function createOnce(): Promise<DesktopPairingChallenge> {
 
 export default function WebCompanionPairingScreen() {
   const { width, height } = useWindowDimensions();
+  const isDesktopLayout = width >= 1100;
   const qrSize = pairingQrSize(height, designProfileForWidth(width).pageZoom);
   const [challenge, setChallenge] = React.useState<DesktopPairingChallenge | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -128,7 +129,19 @@ export default function WebCompanionPairingScreen() {
 
   return (
     <ScrollView style={s.scroll} contentContainerStyle={s.container} testID="loki-web-companion-pairing" showsVerticalScrollIndicator={false}>
-      <View style={s.card}>
+      <View style={[s.card, isDesktopLayout && s.desktopCard]}>
+        {isDesktopLayout ? <View style={s.desktopIntro}>
+          <Text style={s.desktopEyebrow}>LOKI MUSIC · VERSION ORDINATEUR</Text>
+          <Text style={s.desktopTitle}>Ton univers musical, en grand.</Text>
+          <Text style={s.desktopDescription}>Retrouve tes découvertes et tes playlists, explore les profils et ouvre les boutiques musicales dans une interface pensée pour un écran large.</Text>
+          <View style={s.desktopFeatures}>
+            <Text style={s.desktopFeature}>◈   Bibliothèque et découvertes synchronisées avec ton compte</Text>
+            <Text style={s.desktopFeature}>◈   Boutique musicale et collections en grand format</Text>
+            <Text style={s.desktopFeature}>◈   Navigation directe entre les cinq espaces Loki Music</Text>
+          </View>
+          <Text style={s.desktopSecurity}>Connexion sécurisée par ton téléphone · Aucun nouveau compte requis.</Text>
+        </View> : null}
+        <View style={s.qrColumn}>
         <Text style={s.logo}>Loki Music</Text>
         <Text style={s.title}>Connexion ordinateur</Text>
         <Text style={s.body}>Ouvre Loki Music sur ton téléphone déjà connecté, puis scanne ce QR code.</Text>
@@ -151,6 +164,7 @@ export default function WebCompanionPairingScreen() {
         ) : null}
 
         <Text style={s.foot}>Aucune création de compte sur ordinateur. La connexion est autorisée depuis ton téléphone.</Text>
+        </View>
       </View>
     </ScrollView>
   );
@@ -159,6 +173,15 @@ export default function WebCompanionPairingScreen() {
 const s = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: colors.background },
   container: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
+  desktopCard: { maxWidth: 1080, flexDirection: 'row', justifyContent: 'space-between', gap: 38, paddingHorizontal: 38, paddingVertical: 30 },
+  desktopIntro: { flex: 1, alignSelf: 'stretch', justifyContent: 'center', paddingHorizontal: 10 },
+  desktopEyebrow: { color: colors.primaryLight, fontSize: 12, letterSpacing: 1.5, fontWeight: '900' },
+  desktopTitle: { color: colors.textPrimary, fontSize: 33, fontWeight: '900', marginTop: 16 },
+  desktopDescription: { color: colors.textSecondary, fontSize: 16, lineHeight: 25, marginTop: 14 },
+  desktopFeatures: { gap: 15, marginTop: 26 },
+  desktopFeature: { color: colors.textPrimary, fontSize: 14, lineHeight: 21 },
+  desktopSecurity: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 30 },
+  qrColumn: { width: '100%', maxWidth: 400, alignItems: 'center', alignSelf: 'center' },
   card: { width: '100%', maxWidth: 520, alignItems: 'center', borderRadius: 28, paddingHorizontal: 24, paddingVertical: 20, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
   logo: { color: colors.primaryLight, fontSize: 34, fontWeight: '900', letterSpacing: 2 },
   title: { marginTop: 12, color: colors.textPrimary, fontSize: 22, fontWeight: '900' },
