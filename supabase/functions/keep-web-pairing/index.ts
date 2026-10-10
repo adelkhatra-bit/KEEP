@@ -8,6 +8,10 @@ const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
+// Partage sur ordinateur : 24 h puis déconnexion automatique (Adel 10/10/2026).
+// Calculé depuis created_at : aucune colonne ni migration nécessaire.
+const PC_SHARE_DURATION_MS = 24 * 60 * 60 * 1000;
+
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -23,6 +27,20 @@ function json(status: number, payload: unknown) {
 
 function cleanLabel(value: unknown) {
   return String(value ?? "Ordinateur Loki").trim().slice(0, 80) || "Ordinateur Loki";
+}
+
+// Lieu approximatif de l'ordinateur qui affiche le QR (en-têtes posés par le
+// réseau Supabase/Cloudflare). Aucune migration : le lieu est ajouté au libellé.
+function approxPlace(req: Request) {
+  const clean = (v: string | null) => {
+    let t = String(v ?? "").trim();
+    try { t = decodeURIComponent(t); } catch { /* garde la valeur brute */ }
+    return t.replace(/[^\p{L}\p{N} '\-]/gu, "").slice(0, 40);
+  };
+  const city = clean(req.headers.get("cf-ipcity"));
+  const country = clean(req.headers.get("cf-ipcountry")).toUpperCase();
+  if (country === "XX" || country === "T1") return city;
+  return [city, country].filter(Boolean).join(", ");
 }
 
 function base64Url(bytes: Uint8Array) {
@@ -97,7 +115,8 @@ Deno.serve(async (req) => {
       const token = randomToken();
       const tokenHash = await sha256(token);
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-      const deviceLabel = cleanLabel(body?.deviceLabel);
+      const place = approxPlace(req);
+      const deviceLabel = cleanLabel(place ? `${cleanLabel(body?.deviceLabel).slice(0, 50)} · ${place}` : body?.deviceLabel);
 
       const { data, error } = await admin
         .from("web_pairings")
@@ -119,12 +138,37 @@ Deno.serve(async (req) => {
       const pairing = await pairingByProof(String(body?.pairingId ?? ""), String(body?.token ?? ""));
       if (!pairing) return json(404, { error: "pairing_not_found" });
       if (pairing.status === "EXPIRED") return json(410, { error: "pairing_expired" });
-      if (pairing.status === "CANCELLED") return json(410, { error: "pairing_cancelled" });
+      if (pairing.status === "CANCELLED") return json(200, { ok: true, status: "CANCELLED" });
       if (pairing.status === "APPROVED" && pairing.action_link) {
         return json(200, { ok: true, status: "APPROVED", actionLink: pairing.action_link });
       }
       if (pairing.status === "CLAIMED") return json(200, { ok: true, status: "CLAIMED" });
       return json(200, { ok: true, status: "WAITING" });
+    }
+
+    if (action === "preview") {
+      const auth = await requireUser(req);
+      if ("error" in auth) return auth.error;
+      const pairing = await pairingByProof(String(body?.pairingId ?? ""), String(body?.token ?? ""));
+      if (!pairing) return json(404, { error: "pairing_not_found" });
+      if (pairing.status !== "WAITING") return json(409, { error: "pairing_not_waiting", status: pairing.status });
+      return json(200, { ok: true, status: "WAITING", deviceLabel: pairing.device_label });
+    }
+
+    if (action === "cancel") {
+      const auth = await requireUser(req);
+      if ("error" in auth) return auth.error;
+      const pairing = await pairingByProof(String(body?.pairingId ?? ""), String(body?.token ?? ""));
+      if (!pairing) return json(404, { error: "pairing_not_found" });
+      if (pairing.status === "CANCELLED") return json(200, { ok: true, status: "CANCELLED" });
+      if (pairing.status !== "WAITING") return json(409, { error: "pairing_not_waiting", status: pairing.status });
+      const { data: cancelled, error } = await admin.from("web_pairings")
+        .update({ status: "CANCELLED", action_link: null })
+        .eq("id", pairing.id).eq("status", "WAITING")
+        .select("id").maybeSingle();
+      if (error) throw error;
+      if (!cancelled) return json(409, { error: "pairing_state_changed" });
+      return json(200, { ok: true, status: "CANCELLED" });
     }
 
     if (action === "approve") {
@@ -147,13 +191,14 @@ Deno.serve(async (req) => {
       }
 
       const now = new Date().toISOString();
-      const { error } = await admin.from("web_pairings").update({
+      const { data: approved, error } = await admin.from("web_pairings").update({
         status: "APPROVED",
         approved_user_id: auth.user.id,
         action_link: actionLink,
         approved_at: now,
-      }).eq("id", pairing.id).eq("status", "WAITING");
+      }).eq("id", pairing.id).eq("status", "WAITING").select("id").maybeSingle();
       if (error) throw error;
+      if (!approved) return json(409, { error: "pairing_state_changed" });
       return json(200, { ok: true, status: "APPROVED", deviceLabel: pairing.device_label });
     }
 
@@ -198,12 +243,17 @@ Deno.serve(async (req) => {
       const id = String(body?.sessionId ?? "");
       const { data } = await admin
         .from("web_companion_sessions")
-        .select("id,revoked_at")
+        .select("id,revoked_at,created_at")
         .eq("id", id)
         .eq("user_id", auth.user.id)
         .maybeSingle();
       if (!data) return json(404, { error: "session_not_found" });
       if (data.revoked_at) return json(200, { ok: true, revoked: true, revokedAt: data.revoked_at });
+      if (Date.now() - new Date(data.created_at).getTime() >= PC_SHARE_DURATION_MS) {
+        const expiredAt = new Date().toISOString();
+        await admin.from("web_companion_sessions").update({ revoked_at: expiredAt }).eq("id", id).is("revoked_at", null);
+        return json(200, { ok: true, revoked: true, revokedAt: expiredAt, expired: true });
+      }
       await admin.from("web_companion_sessions").update({ last_seen_at: new Date().toISOString() }).eq("id", id);
       return json(200, { ok: true, revoked: false });
     }

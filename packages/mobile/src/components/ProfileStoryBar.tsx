@@ -46,10 +46,10 @@ import {
   type MusicStory,
 } from '../services/musicStoriesService';
 import { colors } from '../theme/colors';
-import { ownBadgeFor, ownBadgeMessage } from '../services/storyActivity';
+import { ownBadgeFor, ownBadgeMessage, pruneExpiredStory } from '../services/storyActivity';
 import { shareReferralLink } from '../services/referralShare';
 import { buildViewerDetail } from '../services/storyViewerDetail';
-import { loadMyLikesAmong, likeKey } from '../services/trackLikesService';
+import { loadMyLikesAmong, loadLikeCounts, likeKey } from '../services/trackLikesService';
 import { navigationRef } from '../navigation/navigationRef';
 import KeepModal from './KeepModal';
 
@@ -100,8 +100,8 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     let live = true;
     void readProfileMemory<MusicStory | null>(viewer.id, 'own-story').then((cached) => {
       if (!live || !cached?.tracks?.length) return;
-      const fresh = Date.now() - new Date(cached.latestAt).getTime() < STORY_WINDOW_HOURS * 3600 * 1000;
-      if (fresh) setOwnStory((current) => current ?? cached);
+      const fresh = pruneExpiredStory(cached);
+      if (fresh) setOwnStory((current) => current ?? fresh);
     }).catch(() => {});
     return () => { live = false; };
   }, [viewer.id]);
@@ -145,7 +145,10 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     // le serveur la remplace ensuite. Les musiques de plus de 24 h ne sont jamais réaffichées (fenêtre de story).
     void readProfileMemory<MusicStory[]>(viewer.id, 'story-rail').then((cached) => {
       if (!live || !cached?.length) return;
-      for (const story of cached) if (!previous.has(story.profileId) && !collected.has(story.profileId)) previous.set(story.profileId, story);
+      for (const raw of cached) {
+        const story = raw.suggestion || raw.styleMatch ? raw : pruneExpiredStory(raw);
+        if (story && !previous.has(story.profileId) && !collected.has(story.profileId)) previous.set(story.profileId, story);
+      }
       if (collected.size === 0) setStories(display());
     }).catch(() => {});
     const collected = new Map<string, MusicStory>();
@@ -156,9 +159,10 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     const display = () => [
       ...Array.from(collected.values()).map((story) => {
         const before = previous.get(story.profileId);
-        return !storiesLoaded && before && before.tracks.length > 0 && story.tracks.length === 0 ? before : story;
+        const keep = !storiesLoaded && before && before.tracks.length > 0 && story.tracks.length === 0 ? pruneExpiredStory(before) : null;
+        return keep ?? story;
       }),
-      ...Array.from(previous.values()).filter((story) => !collected.has(story.profileId)),
+      ...Array.from(previous.values()).filter((story) => !collected.has(story.profileId)).map((story) => (story.suggestion || story.styleMatch ? story : pruneExpiredStory(story))).filter((story): story is MusicStory => Boolean(story)),
     ];
     const merge = (list: MusicStory[]) => {
       for (const story of list) {
@@ -396,7 +400,28 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
       Alert.alert('Ajout impossible', 'Seules tes musiques gardées en public peuvent aller en story. Réessaie dans un instant.', [{ text: 'OK', style: 'cancel' }]);
     } finally { setPinBusy(''); }
   };
+  // Une story s'éteint à 24 h même si l'écran reste ouvert (Adel 10/10/2026) : purge toutes les minutes (pas de réseau).
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setOwnStory((current) => (current ? pruneExpiredStory(current) : current));
+      setStories((list) => {
+        const next = list.map((story) => (story.suggestion || story.styleMatch ? story : pruneExpiredStory(story))).filter((story): story is MusicStory => Boolean(story));
+        return next.length === list.length && next.every((story, i) => story === list[i]) ? list : next;
+      });
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
   const isOwnOpen = openStory?.profileId === viewer.id;
+  // Total des j'aime sur ma story (Adel 10/10/2026 : « je ne vois pas le nombre de j'aime ») : lecture publique de track_likes, indépendante du lecteur.
+  const [ownLikeTotal, setOwnLikeTotal] = useState<number | null>(null);
+  useEffect(() => {
+    if (!isOwnOpen || !openStory) { setOwnLikeTotal(null); return undefined; }
+    let live = true;
+    loadLikeCounts(openStory.tracks.map((track) => track.id))
+      .then((map) => { if (live) setOwnLikeTotal(Object.values(map).reduce((sum, n) => sum + n, 0)); })
+      .catch(() => { if (live) setOwnLikeTotal(null); });
+    return () => { live = false; };
+  }, [isOwnOpen, openStory]);
   // Enchaînement (Adel 05/10/2026) : la story terminée, on propose tout de suite la suivante (non vues d'abord, la story vue repasse derrière).
   const nextStories = openStory
     ? stories.filter((story) => story.profileId !== openStory.profileId && story.profileId !== viewer.id && !story.suggestion && story.tracks.length > 0)
@@ -528,14 +553,14 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         tracks={openStory?.tracks ?? []}
         initialTrackId={openStory?.tracks[0]?.id ?? null}
         resetKey={openStory?.profileId ?? null}
-        trackAddedAt={openStory?.addedAt}
+        trackAddedAt={openStory ? Object.fromEntries(openStory.tracks.map((track) => [track.id, openStory.addedAt?.[track.id] ?? openStory.latestAt])) : undefined}
         saleInfoByTrackId={openStory?.saleInfo}
         uncertifiedTrackIds={openStory?.freeTrackIds}
         onTitlePress={!isOwnOpen && openStory ? () => { const username = openStory.username; setOpenStory(null); setTimeout(() => setQuickUsername(username), 350); } : undefined}
         // Adel 05/10/2026 : « tu écris trop » -- plus de phrase d'accroche sur la story d'un autre (elle nommait à tort le diffuseur comme crédité).
         headerExtra={isOwnOpen ? (
           <TouchableOpacity style={styles.viewsChip} onPress={() => setViewersOpen(true)} accessibilityRole="button" accessibilityLabel="Voir qui a vu ta story" testID="story-views-chip">
-            <Text style={styles.viewsChipText}>👁 {viewers ? `${viewers.length} vue${viewers.length > 1 ? 's' : ''}` : '… vues'} · Voir qui ›</Text>
+            <Text style={styles.viewsChipText}>👁 {viewers ? `${viewers.length} vue${viewers.length > 1 ? 's' : ''}` : '… vues'} {ownLikeTotal !== null ? ` · ❤️ ${ownLikeTotal}` : ''} · Voir qui ›</Text>
           </TouchableOpacity>
         ) : null}
         overlay={isOwnOpen && viewersOpen ? (

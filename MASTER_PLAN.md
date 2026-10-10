@@ -118,3 +118,60 @@ Ordre proposé, une étape = une preuve 390/1440, rien supprimé, aucun doublon 
 4. **Mots de passe testeurs** (P, IDEA-175) : migration chiffrée (pgcrypto, clé hors base), lecture SUPER_ADMIN via RPC auditée, expiration 30 j, « Effacer » = effacement de la copie seulement. ⚠ Décision d'Adel notée : un mot de passe réversible est un risque ; garde-fous proposés : comptes TESTEURS uniquement (jamais les vrais utilisateurs), journal de chaque lecture, purge automatique à 30 j.
 5. **Zéro clavier + cartes** (O, Q) : Clés & intégrations en une carte par service, Copier/Coller.
 6. **Règle > 5 mots** (S, IDEA-178) : composant commun de repli + garde CI en mode *avertissement* d'abord (liste des écrans), puis blocage écran par écran ; ne jamais casser le design validé. Conflit à trancher : l'écran Offres est à ~23 mots (IDEA-160) ; la règle 5 mots le remplacerait.
+
+## Plan « Interface ordinateur 16:9 » (10/10/2026) — À VALIDER PAR ADEL AVANT CODE
+
+> Demande d'Adel : une fois connecté en mode PC, le design doit être pensé pour un écran 16:9, avec les règles d'un PC (≠ application). `App.tsx`, `Navigation.tsx` et la barre des 5 onglets sont **verrouillés** : aucun changement de mise en page sans ton accord écrit.
+
+**Preuves (Chromium, export web réel, session « appareil approuvé » simulée comme `web-visible-surface-gate.cjs`, Supabase simulé, 1920×1080) — captures dans le dossier de travail :**
+| Écran | Constat à 1920×1080 |
+|---|---|
+| Accueil (Écouter) | colonne de ≈ 700 px centrée ; bandeau défilant sur 1890 px ; barre du haut limitée à la colonne ; **la carte du tutoriel (« Étape 1/5 ») recouvre la moitié basse du bouton « TROUVER LE MORCEAU »** |
+| Découvertes | contenu étiré sur **1890 px** : champ de recherche et bouton « RECHERCHER » de 1850 px, moitié basse vide |
+| Soirées | colonne de ≈ 1130 px |
+| Profil | étiré sur **1890 px** : avatar en haut à gauche, ☰ à l'extrême droite, bouton « ACTIVER LE MICRO » de 1850 px |
+| Barre des 5 onglets | répartie sur 1920 px (« Loki Music » à x ≈ 190, « Profil » à x ≈ 1720) |
+Résumé : trois largeurs différentes selon l'onglet (700 / 1130 / 1890 px) ; le téléphone est simplement étiré. Aucun débordement horizontal mesuré. Le robot flottant à droite masque du contenu (ex. 3e bouton du Profil).
+
+**Corrigé tout de suite, sans toucher aux fichiers verrouillés :** le plein écran d'inscription (`TasteOnboardingGate.tsx`) : titre et boutons « Tu es… » collés à gauche pendant que la carte était centrée → colonne unique centrée (≤ 680 px). Capture après correctif jointe.
+
+**Proposition (option A, recommandée) — une coque ordinateur unique, en CSS, sans toucher à `App.tsx` ni `Navigation.tsx` :** au-delà de 1024 px de large, centrer `#root` dans une colonne de 1280 px maximum (fond identique), y compris la barre des 5 onglets ; la hauteur reste épinglée à la fenêtre (règle du 29/09 : jamais `height:auto`). Même largeur sur les 5 onglets. Réglage dans `index.js` (`keep-mobile-viewport-lock`) / `scripts/fix-web-export.cjs` (`keep-desktop-shell`).
+- **Risque :** `web-visible-surface-gate.cjs` et le gardien `dual-viewport` exigent que `#root` remplisse la fenêtre → à adapter dans le même commit (jamais l'affaiblir).
+- **Option B (plus ambitieuse, à planifier ensuite) :** vraie mise en page à deux colonnes sur grand écran (liste à gauche, détail à droite) pour Découvertes, Profil et Playlists ; nécessite de toucher des écrans entiers → validation écran par écran.
+- **Tests d'acceptation :** captures 1920×1080, 1440×900, 1366×768 et 390×844 sur les 5 onglets avec la session simulée ; largeur du contenu identique sur les 5 onglets ; aucun débordement ; le tutoriel ne recouvre jamais le bouton principal ; le téléphone 390×844 reste inchangé pixel pour pixel.
+- **Question à trancher :** largeur maximale souhaitée (1280 px ? 1440 px ?) et barre des 5 onglets : conservée en bas, centrée dans la colonne (recommandé), ou déplacée sur le côté.
+
+
+## Plan Boutique musicale — clarté + envie d'acheter (10/10/2026) — À VALIDER PAR ADEL
+**Audit (lecture seule, base réelle, compte adel4A) :** la RPC `keep_playlist_sale_my_offers` filtre bien `seller_id = auth.uid()` : aucune offre d'un autre vendeur n'est affichée. 3 offres actives : (1) « Pépite Tchat · @adel4A » 1 € (offre de conversation privée, `keep-chat:`), (2) « Ma collection · 5 titres » 2 €, (3) « Ma collection · 8 titres » FREE 3 (la base compte 10 titres : le nom est figé à la création). 5 autres offres sont désactivées. **Causes de la confusion :** noms génériques identiques « Ma collection », nombre de titres dans le nom qui devient faux, bandeau mélangeant pastille « 1 € » (offre tchat) et collections, trois niveaux d'en-têtes superposés (profil → « Ma boutique musicale » → « Mes pépites »), filtres répartis sur deux lignes.
+**Proposition de design (inspirée des vitrines Spotify/Bandcamp/Apple Music) :**
+1. Un seul en-tête : « Ma boutique · 2 collections ».
+2. UNE rangée de filtres alignée : `Tout 2` · `FREE 1` · `Boutique € 1` · `Nouveautés`.
+3. Cartes uniformes (pochette carrée, nom, « 5 titres », prix en gros, bouton unique ACHETER / DÉBLOQUER avec FREE) ; grille 2 colonnes mobile, 3-4 colonnes PC.
+4. Nom d'offre éditable à la création (défaut = nom de la playlist, jamais « Ma collection ») ; nombre de titres calculé en direct, jamais écrit dans le nom.
+5. L'offre tchat sort de la boutique (section « Messagerie privée » séparée).
+6. Propriétaire : badge « ACTIVE / DÉSACTIVÉE » + bouton Modifier sur chaque carte.
+**Fichiers :** `SellerBoutique.tsx` (propriétaire du design), `ProfilePublicScreen.tsx` (en-tête). **Garde-fous :** `SellerBoutique.contract.test.ts`, règle Apple 3.1.1 (€ masqué sur iPhone), parité 390×844 / 1440×900. Rien n'est codé tant qu'Adel n'a pas validé.
+
+## Plan ☰ de l'écoute en demi-écran (10/10/2026) — À VALIDER PAR ADEL
+**Constat :** le ☰ (et la pastille « N prêts à trier ») de `TopBar` appelle `navigation.navigate('SessionHistory')` : écran complet, l'écoute passe derrière, l'utilisateur ne sait plus comment revenir.
+**Proposition :** une feuille basse (≈ 50 % de la hauteur, accordéon qui se déploie depuis le haut du ☰) par-dessus l'écoute, qui ne la coupe pas : (1) « Cette session » = morceaux trouvés à trier, avec GARDER / PASSER ; (2) une ligne « Tout l'historique › » qui seule ouvre `SessionHistory` en plein écran ; (3) fermeture par toucher du fond, glisser vers le bas ou bouton ×, retour exact sur l'écoute. Composant réutilisant la liste existante (aucune seconde logique de session). Sur PC (1440×900) : panneau latéral de 420 px.
+**Garde-fous :** écoute en cours jamais interrompue ; parité mobile / PC ; test dual-viewport ; barre des 5 onglets inchangée. Aucun code avant validation.
+
+## Plan Robot guide clignotant (10/10/2026) — À VALIDER PAR ADEL
+**Déjà en place :** scénario par rubrique (`robotSectionScenario.ts`) : intro + conseils + propositions adaptées à Loki Pulse, Découvertes, Playlists, Soirées, Profil ; secousse et 5 touchers passent par lui.
+**Reste (guidage) :** (1) registre de cibles `useRobotGuideStore` (id → bouton) ; chaque bouton clé (onglet, ＋ playlist, Créer une soirée, ma story, Partager sur mon PC…) se déclare avec un id ; (2) quand l'utilisateur choisit une proposition, le robot l'amène à la rubrique puis fait clignoter la cible (halo pulsant) jusqu'au toucher ; (3) le robot explique en une phrase, puis s'efface quand l'action est faite ; (4) le clignotement de la barre des 5 onglets touche `Navigation.tsx` (verrouillé) : à confirmer. Aucun code avant validation.
+
+## Audit goût musical + notifications des stories (10/10/2026) — À VALIDER PAR ADEL (changements de base = « OK base »)
+**Base réelle (lecture seule) :** tables de goût actives (796 scores, 53 styles, 172 artistes) ; déclencheurs actifs qui nourrissent le goût : GARDER (keep_decisions), écoutes en swipe, j'aime (+3), pouce bas (−4, 268 pas-aimés), bibliothèque. **Signaux NON utilisés aujourd'hui :** vues de story (21), j'aime de story (0 — personne ne l'utilise), PASSER, achats / déblocages de collections, abonnements, réponses Solo/Battle, durée d'écoute.
+**Proposition goût :** ajouter ces signaux avec des poids bornés (achat +5, j'aime story +3, vue complète +1, PASSER −1, Solo juste +1) via la fonction existante `keep_apply_track_taste_signal` ; jamais bloquant, jamais mélangé aux profils de test.
+**Notifications stories — manques constatés en base :** `keep_pin_story_track` et `keep_pin_shared_story_track` ne notifient PAS le membre qui avait mis la musique en story le premier ; `keep_record_story_view` et `keep_story_like_toggle` ne notifient pas le propriétaire (types existants : MUSIC_TAKEN « morceau repris », NEW_PUBLIC_KEEP, LOKI_PULSE_NEW). **Proposition :** nouveaux types STORY_RESHARED (« @x a repris ta musique dans sa story »), STORY_LIKED, avec regroupement (1 notification par heure et par personne) et respect de `notification_preferences`. Anti-doublon actuel (🔒 « Déjà en story chez @x ») conservé : le premier reste crédité.
+**Musique non découverte / gratuite :** déjà marquée « Gratuit · non certifiée » en story ; à ajouter : même pastille dans Loki Pulse et bouton « L'acheter pour mon profil » tant qu'aucun membre ne l'a certifiée (premier acheteur crédité).
+**Rien n'est appliqué en base sans ton « OK base ».**
+
+## Plan Écoute « mieux que Shazam » (10/10/2026) — À VALIDER PAR ADEL
+**Constat honnête :** (1) catalogue Loki = 50 249 titres, dont seulement 38 avec ISRC (identifiant international) : trop peu pour rivaliser en volume ; (2) iPhone : ShazamKit natif d'abord = même couverture que Shazam sur l'identification pure ; Android / web : AudD puis ACRCloud, couverture plus faible ; (3) « des milliards de musiques » = catalogues des plateformes (Apple Music ≈ 100 M+), pas une base à copier.
+**Où Loki peut être meilleur :** (a) cascade parallèle + mémoire communautaire (déjà : `recognizeWithKeepMemoryFast`) : un son identifié par un membre l'est instantanément pour les suivants ; (b) enrichir chaque titre trouvé avec ISRC, pochette, style via les catalogues publics (iTunes / Deezer / MusicBrainz) pour que le goût, les stories et la boutique marchent sur des identifiants fiables ; (c) identification « sans micro » par lien (TikTok/YouTube) — déjà là ; (d) latence affichée (nom + pochette dès le premier résultat — fait le 09/10) ; (e) mesure : taux de réussite par plateforme dans le Super Admin pour savoir où on perd face à Shazam. **Aucun ajout de fournisseur payant sans ton accord (coût).**
+
+## Plan lenteur Solo / Battle (10/10/2026) — « OK base » requis
+1. Appliquer `20261010130000_battle_solo_pack_fast.sql` (remplace seulement la fonction `keep_battle_solo_pack`, même signature) → Solo MIX de 17 s à ~0,2 s. 2. Ensuite mesurer `keep_battle_solo_daily_status` (la « jauge » Solo) et `keep_battle_manual_availability_ping` (1 724 appels, 2,5 s) et alléger de la même façon. 3. Espacer ou plafonner les tâches planifiées de catalogue (toutes les 3 et 5 min, 36 s chacune) qui occupent la base pendant les parties. 4. Contrôle après application : refaire `explain analyze` et lire les journaux 24 h.

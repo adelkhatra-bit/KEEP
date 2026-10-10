@@ -133,10 +133,10 @@ describe('chronomètre 24 h de la story', () => {
   it('décompte le temps restant', () => {
     expect(formatStoryCountdown(added, Date.parse('2026-10-05T10:00:00Z'))).toBe('24:00:00');
     expect(formatStoryCountdown(added, Date.parse('2026-10-05T10:29:00Z'))).toBe('23:31:00');
-    expect(formatStoryCountdown(added, Date.parse('2026-10-06T09:59:53Z'))).toBe('00:00:07');
+    expect(formatStoryCountdown(added, Date.parse('2026-10-06T09:59:53Z'))).toBe('0:07');
   });
   it('s’arrête à zéro et ignore une date invalide', () => {
-    expect(formatStoryCountdown(added, Date.parse('2026-10-07T10:00:00Z'))).toBe('00:00:00');
+    expect(formatStoryCountdown(added, Date.parse('2026-10-07T10:00:00Z'))).toBe('0:00');
     expect(formatStoryCountdown('nope')).toBeNull();
     expect(formatStoryCountdown(null)).toBeNull();
   });
@@ -425,5 +425,20 @@ describe('merci par son nom, changer d’avis, recommandations de goût (Adel 05
     const merged = mergeTasteRecommendations([item('a', 1), item('b', 1)], [item('b', 9), item('c', 8)], 4);
     expect(merged.map((x: any) => x.track.id)).toEqual(['b', 'c', 'a']);
     expect(mergeTasteRecommendations([item('a', 1)], [], 4).map((x: any) => x.track.id)).toEqual(['a']);
+  });
+});
+
+import { pruneExpiredStory } from '../storyActivity';
+
+describe('story 24 h : jamais réaffichée après expiration (cache compris)', () => {
+  const now = Date.parse('2026-10-10T12:00:00Z');
+  it('retire les musiques de plus de 24 h et la story vide', () => {
+    const story = {
+      latestAt: '2026-10-08T03:18:42Z',
+      tracks: [{ id: 'a' }, { id: 'b' }],
+      addedAt: { a: '2026-10-08T03:18:42Z', b: '2026-10-10T08:00:00Z' },
+    };
+    expect(pruneExpiredStory(story, now)?.tracks.map((t) => t.id)).toEqual(['b']);
+    expect(pruneExpiredStory({ latestAt: '2026-10-08T03:18:42Z', tracks: [{ id: 'a' }] }, now)).toBeNull();
   });
 });

@@ -36,4 +36,27 @@ describe('Web companion QR contract', () => {
     expect(lifecycle).toContain('getWebCompanionSessionStatus');
     expect(lifecycle).toContain('createAuthService(client).signOut()');
   });
+  it('un scan n\'approuve jamais seul : demande explicite Approuver / Annuler, refus = annulation serveur', () => {
+    expect(lifecycle).toContain("'Connecter cet ordinateur ?'");
+    expect(lifecycle).toContain("text: 'Oui, c’est moi'");
+    expect(lifecycle).toContain("text: 'Non, ce n’est pas moi'");
+    expect(lifecycle).toContain('mot de passe');
+    expect(lifecycle).toContain('previewDesktopPairing');
+    expect(lifecycle).toContain('cancelDesktopPairing');
+    // L'appel d'approbation ne doit exister qu'a l'interieur de la decision explicite.
+    expect(lifecycle).not.toMatch(/void approveDesktopPairing\(pendingApproval/);
+    expect(pairing).toContain("action: 'cancel'");
+    expect(edge).toContain('action === "cancel"');
+    expect(edge).toContain('pairing_state_changed');
+  });
+
+  it('QR expiré : l\'ordinateur le verrouille jusqu\'au bouton Rafraîchir, le téléphone explique sans toucher à la session', () => {
+    const read = (f: string) => fs.readFileSync(path.join(__dirname, '..', '..', 'components', f), 'utf8');
+    const screen = read('WebCompanionPairingScreen.tsx');
+    const lifecycle = read('WebPairingLifecycle.tsx');
+    expect(screen).toContain('loki-web-qr-locked');
+    expect(screen).toContain('RAFRAÎCHIR LE QR');
+    expect(lifecycle).toContain('PairingUnusableError');
+    expect(lifecycle).toContain('QR code expiré');
+  });
 });

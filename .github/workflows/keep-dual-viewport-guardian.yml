@@ -44,6 +44,9 @@ jobs:
       EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru
       EXPO_PUBLIC_DEMO_MODE: 'false'
       EXPO_PUBLIC_KEEP_PREVIEW: '1'
+      # Sans ce drapeau, le bouton du tchat s'appelle « Se connecter pour ouvrir le Tchat » en aperçu
+      # et le test (qui cherche « Ouvrir le Tchat ») expire. Voir ERR-GUARDIAN-CHAT-VISUAL-FLAG-20261009.
+      EXPO_PUBLIC_KEEP_CHAT_VISUAL_TEST: '1'
       EXPO_PUBLIC_KEEP_REAL_RECOGNITION: 'false'
       EXPO_PUBLIC_API_URL: http://127.0.0.1:3010
     steps:

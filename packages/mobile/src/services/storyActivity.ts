@@ -10,13 +10,33 @@ export function isDormantMember(lastActiveAt: string | null | undefined, now = D
 
 /** Chronomètre 24 h d'une musique de story (Adel, 05/10/2026) : « 23:41:07 » = temps de vie restant ; 00:00:00 une fois terminée. */
 export const STORY_LIFETIME_MS = 24 * 3600000;
+/**
+ * Retire d'une story (venue d'un cache ou d'un état précédent) toutes les musiques de plus de 24 h.
+ * Chaque musique est jugée sur sa date d'ajout `addedAt[id]` ; à défaut, sur `latestAt`.
+ * Renvoie null si plus rien ne reste : une story n'est jamais réaffichée après 24 h.
+ */
+export function pruneExpiredStory<T extends { latestAt: string; tracks: Array<{ id: string }>; addedAt?: Record<string, string> }>(
+  story: T,
+  now = Date.now(),
+): T | null {
+  const alive = (iso: string | undefined) => {
+    const at = new Date(iso || '').getTime();
+    return Number.isFinite(at) && now - at < STORY_LIFETIME_MS;
+  };
+  const tracks = story.tracks.filter((track) => alive(story.addedAt?.[track.id] ?? story.latestAt));
+  return tracks.length ? { ...story, tracks } : null;
+}
+
 export function formatStoryCountdown(addedAtIso: string | null | undefined, now = Date.now()): string | null {
   if (!addedAtIso) return null;
   const at = new Date(addedAtIso).getTime();
   if (!Number.isFinite(at)) return null;
   const total = Math.max(0, Math.floor((at + STORY_LIFETIME_MS - now) / 1000));
   const pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(Math.floor(total / 3600))}:${pad(Math.floor((total % 3600) / 60))}:${pad(total % 60)}`;
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  // Pas de « 00: » devant : « 23:41:07 » puis « 41:07 » dans la dernière heure.
+  return h > 0 ? `${h}:${pad(m)}:${pad(total % 60)}` : `${m}:${pad(total % 60)}`;
 }
 
 /**

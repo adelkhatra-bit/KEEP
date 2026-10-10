@@ -1,6 +1,6 @@
 // Robot d'accueil et d'aide (Adel, 06/10/2026, IDEA-154) : salut avec le pseudo SANS « @ » seulement quand l'utilisateur revient après une absence,
 // trois propositions cliquables (Solo / Loki Pulse / communauté), explication une fois sur place, et appel du robot par 5 touchers rapprochés. Module PUR.
-export type HelpActionKey = 'SOLO' | 'PULSE' | 'COMMUNITY' | 'PLAYLISTS' | 'SEARCH' | 'STORY' | 'REPORT';
+export type HelpActionKey = 'SOLO' | 'PULSE' | 'COMMUNITY' | 'PLAYLISTS' | 'SEARCH' | 'STORY' | 'REPORT' | 'QUIET' | 'CONTINUE';
 export type RobotAction = { key: HelpActionKey; label: string; route: string; params?: Record<string, unknown> };
 
 export const HELP_ACTIONS: RobotAction[] = [
@@ -32,6 +32,8 @@ export const HELP_TIPS: Record<HelpActionKey, string[]> = {
   SEARCH: ['Touche 🔎 en haut pour chercher un ami ou un style.', 'Cherche un pseudo avec 🔎, puis abonne-toi.'],
   STORY: ['Touche ta photo en haut : ＋ pour ajouter une musique à ta story.', 'Ta story : touche ta photo, puis ＋.'],
   REPORT: ['Dis-moi ce qui ne va pas.', 'Explique le souci en quelques mots.'],
+  QUIET: ['Je me fais discret.'],
+  CONTINUE: ['Ok, je reste dans les parages.'],
 };
 
 const hash = (text: string) => { let h = 2166136261; for (let i = 0; i < text.length; i += 1) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); } h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; return h >>> 0; };

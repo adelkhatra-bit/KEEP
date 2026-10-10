@@ -19,7 +19,7 @@ export default function ProblemReportHost() {
   useEffect(() => startShakeDetection(() => {
     pushCrumb('action', 'secousse');
     if (topReportLayer() !== null) { openProblemReport(); return; }
-    void summonRobotMenu(String(useUserStore.getState().user?.username ?? '')).then((spoke) => { if (!spoke) openProblemReport(); });
+    void summonRobotMenu(String(useUserStore.getState().user?.username ?? ''), currentScreenName()).then((spoke) => { if (!spoke) openProblemReport(); });
   }), []);
   // Fil des dernières actions : chaque changement d'écran est mémorisé (en mémoire) pour localiser le problème lors d'une secousse.
   useEffect(() => {

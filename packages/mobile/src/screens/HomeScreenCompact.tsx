@@ -1,9 +1,11 @@
 import LedTicker from '../components/LedTicker';
+import { closeRobotInfo } from '../services/robotCoachService';
 import { composeTickerBatch } from '../services/tickerMessageLibrary';
 import { robotSay } from '../services/robotCoachService';
 import { nextTickerBatch } from '../services/tickerMemory';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Image, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import TrackCover from '../components/TrackCover';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from '../utils/keepAlert';
 import { useTranslation } from 'react-i18next';
@@ -116,6 +118,8 @@ function formatElapsed(startedAt: string | null) {
 export default function HomeScreenCompact({ navigation }: any) {
   // La bandelette de l'accueil n'est affichée que si l'écran a la place (jamais au détriment du bouton ou du compteur).
   const roomForHomeTicker = useWindowDimensions().height >= 700;
+  const [tickersClosed, setTickersClosed] = useState(false);
+  const closeTickers = () => { setTickersClosed(true); closeRobotInfo(); };
   const homeTicker = useTickerMessages('home');
   const listenTicker = useTickerMessages('listen');
   const { t } = useTranslation();
@@ -651,7 +655,7 @@ export default function HomeScreenCompact({ navigation }: any) {
         <AuroraBackground active />
         {/* Adel 05/10/2026 : Écouter = tout visible d'un coup, JAMAIS de défilement ni de swipe. La mise en page s'adapte à la taille de l'écran (orbe et espacements proportionnels). */}
         <View style={[s.main, s.idle, s.idleFit]}>
-          {roomForHomeTicker ? <LedTicker messages={homeTicker} testID="home-led-ticker" style={{ alignSelf: 'stretch', width: '100%', marginTop: -16 }} /> : null}
+          {roomForHomeTicker && !tickersClosed ? <LedTicker onDismiss={closeTickers} messages={homeTicker} testID="home-led-ticker" style={{ alignSelf: 'stretch', width: '100%', marginTop: -16 }} /> : null}
           <View style={s.idleHero}>
             <LokiIdleOrb />
             <LokiMusic3DTitle />
@@ -755,7 +759,7 @@ export default function HomeScreenCompact({ navigation }: any) {
             dessous) pendant que ça affichait quand même "MICRO · ACTIF" --
             deux signaux contradictoires à l'écran en même temps. */}
         {/* Adel (05/10/2026) : bande lumineuse défilante -- slogans qui encouragent à identifier, partager et être crédité. */}
-        <LedTicker messages={listenTicker} />
+        {!tickersClosed ? <LedTicker onDismiss={closeTickers} messages={listenTicker} /> : null}
         <View style={s.livePanel}>
           {/* Refonte écran d'écoute (maquette validée docs/mockups/EcouteRedesign.html,
               23/09/2026) : pastille micro en "pill" + puce de veille auto, onde sonore
@@ -844,7 +848,7 @@ export default function HomeScreenCompact({ navigation }: any) {
           >
             <View style={s.trackCard}>
               <View style={s.trackHead}>
-                {current.track.artworkUrl ? <Image source={{ uri: current.track.artworkUrl }} style={s.cover} /> : <View style={[s.cover, s.coverFallback]}><Text style={s.coverK}>K</Text></View>}
+                <TrackCover track={current.track} style={s.cover} fallbackStyle={s.coverFallback} fallbackTextStyle={s.coverK} />
                 <View style={s.trackText}>
                   <Text style={s.trackTitle} numberOfLines={1}>{current.track.title}</Text>
                   <Text style={s.trackArtist} numberOfLines={1}>{current.track.artist}</Text>

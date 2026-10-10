@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabaseClient';
 import { loadMyOfferedTrackIds, loadPlaylistSaleProfilePreviewSampler } from './playlistSaleService';
 import { startStoryWatch } from './storyWatchService';
+import { restoreStoryViewers, serializeStoryViewers, STORY_VIEWERS_CACHE_KEY } from './storyViewersCache';
 
 /**
  * Stories musicales Loki (Adel, 05/10/2026).
@@ -425,7 +426,7 @@ export async function loadSaleCollectionStoryTracks(profileIds: string[]): Promi
 /** Associe chaque musique en vente d'une story à son offre (nombre de titres + prix) ; sans offre connue : l'offre la plus récente du vendeur. */
 export function buildSaleInfo(
   items: Array<{ trackId: string; offerId?: string }>,
-  offers: Array<{ offerId: string; count: number; mode: 'MONEY' | 'FREE' | 'BOTH'; priceLabel: string }>,
+  offers: Array<{ offerId: string; count: number; mode: 'MONEY' | 'FREE' | 'BOTH'; priceLabel: string; createdAt?: string }>,
 ): Record<string, SaleStoryInfo> {
   const out: Record<string, SaleStoryInfo> = {};
   if (!offers.length) return out;
@@ -438,8 +439,8 @@ export function buildSaleInfo(
 }
 
 /** Offres actives de ces vendeurs : nombre de titres + prix (une seule requête). */
-export async function loadSaleOffersMeta(sellerIds: string[]): Promise<Map<string, Array<{ offerId: string; count: number; mode: 'MONEY' | 'FREE' | 'BOTH'; priceLabel: string }>>> {
-  const out = new Map<string, Array<{ offerId: string; count: number; mode: 'MONEY' | 'FREE' | 'BOTH'; priceLabel: string }>>();
+export async function loadSaleOffersMeta(sellerIds: string[]): Promise<Map<string, Array<{ offerId: string; count: number; mode: 'MONEY' | 'FREE' | 'BOTH'; priceLabel: string; createdAt?: string }>>> {
+  const out = new Map<string, Array<{ offerId: string; count: number; mode: 'MONEY' | 'FREE' | 'BOTH'; priceLabel: string; createdAt?: string }>>();
   if (!supabase || !sellerIds.length) return out;
   const { data, error } = await supabase.rpc('keep_playlist_sale_story_offers', { p_seller_ids: sellerIds });
   if (error) return out;
@@ -447,10 +448,21 @@ export async function loadSaleOffersMeta(sellerIds: string[]): Promise<Map<strin
     if (!row?.seller_id || !row?.offer_id) continue;
     const mode = (String(row.payment_mode ?? 'MONEY').toUpperCase() === 'FREE' ? 'FREE' : String(row.payment_mode).toUpperCase() === 'BOTH' ? 'BOTH' : 'MONEY') as 'MONEY' | 'FREE' | 'BOTH';
     const list = out.get(String(row.seller_id)) ?? [];
-    list.push({ offerId: String(row.offer_id), count: Number(row.track_count ?? 0), mode, priceLabel: formatSaleOfferPrice(mode, Number(row.price_cents ?? 0), row.free_price == null ? null : Number(row.free_price), String(row.currency_code ?? 'EUR')) });
+    list.push({ createdAt: row.created_at ? String(row.created_at) : undefined, offerId: String(row.offer_id), count: Number(row.track_count ?? 0), mode, priceLabel: formatSaleOfferPrice(mode, Number(row.price_cents ?? 0), row.free_price == null ? null : Number(row.free_price), String(row.currency_code ?? 'EUR')) });
     out.set(String(row.seller_id), list);
   }
   return out;
+}
+
+/**
+ * Une story dure 24 h (Adel, 10/10/2026 : « au-delà des 24 heures ça disparaît »). Les cartes « boutique » d'un profil ne doivent donc
+ * apparaître que si au moins une de ses offres a été mise en vente depuis moins de 24 h ; sinon la boutique reste sur le profil, pas en story.
+ */
+export function hasFreshSaleOffer(offers: Array<{ createdAt?: string }> | undefined, now = Date.now()): boolean {
+  return (offers ?? []).some((offer) => {
+    const at = new Date(offer.createdAt || '').getTime();
+    return Number.isFinite(at) && now - at < STORY_WINDOW_HOURS * 3600 * 1000;
+  });
 }
 
 export async function enrichStoriesWithSales(stories: MusicStory[]): Promise<MusicStory[]> {
@@ -460,13 +472,13 @@ export async function enrichStoriesWithSales(stories: MusicStory[]): Promise<Mus
     Promise.allSettled(head.map((story) => loadPlaylistSaleProfilePreviewSampler(story.profileId))),
     loadMaskedStoryPins(head.map((story) => story.profileId)).catch(emptyMap),
     loadSaleCollectionStoryTracks(head.map((story) => story.profileId)).catch(emptyMap),
-    loadSaleOffersMeta(head.map((story) => story.profileId)).catch(() => new Map<string, Array<{ offerId: string; count: number; mode: 'MONEY' | 'FREE' | 'BOTH'; priceLabel: string }>>()),
+    loadSaleOffersMeta(head.map((story) => story.profileId)).catch(() => new Map<string, Array<{ offerId: string; count: number; mode: 'MONEY' | 'FREE' | 'BOTH'; priceLabel: string; createdAt?: string }>>()),
   ]);
   return stories.map((story, index) => {
     const result = index < head.length ? results[index] : null;
     const pins = masked.get(story.profileId) ?? [];
     const collection = collections.get(story.profileId) ?? [];
-    const sampler = result && result.status === 'fulfilled' ? result.value : [];
+    const sampler = result && result.status === 'fulfilled' && hasFreshSaleOffer(offersBySeller.get(story.profileId)) ? result.value : [];
     if (!pins.length && !sampler.length && !collection.length) return story;
     const withPins = mergeSaleTracks(story, pins, MAX_MASKED_PINS_PER_STORY);
     const withCollection = mergeSaleTracks(withPins, collection, MAX_COLLECTION_TRACKS_PER_STORY);
@@ -493,9 +505,9 @@ export async function loadSaleOnlyStories(viewerId: string, existing: MusicStory
   if (!ids.length) return [];
   const results = await Promise.allSettled(ids.map((id) => loadPlaylistSaleProfilePreviewSampler(id)));
   const collections = await loadSaleCollectionStoryTracks(ids).catch(() => new Map<string, Array<{ trackId: string; previewUrl: string; pinnedAt: string }>>());
-  const offersBySeller = await loadSaleOffersMeta(ids).catch(() => new Map<string, Array<{ offerId: string; count: number; mode: 'MONEY' | 'FREE' | 'BOTH'; priceLabel: string }>>());
+  const offersBySeller = await loadSaleOffersMeta(ids).catch(() => new Map<string, Array<{ offerId: string; count: number; mode: 'MONEY' | 'FREE' | 'BOTH'; priceLabel: string; createdAt?: string }>>());
   const withSales = ids
-    .map((id, index) => ({ id, samples: results[index].status === 'fulfilled' ? (results[index] as PromiseFulfilledResult<Array<{ trackId: string; previewUrl: string }>>).value : [] }))
+    .map((id, index) => ({ id, samples: results[index].status === 'fulfilled' && hasFreshSaleOffer(offersBySeller.get(id)) ? (results[index] as PromiseFulfilledResult<Array<{ trackId: string; previewUrl: string }>>).value : [] }))
     .filter((row) => row.samples.length > 0)
     .slice(0, MAX_STORIES_WITH_SALES);
   if (!withSales.length) return [];
@@ -571,11 +583,23 @@ export function watchStoryOf(ownerId: string, tracksTotal: number) {
 
 export async function loadMyStoryViewers(): Promise<StoryViewer[]> {
   if (!supabase) return [];
+  const client = supabase;
+  let ownerId = '';
+  try { ownerId = (await client.auth.getSession()).data.session?.user?.id ?? ''; } catch { /* sans identité, pas de copie locale */ }
   // v4 = identifiant réel de chaque musique vue (détail fiable) ; repli v3 tant que la mise à jour serveur n'est pas appliquée.
-  let { data, error } = await supabase.rpc('keep_my_story_viewers_v4');
-  if (error) ({ data, error } = await supabase.rpc('keep_my_story_viewers_v3'));
-  if (error) throw error;
-  return (Array.isArray(data) ? data : []).map((row: any) => ({
+  let { data, error } = await client.rpc('keep_my_story_viewers_v4');
+  if (error) ({ data, error } = await client.rpc('keep_my_story_viewers_v3'));
+  if (error) {
+    // Les spectateurs restent enregistrés pendant la durée de la story : en cas d'échec, on rend la dernière liste connue (≤ 24 h).
+    if (ownerId) {
+      try {
+        const cached = restoreStoryViewers<StoryViewer>(await AsyncStorage.getItem(STORY_VIEWERS_CACHE_KEY), ownerId, Date.now());
+        if (cached.length) return cached;
+      } catch { /* on retombe sur l'erreur d'origine */ }
+    }
+    throw error;
+  }
+  const viewers = (Array.isArray(data) ? data : []).map((row: any) => ({
     viewerId: String(row.viewer_id),
     username: String(row.username ?? ''),
     avatarUrl: row.avatar_url ? String(row.avatar_url) : null,
@@ -592,6 +616,8 @@ export async function loadMyStoryViewers(): Promise<StoryViewer[]> {
     trackViews: (Array.isArray(row.track_views) ? row.track_views : []).filter((c: any) => c?.t).map((c: any) => ({ trackId: String(c.t), seconds: Number(c?.s) || 0 })),
     lastTrackId: row.last_track_id ? String(row.last_track_id) : null,
   })).filter((row) => row.viewerId && row.username);
+  if (ownerId) { try { await AsyncStorage.setItem(STORY_VIEWERS_CACHE_KEY, serializeStoryViewers(ownerId, viewers, Date.now())); } catch { /* copie facultative */ } }
+  return viewers;
 }
 
 

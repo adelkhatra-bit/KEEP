@@ -29,6 +29,7 @@ const ECONOMY: Record<string, { group: 'GAINS' | 'SPEND' | 'BATTLE'; label: stri
   growth_followers_reward_1000_credits: { group: 'GAINS', label: 'Audience Pro', help: 'FREE gagnés une fois en atteignant le palier Audience Pro (réglable dans Croissance).' },
   listen_over_quota_free_cost: { group: 'SPEND', label: 'Écoute +', help: 'FREE retirés pour chaque nouveau morceau reconnu au-delà du quota du jour (avec l’accord de l’utilisateur). Une reconnaissance ratée ne coûte rien.' },
   free_cost_per_keep: { group: 'SPEND', label: 'Garder', help: 'FREE retirés quand un utilisateur garde un morceau reconnu.' },
+  web_share_free_cost: { group: 'SPEND', label: 'Partage PC · 24 h', help: 'FREE annoncés pour un partage de 24 h sur ordinateur (Partager sur mon PC). 0 = gratuit. Annonce seulement : le débit sera activé dans une étape séparée.' },
   battle_free_credit_enabled: { group: 'BATTLE', label: 'Mises', help: 'Active ou coupe les mises en FREE dans les Battle.' },
   battle_arena_stake_free_credits: { group: 'BATTLE', label: 'Mise', help: 'FREE misés par joueur pour un Battle en ligne de 8 manches (proportionnel au nombre de manches). Le gagnant remporte les mises des perdants.' },
   battle_arena_min_free_required: { group: 'BATTLE', label: 'Minimum', help: 'FREE minimum dans le solde pour entrer dans un Battle en ligne.' },
@@ -108,6 +109,7 @@ const FRIENDLY_LABELS: Record<string, string> = {
   free_monthly_bonus_creator_pro: 'Free offerts / mois · Creator Pro 9,99 €',
   free_monthly_bonus_venue_pro: 'Free offerts / mois · Venue Pro 29,99 €',
   free_cost_per_keep: 'Prix en Free d’un morceau gardé (FREE/Premium)',
+  web_share_free_cost: 'Prix en Free annoncé d’un partage de 24 h sur ordinateur (0 = gratuit)',
   battle_arena_stake_free_credits: 'Mise en Free pour un Battle en ligne',
   battle_duel_perfect_bonus_free: 'Bonus plateforme · victoire parfaite en Battle à 2 (Free)',
   // Adel (04/09/2026) : "c'est deloyal qui perdent tous ... le premier

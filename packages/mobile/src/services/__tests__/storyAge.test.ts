@@ -22,7 +22,8 @@ describe('Âge d\'une story (Adel 05/10/2026)', () => {
     const bar = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'ProfileStoryBar.tsx'), 'utf8');
     expect(deck).toContain('testID="deck-story-age"');
     expect(deck).toContain('numberOfLines={1} adjustsFontSizeToFit');
-    expect(bar).toContain('trackAddedAt={openStory?.addedAt}');
+    expect(bar).toContain('trackAddedAt={openStory ?');
+    expect(bar).toContain('openStory.addedAt?.[track.id] ?? openStory.latestAt');
   });
 });
 
@@ -237,5 +238,13 @@ describe('Musique en vente dans une story : titres + prix, sélection (pas les t
     const track = saleSampleToTrack({ trackId: 't1', previewUrl: 'u' }, 'bruno');
     expect(track.artist).toBe('Sélection de @bruno');
     expect(track.album).toBe('Tu achètes son écoute, pas les titres');
+  });
+});
+
+describe('Ma story : total des j\'aime visible (Adel 10/10/2026)', () => {
+  it('le bandeau « vues » affiche aussi le total des j\'aime', () => {
+    const bar = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'ProfileStoryBar.tsx'), 'utf8');
+    expect(bar).toContain('loadLikeCounts(openStory.tracks.map');
+    expect(bar).toContain('❤️ ${ownLikeTotal}');
   });
 });

@@ -60,6 +60,23 @@ export async function approveDesktopPairing(pairingId: string, token: string): P
   });
 }
 
+/** QR périmé, déjà utilisé ou annulé : ce n'est pas une panne, la demande ne doit plus être proposée. */
+export class PairingUnusableError extends Error {}
+
+export async function previewDesktopPairing(pairingId: string, token: string): Promise<{ status: string; deviceLabel?: string }> {
+  try {
+    return await invoke<{ ok: true; status: string; deviceLabel?: string }>({ action: 'preview', pairingId, token });
+  } catch (error) {
+    const status = Number((error as { context?: { status?: number } })?.context?.status);
+    if (status === 404 || status === 409 || status === 410) throw new PairingUnusableError('pairing_unusable');
+    throw error;
+  }
+}
+
+export async function cancelDesktopPairing(pairingId: string, token: string): Promise<{ status: string }> {
+  return invoke<{ ok: true; status: string }>({ action: 'cancel', pairingId, token });
+}
+
 export function parsePairingDeepLink(url: string): { pairingId: string; token: string } | null {
   try {
     const parsed = new URL(url);

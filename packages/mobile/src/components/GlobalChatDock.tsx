@@ -10,9 +10,11 @@ import { speakLokiText } from '../services/lokiSpeechService';
 import { playNotificationCue, primeNotificationAudio } from '../services/notificationSoundService';
 import { navigateToSharedProfile, navigationRef } from '../navigation/navigationRef';
 import { useRobotMessageStore } from '../store/useRobotMessageStore';
+import { useDesignProfile } from '../theme/designProfile';
+import { QUIET_CONFIRMS, setRobotQuiet } from '../services/robotQuietService';
 import StoryVisitorToast from './StoryVisitorToast';
 import { ROBOT_ACTIONS } from '../services/robotCoachMessages';
-import { markRobotActive, robotExplain, robotWelcome } from '../services/robotCoachService';
+import { closeRobotInfo, markRobotActive, robotExplain, robotSay, robotWelcome } from '../services/robotCoachService';
 import { openProblemReport } from '../services/problemReportService';
 import { loadMyFreeWalletStatus } from '../services/freeWalletService';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
@@ -119,15 +121,17 @@ export default function GlobalChatDock() {
   const drawerPeek = useRef(new Animated.Value(0)).current;
   const nudge = useRef(new Animated.Value(0)).current;
   // Message du robot (Adel, 05/10/2026) : « sessions en attente », « plus de FREE / de Solo » -- une bulle à côté du robot, pas une notification.
+  const designProfile = useDesignProfile();
   const robotMessage = useRobotMessageStore((state) => state.message);
   const dismissRobotMessage = useRobotMessageStore((state) => state.dismiss);
   const robotQuiet = useRobotMessageStore((state) => state.quiet > 0);
   const robotBubble = useRef(new Animated.Value(0)).current;
   const robotShake = useRef(new Animated.Value(0)).current;
+  const closeRobotBubble = closeRobotInfo;
   // Balayer la bulle sur le côté la ferme (Adel, 05/10/2026) : un geste rapide, jamais un bouton à viser.
   const robotSwipe = useRef(PanResponder.create({
     onMoveShouldSetPanResponderCapture: (_event, gesture) => Math.abs(gesture.dx) > 14 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.5,
-    onPanResponderRelease: (_event, gesture) => { if (Math.abs(gesture.dx) > 40 || Math.abs(gesture.vx) > 0.6) useRobotMessageStore.getState().dismiss(); },
+    onPanResponderRelease: (_event, gesture) => { if (Math.abs(gesture.dx) > 40 || Math.abs(gesture.vx) > 0.6) closeRobotBubble(); },
   })).current;
   // Accueil du robot : un seul message utile à l'ouverture (solde FREE bas/vide, sinon un salut avec le pseudo), 5 s après le démarrage.
   const welcomeUserId = !isDemoMode && !isLocalGuest ? user?.id ?? null : null;
@@ -933,6 +937,16 @@ export default function GlobalChatDock() {
           >
             <Text style={styles.robotSaysText}>🤖 {robotMessage.text}</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            testID="robot-says-close"
+            onPress={closeRobotBubble}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel="Fermer le message du robot"
+            style={styles.robotSaysClose}
+          >
+            <Text style={styles.robotSaysCloseText}>✕</Text>
+          </TouchableOpacity>
           {robotMessage.actions?.length ? (
             <View style={styles.robotActionsRow} testID="robot-actions">
               {robotMessage.actions.map((action) => (
@@ -944,6 +958,8 @@ export default function GlobalChatDock() {
                   accessibilityLabel={action.label}
                   onPress={() => {
                     dismissRobotMessage();
+                    if (action.key === 'QUIET') { void setRobotQuiet(); void robotSay('ROBOT_TIP', { text: QUIET_CONFIRMS[Date.now() % QUIET_CONFIRMS.length], force: true }); return; }
+                    if (action.key === 'CONTINUE') return;
                     if (action.key === 'REPORT') { openProblemReport(); return; }
                     try { if (navigationRef.isReady()) (navigationRef as any).navigate(action.route, action.params); } catch { /* écran indisponible */ }
                     setTimeout(() => { void robotExplain(action.key); }, 1500);
@@ -1017,7 +1033,7 @@ export default function GlobalChatDock() {
             <View style={styles.fabDepthMid} />
             <View style={[styles.fabFace, side === 'left' ? styles.fabFaceLeft : styles.fabFaceRight]}>
               <View style={styles.drawerGrip}><View style={styles.drawerGripLine}/><View style={styles.drawerGripLine}/><View style={styles.drawerGripLine}/></View>
-              <View style={styles.robotHead}>
+              <View style={[styles.robotHead, { transform: [{ scale: designProfile.botScale }] }]}>
                 <View style={styles.robotAntenna} />
                 <View style={styles.robotEyes}><View style={styles.robotEye}/><View style={styles.robotEye}/></View>
                 <View style={styles.robotMouth}/>
@@ -1078,7 +1094,9 @@ const styles = StyleSheet.create({
 
   chatNudge:{position:'absolute',zIndex:88,minHeight:40,paddingVertical:4,borderRadius:20,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.98)',justifyContent:'center',overflow:'hidden',shadowColor:'#000',shadowOpacity:.32,shadowRadius:10,shadowOffset:{width:0,height:5},elevation:16},
   robotSays:{position:'absolute',zIndex:89,maxWidth:290,borderRadius:18,borderWidth:1.5,borderColor:'#2DE1C2',backgroundColor:'rgba(20,14,31,.98)',shadowColor:'#2DE1C2',shadowOpacity:.4,shadowRadius:10,shadowOffset:{width:0,height:0},elevation:18},
-  robotSaysInner:{paddingVertical:12,paddingHorizontal:14},
+  robotSaysInner:{paddingVertical:12,paddingLeft:14,paddingRight:38},
+  robotSaysClose:{position:'absolute',top:6,right:8,width:26,height:26,borderRadius:13,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(255,255,255,.12)'},
+  robotSaysCloseText:{color:'#FFFFFF',fontSize:13,fontWeight:'900',lineHeight:15},
   robotSaysWide:{width:292},
   robotActionsRow:{flexDirection:'column',gap:6,paddingHorizontal:12,paddingBottom:12},
   robotActionBtn:{alignSelf:'stretch',minHeight:42,paddingHorizontal:14,borderRadius:21,borderWidth:1.5,borderColor:'#2DE1C2',backgroundColor:'rgba(45,225,194,.14)',alignItems:'center',justifyContent:'center'},

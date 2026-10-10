@@ -4,6 +4,7 @@ import { canRobotSpeak, composeRobotLine, LOW_FREE_THRESHOLD, type Memory, type 
 import { useRobotMessageStore } from '../store/useRobotMessageStore';
 import { playNotificationCue } from './notificationSoundService';
 import { useGameSessionStore } from '../store/useGameSessionStore';
+import { composeQuietOffer, isRobotQuiet, registerRobotDismissal } from './robotQuietService';
 import { composeCall, composeWelcomeBack, HELP_ACTIONS, pickTip, shouldWelcomeBack, spokenWelcome, type HelpActionKey, type RobotAction } from './robotHelp';
 
 /**
@@ -17,6 +18,8 @@ export async function robotSay(kind: RobotCoachKind, options: { count?: number; 
   if (useGameSessionStore.getState().isGameInProgress) return false;
   if (useRobotMessageStore.getState().message && !options.force) return false;
   if (useRobotMessageStore.getState().quiet > 0) return false;
+  // Silence demandé par l'utilisateur (2 h) : seuls ses propres appels (force) passent.
+  if (!options.force && await isRobotQuiet()) return false;
   const now = Date.now();
   let memory: Memory = {};
   try { const raw = await AsyncStorage.getItem(KEY); memory = raw ? JSON.parse(raw) : {}; } catch { memory = {}; }
@@ -73,14 +76,17 @@ async function speakOncePerDay(text: string): Promise<void> {
 }
 
 /** Secousse (Adel, 06/10/2026) : le robot propose plusieurs directions ; « Un souci » ouvre le signalement. */
-export async function summonRobotMenu(username: string): Promise<boolean> {
-  const { SHAKE_ACTIONS } = require('./robotHelp');
-  const name = String(username || '').trim().replace(/^@+/, '');
-  return robotSay('ROBOT_CALL', { text: `On fait quoi${name ? `, ${name}` : ''} ?`, actions: SHAKE_ACTIONS, force: true });
+export async function summonRobotMenu(username: string, routeName?: string | null): Promise<boolean> {
+  // Menu adapté à la rubrique où se trouve l'utilisateur (scénario du robot, IDEA-205).
+  const { scenarioForRoute } = require('./robotSectionScenario');
+  const { text, actions } = scenarioForRoute(routeName, username, Date.now());
+  return robotSay('ROBOT_CALL', { text, actions, force: true });
 }
 
 /** Appel du robot (5 touchers rapprochés) : « Qu'est-ce que je peux faire pour toi, {pseudo} ? » + les trois propositions, à voix haute. */
-export async function summonRobot(username: string): Promise<boolean> {
+export async function summonRobot(username: string, routeName?: string | null): Promise<boolean> {
+  const { sectionOfRoute } = require('./robotSectionScenario');
+  if (sectionOfRoute(routeName) !== 'OTHER') return summonRobotMenu(username, routeName);
   const seed = Date.now();
   const spoke = await robotSay('ROBOT_CALL', { text: composeCall(username, seed), actions: HELP_ACTIONS, force: true });
   if (spoke) {
@@ -92,4 +98,13 @@ export async function summonRobot(username: string): Promise<boolean> {
 /** Explication du robot une fois arrivé à l'endroit choisi : quoi toucher, en deux phrases. */
 export async function robotExplain(key: HelpActionKey): Promise<boolean> {
   return robotSay('ROBOT_TIP', { text: pickTip(key, Date.now()), force: true });
+}
+
+/** Ferme une info du robot (bulle, bandeau) : si c'est la 3e fermeture d'affilée, il propose de se faire discret, avec une punchline. */
+export function closeRobotInfo(): void {
+  useRobotMessageStore.getState().dismiss();
+  if (registerRobotDismissal()) {
+    const offer = composeQuietOffer(Date.now());
+    setTimeout(() => { void robotSay('ROBOT_CALL', { text: offer.text, actions: offer.actions, force: true }); }, 400);
+  }
 }

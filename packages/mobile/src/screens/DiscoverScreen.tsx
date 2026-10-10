@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, PanResponder, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import ClampedText from '../components/ClampedText';
 import { Alert } from '../utils/keepAlert';
 import * as Location from 'expo-location';
 import { useTranslation } from 'react-i18next';
@@ -771,7 +772,13 @@ export default function DiscoverScreen({ navigation, route }: any) {
             {eventDetail ? (
               <>
                 <Text style={styles.eventModalMeta}>{new Date(eventDetail.startsAt).toLocaleString('fr-FR')} {eventDetail.venueName ? `· ${eventDetail.venueName}` : ''}</Text>
-                {eventDetail.description ? <Text style={styles.eventModalBody}>{eventDetail.description}</Text> : null}
+                {eventDetail.description ? (
+                  // Adel (10/10/2026) : texte d'événement très long → 23 mots puis « En savoir plus » (repli, rien n'est supprimé) ;
+                  // la zone défile pour que les compteurs et les trois réponses restent toujours visibles.
+                  <ScrollView style={styles.eventModalBodyScroll} nestedScrollEnabled showsVerticalScrollIndicator>
+                    <ClampedText style={styles.eventModalBody} text={eventDetail.description} />
+                  </ScrollView>
+                ) : null}
                 <View style={styles.eventModalStats}>
                   <View style={styles.eventModalStat}><Text style={styles.eventModalStatValue}>{eventRsvpCounts.going}</Text><Text style={styles.eventModalStatLabel}>participent</Text></View>
                   <View style={styles.eventModalStat}><Text style={styles.eventModalStatValue}>{eventRsvpCounts.maybe}</Text><Text style={styles.eventModalStatLabel}>intéressés</Text></View>
@@ -854,7 +861,8 @@ const styles = StyleSheet.create({
   eventModalEyebrow:{color:colors.keep,fontSize:9,fontWeight:'900',letterSpacing:1.1,textAlign:'center'},
   eventModalTitle:{color:colors.white,fontSize:21,fontWeight:'900',textAlign:'center',marginTop:5},
   eventModalMeta:{color:colors.primaryLight,fontSize:11,fontWeight:'800',textAlign:'center',marginTop:7},
-  eventModalBody:{color:colors.textMuted,fontSize:12,lineHeight:18,textAlign:'center',marginTop:10},
+  eventModalBodyScroll:{maxHeight:210,marginTop:10},
+  eventModalBody:{color:colors.textMuted,fontSize:12,lineHeight:18,textAlign:'center'},
   eventModalStats:{flexDirection:'row',gap:8,marginTop:14},
   eventModalStat:{flex:1,minHeight:54,borderRadius:15,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
   eventModalStatValue:{color:colors.keep,fontSize:18,fontWeight:'900'},

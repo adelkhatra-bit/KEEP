@@ -1,10 +1,11 @@
 import type { AppProps } from 'next/app';
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import '../styles/globals.css';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 import { APP_NAME } from '../lib/brand';
 
-type AuthState = 'checking' | 'signed_out' | 'checking_role' | 'allowed' | 'forbidden';
+type AuthState = 'checking' | 'signed_out' | 'checking_role' | 'allowed' | 'forbidden' | 'role_check_failed';
+type RoleCheck = 'allowed' | 'denied' | 'error';
 const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'FINANCE', 'MARKETING', 'MODERATOR', 'TECH'];
 
 function LiveMarker() {
@@ -15,11 +16,14 @@ function LiveMarker() {
   return <div style={{ position:'fixed',bottom:10,right:10,zIndex:200,background:'#22c55e',color:'#07110a',borderRadius:999,padding:'7px 11px',fontSize:11,fontWeight:900,letterSpacing:.7 }}>{APP_NAME} LIVE · RECONCILE</div>;
 }
 
-async function hasActiveAdminRole():Promise<boolean>{
-  if(!supabase)return false;
+// Tri-etat volontaire : une erreur reseau/serveur ('error') n'est PAS un refus
+// ('denied'). Seul un refus explicite ferme la session ; une panne passagere ne
+// doit jamais deconnecter le Super Admin.
+async function checkAdminRole():Promise<RoleCheck>{
+  if(!supabase)return 'error';
   const {data,error}=await supabase.rpc('get_my_admin_role');
-  if(error||!data)return false;
-  return ADMIN_ROLES.includes(String(data));
+  if(error)return 'error';
+  return data&&ADMIN_ROLES.includes(String(data))?'allowed':'denied';
 }
 
 function friendlyAuthError(message?:string){
@@ -99,31 +103,43 @@ function AdminLogin(){
 
 export default function App({Component,pageProps}:AppProps){
   const [state,setState]=useState<AuthState>('checking');
+  const stateRef=useRef<AuthState>('checking');
+  const update=(next:AuthState)=>{stateRef.current=next;setState(next);};
+  const resolveRef=useRef<()=>Promise<void>>(async()=>{});
   useEffect(()=>{
     const client=supabase;
-    if(!client){setState('signed_out');return;}
+    if(!client){update('signed_out');return;}
     let active=true;
     const resolve=async()=>{
       const {data}=await client.auth.getSession();
       if(!active)return;
       const user=data.session?.user;
-      if(!user){setState('signed_out');return;}
-      setState('checking_role');
-      const allowed=await hasActiveAdminRole();
+      if(!user){update('signed_out');return;}
+      if(stateRef.current!=='allowed')update('checking_role');
+      const role=await checkAdminRole();
       if(!active)return;
+      // Panne reseau/serveur : on garde la session et on propose de reessayer.
+      if(role==='error'){if(stateRef.current!=='allowed')update('role_check_failed');return;}
       // Adel (11/09/2026, audit) : signOut() global par defaut deconnectait
       // aussi l'utilisateur de tous ses AUTRES appareils/sessions (mobile
       // compris) des qu'un compte valide mais sans role admin actif tentait
       // ce login -- confirme en direct (session mobile coupee pendant ce
       // test). scope:'local' limite la deconnexion a cet onglet Super Admin.
-      if(!allowed){await client.auth.signOut({scope:'local'});setState('forbidden');return;}
-      setState('allowed');
+      if(role==='denied'){await client.auth.signOut({scope:'local'});update('forbidden');return;}
+      update('allowed');
     };
+    resolveRef.current=resolve;
     void resolve();
-    const {data:sub}=client.auth.onAuthStateChange(()=>void resolve());
+    // TOKEN_REFRESHED / INITIAL_SESSION ne changent ni identite ni role : les
+    // retraiter remontait la page en cours et multipliait les echecs possibles.
+    const {data:sub}=client.auth.onAuthStateChange((event)=>{
+      if(event==='TOKEN_REFRESHED'||event==='INITIAL_SESSION')return;
+      void resolve();
+    });
     return()=>{active=false;sub.subscription.unsubscribe();};
   },[]);
   if(state==='checking'||state==='checking_role')return <main style={page}><LiveMarker/><div style={{color:'#fff'}}>Vérification de la session…</div></main>;
+  if(state==='role_check_failed')return <main style={page}><LiveMarker/><div style={card}><div style={brand}>{APP_NAME}</div><h1 style={title}>Session conservée</h1><p style={muted}>Impossible de vérifier ton rôle pour le moment (réseau ou serveur). Ta session n’a pas été fermée.</p><button type="button" style={button} onClick={()=>{update('checking_role');void resolveRef.current();}}>RÉESSAYER</button></div></main>;
   if(state!=='allowed')return <AdminLogin/>;
   return <><LiveMarker/><Component {...pageProps}/></>;
 }

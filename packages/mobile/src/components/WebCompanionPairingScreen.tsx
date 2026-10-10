@@ -45,12 +45,17 @@ export default function WebCompanionPairingScreen() {
       const remaining = Math.max(0, Math.ceil((new Date(challenge.expiresAt).getTime() - Date.now()) / 1000));
       setSecondsLeft(remaining);
       if (remaining <= 0) {
-        setMessage('Ce QR code a expiré. Génère-en un nouveau.');
+        setMessage('Ce QR code a expiré. Appuie sur « Rafraîchir le QR » pour en obtenir un nouveau.');
         return;
       }
       try {
         const result = await claimDesktopPairing(challenge.pairingId, challenge.token);
         if (!active) return;
+        if (result.status === 'CANCELLED') {
+          setMessage('Connexion refusée sur le téléphone.');
+          setSecondsLeft(0);
+          return;
+        }
         if (result.status === 'APPROVED' && result.actionLink) {
           rememberPendingWebPairing(challenge.pairingId, challenge.token);
           setMessage('Téléphone validé. Connexion de cet ordinateur…');
@@ -70,6 +75,8 @@ export default function WebCompanionPairingScreen() {
     };
   }, [challenge]);
 
+  const locked = !loading && (!challenge || secondsLeft <= 0);
+
   return (
     <View style={s.container} testID="loki-web-companion-pairing">
       <View style={s.card}>
@@ -78,7 +85,9 @@ export default function WebCompanionPairingScreen() {
         <Text style={s.body}>Ouvre Loki Music sur ton téléphone déjà connecté, puis scanne ce QR code.</Text>
 
         <View style={s.qrBox}>
-          {loading ? <ActivityIndicator color={colors.primaryLight} size="large" /> : challenge ? (
+          {loading ? <ActivityIndicator color={colors.primaryLight} size="large" /> : locked ? (
+            <Text style={s.error} testID="loki-web-qr-locked">QR expiré — non scannable</Text>
+          ) : challenge ? (
             <QRCode value={challenge.qrUrl} size={220} backgroundColor="#FFFFFF" color="#000000" />
           ) : <Text style={s.error}>QR indisponible</Text>}
         </View>
@@ -87,8 +96,8 @@ export default function WebCompanionPairingScreen() {
         {challenge && secondsLeft > 0 ? <Text style={s.timer}>Valable encore {secondsLeft} s</Text> : null}
 
         {!loading && (!challenge || secondsLeft <= 0) ? (
-          <TouchableOpacity style={s.button} onPress={() => { void create(); }} accessibilityRole="button" accessibilityLabel="Générer un nouveau QR">
-            <Text style={s.buttonText}>NOUVEAU QR</Text>
+          <TouchableOpacity style={s.button} onPress={() => { void create(); }} accessibilityRole="button" accessibilityLabel="Rafraîchir le QR">
+            <Text style={s.buttonText}>RAFRAÎCHIR LE QR</Text>
           </TouchableOpacity>
         ) : null}
 

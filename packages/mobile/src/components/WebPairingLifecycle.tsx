@@ -7,11 +7,14 @@ import { useUserStore } from '../store/useUserStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import {
   approveDesktopPairing,
+  cancelDesktopPairing,
   clearPendingWebPairing,
   clearWebCompanionSessionId,
   currentWebCompanionSessionId,
   getWebCompanionSessionStatus,
   parsePairingDeepLink,
+  previewDesktopPairing,
+  PairingUnusableError,
   readPendingWebPairing,
   registerCurrentWebCompanionSession,
 } from '../services/webPairingService';
@@ -53,24 +56,55 @@ export default function WebPairingLifecycle() {
     if (!user || isLocalGuest || isDemoMode) return;
 
     approvingRef.current = true;
-    void approveDesktopPairing(pendingApproval.pairingId, pendingApproval.token)
-      .then((result) => {
-        setPendingApproval(null);
+    const request = pendingApproval;
+    const decide = (approve: boolean) => {
+      setPendingApproval(null);
+      const action = approve ? approveDesktopPairing : cancelDesktopPairing;
+      void action(request.pairingId, request.token)
+        .then(() => {
+          Alert.alert(
+            approve ? 'Ordinateur autorisé' : 'Connexion annulée',
+            approve ? 'Retourne sur ton ordinateur.' : 'Cette demande ne peut plus connecter cet ordinateur.',
+          );
+        })
+        .catch(() => {
+          Alert.alert('Connexion ordinateur', 'La demande n’a pas été confirmée. Réessaie depuis le QR de ton ordinateur.');
+        })
+        .finally(() => { approvingRef.current = false; });
+    };
+    void previewDesktopPairing(request.pairingId, request.token)
+      .then((p) => p.deviceLabel || '')
+      .catch((error) => (error instanceof PairingUnusableError ? null : ''))
+      .then((label) => {
+        if (label === null) {
+          // QR expiré / déjà utilisé : on ne touche ni à la session ni au compte.
+          setPendingApproval(null);
+          approvingRef.current = false;
+          Alert.alert(
+            'QR code expiré',
+            'Ce QR code n’est plus valable. Sur ton ordinateur, appuie sur « Rafraîchir le QR », puis scanne le nouveau.',
+          );
+          return;
+        }
         Alert.alert(
-          'Ordinateur autorisé',
-          result.deviceLabel ? `${result.deviceLabel} peut maintenant ouvrir ton compte Loki Music.` : 'Retourne sur ton ordinateur : la connexion est autorisée.',
+          'Connecter cet ordinateur ?',
+          `Quelqu’un essaie de se connecter à ton compte${label ? ` depuis : ${label}` : ''}.\nAccepte uniquement si tu viens de scanner le QR sur ton propre ordinateur.`,
+          [
+            {
+              text: 'Non, ce n’est pas moi',
+              style: 'cancel',
+              onPress: () => {
+                decide(false);
+                Alert.alert(
+                  'Connexion refusée',
+                  'Par sécurité, change ton mot de passe et active un authentificateur (application d’authentification) pour protéger ton compte.',
+                );
+              },
+            },
+            { text: 'Oui, c’est moi', onPress: () => decide(true) },
+          ],
+          { cancelable: false },
         );
-      })
-      .catch((error: any) => {
-        Alert.alert(
-          'Connexion ordinateur',
-          String(error?.message || '').includes('pairing_expired')
-            ? 'Ce QR code a expiré. Génère un nouveau QR sur l’ordinateur.'
-            : 'Impossible d’autoriser cet ordinateur. Génère un nouveau QR et réessaie.',
-        );
-      })
-      .finally(() => {
-        approvingRef.current = false;
       });
   }, [pendingApproval, user?.id, isLocalGuest, isDemoMode]);
 
