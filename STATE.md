@@ -65,3 +65,4 @@ Rapport d'audit externe : `docs/AUDIT_EXTERNE_2026-10-06.md`. Notifications : `d
 2026-10-10 · claude/superadmin-session-forgot-password-v2 · IDEA-214 notée (détail spectateurs + % satisfaction) · plan dans MASTER_PLAN, en attente de validation
 2026-10-10 · claude/superadmin-session-forgot-password-v2 · lien magique expiré (#error=otp_expired) + double création QR · jest WebCompanionQr 9/9
 2026-10-10 · claude/superadmin-session-forgot-password-v2 · jumelage ordinateur monté une seule fois (ERR-116) · robot unique vérifié · jest 293/1427
+2026-10-10 · claude/release-trigger-20261010 · PR #85 fusionnée (ea69722b) mais site/OTA sautés (ERR-117) · PR de release en squash
