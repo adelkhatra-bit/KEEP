@@ -48,4 +48,10 @@ describe('Mettre en story : réponse immédiate, une seule fenêtre par tap (Ade
     expect(deck).toContain('addingRef.current = true');
     expect(deck).toContain('if (addingRef.current) return;');
   });
+  it('musique de MA boutique : passe par keep_pin_story_track (accepté sans migration), pas par le chemin gratuit refusé', () => {
+    const start = deck.indexOf('const shareFreeToStory');
+    const block = deck.slice(start, start + 900);
+    expect(block).toContain('offeredIds.has(track.id)');
+    expect(block).toContain('await pinStoryTrack(track.id)');
+  });
 });

@@ -352,6 +352,15 @@ export default function MusicSwipeDeckModal({
   const confirmStoryAdded = (title: string) => Alert.alert('C’est bon ✓', `« ${title} » est dans ta story pendant 24 h. Tu peux continuer.`, [{ text: 'Continuer', style: 'cancel' }]);
   const shareFreeToStory = async (track: CanonicalTrack) => {
     try {
+      // Musique de MA propre boutique (offre active) : le serveur d'origine la refusait (SALE_PROTECTED) dans ce chemin.
+      // `keep_pin_story_track` accepte l'offre du vendeur et la masque (jaquette/artiste), sans migration. Adel, 10/10/2026 : « Papa est bloqué ».
+      if (offeredIds.has(track.id) && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(track.id))) {
+        await pinStoryTrack(track.id);
+        setStoryIds((previous) => new Set(previous).add(track.id));
+        setJustAdded((previous) => new Set(previous).add(track.id));
+        confirmStoryAdded(track.title);
+        return;
+      }
       const result = await pinFreeStoryTrack({ id: track.id, title: track.title, artist: track.artist, album: track.album, artworkUrl: track.artworkUrl, previewUrl: track.previewUrl, isrc: track.isrc });
       setStoryIds((previous) => new Set(previous).add(track.id).add(result.trackId));
       if (result.alreadyPinned) {
