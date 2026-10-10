@@ -135,6 +135,11 @@ function OfferCard({ offer, overlaps, unlocked, onPress, width }: { offer: Publi
 
 export default function SellerBoutique({ offers, sellerUsername, overlaps, unlockedOfferIds, onOpenOffer, onOpenAllOffers, onBuyAllOffers, buyAllBusy = false, ownerMode = false, viewerUsername }: Props) {
   const { width: windowWidth } = useWindowDimensions();
+  // Présentation distincte sur grand écran : la même boutique et les mêmes
+  // droits/achats, mais une grille qui exploite la largeur de l'ordinateur.
+  const desktopStore = Platform.OS === 'web' && windowWidth >= 1100;
+  const storeColumns = desktopStore ? (windowWidth >= 1700 ? 4 : 3) : 2;
+  const storeMaxWidth = desktopStore ? Math.min(1400, windowWidth - 80) : 640;
   const sellerName = String(sellerUsername || 'Loki').replace(/^@+/, '').trim() || 'Loki';
   const viewerName = String(viewerUsername || '').replace(/^@+/, '').trim();
   // Le profil montre toujours l'intégralité du club musical. Sur iPhone,
@@ -231,7 +236,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
     ? visibleOffers.filter((offer) => (offer.genres || []).includes(selectedGenre) && !unlockedOfferIds.has(offer.offerId) && overlaps[offer.offerId]).reduce((sum, offer) => sum + overlaps[offer.offerId].missingCount, 0)
     : 0;
   const selectedGenreCount = selectedGenre ? visibleOffers.filter((offer) => (offer.genres || []).includes(selectedGenre)).length : 0;
-  const storeCardWidth = Math.floor((Math.min(windowWidth, 640) - 16 * 2 - 2 - 10 - 2) / 2);
+  const storeCardWidth = Math.floor((Math.min(windowWidth, storeMaxWidth) - 16 * 2 - 2 - (storeColumns - 1) * 10 - 2) / storeColumns);
 
   return (
     <View style={s.root}>
@@ -331,9 +336,11 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
         </View>
       ) : null}
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.shelf} accessibilityLabel="Collections à débloquer">
+      <ScrollView horizontal={!desktopStore} showsHorizontalScrollIndicator={false}
+        contentContainerStyle={[s.shelf, desktopStore && { flexDirection: 'row', flexWrap: 'wrap', maxWidth: storeMaxWidth, alignSelf: 'center', justifyContent: 'center' }]}
+        accessibilityLabel="Collections à débloquer">
         {shelf.map((offer) => (
-          <OfferCard key={offer.offerId} offer={offer} overlaps={overlaps} unlocked={unlockedOfferIds.has(offer.offerId)} onPress={() => onOpenOffer(offer)} width={142} />
+          <OfferCard key={offer.offerId} offer={offer} overlaps={overlaps} unlocked={unlockedOfferIds.has(offer.offerId)} onPress={() => onOpenOffer(offer)} width={desktopStore ? Math.min(220, Math.floor((storeMaxWidth - 70) / 4)) : 142} />
         ))}
       </ScrollView>
       <Text style={s.hint}>{ownerMode
@@ -342,7 +349,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
 
       <KeepModal visible={storeOpen} animationType="slide" transparent onRequestClose={() => setStoreOpen(false)}>
         <View style={s.storeBackdrop}>
-          <View style={s.store}>
+          <View style={[s.store, desktopStore && { maxWidth: storeMaxWidth, borderRadius: 24, maxHeight: '88%' }]}>
             <View style={s.storeHead}>
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={s.storeKicker}>BOUTIQUE MUSICALE</Text>
@@ -389,7 +396,8 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
               contentContainerStyle={s.storeGridContent}
               columnWrapperStyle={s.storeGridRow}
               data={storeRows}
-              numColumns={2}
+              key={storeColumns}
+              numColumns={storeColumns}
               keyExtractor={(offer) => offer.offerId}
               initialNumToRender={8}
               maxToRenderPerBatch={8}
