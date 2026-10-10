@@ -87,7 +87,8 @@ export default function TasteOnboardingGate() {
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 16, paddingBottom: 24 },
+  // Ordinateur (Adel 10/10/2026) : le titre et le genre restaient collés à gauche pendant que la carte était centrée → colonne centrée unique.
+  content: { padding: 16, paddingBottom: 24, width: '100%', maxWidth: 680, alignSelf: 'center' },
   title: { color: colors.white, fontSize: 24, fontWeight: '900' },
   subtitle: { color: colors.textSecondary, fontSize: 15, lineHeight: 21, marginTop: 6, marginBottom: 12 },
   block: { marginBottom: 12 },

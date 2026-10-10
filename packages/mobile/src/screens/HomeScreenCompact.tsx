@@ -4,6 +4,7 @@ import { robotSay } from '../services/robotCoachService';
 import { nextTickerBatch } from '../services/tickerMemory';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Image, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import TrackCover from '../components/TrackCover';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from '../utils/keepAlert';
 import { useTranslation } from 'react-i18next';
@@ -844,7 +845,7 @@ export default function HomeScreenCompact({ navigation }: any) {
           >
             <View style={s.trackCard}>
               <View style={s.trackHead}>
-                {current.track.artworkUrl ? <Image source={{ uri: current.track.artworkUrl }} style={s.cover} /> : <View style={[s.cover, s.coverFallback]}><Text style={s.coverK}>K</Text></View>}
+                <TrackCover track={current.track} style={s.cover} fallbackStyle={s.coverFallback} fallbackTextStyle={s.coverK} />
                 <View style={s.trackText}>
                   <Text style={s.trackTitle} numberOfLines={1}>{current.track.title}</Text>
                   <Text style={s.trackArtist} numberOfLines={1}>{current.track.artist}</Text>

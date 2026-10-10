@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabaseClient';
 import { loadMyOfferedTrackIds, loadPlaylistSaleProfilePreviewSampler } from './playlistSaleService';
 import { startStoryWatch } from './storyWatchService';
+import { restoreStoryViewers, serializeStoryViewers, STORY_VIEWERS_CACHE_KEY } from './storyViewersCache';
 
 /**
  * Stories musicales Loki (Adel, 05/10/2026).
@@ -571,11 +572,23 @@ export function watchStoryOf(ownerId: string, tracksTotal: number) {
 
 export async function loadMyStoryViewers(): Promise<StoryViewer[]> {
   if (!supabase) return [];
+  const client = supabase;
+  let ownerId = '';
+  try { ownerId = (await client.auth.getSession()).data.session?.user?.id ?? ''; } catch { /* sans identité, pas de copie locale */ }
   // v4 = identifiant réel de chaque musique vue (détail fiable) ; repli v3 tant que la mise à jour serveur n'est pas appliquée.
-  let { data, error } = await supabase.rpc('keep_my_story_viewers_v4');
-  if (error) ({ data, error } = await supabase.rpc('keep_my_story_viewers_v3'));
-  if (error) throw error;
-  return (Array.isArray(data) ? data : []).map((row: any) => ({
+  let { data, error } = await client.rpc('keep_my_story_viewers_v4');
+  if (error) ({ data, error } = await client.rpc('keep_my_story_viewers_v3'));
+  if (error) {
+    // Les spectateurs restent enregistrés pendant la durée de la story : en cas d'échec, on rend la dernière liste connue (≤ 24 h).
+    if (ownerId) {
+      try {
+        const cached = restoreStoryViewers<StoryViewer>(await AsyncStorage.getItem(STORY_VIEWERS_CACHE_KEY), ownerId, Date.now());
+        if (cached.length) return cached;
+      } catch { /* on retombe sur l'erreur d'origine */ }
+    }
+    throw error;
+  }
+  const viewers = (Array.isArray(data) ? data : []).map((row: any) => ({
     viewerId: String(row.viewer_id),
     username: String(row.username ?? ''),
     avatarUrl: row.avatar_url ? String(row.avatar_url) : null,
@@ -592,6 +605,8 @@ export async function loadMyStoryViewers(): Promise<StoryViewer[]> {
     trackViews: (Array.isArray(row.track_views) ? row.track_views : []).filter((c: any) => c?.t).map((c: any) => ({ trackId: String(c.t), seconds: Number(c?.s) || 0 })),
     lastTrackId: row.last_track_id ? String(row.last_track_id) : null,
   })).filter((row) => row.viewerId && row.username);
+  if (ownerId) { try { await AsyncStorage.setItem(STORY_VIEWERS_CACHE_KEY, serializeStoryViewers(ownerId, viewers, Date.now())); } catch { /* copie facultative */ } }
+  return viewers;
 }
 
 

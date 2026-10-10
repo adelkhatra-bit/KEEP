@@ -118,3 +118,26 @@ Ordre proposé, une étape = une preuve 390/1440, rien supprimé, aucun doublon 
 4. **Mots de passe testeurs** (P, IDEA-175) : migration chiffrée (pgcrypto, clé hors base), lecture SUPER_ADMIN via RPC auditée, expiration 30 j, « Effacer » = effacement de la copie seulement. ⚠ Décision d'Adel notée : un mot de passe réversible est un risque ; garde-fous proposés : comptes TESTEURS uniquement (jamais les vrais utilisateurs), journal de chaque lecture, purge automatique à 30 j.
 5. **Zéro clavier + cartes** (O, Q) : Clés & intégrations en une carte par service, Copier/Coller.
 6. **Règle > 5 mots** (S, IDEA-178) : composant commun de repli + garde CI en mode *avertissement* d'abord (liste des écrans), puis blocage écran par écran ; ne jamais casser le design validé. Conflit à trancher : l'écran Offres est à ~23 mots (IDEA-160) ; la règle 5 mots le remplacerait.
+
+## Plan « Interface ordinateur 16:9 » (10/10/2026) — À VALIDER PAR ADEL AVANT CODE
+
+> Demande d'Adel : une fois connecté en mode PC, le design doit être pensé pour un écran 16:9, avec les règles d'un PC (≠ application). `App.tsx`, `Navigation.tsx` et la barre des 5 onglets sont **verrouillés** : aucun changement de mise en page sans ton accord écrit.
+
+**Preuves (Chromium, export web réel, session « appareil approuvé » simulée comme `web-visible-surface-gate.cjs`, Supabase simulé, 1920×1080) — captures dans le dossier de travail :**
+| Écran | Constat à 1920×1080 |
+|---|---|
+| Accueil (Écouter) | colonne de ≈ 700 px centrée ; bandeau défilant sur 1890 px ; barre du haut limitée à la colonne ; **la carte du tutoriel (« Étape 1/5 ») recouvre la moitié basse du bouton « TROUVER LE MORCEAU »** |
+| Découvertes | contenu étiré sur **1890 px** : champ de recherche et bouton « RECHERCHER » de 1850 px, moitié basse vide |
+| Soirées | colonne de ≈ 1130 px |
+| Profil | étiré sur **1890 px** : avatar en haut à gauche, ☰ à l'extrême droite, bouton « ACTIVER LE MICRO » de 1850 px |
+| Barre des 5 onglets | répartie sur 1920 px (« Loki Music » à x ≈ 190, « Profil » à x ≈ 1720) |
+Résumé : trois largeurs différentes selon l'onglet (700 / 1130 / 1890 px) ; le téléphone est simplement étiré. Aucun débordement horizontal mesuré. Le robot flottant à droite masque du contenu (ex. 3e bouton du Profil).
+
+**Corrigé tout de suite, sans toucher aux fichiers verrouillés :** le plein écran d'inscription (`TasteOnboardingGate.tsx`) : titre et boutons « Tu es… » collés à gauche pendant que la carte était centrée → colonne unique centrée (≤ 680 px). Capture après correctif jointe.
+
+**Proposition (option A, recommandée) — une coque ordinateur unique, en CSS, sans toucher à `App.tsx` ni `Navigation.tsx` :** au-delà de 1024 px de large, centrer `#root` dans une colonne de 1280 px maximum (fond identique), y compris la barre des 5 onglets ; la hauteur reste épinglée à la fenêtre (règle du 29/09 : jamais `height:auto`). Même largeur sur les 5 onglets. Réglage dans `index.js` (`keep-mobile-viewport-lock`) / `scripts/fix-web-export.cjs` (`keep-desktop-shell`).
+- **Risque :** `web-visible-surface-gate.cjs` et le gardien `dual-viewport` exigent que `#root` remplisse la fenêtre → à adapter dans le même commit (jamais l'affaiblir).
+- **Option B (plus ambitieuse, à planifier ensuite) :** vraie mise en page à deux colonnes sur grand écran (liste à gauche, détail à droite) pour Découvertes, Profil et Playlists ; nécessite de toucher des écrans entiers → validation écran par écran.
+- **Tests d'acceptation :** captures 1920×1080, 1440×900, 1366×768 et 390×844 sur les 5 onglets avec la session simulée ; largeur du contenu identique sur les 5 onglets ; aucun débordement ; le tutoriel ne recouvre jamais le bouton principal ; le téléphone 390×844 reste inchangé pixel pour pixel.
+- **Question à trancher :** largeur maximale souhaitée (1280 px ? 1440 px ?) et barre des 5 onglets : conservée en bas, centrée dans la colonne (recommandé), ou déplacée sur le côté.
+
