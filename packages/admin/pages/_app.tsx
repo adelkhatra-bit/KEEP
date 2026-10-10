@@ -22,6 +22,8 @@ function LiveMarker() {
 // Délai maximal : sans lui, une base lente laissait « Vérification de la session… » indéfiniment
 // (aucune erreur, aucun bouton). Au-delà, on propose « Réessayer » sans fermer la session.
 const ROLE_CHECK_DEADLINE_MS = 12000;
+// Connexion Super Admin : au-delà de 20 s sans réponse du serveur d'authentification, on l'annonce clairement.
+const SIGN_IN_DEADLINE_MS = 20000;
 
 async function checkAdminRole():Promise<RoleCheck>{
   if(!supabase)return 'error';
@@ -82,7 +84,13 @@ function AdminLogin(){
     if(!email){setError('Saisis l’adresse e-mail de ton compte Super Admin.');return;}
     if(password.length<8){setError('Saisis ton mot de passe Super Admin.');return;}
     setBusy(true);setError('');
-    const result=await signInOrBootstrap(email,password);
+    // Sans délai maximal, « Connexion… » restait affiché indéfiniment quand le serveur d'authentification ne répond pas (504).
+    let timer:ReturnType<typeof setTimeout>|undefined;
+    const result=await Promise.race([
+      signInOrBootstrap(email,password),
+      new Promise<{ok:false;error:string}>((resolve)=>{timer=setTimeout(()=>resolve({ok:false,error:'Le serveur d’authentification ne répond pas (panne Supabase). Ton mot de passe n’est pas en cause : réessaie dans quelques minutes.'}),SIGN_IN_DEADLINE_MS);}),
+    ]);
+    if(timer)clearTimeout(timer);
     setBusy(false);
     if(!result.ok)setError(result.error);
   };
