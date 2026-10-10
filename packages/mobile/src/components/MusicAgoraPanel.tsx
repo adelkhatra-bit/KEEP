@@ -1463,8 +1463,6 @@ export default function MusicAgoraPanel({
           <Text style={s.kicker}>TCHAT LOKI</Text>
           <Text style={s.title}>Parle, partage et garde tes pépites.</Text>
         </View>
-        {/* Boîte de messages plein écran : sans ce bouton on ne peut pas fermer la messagerie sans passer par Android/iOS (Adel, 10/10/2026). */}
-        {compact && onCompactClose ? <TouchableOpacity style={s.compactClose} onPress={() => onCompactClose()} accessibilityRole="button" accessibilityLabel="Fermer la messagerie" testID="chat-inbox-close"><Text style={s.compactCloseText}>×</Text></TouchableOpacity> : null}
         {enabled ? <TouchableOpacity style={[s.homeToggle, homeEnabled && s.homeToggleOn]} disabled={settingsBusy} onPress={() => void updateHomeChat(!homeEnabled)} accessibilityRole="switch" accessibilityState={{ checked: homeEnabled }}>
           <Text style={[s.homeToggleText, homeEnabled && s.homeToggleTextOn]}>{homeEnabled ? 'MESSAGERIE · ACTIVÉE' : 'MESSAGERIE · DÉSACTIVÉE'}</Text>
         </TouchableOpacity> : null}
