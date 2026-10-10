@@ -2058,6 +2058,22 @@ export default function ProfilePublicScreen({ navigation }: any) {
               {(user.city || user.countryCode) ? <Text style={s.location}>{[user.city,user.countryCode].filter(Boolean).join(' · ')}</Text> : null}
             </View>
         </View>
+        {!accountRequired && !isDemoMode && !isLocalGuest ? (
+          <TouchableOpacity
+            style={{ borderWidth: 1, borderColor: colors.primaryLight, backgroundColor: colors.backgroundElevated, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 14, marginHorizontal: 12, marginTop: 8, marginBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 12 }}
+            onPress={() => setEarOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Ouvrir Défi Loki, ma progression et mes challenges stories"
+            testID="loki-profile-challenge-shortcut"
+          >
+            <Text style={{ fontSize: 27 }}>🏆</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.textPrimary, fontWeight: '900', fontSize: 14 }}>DÉFI LOKI · MA PROGRESSION</Text>
+              <Text style={{ color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 3 }}>Découvre, garde et partage tes trouvailles en story pour faire vivre ta communauté.</Text>
+            </View>
+            <Text style={{ color: colors.primaryLight, fontSize: 20, fontWeight: '800' }}>›</Text>
+          </TouchableOpacity>
+        ) : null}
         <View style={s.topMetricsBar} accessibilityLabel="Compteurs du profil">
         <TouchableOpacity style={[s.topMetricMore, metricsExpanded && s.topMetricMoreOn]} onPress={() => setMetricsExpanded((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: metricsExpanded }} accessibilityLabel="Afficher les autres compteurs">
           <Text style={s.topMetricMoreIcon}>{metricsExpanded ? '⌃' : '•••'}</Text>
