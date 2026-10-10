@@ -83,7 +83,7 @@ describe('Web companion QR contract', () => {
 
   it('lien magique expiré (#error=otp_expired) : message clair, adresse nettoyée, nouveau QR, une seule création (10/10/2026)', () => {
     const screen = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'WebCompanionPairingScreen.tsx'), 'utf8');
-    expect(screen).toContain('readAuthLinkError(');
+    expect(screen).toContain('readLinkMessage(');
     expect(screen).toContain('replaceState');
     expect(screen).toContain('createOnce()');
     expect(screen).toContain('otp_expired');

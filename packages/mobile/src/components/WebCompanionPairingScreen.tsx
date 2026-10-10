@@ -19,8 +19,12 @@ export function pairingQrSize(windowHeight: number, pageZoom = 1): number {
   return Math.max(120, Math.min(220, Math.round(visible - 420)));
 }
 
+function currentHash(): string {
+  try { return String(window.location.hash || ''); } catch { return ''; }
+}
+
 /** Lien magique refusé (expiré / déjà utilisé) : Supabase revient avec `#error=…&error_code=otp_expired` (Adel 10/10/2026, photo PC). */
-export function readAuthLinkError(hash: string): string | null {
+export function readLinkMessage(hash: string): string | null {
   const raw = String(hash || '').replace(/^#/, '');
   if (!raw) return null;
   const params = new URLSearchParams(raw);
@@ -47,7 +51,7 @@ export default function WebCompanionPairingScreen() {
   const [secondsLeft, setSecondsLeft] = React.useState(0);
 
   // Affichage seulement : l'adresse ne pilote AUCUNE action de sécurité. Elle est lue une fois, puis nettoyée sans condition.
-  const linkErrorRef = React.useRef<string | null>(typeof window !== 'undefined' && window.location ? readAuthLinkError(window.location.hash) : null);
+  const linkErrorRef = React.useRef<string | null>(readLinkMessage(currentHash()));
   React.useEffect(() => {
     try { window.history.replaceState(null, '', window.location.pathname + window.location.search); } catch { /* sans effet */ }
   }, []);
