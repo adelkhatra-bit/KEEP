@@ -94,6 +94,8 @@ export interface SessionTrackEntry {
 }
 
 export interface KeepSession {
+  /** ID Supabase du propriétaire : protège la synchronisation multi-comptes. */
+  ownerUserId?: string;
   id: string;
   startedAt: string;
   endedAt: string | null;
