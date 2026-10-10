@@ -597,4 +597,6 @@ Pour passer une ligne à `VERIFIED` :
 - Symptôme : `locator.waitFor` 15 s sur `getByText('1 · DISTANCE')` après le clic sur l'onglet Découvertes (390×844, invité).
 - Faits : rouge sur `main` (runs planifiés) et sur la PR depuis 01:17 UTC, donc avant la panne ; toujours rouge après le redémarrage de la base. Le texte existe dans `DiscoverScreen.tsx` (panneau de recherche, mode PERSONNES).
 - Action : diagnostic ajouté au test (journal du contenu réel de la page + capture `03a-discover-failure.png`) ; aucune condition assouplie.
-- Statut : OUVERT — cause à prouver avec le journal du prochain run.
+- CAUSE PROUVÉE (journal du run 38061684027, job 114241062808) : l'invité du test est en mode démo/aperçu et `remote_config.demo_discovery_locked = true` (posé le 01/10/2026 11:00 UTC, réglage Super Admin voulu, contrat `DemoModeGuardrails`). `DiscoverScreen` affiche donc « Connecte ton profil pour ouvrir Découvertes » (texte réel de la page relevé en CI) et non « 1 · DISTANCE ». Ce n'est ni une panne, ni un bug d'affichage : le test attend l'ancien comportement (Découvertes ouvert en démo).
+- Attention : ce test n'a AUCUN parcours connecté ; accepter la carte verrouillée fera passer l'étape mais le panneau « 1 · DISTANCE » ne sera plus couvert par ce guardian.
+- Statut : CAUSE PROUVÉE — correction du test en attente de la décision d'Adel (accepter la carte de verrouillage en démo, et/ou ajouter un parcours connecté). Aucun changement du test fait.
