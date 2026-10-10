@@ -4,6 +4,7 @@ import { FlatList, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableO
 import { LinearGradient } from 'expo-linear-gradient';
 import { unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { colors } from '../theme/colors';
+import { supabase } from '../services/supabaseClient';
 import type { PlaylistSaleOverlap, PublicPlaylistSaleOffer } from '../services/playlistSaleService';
 import KeepModal from './KeepModal';
 import { offerDisplayName } from '../services/offerDisplayName';
@@ -138,7 +139,26 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
   // Présentation distincte sur grand écran : la même boutique et les mêmes
   // droits/achats, mais une grille qui exploite la largeur de l'ordinateur.
   const desktopStore = Platform.OS === 'web' && windowWidth >= 1100;
-  const storeColumns = desktopStore ? (windowWidth >= 1700 ? 4 : 3) : 2;
+  const [adminDesktopColumns, setAdminDesktopColumns] = React.useState({ desktop: 3, wide: 4 });
+  React.useEffect(() => {
+    if (!desktopStore || !supabase) return undefined;
+    let active = true;
+    void supabase.from('remote_config').select('key,value')
+      .in('key', ['desktop_boutique_columns', 'desktop_boutique_columns_wide'])
+      .then(({ data, error }) => {
+        if (!active || error || !data) return;
+        const values = { desktop: 3, wide: 4 };
+        for (const row of data) {
+          const n = Number(row.value);
+          if (!Number.isInteger(n) || n < 2 || n > 4) continue;
+          if (row.key === 'desktop_boutique_columns') values.desktop = n;
+          if (row.key === 'desktop_boutique_columns_wide') values.wide = n;
+        }
+        setAdminDesktopColumns(values);
+      }).catch(() => { /* Configuration temporairement inaccessible : dimensions sûres par défaut. */ });
+    return () => { active = false; };
+  }, [desktopStore]);
+  const storeColumns = desktopStore ? (windowWidth >= 1700 ? adminDesktopColumns.wide : adminDesktopColumns.desktop) : 2;
   const storeMaxWidth = desktopStore ? Math.min(1400, windowWidth - 80) : 640;
   const sellerName = String(sellerUsername || 'Loki').replace(/^@+/, '').trim() || 'Loki';
   const viewerName = String(viewerUsername || '').replace(/^@+/, '').trim();
