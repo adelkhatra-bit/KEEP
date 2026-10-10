@@ -20,3 +20,18 @@ describe('Story 24 h : la boutique ne rallume plus la story indéfiniment (Adel 
     expect(bar).toContain('pruneExpiredStory(story)');
   });
 });
+
+describe('Garde générale : aucune source de story sans limite de 24 h (nouveaux utilisateurs compris)', () => {
+  const svc = fs.readFileSync(path.join(__dirname, '..', 'musicStoriesService.ts'), 'utf8');
+  it('chaque usage du sampler de boutique est conditionné à une offre fraîche', () => {
+    const uses = svc.split('\n').filter((line) => line.includes('loadPlaylistSaleProfilePreviewSampler(') && !line.includes('import'));
+    expect(uses.length).toBeGreaterThanOrEqual(3);
+    const fresh = (svc.match(/hasFreshSaleOffer\(/g) || []).length;
+    expect(fresh).toBeGreaterThanOrEqual(uses.length + 1); // +1 = définition
+  });
+  it('toutes les requêtes de pins / partages de story filtrent sur la fenêtre de 24 h', () => {
+    expect(svc).toContain("gte('pinned_at', since)");
+    expect(svc).toContain("gte('created_at', since)");
+    expect(svc).toContain('STORY_WINDOW_HOURS * 3600 * 1000');
+  });
+});
