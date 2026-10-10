@@ -139,3 +139,12 @@ Avant de dire « terminé », contrôler explicitement (navigateur 390×844, 320
 4. **Textes courts** : une ligne d'information doit rester sur UNE ligne (numberOfLines=1) à 320, 390 et 1440 ; aucun mot coupé ni qui retombe en dessous.
 5. **Chargement** : le profil s'affiche d'abord depuis la mémoire locale (`profileMemory`), puis le serveur remplace ; pas de nouvelle chaîne d'attentes séquentielles.
 6. **Journal** : un échec de GARDER / story / son doit laisser une ligne `[AUTO]` (`reportAutoDiagnostic`), jamais un échec silencieux.
+
+## Protocole de test avant livraison (Adel, 10/10/2026 — à suivre à CHAQUE livraison)
+1. `node scripts/verify-source-of-truth.cjs` + `node scripts/verify-product-contract.cjs` + `tsc` + `jest` (tout vert).
+2. Export web réel puis Chromium : PC 1440×900, PC 1366×650, tablette 1024, mobile 390×844 ; **captures d'écran jointes** (QR entier visible sans défiler, texte non coupé).
+3. Parcours QR réel de bout en bout (création → scan simulé → Oui/Non → connexion → refresh) ; cas expiré, refusé, lien expiré.
+4. Vérifier qu'il n'y a qu'UNE instance de chaque hôte global (robot, jumelage) : aucun doublon monté.
+5. Super Admin : typecheck + page touchée ouverte.
+6. Après fusion : vérifier que site, OTA et build ont VRAIMENT publié (une release se fusionne en squash : ERR-117) ; ne jamais dire « publié » sans le run vert.
+7. Rapport en français : testé / OK / KO / corrigé / reste à faire / preuves / risques.

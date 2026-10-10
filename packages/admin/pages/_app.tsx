@@ -3,10 +3,9 @@ import { FormEvent, useEffect, useRef, useState } from 'react';
 import '../styles/globals.css';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 import { APP_NAME } from '../lib/brand';
+import { checkAdminRole } from '../lib/adminRoleCheck';
 
 type AuthState = 'checking' | 'signed_out' | 'checking_role' | 'allowed' | 'forbidden' | 'role_check_failed';
-type RoleCheck = 'allowed' | 'denied' | 'error';
-const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'FINANCE', 'MARKETING', 'MODERATOR', 'TECH'];
 
 function LiveMarker() {
   // Adel (01/09/2026) : ce badge en haut à droite recouvrait la cloche de
@@ -16,15 +15,8 @@ function LiveMarker() {
   return <div style={{ position:'fixed',bottom:10,right:10,zIndex:200,background:'#22c55e',color:'#07110a',borderRadius:999,padding:'7px 11px',fontSize:11,fontWeight:900,letterSpacing:.7 }}>{APP_NAME} LIVE · RECONCILE</div>;
 }
 
-// Tri-etat volontaire : une erreur reseau/serveur ('error') n'est PAS un refus
-// ('denied'). Seul un refus explicite ferme la session ; une panne passagere ne
-// doit jamais deconnecter le Super Admin.
-async function checkAdminRole():Promise<RoleCheck>{
-  if(!supabase)return 'error';
-  const {data,error}=await supabase.rpc('get_my_admin_role');
-  if(error)return 'error';
-  return data&&ADMIN_ROLES.includes(String(data))?'allowed':'denied';
-}
+// Connexion Super Admin : au-delà de 20 s sans réponse du serveur d'authentification, on l'annonce clairement.
+const SIGN_IN_DEADLINE_MS = 20000;
 
 function friendlyAuthError(message?:string){
   if(!message)return 'Impossible de se connecter pour le moment.';
@@ -71,7 +63,13 @@ function AdminLogin(){
     if(!email){setError('Saisis l’adresse e-mail de ton compte Super Admin.');return;}
     if(password.length<8){setError('Saisis ton mot de passe Super Admin.');return;}
     setBusy(true);setError('');
-    const result=await signInOrBootstrap(email,password);
+    // Sans délai maximal, « Connexion… » restait affiché indéfiniment quand le serveur d'authentification ne répond pas (504).
+    let timer:ReturnType<typeof setTimeout>|undefined;
+    const result=await Promise.race([
+      signInOrBootstrap(email,password),
+      new Promise<{ok:false;error:string}>((resolve)=>{timer=setTimeout(()=>resolve({ok:false,error:'Le serveur d’authentification ne répond pas (panne Supabase). Ton mot de passe n’est pas en cause : réessaie dans quelques minutes.'}),SIGN_IN_DEADLINE_MS);}),
+    ]);
+    if(timer)clearTimeout(timer);
     setBusy(false);
     if(!result.ok)setError(result.error);
   };
@@ -111,12 +109,13 @@ export default function App({Component,pageProps}:AppProps){
     if(!client){update('signed_out');return;}
     let active=true;
     const resolve=async()=>{
-      const {data}=await client.auth.getSession();
+      let data:Awaited<ReturnType<typeof client.auth.getSession>>['data']=null as any;
+      try{ ({data}=await client.auth.getSession()); }catch{ data=null as any; }
       if(!active)return;
-      const user=data.session?.user;
+      const user=data?.session?.user;
       if(!user){update('signed_out');return;}
       if(stateRef.current!=='allowed')update('checking_role');
-      const role=await checkAdminRole();
+      const role=await checkAdminRole(supabase);
       if(!active)return;
       // Panne reseau/serveur : on garde la session et on propose de reessayer.
       if(role==='error'){if(stateRef.current!=='allowed')update('role_check_failed');return;}

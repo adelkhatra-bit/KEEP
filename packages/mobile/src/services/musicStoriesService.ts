@@ -378,9 +378,10 @@ export function mergeSaleTracks(story: MusicStory, samples: Array<{ trackId: str
       return true;
     })
     .slice(0, cap);
-  if (!extra.length) return story;
+  // La date d'ajout d'une musique masquée est enregistrée même si elle était déjà listée (sinon le compteur 24 h disparaît).
   const addedAt = { ...(story.addedAt ?? {}) };
   for (const sample of samples) if (sample.pinnedAt) addedAt[`${SALE_TRACK_PREFIX}${sample.trackId}`] = sample.pinnedAt;
+  if (!extra.length) return { ...story, addedAt };
   return { ...story, tracks: [...story.tracks, ...extra], addedAt };
 }
 

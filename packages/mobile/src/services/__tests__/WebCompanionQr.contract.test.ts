@@ -88,4 +88,10 @@ describe('Web companion QR contract', () => {
     expect(screen).toContain('createOnce()');
     expect(screen).toContain('otp_expired');
   });
+
+  it('le PC ne cesse jamais de vérifier l’approbation : délai max sur chaque requête (10/10/2026, QR approuvé mais PC bloqué)', () => {
+    const screen = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'WebCompanionPairingScreen.tsx'), 'utf8');
+    expect(screen).toContain("new Promise<never>((_, reject) => setTimeout(() => reject(new Error('claim_timeout')), 8000))");
+    expect(screen).toContain('await Promise.race([');
+  });
 });

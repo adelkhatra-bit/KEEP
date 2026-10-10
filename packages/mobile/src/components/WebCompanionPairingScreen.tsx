@@ -93,7 +93,11 @@ export default function WebCompanionPairingScreen() {
         return;
       }
       try {
-        const result = await claimDesktopPairing(challenge.pairingId, challenge.token);
+        // Une requête qui ne répond jamais ne doit pas arrêter la vérification du téléphone : délai max 8 s, puis on réessaie.
+        const result = await Promise.race([
+          claimDesktopPairing(challenge.pairingId, challenge.token),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('claim_timeout')), 8000)),
+        ]);
         if (!active) return;
         if (result.status === 'CANCELLED') {
           setMessage('Connexion refusée sur le téléphone.');

@@ -65,3 +65,19 @@ Rapport d'audit externe : `docs/AUDIT_EXTERNE_2026-10-06.md`. Notifications : `d
 2026-10-10 · claude/superadmin-session-forgot-password-v2 · IDEA-214 notée (détail spectateurs + % satisfaction) · plan dans MASTER_PLAN, en attente de validation
 2026-10-10 · claude/superadmin-session-forgot-password-v2 · lien magique expiré (#error=otp_expired) + double création QR · jest WebCompanionQr 9/9
 2026-10-10 · claude/superadmin-session-forgot-password-v2 · jumelage ordinateur monté une seule fois (ERR-116) · robot unique vérifié · jest 293/1427
+2026-10-10 · claude/release-trigger-20261010 · PR #85 fusionnée (ea69722b) mais site/OTA sautés (ERR-117) · PR de release en squash
+2026-10-10 · claude/release-trigger-20261010 · IDEA-219 Studio ordinateur + QR e-mail notée, plan MASTER_PLAN, protocole de test avant livraison ajouté à INTEGRATION_CHECKLIST
+2026-10-10 · claude/release-trigger-20261010 · IDEA-220 Lia (guide des boutons allumés) notée + plan MASTER_PLAN, à valider
+2026-10-10 · claude/release-trigger-20261010 · ERR-119 (ajout en story lent + popup derrière) corrigé localement ; ERR-120 (QR PC non publié) dépend de la fusion de la PR #86
+2026-10-10 · claude/release-trigger-20261010 · ERR-121 : mise en story de sa propre boutique passe par keep_pin_story_track (sans migration)
+2026-10-10 · claude/release-trigger-20261010 · ERR-122 : boucle PC sans délai max corrigée ; jumelage 7f3169e0 approuvé côté téléphone, PC non connecté (ancienne version)
+- 2026-10-10 · claude/release-trigger-20261010 · (commit local) · Super Admin Clés : clé enregistrée non testée = « Configurée · à tester », plus classée « manquante » · preuve : tsc packages/admin exit 0 ; COMMITTED_LOCAL — PUSH non fait (PR #86 rouge)
+- 2026-10-10 · claude/release-trigger-20261010 · (commit) · Story : compteur 24 h des musiques masquées (sale:) — date d'ajout enregistrée même si la musique est déjà listée · preuve : jest storySaleExpiry 8/8, storyWatch+storyAge OK, tsc mobile OK ; PAS testé sur iPhone
+- 2026-10-10 · claude/release-trigger-20261010 · migrations appliquées en prod (web_share_free_cost_config, battle_solo_pack_fast, free_story_pin_own_sale_masked, story_viewers_window_from_first_story_item) · keep-web-pairing déployée v2 (verify_jwt=false) · keep-admin-control / keep-recognition-admin-test déjà en prod (non redéployées) · dual-viewport NON corrigé (ERR-129) · preuve : list_migrations, get_edge_function
+- 2026-10-10 · claude/release-trigger-20261010 · (commit local) · Super Admin : délai 12 s sur le contrôle de rôle, plus d'écran bloqué ; ERR-130 · preuve : tsc packages/admin exit 0 ; pas testé en navigateur
+- 2026-10-10 · claude/release-trigger-20261010 · annulation du × (b79f41c5) ; test dual-viewport ciblé sur la fenêtre plein écran + journal des candidats · preuve : à confirmer par le run CI
+- 2026-10-10 · claude/release-trigger-20261010 · dual-viewport : cause = Échap du test ferme le plein écran ; test corrigé sans Échap · preuve : journal run 38048905780 ; à confirmer par le prochain run
+2026-10-10 · claude/release-trigger-20261010 · 419d7e31 · audit CI : verify/verify-mobile/qr-runtime/design/CodeQL verts, dual-viewport rouge (ERR-132, base Supabase indisponible) · PR #86 NON fusionnée
+2026-10-10 · claude/release-trigger-20261010 · (ce commit) · ERR-132 : état indisponible ≠ désactivé (flags), rôle admin borné testé, 409 refresh, i18n bornée · jest mobile 296/296, tsc OK
+2026-10-10 · claude/release-trigger-20261010 · (ce commit) · ERR-132 corrigé : l'échec dual-viewport PRÉCÈDE la panne Supabase ; ERR-133 ouvert + diagnostic ajouté au test · base redémarrée 14:26 UTC (API 200)
+2026-10-10 · claude/release-trigger-20261010 · (ce commit) · ERR-133 cause prouvée : demo_discovery_locked=true (01/10) vs test obsolète ; décision d'Adel attendue · preuve run 38061684027

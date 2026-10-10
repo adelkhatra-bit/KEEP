@@ -366,7 +366,12 @@ jobs:
             await page.getByLabel('Messagerie Loki plein écran').last().waitFor({state:'visible',timeout:15000});
             await assertNoOverflow(page,'chat-fullscreen-390x844');
             await page.screenshot({path:'artifacts/dual-viewport/01b-chat-fullscreen.png',fullPage:true});
-            await clickRobust(page,page.getByLabel('Fermer la messagerie').last(),'Close fullscreen chat');
+            // ERR-125/126 (cause prouvée par le journal du run 38048905780) : clickRobust appuie sur Échap avant chaque clic ;
+            // sur le plein écran du tchat, Échap FERME déjà la fenêtre, donc le bouton disparaissait avant d'être cliqué.
+            // Ici on clique le vrai bouton « Fermer la messagerie » DANS la fenêtre plein écran, sans Échap, puis on exige sa fermeture.
+            const closeFullChat=fullChat.getByLabel('Fermer la messagerie').last();
+            await closeFullChat.waitFor({state:'visible',timeout:10000});
+            await closeFullChat.click({timeout:5000});
             await fullChat.waitFor({state:'hidden',timeout:15000});
 
             const start=page.getByLabel(/Trouver le morceau|Identifier un morceau|Activer le micro|Démarrer une écoute/).last();
@@ -380,7 +385,20 @@ jobs:
             await start.waitFor({state:'visible',timeout:15000});
 
             await clickRobust(page,page.getByText('Découvertes',{exact:true}).last(),'Découvertes tab');
-            await page.getByText('1 · DISTANCE',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+            // ERR-133 : échec ancien (avant la panne Supabase). En cas d'échec, on journalise ce que la page affiche
+            // réellement, puis on échoue exactement comme avant : aucune condition n'est assouplie.
+            try {
+              await page.getByText('1 · DISTANCE',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+            } catch (distanceError) {
+              const snapshot=await page.evaluate(()=>({
+                url:location.href,
+                text:(document.body.innerText||'').replace(/\s+/g,' ').slice(0,1500),
+                labels:[...document.querySelectorAll('[aria-label]')].map(el=>el.getAttribute('aria-label')).slice(0,40),
+              })).catch(()=>null);
+              console.error('ERR-133 Découvertes: page réelle =',JSON.stringify(snapshot));
+              await page.screenshot({path:'artifacts/dual-viewport/03a-discover-failure.png',fullPage:true}).catch(()=>{});
+              throw distanceError;
+            }
             await clickRobust(page,page.getByText('Playlists',{exact:true}).last(),'Playlists tab');
             await clickRobust(page,page.getByText('Soirées',{exact:true}).last(),'Soirées tab');
             // Le parcours validé ouvre désormais le vrai Battle directement :

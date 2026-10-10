@@ -232,6 +232,18 @@ export default function MusicSwipeDeckModal({
   useEffect(() => { setSourceQuick(null); }, [current?.id, visible]);
   const [storyIds, setStoryIds] = useState<Set<string>>(new Set());
   const [storyIdsReady, setStoryIdsReady] = useState(false);
+  // Anti-doublon préchargé dès l'ouverture du morceau : « Mettre en story » répond tout de suite (Adel, 10/10/2026 : « ça rame »).
+  const [holdersById, setHoldersById] = useState<Record<string, StoryHolder>>({});
+  const addingRef = useRef(false);
+  useEffect(() => {
+    let live = true;
+    if (!visible || !current?.id) return undefined;
+    const meId = String(useUserStore.getState().user?.id ?? '');
+    void loadOtherStoryHolders([resolveKeptTrackId(current.id), current.id], meId)
+      .then((found) => { if (live) setHoldersById((previous) => ({ ...previous, ...found })); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [visible, current?.id]);
   const [justAdded, setJustAdded] = useState<Set<string>>(new Set());
   const [offeredIds, setOfferedIds] = useState<Set<string>>(new Set());
   useEffect(() => {
@@ -280,15 +292,17 @@ export default function MusicSwipeDeckModal({
       return;
     }
     if (alreadyInStory && justAddedNow) return;
+    // Un tap = une seule fenêtre de confirmation (sinon plusieurs popups s'empilent derrière la fenêtre ouverte).
+    if (addingRef.current) return;
+    addingRef.current = true;
+    setTimeout(() => { addingRef.current = false; }, 700);
     if (alreadyInStory) {
       Alert.alert('Elle y était déjà', `« ${current.title} » a été ajoutée à ta story plus tôt : elle y reste visible 24 h après son ajout. Pas de doublon.`, [{ text: 'OK', style: 'cancel' }]);
       return;
     }
     // Anti-doublon entre stories (Adel, 06/10/2026) : déjà en story chez un AUTRE membre (que celui d'où l'on écoute) → on ne la remet
     // pas à neuf ; on va la voir chez lui et on la repartage depuis sa story (il reste crédité).
-    const meId = String(useUserStore.getState().user?.id ?? '');
-    const holders = await loadOtherStoryHolders([resolveKeptTrackId(current.id), current.id], meId).catch(() => ({} as Record<string, StoryHolder>));
-    const holder = holders[resolveKeptTrackId(current.id)] ?? holders[current.id];
+    const holder = holdersById[resolveKeptTrackId(current.id)] ?? holdersById[current.id];
     if (holder && holder.profileId !== currentSourceProfileId) {
       Alert.alert('Déjà en story', `Chez @${holder.username}. Va la voir et repartage-la.`, [
         { text: 'OK', style: 'cancel' },
@@ -338,6 +352,15 @@ export default function MusicSwipeDeckModal({
   const confirmStoryAdded = (title: string) => Alert.alert('C’est bon ✓', `« ${title} » est dans ta story pendant 24 h. Tu peux continuer.`, [{ text: 'Continuer', style: 'cancel' }]);
   const shareFreeToStory = async (track: CanonicalTrack) => {
     try {
+      // Musique de MA propre boutique (offre active) : le serveur d'origine la refusait (SALE_PROTECTED) dans ce chemin.
+      // `keep_pin_story_track` accepte l'offre du vendeur et la masque (jaquette/artiste), sans migration. Adel, 10/10/2026 : « Papa est bloqué ».
+      if (offeredIds.has(track.id) && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(track.id))) {
+        await pinStoryTrack(track.id);
+        setStoryIds((previous) => new Set(previous).add(track.id));
+        setJustAdded((previous) => new Set(previous).add(track.id));
+        confirmStoryAdded(track.title);
+        return;
+      }
       const result = await pinFreeStoryTrack({ id: track.id, title: track.title, artist: track.artist, album: track.album, artworkUrl: track.artworkUrl, previewUrl: track.previewUrl, isrc: track.isrc });
       setStoryIds((previous) => new Set(previous).add(track.id).add(result.trackId));
       if (result.alreadyPinned) {

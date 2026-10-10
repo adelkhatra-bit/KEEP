@@ -125,6 +125,14 @@ function transientAuthFailure(error: unknown): boolean {
     || message.includes('temporarily_unavailable');
 }
 
+// Restauration de session uniquement : un conflit de rafraîchissement HTTP 409 est transitoire
+// (deux onglets/appels rafraîchissent le même jeton). Il ne doit pas devenir « pas de session ».
+// Le repli persistedSupabaseAuthSession refuse toute session expirée ; un refus réel (400/401) reste un refus.
+function sessionRestoreTransient(error: unknown): boolean {
+  const status = Number((error as any)?.status ?? (error as any)?.context?.status ?? 0);
+  return status === 409 || transientAuthFailure(error);
+}
+
 async function persistedSupabaseAuthSession(client: SupabaseClient): Promise<KeepAuthSession | null> {
   try {
     const authClient = client.auth as any;
@@ -482,14 +490,14 @@ export function createAuthService(client: SupabaseClient): AuthService {
       try {
         initial = await withAuthDeadline<any>(client.auth.getSession());
       } catch (error) {
-        const persisted = transientAuthFailure(error) ? await persistedSupabaseAuthSession(client) : null;
+        const persisted = sessionRestoreTransient(error) ? await persistedSupabaseAuthSession(client) : null;
         if (persisted) return persisted;
         throw error;
       }
 
       let data = initial?.data;
       if (initial?.error) {
-        if (transientAuthFailure(initial.error)) {
+        if (sessionRestoreTransient(initial.error)) {
           const persisted = await persistedSupabaseAuthSession(client);
           if (persisted) return persisted;
           throw initial.error;
@@ -501,7 +509,7 @@ export function createAuthService(client: SupabaseClient): AuthService {
         try {
           const refreshed: any = await withAuthDeadline<any>((client.auth as any).refreshSession());
           if (refreshed?.error) {
-            if (transientAuthFailure(refreshed.error)) {
+            if (sessionRestoreTransient(refreshed.error)) {
               const persisted = await persistedSupabaseAuthSession(client);
               if (persisted) return persisted;
               throw refreshed.error;
@@ -510,7 +518,7 @@ export function createAuthService(client: SupabaseClient): AuthService {
           }
           if (refreshed?.data?.session?.user) data = refreshed.data;
         } catch (error) {
-          if (transientAuthFailure(error)) {
+          if (sessionRestoreTransient(error)) {
             const persisted = await persistedSupabaseAuthSession(client);
             if (persisted) return persisted;
             throw error;
