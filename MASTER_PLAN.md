@@ -192,3 +192,14 @@ Existant : QR PC, popup Oui/Non + lieu (fonction `keep-web-pairing` écrite, NON
 5. **Robot** : rubrique « Studio ordinateur » ajoutée au scénario par rubrique.
 6. **Tests avant livraison** : protocole `docs/INTEGRATION_CHECKLIST.md` § « Protocole de test avant livraison » (parité PC 1440 / 1366×650 / mobile 390, preuve image, connexion réelle, anti-régression).
 Écritures de production à valider : déploiement `keep-web-pairing`, migrations prix/Studio, bucket Storage.
+
+## Plan IDEA-220 — Lia, guide des boutons allumés (à valider par Adel, aucun code avant accord)
+Existant à remplacer (sans retirer de fonction) : `robotCoachService.ts` (bulles « Qu’est-ce que je peux faire ? » et menu « On fait quoi ? »), `robotSectionScenario.ts` (scénario par rubrique), `robotHelp.ts`, `RobotSummonWrapper.tsx`, `ProblemReportHost.tsx` (secousse, appel du robot).
+Étapes :
+1. **Accueil connexion** : bulle de Lia « Besoin de moi ? Secoue-moi » (une fois par session, fermable d'un toucher, respecte le silence après 3 fermetures).
+2. **Guide par rubrique** : une étape = un bouton allumé (pulsation) + une phrase courte de Lia ; l'utilisateur appuie sur le bouton allumé pour passer à l'étape suivante ; objectif = la fonction demandée (profil, ☰ du profil, soirée, Solo, Loki Pulse, boutique…).
+3. **Secousse en soirée** : même guide, branché sur la rubrique active (`scenarioForRoute`).
+4. **Discussion** : Lia répond dans le même bandeau de chat (réutilise `GlobalChatDock`), pas de second chat.
+5. **Correction visuelle** : le titre des bulles ne doit plus chevaucher la barre d'état (safe-area) sur iPhone et PC ; contrôle en capture 390×844 et 1440×900.
+6. **Tests avant livraison** (protocole `docs/INTEGRATION_CHECKLIST.md`) : parcours complet profil → ☰ → fonction, et soirée → secousse → fonction, sur mobile et PC, avec captures.
+Décisions à valider par Adel : (a) remplacer les bulles existantes d'un coup ou par rubrique ? (b) Lia en voix (existe déjà) ou texte seul ? (c) nom « Lia » confirmé ?
