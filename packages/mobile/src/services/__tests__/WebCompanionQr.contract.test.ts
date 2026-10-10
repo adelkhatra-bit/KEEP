@@ -38,8 +38,10 @@ describe('Web companion QR contract', () => {
   });
   it('un scan n\'approuve jamais seul : demande explicite Approuver / Annuler, refus = annulation serveur', () => {
     expect(lifecycle).toContain("'Connecter cet ordinateur ?'");
-    expect(lifecycle).toContain("text: 'Approuver'");
-    expect(lifecycle).toContain("text: 'Annuler'");
+    expect(lifecycle).toContain("text: 'Oui, c’est moi'");
+    expect(lifecycle).toContain("text: 'Non, ce n’est pas moi'");
+    expect(lifecycle).toContain('mot de passe');
+    expect(lifecycle).toContain('previewDesktopPairing');
     expect(lifecycle).toContain('cancelDesktopPairing');
     // L'appel d'approbation ne doit exister qu'a l'interieur de la decision explicite.
     expect(lifecycle).not.toMatch(/void approveDesktopPairing\(pendingApproval/);

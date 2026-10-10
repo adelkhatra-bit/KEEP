@@ -22,7 +22,8 @@ describe('Âge d\'une story (Adel 05/10/2026)', () => {
     const bar = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'ProfileStoryBar.tsx'), 'utf8');
     expect(deck).toContain('testID="deck-story-age"');
     expect(deck).toContain('numberOfLines={1} adjustsFontSizeToFit');
-    expect(bar).toContain('trackAddedAt={openStory?.addedAt}');
+    expect(bar).toContain('trackAddedAt={openStory ?');
+    expect(bar).toContain('openStory.addedAt?.[track.id] ?? openStory.latestAt');
   });
 });
 

@@ -46,7 +46,7 @@ import {
   type MusicStory,
 } from '../services/musicStoriesService';
 import { colors } from '../theme/colors';
-import { ownBadgeFor, ownBadgeMessage } from '../services/storyActivity';
+import { ownBadgeFor, ownBadgeMessage, pruneExpiredStory } from '../services/storyActivity';
 import { shareReferralLink } from '../services/referralShare';
 import { buildViewerDetail } from '../services/storyViewerDetail';
 import { loadMyLikesAmong, likeKey } from '../services/trackLikesService';
@@ -100,8 +100,8 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     let live = true;
     void readProfileMemory<MusicStory | null>(viewer.id, 'own-story').then((cached) => {
       if (!live || !cached?.tracks?.length) return;
-      const fresh = Date.now() - new Date(cached.latestAt).getTime() < STORY_WINDOW_HOURS * 3600 * 1000;
-      if (fresh) setOwnStory((current) => current ?? cached);
+      const fresh = pruneExpiredStory(cached);
+      if (fresh) setOwnStory((current) => current ?? fresh);
     }).catch(() => {});
     return () => { live = false; };
   }, [viewer.id]);
@@ -145,7 +145,10 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     // le serveur la remplace ensuite. Les musiques de plus de 24 h ne sont jamais réaffichées (fenêtre de story).
     void readProfileMemory<MusicStory[]>(viewer.id, 'story-rail').then((cached) => {
       if (!live || !cached?.length) return;
-      for (const story of cached) if (!previous.has(story.profileId) && !collected.has(story.profileId)) previous.set(story.profileId, story);
+      for (const raw of cached) {
+        const story = raw.suggestion || raw.styleMatch ? raw : pruneExpiredStory(raw);
+        if (story && !previous.has(story.profileId) && !collected.has(story.profileId)) previous.set(story.profileId, story);
+      }
       if (collected.size === 0) setStories(display());
     }).catch(() => {});
     const collected = new Map<string, MusicStory>();
@@ -156,9 +159,10 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     const display = () => [
       ...Array.from(collected.values()).map((story) => {
         const before = previous.get(story.profileId);
-        return !storiesLoaded && before && before.tracks.length > 0 && story.tracks.length === 0 ? before : story;
+        const keep = !storiesLoaded && before && before.tracks.length > 0 && story.tracks.length === 0 ? pruneExpiredStory(before) : null;
+        return keep ?? story;
       }),
-      ...Array.from(previous.values()).filter((story) => !collected.has(story.profileId)),
+      ...Array.from(previous.values()).filter((story) => !collected.has(story.profileId)).map((story) => (story.suggestion || story.styleMatch ? story : pruneExpiredStory(story))).filter((story): story is MusicStory => Boolean(story)),
     ];
     const merge = (list: MusicStory[]) => {
       for (const story of list) {
@@ -528,7 +532,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         tracks={openStory?.tracks ?? []}
         initialTrackId={openStory?.tracks[0]?.id ?? null}
         resetKey={openStory?.profileId ?? null}
-        trackAddedAt={openStory?.addedAt}
+        trackAddedAt={openStory ? Object.fromEntries(openStory.tracks.map((track) => [track.id, openStory.addedAt?.[track.id] ?? openStory.latestAt])) : undefined}
         saleInfoByTrackId={openStory?.saleInfo}
         uncertifiedTrackIds={openStory?.freeTrackIds}
         onTitlePress={!isOwnOpen && openStory ? () => { const username = openStory.username; setOpenStory(null); setTimeout(() => setQuickUsername(username), 350); } : undefined}

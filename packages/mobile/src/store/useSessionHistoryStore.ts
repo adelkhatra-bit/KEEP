@@ -308,6 +308,15 @@ export function mergePersistedKeeps(sessions: KeepSession[], remoteKeeps: Persis
   });
 }
 
+// Mode démo = vitrine vierge : il ne lit jamais l'historique réel de l'appareil
+// et n'y écrit jamais (rien n'est détruit, le stockage réel reste intact).
+let demoIsolation = false;
+const isolatedStorage = createJSONStorage(() => ({
+  getItem: (name: string) => (demoIsolation ? Promise.resolve(null) : AsyncStorage.getItem(name)),
+  setItem: (name: string, value: string) => (demoIsolation ? Promise.resolve() : AsyncStorage.setItem(name, value)),
+  removeItem: (name: string) => (demoIsolation ? Promise.resolve() : AsyncStorage.removeItem(name)),
+}));
+
 export const useSessionHistoryStore = create<SessionHistoryStore>()(
   persist(
     (set, get) => ({
@@ -497,6 +506,17 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
 
       getSession: (sessionId) => get().sessions.find((s) => s.id === sessionId),
     }),
-    { name: 'keep-session-history', storage: createJSONStorage(() => AsyncStorage) }
+    { name: 'keep-session-history', storage: isolatedStorage }
   )
 );
+
+/** Active/désactive l'isolation démo. À la sortie, l'historique réel est relu depuis le stockage. */
+export function setSessionHistoryDemoIsolation(active: boolean): void {
+  if (demoIsolation === active) return;
+  demoIsolation = active;
+  if (active) {
+    useSessionHistoryStore.setState({ sessions: [], dismissedKeepDecisionIds: [], dismissedSessionIds: [] });
+  } else {
+    void useSessionHistoryStore.persist.rehydrate();
+  }
+}

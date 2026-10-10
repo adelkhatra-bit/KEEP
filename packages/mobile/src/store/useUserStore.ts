@@ -3,7 +3,7 @@ import { User, SocialLink, ProfilePrivateInfo } from '../types';
 import { KeepAuthSession } from '../services/authService';
 import { musicEngine } from '../services/musicEngine';
 import { usePlaylistStore } from './usePlaylistStore';
-import { useSessionHistoryStore } from './useSessionHistoryStore';
+import { setSessionHistoryDemoIsolation } from './useSessionHistoryStore';
 
 function userFromAuthSession(session: KeepAuthSession): User {
   const authUsername = session.username?.trim().replace(/^@+/, '');
@@ -216,9 +216,11 @@ export const useUserStore = create<UserStore>((set, get) => ({
     cacheWebRealUser(null);
     clearAppleMusicIdentity(get().user?.id);
     clearLocalMusicIdentity();
+    setSessionHistoryDemoIsolation(true);
     set({ user: DEMO_USER, isDemoMode: true, isAnonymous: false, isLocalGuest: false });
   },
   enterGuestMode: (guestId) => {
+    setSessionHistoryDemoIsolation(false);
     cacheWebRealUser(null);
     const state = get();
     if (!state.isLocalGuest || state.user?.id !== guestId) {
@@ -228,6 +230,7 @@ export const useUserStore = create<UserStore>((set, get) => ({
     set({ user: localGuestUser(guestId), isDemoMode: false, isAnonymous: true, isLocalGuest: true });
   },
   logout: () => {
+    setSessionHistoryDemoIsolation(false);
     cacheWebRealUser(null);
     clearAppleMusicIdentity(get().user?.id);
     clearLocalMusicIdentity();
@@ -247,6 +250,7 @@ export const useUserStore = create<UserStore>((set, get) => ({
     // conformément au parcours d'inscription Loki.
     const switchingRealAccount = Boolean(nextRealId && currentRealId && currentRealId !== nextRealId);
     const leavingDemoForReal = Boolean(nextRealId && state.isDemoMode);
+    if (leavingDemoForReal) setSessionHistoryDemoIsolation(false);
     if (switchingRealAccount || leavingDemoForReal) {
       clearAppleMusicIdentity(state.user?.id);
       clearLocalMusicIdentity();

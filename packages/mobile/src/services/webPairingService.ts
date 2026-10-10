@@ -60,6 +60,10 @@ export async function approveDesktopPairing(pairingId: string, token: string): P
   });
 }
 
+export async function previewDesktopPairing(pairingId: string, token: string): Promise<{ status: string; deviceLabel?: string }> {
+  return invoke<{ ok: true; status: string; deviceLabel?: string }>({ action: 'preview', pairingId, token });
+}
+
 export async function cancelDesktopPairing(pairingId: string, token: string): Promise<{ status: string }> {
   return invoke<{ ok: true; status: string }>({ action: 'cancel', pairingId, token });
 }

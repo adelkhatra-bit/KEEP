@@ -13,6 +13,7 @@ import {
   currentWebCompanionSessionId,
   getWebCompanionSessionStatus,
   parsePairingDeepLink,
+  previewDesktopPairing,
   readPendingWebPairing,
   registerCurrentWebCompanionSession,
 } from '../services/webPairingService';
@@ -70,15 +71,30 @@ export default function WebPairingLifecycle() {
         })
         .finally(() => { approvingRef.current = false; });
     };
-    Alert.alert(
-      'Connecter cet ordinateur ?',
-      'Approuve uniquement si tu viens de scanner le QR affiché sur ton propre ordinateur.',
-      [
-        { text: 'Annuler', style: 'cancel', onPress: () => decide(false) },
-        { text: 'Approuver', onPress: () => decide(true) },
-      ],
-      { cancelable: false },
-    );
+    void previewDesktopPairing(request.pairingId, request.token)
+      .then((p) => p.deviceLabel || '')
+      .catch(() => '')
+      .then((label) => {
+        Alert.alert(
+          'Connecter cet ordinateur ?',
+          `Quelqu’un essaie de se connecter à ton compte${label ? ` depuis : ${label}` : ''}.\nAccepte uniquement si tu viens de scanner le QR sur ton propre ordinateur.`,
+          [
+            {
+              text: 'Non, ce n’est pas moi',
+              style: 'cancel',
+              onPress: () => {
+                decide(false);
+                Alert.alert(
+                  'Connexion refusée',
+                  'Par sécurité, change ton mot de passe et active un authentificateur (application d’authentification) pour protéger ton compte.',
+                );
+              },
+            },
+            { text: 'Oui, c’est moi', onPress: () => decide(true) },
+          ],
+          { cancelable: false },
+        );
+      });
   }, [pendingApproval, user?.id, isLocalGuest, isDemoMode]);
 
   React.useEffect(() => {

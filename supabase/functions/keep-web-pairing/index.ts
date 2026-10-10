@@ -25,6 +25,20 @@ function cleanLabel(value: unknown) {
   return String(value ?? "Ordinateur Loki").trim().slice(0, 80) || "Ordinateur Loki";
 }
 
+// Lieu approximatif de l'ordinateur qui affiche le QR (en-têtes posés par le
+// réseau Supabase/Cloudflare). Aucune migration : le lieu est ajouté au libellé.
+function approxPlace(req: Request) {
+  const clean = (v: string | null) => {
+    let t = String(v ?? "").trim();
+    try { t = decodeURIComponent(t); } catch { /* garde la valeur brute */ }
+    return t.replace(/[^\p{L}\p{N} '\-]/gu, "").slice(0, 40);
+  };
+  const city = clean(req.headers.get("cf-ipcity"));
+  const country = clean(req.headers.get("cf-ipcountry")).toUpperCase();
+  if (country === "XX" || country === "T1") return city;
+  return [city, country].filter(Boolean).join(", ");
+}
+
 function base64Url(bytes: Uint8Array) {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
@@ -97,7 +111,8 @@ Deno.serve(async (req) => {
       const token = randomToken();
       const tokenHash = await sha256(token);
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-      const deviceLabel = cleanLabel(body?.deviceLabel);
+      const place = approxPlace(req);
+      const deviceLabel = cleanLabel(place ? `${cleanLabel(body?.deviceLabel).slice(0, 50)} · ${place}` : body?.deviceLabel);
 
       const { data, error } = await admin
         .from("web_pairings")
@@ -125,6 +140,15 @@ Deno.serve(async (req) => {
       }
       if (pairing.status === "CLAIMED") return json(200, { ok: true, status: "CLAIMED" });
       return json(200, { ok: true, status: "WAITING" });
+    }
+
+    if (action === "preview") {
+      const auth = await requireUser(req);
+      if ("error" in auth) return auth.error;
+      const pairing = await pairingByProof(String(body?.pairingId ?? ""), String(body?.token ?? ""));
+      if (!pairing) return json(404, { error: "pairing_not_found" });
+      if (pairing.status !== "WAITING") return json(409, { error: "pairing_not_waiting", status: pairing.status });
+      return json(200, { ok: true, status: "WAITING", deviceLabel: pairing.device_label });
     }
 
     if (action === "cancel") {
