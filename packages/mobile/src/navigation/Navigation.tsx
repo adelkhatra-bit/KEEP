@@ -229,7 +229,7 @@ export default function Navigation() {
       <RootStack.Navigator initialRouteName="Main" screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="Main" component={MainTabs} />
         <RootStack.Screen name="SessionRecap" component={SessionRecapScreen} />
-        <RootStack.Screen name="SessionHistory" component={SessionHistoryScreen} />
+        <RootStack.Screen name="SessionHistory" component={SessionHistoryScreen} options={{ presentation: "transparentModal", animation: "fade", contentStyle: { backgroundColor: "transparent" } }} />
         <RootStack.Screen name="ProfileSettings" component={ProfileSettingsMobileScreen} />
         <RootStack.Screen name="Notifications" component={NotificationsScreen} />
         <RootStack.Screen name="Offers" component={OffersScreen} />
