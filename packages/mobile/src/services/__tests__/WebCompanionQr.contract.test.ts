@@ -49,4 +49,14 @@ describe('Web companion QR contract', () => {
     expect(edge).toContain('action === "cancel"');
     expect(edge).toContain('pairing_state_changed');
   });
+
+  it('QR expiré : l\'ordinateur le verrouille jusqu\'au bouton Rafraîchir, le téléphone explique sans toucher à la session', () => {
+    const read = (f: string) => fs.readFileSync(path.join(__dirname, '..', '..', 'components', f), 'utf8');
+    const screen = read('WebCompanionPairingScreen.tsx');
+    const lifecycle = read('WebPairingLifecycle.tsx');
+    expect(screen).toContain('loki-web-qr-locked');
+    expect(screen).toContain('RAFRAÎCHIR LE QR');
+    expect(lifecycle).toContain('PairingUnusableError');
+    expect(lifecycle).toContain('QR code expiré');
+  });
 });

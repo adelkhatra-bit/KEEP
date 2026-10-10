@@ -14,6 +14,7 @@ import {
   getWebCompanionSessionStatus,
   parsePairingDeepLink,
   previewDesktopPairing,
+  PairingUnusableError,
   readPendingWebPairing,
   registerCurrentWebCompanionSession,
 } from '../services/webPairingService';
@@ -73,8 +74,18 @@ export default function WebPairingLifecycle() {
     };
     void previewDesktopPairing(request.pairingId, request.token)
       .then((p) => p.deviceLabel || '')
-      .catch(() => '')
+      .catch((error) => (error instanceof PairingUnusableError ? null : ''))
       .then((label) => {
+        if (label === null) {
+          // QR expiré / déjà utilisé : on ne touche ni à la session ni au compte.
+          setPendingApproval(null);
+          approvingRef.current = false;
+          Alert.alert(
+            'QR code expiré',
+            'Ce QR code n’est plus valable. Sur ton ordinateur, appuie sur « Rafraîchir le QR », puis scanne le nouveau.',
+          );
+          return;
+        }
         Alert.alert(
           'Connecter cet ordinateur ?',
           `Quelqu’un essaie de se connecter à ton compte${label ? ` depuis : ${label}` : ''}.\nAccepte uniquement si tu viens de scanner le QR sur ton propre ordinateur.`,
