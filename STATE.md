@@ -62,3 +62,4 @@ Rapport d'audit externe : `docs/AUDIT_EXTERNE_2026-10-06.md`. Notifications : `d
 2026-10-10 · claude/superadmin-session-forgot-password-v2 · audit stories tous utilisateurs + garde de non-régression · jest 293/1425
 2026-10-10 · claude/superadmin-session-forgot-password-v2 · release (.eas-build-trigger + android) + QR conservé après rechargement · jest 293/1426
 2026-10-10 · claude/superadmin-session-forgot-password-v2 · (non commité) · audit mettre-en-story · migration 20261010140000 (SALE_PROTECTED propre boutique) · SQL lecture seule: 0 pin vivant
+2026-10-10 · claude/superadmin-session-forgot-password-v2 · IDEA-214 notée (détail spectateurs + % satisfaction) · plan dans MASTER_PLAN, en attente de validation

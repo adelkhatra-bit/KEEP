@@ -175,3 +175,10 @@ Résumé : trois largeurs différentes selon l'onglet (700 / 1130 / 1890 px) ; l
 
 ## Plan lenteur Solo / Battle (10/10/2026) — « OK base » requis
 1. Appliquer `20261010130000_battle_solo_pack_fast.sql` (remplace seulement la fonction `keep_battle_solo_pack`, même signature) → Solo MIX de 17 s à ~0,2 s. 2. Ensuite mesurer `keep_battle_solo_daily_status` (la « jauge » Solo) et `keep_battle_manual_availability_ping` (1 724 appels, 2,5 s) et alléger de la même façon. 3. Espacer ou plafonner les tâches planifiées de catalogue (toutes les 3 et 5 min, 36 s chacune) qui occupent la base pendant les parties. 4. Contrôle après application : refaire `explain analyze` et lire les journaux 24 h.
+
+## Plan IDEA-214 — Détail spectateurs de ma story + % satisfaction (à valider par Adel)
+1. Lecture seule : vérifier ce que `keep_my_story_viewers_v4` / `story_watch_sessions` enregistrent déjà par musique (secondes, lecture complète, swipe) et les j'aime par spectateur (`track_likes`).
+2. Calcul pur côté app (testé) : par musique = écoutée en entier / passée / aimée ; satisfaction spectateur = écoute complète + j'aime pondérés − passages rapides ; satisfaction story = moyenne.
+3. Écran « Voir qui » : par spectateur, liste des musiques avec ✓ entière / ⏭ passée / ❤️, puis message de fin « Félicitations » + pourcentage.
+4. Base (accord requis) : éventuelle RPC v5 agrégeant j'aime + complétion ; signaux envoyés au moteur de goût (déjà identifiés manquants).
+5. Tests : contrat + jest ; parité mobile 390 / PC 1440.
