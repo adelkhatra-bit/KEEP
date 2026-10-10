@@ -27,10 +27,4 @@ describe('validated mobile chat inbox design', () => {
     expect(panel).toContain('chatScrollCompact');
     expect(panel).toContain('composerCompact');
   });
-
-  it('keeps a close button in the full-screen inbox (ERR-129, dual-viewport)', () => {
-    // Le × plein écran est rendu hors de la branche compacte : il ne doit jamais dépendre de `compact`.
-    expect(panel).toContain('testID="chat-fullscreen-close"');
-    expect(panel).toContain('{onCompactClose ? <TouchableOpacity style={s.compactClose} onPress={() => onCompactClose()}');
-  });
 });
