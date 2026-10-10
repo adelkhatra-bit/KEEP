@@ -5,14 +5,14 @@ const root = path.join(__dirname, '..', '..', '..');
 const index = fs.readFileSync(path.join(root, 'index.js'), 'utf8');
 const shell = fs.readFileSync(path.join(root, 'scripts', 'fix-web-export.cjs'), 'utf8');
 
-describe('Ordinateur : application agrandie sans toucher au téléphone (Adel 10/10/2026)', () => {
-  it('zoom uniquement au-delà de 1100 px, #root garde la taille de la fenêtre', () => {
-    expect(index).toContain('min-width: 1100px');
-    expect(shell).toContain('min-width:1100px');
-    expect(shell).toContain('zoom:1.2');
-    expect(index).toContain('zoom:1.2');
-    expect(index).toContain('height:calc(100dvh / 1.2)');
-    expect(index).toContain('zoom:1.4');
+describe('Ordinateur : vraie disposition desktop sans étirer l’application mobile', () => {
+  it('pas de zoom global : la largeur CSS complète reste disponible au desktop', () => {
+    expect(index).toContain('@media (min-width: 1100px)');
+    expect(index).toMatch(/#root\s*\{\s*zoom:1;\s*width:100vw;/);
+    expect(index).not.toMatch(/zoom:1\.[24]/);
+    // Le script d'export écrit une page 404 SPA, pas de mise à l’échelle concurrente.
+    expect(shell).toContain('404.html');
+    expect(shell).not.toMatch(/zoom:1\.[24]/);
   });
   it('jamais height:auto sur html/body/#root (incident page noire 29/09)', () => {
     expect(index).not.toMatch(/#root[^}]*height:\s*auto/);
