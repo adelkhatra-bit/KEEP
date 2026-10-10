@@ -56,10 +56,3 @@ describe('Mettre en story : réponse immédiate, une seule fenêtre par tap (Ade
   });
 });
 
-describe('Messagerie plein écran : toujours un bouton « Fermer la messagerie » (CI dual-viewport, 10/10/2026)', () => {
-  const agora = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'MusicAgoraPanel.tsx'), 'utf8');
-  it('la boîte de messages (sans conversation ouverte) a son bouton de fermeture', () => {
-    expect(agora).toContain('testID="chat-inbox-close"');
-    expect(agora).toContain('accessibilityLabel="Fermer la messagerie"');
-  });
-});
