@@ -7,6 +7,7 @@ import { useUserStore } from '../store/useUserStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import { navigationRef } from '../navigation/navigationRef';
 import { confirmLeaveGame } from '../services/gameExitGuard';
+import { startCrossDeviceSessionSync } from '../services/sessionCloudSyncService';
 import {
   approveDesktopPairing,
   cancelDesktopPairing,
@@ -30,6 +31,12 @@ export default function WebPairingLifecycle() {
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const [pendingApproval, setPendingApproval] = React.useState<PendingApproval | null>(null);
   const approvingRef = React.useRef(false);
+
+  // Le même compte QR partage son historique d'écoute sur iPhone et PC.
+  React.useEffect(() => {
+    if (!user?.id || isDemoMode || isLocalGuest) return undefined;
+    return startCrossDeviceSessionSync(user.id);
+  }, [user?.id, isDemoMode, isLocalGuest]);
   const handledPcScreenRef = React.useRef<string | null>(null);
 
   const handleNativePairingUrl = React.useCallback((url: string | null | undefined) => {
