@@ -940,6 +940,7 @@ export default function HomeScreenCompact({ navigation }: any) {
           <Text style={s.modalTitle}>Ta session en cours</Text>
           <Text style={{ color: C.green, fontSize: 12, marginTop: 8, fontWeight: '800' }}>● Le micro continue d’écouter</Text>
           <Text style={s.modalBody}>{tracks.length} morceau{tracks.length > 1 ? 'x' : ''} détecté{tracks.length > 1 ? 's' : ''} · {tracks.filter((x) => x.status === 'pending').length} à swiper</Text>
+          {tracks.filter((x) => x.status === 'pending').length >= 10 ? <Text style={{ color: C.purpleLight, fontSize: 12, marginTop: 6, fontWeight: '800' }}>Ta sélection t’attend : ouvre Mes Sessions pour retrouver et swiper tes morceaux, même après avoir quitté cet écran.</Text> : null}
           <ScrollView style={{ maxHeight: 215, marginTop: 10 }}>
             {tracks.length === 0 ? <Text style={s.modalBody}>Les morceaux reconnus apparaissent ici.</Text> : tracks.map((entry) => (
               <View key={entry.id} style={{ borderBottomWidth: 1, borderBottomColor: C.line, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
