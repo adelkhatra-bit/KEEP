@@ -50,8 +50,8 @@ export default function WebCompanionPairingScreen() {
   if (linkErrorRef.current === null && typeof window !== 'undefined' && window.location) {
     const err = readAuthLinkError(window.location.hash);
     if (err) {
+      // Affichage seulement : l'adresse ne pilote aucune action de sécurité (le QR approuvé est déjà effacé avant la redirection).
       linkErrorRef.current = err;
-      clearDesktopChallenge();
       try { window.history.replaceState(null, '', window.location.pathname + window.location.search); } catch { /* sans effet */ }
     }
   }
