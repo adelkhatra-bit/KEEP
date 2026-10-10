@@ -46,15 +46,11 @@ export default function WebCompanionPairingScreen() {
   const [message, setMessage] = React.useState('Préparation de la connexion…');
   const [secondsLeft, setSecondsLeft] = React.useState(0);
 
-  const linkErrorRef = React.useRef<string | null>(null);
-  if (linkErrorRef.current === null && typeof window !== 'undefined' && window.location) {
-    const err = readAuthLinkError(window.location.hash);
-    if (err) {
-      // Affichage seulement : l'adresse ne pilote aucune action de sécurité (le QR approuvé est déjà effacé avant la redirection).
-      linkErrorRef.current = err;
-      try { window.history.replaceState(null, '', window.location.pathname + window.location.search); } catch { /* sans effet */ }
-    }
-  }
+  // Affichage seulement : l'adresse ne pilote AUCUNE action de sécurité. Elle est lue une fois, puis nettoyée sans condition.
+  const linkErrorRef = React.useRef<string | null>(typeof window !== 'undefined' && window.location ? readAuthLinkError(window.location.hash) : null);
+  React.useEffect(() => {
+    try { window.history.replaceState(null, '', window.location.pathname + window.location.search); } catch { /* sans effet */ }
+  }, []);
 
   const create = React.useCallback(async (forceNew = true) => {
     setLoading(true);
