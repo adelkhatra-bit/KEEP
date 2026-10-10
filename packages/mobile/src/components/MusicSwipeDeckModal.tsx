@@ -969,7 +969,10 @@ export default function MusicSwipeDeckModal({
           : 'Lecture automatique';
 
   // Petits écrans (hauteur < 640) : on compacte pour que RIEN ne se recouvre (une seule ligne de slogan, carte plus basse).
-  const { height: windowHeight } = useWindowDimensions();
+  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
+  // La présentation des stories est indépendante du mobile : un lecteur 9:16
+  // centré et un panneau éditorial occupant la largeur utile du desktop.
+  const desktopStoryLayout = Platform.OS === 'web' && windowWidth >= 1100 && Boolean(trackAddedAt);
   const compactDeck = windowHeight < 640;
   const swipeHint = currentAlreadyKept && !previewOnly
     ? '↑ suivant · ← passer'
@@ -1075,8 +1078,8 @@ export default function MusicSwipeDeckModal({
     : emptyTitle;
 
   return <KeepModal visible={visible} animationType="slide" onRequestClose={() => { void close(); }} presentationStyle="fullScreen">
-    <View style={s.outer}>
-    <SafeAreaView style={s.container}>
+    <View style={[s.outer, desktopStoryLayout && s.desktopOuter]}>
+    <SafeAreaView style={[s.container, desktopStoryLayout && s.desktopPlayer]}>
       <View style={s.header}>
         <View style={s.headerText}>
           <Text style={s.eyebrow}>Loki Music SWIPE</Text>
@@ -1247,6 +1250,17 @@ export default function MusicSwipeDeckModal({
       ) : null}
       {overlay ? <View style={{ position: 'absolute', zIndex: 100, elevation: 100, top: 0, left: 0, right: 0, bottom: 0 }}>{overlay}</View> : null}
     </SafeAreaView>
+    {desktopStoryLayout ? <View style={s.desktopStoryAside} testID="loki-desktop-story-aside">
+      <Text style={s.desktopAsideKicker}>LOKI MUSIC · STORIES</Text>
+      <Text style={s.desktopAsideTitle}>Les découvertes de ta communauté.</Text>
+      <Text style={s.desktopAsideBody}>Chaque story dure 24 heures. Écoute les trouvailles, découvre leur auteur et partage à ton tour les morceaux qui te plaisent.</Text>
+      <View style={s.desktopAsideDivider} />
+      <Text style={s.desktopAsideSection}>PENDANT TA VISITE</Text>
+      <Text style={s.desktopAsideHint}>01   Écouter l'extrait</Text>
+      <Text style={s.desktopAsideHint}>02   Passer ou garder une découverte</Text>
+      <Text style={s.desktopAsideHint}>03   Mettre un morceau dans ta story</Text>
+      <Text style={s.desktopAsideFoot}>Les morceaux proposés à l'achat conservent leurs protections. Aucune publication ou transaction ne se fait automatiquement.</Text>
+    </View> : null}
     </View>
   <ChatDockHost active={visible} />
   </KeepModal>;
@@ -1254,6 +1268,16 @@ export default function MusicSwipeDeckModal({
 
 const s = StyleSheet.create({
   outer:{flex:1,backgroundColor:'#090610',alignItems:'center'},
+  desktopOuter:{flexDirection:'row',justifyContent:'center',alignItems:'center',paddingHorizontal:32,gap:28},
+  desktopPlayer:{flexGrow:0,flexShrink:1,maxWidth:570,borderLeftWidth:1,borderRightWidth:1,borderColor:'#312348'},
+  desktopStoryAside:{width:310,maxWidth:'30%',alignSelf:'center',backgroundColor:'#171020',borderWidth:1,borderColor:'#403052',borderRadius:24,padding:24,gap:12},
+  desktopAsideKicker:{color:'#B79CFF',fontSize:12,fontWeight:'900',letterSpacing:1.6},
+  desktopAsideTitle:{color:'#FFFFFF',fontSize:24,lineHeight:30,fontWeight:'900'},
+  desktopAsideBody:{color:'#E5DFED',fontSize:14,lineHeight:22},
+  desktopAsideDivider:{height:1,backgroundColor:'#403052',marginVertical:5},
+  desktopAsideSection:{color:'#B79CFF',fontSize:12,fontWeight:'900',letterSpacing:1},
+  desktopAsideHint:{color:'#FFFFFF',fontSize:14,lineHeight:22},
+  desktopAsideFoot:{color:'#D8CFDF',fontSize:12,lineHeight:18,marginTop:9},
   container:{flex:1,width:'100%',maxWidth:520,backgroundColor:'#090610'},
   header:{zIndex:30,minHeight:92,paddingHorizontal:18,paddingVertical:16,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#241A32'},
   headerText:{flex:1,paddingRight:12},eyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1.5},title:{color:'#F8F6FC',fontSize:20,fontWeight:'900',marginTop:2},subtitle:{color:'#FFFFFF',fontSize:14,lineHeight:20,marginTop:6,paddingBottom:2},
