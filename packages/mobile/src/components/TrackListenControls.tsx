@@ -122,7 +122,12 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
       // En autoplay natif on ne montre jamais un popup qui volerait le tap
       // utilisateur. Les boutons manuels restent disponibles en repli.
       const latest = useSessionStore.getState();
-      if (latest.micPaused) latest.resumeListening();
+      if (latest.isActive && latest.micPaused) {
+        Alert.alert('Reprendre la détection musicale ?', 'La lecture de cet extrait a échoué. Le micro reste en pause.', [
+          { text: 'Rester en pause', style: 'cancel' },
+          { text: 'Reprendre', onPress: () => useSessionStore.getState().resumeListening() },
+        ]);
+      }
     };
 
     void run();
