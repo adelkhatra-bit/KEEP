@@ -936,7 +936,7 @@ export default function HomeScreenCompact({ navigation }: any) {
       </View>
 
       <KeepModal visible={sessionPeekOpen} transparent animationType="fade" onRequestClose={() => setSessionPeekOpen(false)}>
-        <View style={s.modalOverlay}><View style={[s.modalCard, { maxWidth: 440, maxHeight: '78%' }]}>
+        <View style={[s.modalOverlay, { justifyContent: 'flex-end', paddingBottom: 0 }]}><View style={[s.modalCard, { width: '100%', maxWidth: 680, maxHeight: '58%', borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }]}>
           <Text style={s.modalTitle}>Ta session en cours</Text>
           <Text style={{ color: C.green, fontSize: 12, marginTop: 8, fontWeight: '800' }}>● Le micro continue d’écouter</Text>
           <Text style={s.modalBody}>{tracks.length} morceau{tracks.length > 1 ? 'x' : ''} détecté{tracks.length > 1 ? 's' : ''} · {tracks.filter((x) => x.status === 'pending').length} à swiper</Text>
