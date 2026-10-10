@@ -1,7 +1,7 @@
 jest.mock('../supabaseClient', () => ({ supabase: null }));
 import fs from 'fs';
 import path from 'path';
-import { hasFreshSaleOffer } from '../musicStoriesService';
+import { hasFreshSaleOffer, mergeSaleTracks } from '../musicStoriesService';
 
 describe('Story 24 h : la boutique ne rallume plus la story indéfiniment (Adel 10/10/2026)', () => {
   const now = Date.parse('2026-10-10T12:00:00Z');
@@ -53,6 +53,15 @@ describe('Mettre en story : réponse immédiate, une seule fenêtre par tap (Ade
     const block = deck.slice(start, start + 900);
     expect(block).toContain('offeredIds.has(track.id)');
     expect(block).toContain('await pinStoryTrack(track.id)');
+  });
+});
+
+describe('Musique masquée en story : le compteur 24 h reste (Adel 10/10/2026, capture iPhone)', () => {
+  it('garde la date d ajout même si la musique masquée est déjà listée', () => {
+    const story: any = { profileId: 'p1', username: 'adel4A', latestAt: '', tracks: [{ id: 'sale:t1', title: 'Musique en vente' }], addedAt: {} };
+    const merged = mergeSaleTracks(story, [{ trackId: 't1', previewUrl: 'x', pinnedAt: '2026-10-10T01:00:00Z' }]);
+    expect(merged.tracks.filter((t: any) => t.id === 'sale:t1')).toHaveLength(1);
+    expect(merged.addedAt?.['sale:t1']).toBe('2026-10-10T01:00:00Z');
   });
 });
 
