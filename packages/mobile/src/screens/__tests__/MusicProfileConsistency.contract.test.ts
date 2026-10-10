@@ -1,0 +1,57 @@
+// @ts-nocheck
+import fs from 'fs';
+import path from 'path';
+
+const read = (...segments: string[]) =>
+  fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\r\n/g, '\n');
+
+describe('Music profile consistency', () => {
+  const profileService = read(__dirname, '..', '..', 'services', 'publicProfileStateService.ts');
+  const profile = read(__dirname, '..', 'ProfilePublicScreen.tsx');
+  const myMusic = read(__dirname, '..', 'MyMusicScreen.tsx');
+  const visitor = read(__dirname, '..', 'PublicUserProfileScreen.tsx');
+  const audio = read(__dirname, '..', '..', 'services', 'audioPreviewService.ts');
+
+  it('uses PUBLIC + PRIVATE keeps for the owner profile style source', () => {
+    expect(profileService).toContain("const rows = await loadPagedKeeps('keep_own_profile_tracks', {});");
+    expect(profileService).not.toContain("rows.filter((row) => row.visibility === 'PUBLIC')");
+  });
+
+  it('shows the same real style concept in MyMusic and owner profile', () => {
+    expect(profile).toContain("<Text style={s.collectionTitle}>Ma musique</Text>");
+    expect(profile).toContain('{genreFolders.length} style');
+    expect(myMusic).toContain('MES STYLES · {stylePlaylists.length}');
+    expect(myMusic).toContain('SUGGESTIONS AUTO');
+    expect(myMusic).toContain('ne sont PAS comptées dans tes {stylePlaylists.length} Styles');
+  });
+
+  it('opens music management with explicit per-track actions', () => {
+    expect(profile).toContain("params: { openManageMusic: true }");
+    expect(myMusic).toContain("manageMusicMode ? 'COMMANDES VISIBLES' : 'MA VISIBILITÉ'");
+    expect(myMusic).toContain("{publicTrack ? 'PUBLIC' : 'PRIVÉ'}");
+    expect(myMusic).toContain('SUPPRIMER');
+    expect(myMusic).toContain('Vente centralisée dans Collections/Pépites');
+  });
+
+  it('routes collection members to full collection management instead of a price-only shortcut', () => {
+    expect(myMusic).toContain("text: 'Gérer la collection'");
+    expect(myMusic).toContain("manageSaleOfferId: offered.offerId");
+    expect(myMusic).toContain("manageSaleOfferName: offered.playlistName");
+  });
+
+  it('preloads actual media for the next visitor track on web and native', () => {
+    expect(audio).toContain('export async function preloadTrackPreview(previewUrl: string)');
+    expect(audio).toContain('profilePreloadedSound');
+    expect(audio).toContain("element.preload = 'auto'");
+    expect(audio).toContain('profilePreloadedUrl === previewUrl');
+  });
+
+  it('pre-resolves the next visitor preview to avoid gaps between tracks', () => {
+    expect(visitor).toContain('inlinePreviewUrlCacheRef');
+    expect(visitor).toContain('const resolveInlinePreview = async');
+    expect(visitor).toContain('const nextCandidate = candidates[index + 1]');
+    expect(visitor).toContain('void resolveInlinePreview(nextCandidate).then((nextUrl) => {');
+    expect(visitor).toContain('void preloadTrackPreview(nextUrl)');
+    expect(visitor).toContain('void playInlineQueueItem(label, candidates, nextIndex, generation)');
+  });
+});

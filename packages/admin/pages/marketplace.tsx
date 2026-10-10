@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import Hint from '../components/Hint';
 import { supabase } from '../lib/supabaseClient';
 
 type OfferRow = { id: string; seller_id: string; seller_username: string; playlist_id: string; playlist_name: string; price_cents: number; currency_code: string; is_active: boolean; created_at: string; updated_at: string };
@@ -63,8 +64,7 @@ export default function Marketplace() {
 
   return (
     <AdminLayout>
-      <div className="page-title">Place de marché — Playlists, musique &amp; billets</div>
-      <div className="page-subtitle">Prix fixés par les utilisateurs, paiements directs entre eux — 0% de commission Loki Music, Loki Music ne touche jamais l’argent</div>
+      <div className="page-title">Ventes <Hint title="Ventes" text={<>Prix fixés par les utilisateurs, paiements directs entre eux — 0% de commission Loki Music, Loki Music ne touche jamais l’argent</>}/></div>
 
       <div className="demo-banner" style={{ borderColor: '#8B5CF6' }}>
         💶 Modèle "lien de paiement personnel" : chaque vendeur/organisateur colle son propre PayPal/Lydia dans ses réglages. L'acheteur paie directement là-dessus, hors de Loki Music — le statut "COMPLETED" ci-dessous vient uniquement de la confirmation manuelle du vendeur, jamais d'un encaissement Loki Music.
@@ -73,7 +73,7 @@ export default function Marketplace() {
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
 
       <div className="card" style={{ marginBottom: 20 }}>
-        <h3 style={{ marginTop: 0 }}>Total confirmé — playlists &amp; musique (statut COMPLETED)</h3>
+        <h3 style={{ marginTop: 0 }}>Musique <Hint title="Musique" text="Total confirmé des ventes de playlists et musique (paiements terminés)."/></h3>
         {Object.keys(totalByCurrency).length === 0 ? <p style={{ color: 'var(--text-muted)' }}>Aucune vente confirmée pour l’instant.</p> : (
           <table><thead><tr><th>Devise</th><th>Montant</th><th>Commission Loki Music</th></tr></thead><tbody>
             {Object.entries(totalByCurrency).map(([currency, cents]) => <tr key={currency}><td>{currency}</td><td>{money(cents, currency)}</td><td>0%</td></tr>)}
@@ -82,7 +82,7 @@ export default function Marketplace() {
       </div>
 
       <div className="card" style={{ marginBottom: 20 }}>
-        <h3 style={{ marginTop: 0 }}>Total confirmé — billets d’évènements (statut COMPLETED)</h3>
+        <h3 style={{ marginTop: 0 }}>Billets <Hint title="Billets" text="Total confirmé des billets d’évènements (paiements terminés)."/></h3>
         {Object.keys(ticketTotalByCurrency).length === 0 ? <p style={{ color: 'var(--text-muted)' }}>Aucun billet confirmé pour l’instant.</p> : (
           <table><thead><tr><th>Devise</th><th>Montant</th><th>Commission Loki Music</th></tr></thead><tbody>
             {Object.entries(ticketTotalByCurrency).map(([currency, cents]) => <tr key={currency}><td>{currency}</td><td>{money(cents, currency)}</td><td>0%</td></tr>)}
@@ -91,7 +91,7 @@ export default function Marketplace() {
       </div>
 
       <div className="card" style={{ marginBottom: 20 }}>
-        <h3 style={{ marginTop: 0 }}>Offres actives ({offers.filter((o) => o.is_active).length})</h3>
+        <h3 style={{ marginTop: 0 }}>Offres ({offers.filter((o) => o.is_active).length})</h3>
         {loading ? <p>Chargement…</p> : offers.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>Aucune offre pour l’instant.</p> : (
           <table><thead><tr><th>Vendeur</th><th>Playlist / morceau / album</th><th>Prix</th><th>Statut</th><th>Mise à jour</th></tr></thead><tbody>
             {offers.map((o) => (
@@ -108,7 +108,7 @@ export default function Marketplace() {
       </div>
 
       <div className="card" style={{ marginBottom: 20 }}>
-        <h3 style={{ marginTop: 0 }}>Paiements — playlists &amp; musique ({payments.length})</h3>
+        <h3 style={{ marginTop: 0 }}>Paiements ({payments.length})</h3>
         {loading ? <p>Chargement…</p> : payments.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>Aucun paiement demandé pour l’instant.</p> : (
           <table><thead><tr><th>Date</th><th>Acheteur</th><th>Vendeur</th><th>Vendu</th><th>Montant</th><th>Commission Loki Music</th><th>Statut</th></tr></thead><tbody>
             {payments.map((p) => (
@@ -127,7 +127,7 @@ export default function Marketplace() {
       </div>
 
       <div className="card">
-        <h3 style={{ marginTop: 0 }}>Billets — évènements payants ({ticketOrders.length})</h3>
+        <h3 style={{ marginTop: 0 }}>Billets ({ticketOrders.length})</h3>
         {loading ? <p>Chargement…</p> : ticketOrders.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>Aucun billet demandé pour l’instant.</p> : (
           <table><thead><tr><th>Date</th><th>Acheteur</th><th>Organisateur</th><th>Évènement</th><th>Montant</th><th>Commission Loki Music</th><th>Statut</th></tr></thead><tbody>
             {ticketOrders.map((o) => (

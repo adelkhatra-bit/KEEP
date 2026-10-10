@@ -8,7 +8,6 @@ export type KeepTrackIdentityIndex = {
   ids: Set<string>;
   isrcs: Set<string>;
   providerIds: Set<string>;
-  titleArtists: Set<string>;
 };
 
 export function normalizeKeepTrackText(value: string | undefined | null): string {
@@ -23,6 +22,16 @@ export function normalizeKeepTrackText(value: string | undefined | null): string
     .trim();
 }
 
+const TRACK_LEVEL_PROVIDER_IDS = new Set([
+  'applemusic',
+  'spotify',
+  'deezer',
+  'youtube',
+  'youtubemusic',
+  'musicbrainz',
+  'musicbrainzrecording',
+]);
+
 export function keepProviderIdentities(track: Pick<CanonicalTrack, 'providerIds'>): KeepProviderIdentity[] {
   const ids = track.providerIds && typeof track.providerIds === 'object' ? track.providerIds : {};
   const seen = new Set<string>();
@@ -32,6 +41,14 @@ export function keepProviderIdentities(track: Pick<CanonicalTrack, 'providerIds'
     const provider = String(rawProvider || '').trim();
     const value = String(rawValue || '').trim();
     if (!provider || !value) continue;
+
+    // Only a TRACK identifier may prove that two songs are the same.
+    // Context metadata such as appleStorefront='FR'/'US', country/market,
+    // album/collection IDs, etc. is intentionally excluded. Treating a
+    // storefront as a song ID made every Apple Music track from the same
+    // country look like a duplicate in Loki Pulse.
+    if (!TRACK_LEVEL_PROVIDER_IDS.has(provider.toLowerCase())) continue;
+
     const key = `${provider.toLowerCase()}::${value}`;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -40,10 +57,21 @@ export function keepProviderIdentities(track: Pick<CanonicalTrack, 'providerIds'
   return result;
 }
 
-function titleArtistIdentity(track: Pick<CanonicalTrack, 'title' | 'artist'>): string {
-  const title = normalizeKeepTrackText(track.title);
-  const artist = normalizeKeepTrackText(track.artist);
-  return title && artist ? `${title}::${artist}` : '';
+
+/**
+ * Identité forte uniquement : ISRC > identifiant fournisseur de piste > id canonique.
+ * Le couple titre/artiste n'est volontairement JAMAIS une preuve de doublon :
+ * deux versions portant le même nom peuvent avoir un contenu audio/paroles différent.
+ */
+export function strongKeepTrackIdentity(track: TrackIdentityShape): string {
+  const isrc = String(track.isrc || '').trim().toUpperCase();
+  if (isrc) return `isrc:${isrc}`;
+  const providers = keepProviderIdentities(track)
+    .map(({ provider, value }) => `${provider.toLowerCase()}::${value}`)
+    .sort();
+  if (providers.length) return `provider:${providers[0]}`;
+  const id = String(track.id || '').trim();
+  return id ? `id:${id}` : '';
 }
 
 export function buildKeepTrackIdentityIndex(tracks: TrackIdentityShape[]): KeepTrackIdentityIndex {
@@ -51,7 +79,6 @@ export function buildKeepTrackIdentityIndex(tracks: TrackIdentityShape[]): KeepT
     ids: new Set<string>(),
     isrcs: new Set<string>(),
     providerIds: new Set<string>(),
-    titleArtists: new Set<string>(),
   };
 
   for (const track of tracks) {
@@ -64,9 +91,6 @@ export function buildKeepTrackIdentityIndex(tracks: TrackIdentityShape[]): KeepT
     for (const provider of keepProviderIdentities(track)) {
       index.providerIds.add(`${provider.provider.toLowerCase()}::${provider.value}`);
     }
-
-    const textIdentity = titleArtistIdentity(track);
-    if (textIdentity) index.titleArtists.add(textIdentity);
   }
 
   return index;
@@ -83,8 +107,7 @@ export function trackExistsInKeepIndex(index: KeepTrackIdentityIndex, track: Tra
     if (index.providerIds.has(`${provider.provider.toLowerCase()}::${provider.value}`)) return true;
   }
 
-  const textIdentity = titleArtistIdentity(track);
-  return Boolean(textIdentity && index.titleArtists.has(textIdentity));
+  return false;
 }
 
 export function filterTracksNotAlreadyKept<T extends TrackIdentityShape>(

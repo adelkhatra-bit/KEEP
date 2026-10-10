@@ -1,5 +1,6 @@
+import { openProblemReport } from '../services/problemReportService';
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { useUserStore } from '../store/useUserStore';
 import { colors } from '../theme/colors';
@@ -12,9 +13,15 @@ import { pickAndUploadAvatar } from '../services/avatarService';
 import { clearLocalGuestMarker, stageGuestProfileForUpgrade } from '../services/guestUpgradeService';
 import { getCurrentKeepLocation, KeepApproximateCoordinates, KeepLocationPermissionError, searchKeepCity } from '../services/locationService';
 import UsernameAccountForm from '../components/UsernameAccountForm';
+import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
+import AccountEmailPanel from '../components/AccountEmailPanel';
+import KeepModal from '../components/KeepModal';
 
 const GENDERS: { key: GenderOption; label: string }[] = [
-  { key: 'MALE', label: 'Homme' }, { key: 'FEMALE', label: 'Femme' }, { key: 'OTHER', label: 'Autre' }, { key: 'PREFER_NOT_TO_SAY', label: 'Ne pas préciser' },
+  { key: 'MALE', label: 'Garçon / homme' },
+  { key: 'FEMALE', label: 'Fille / femme' },
+  { key: 'OTHER', label: 'Autre' },
+  { key: 'PREFER_NOT_TO_SAY', label: 'Ne pas préciser' },
 ];
 const COUNTRIES = [
   ['FR','France'],['BE','Belgique'],['CH','Suisse'],['LU','Luxembourg'],['MC','Monaco'],['ES','Espagne'],['IT','Italie'],['PT','Portugal'],['DE','Allemagne'],['NL','Pays-Bas'],['GB','Royaume-Uni'],['IE','Irlande'],['US','États-Unis'],['CA','Canada'],['MA','Maroc'],['DZ','Algérie'],['TN','Tunisie'],['AE','Émirats arabes unis'],['SA','Arabie saoudite'],['TR','Turquie'],['GR','Grèce'],['HR','Croatie'],['SE','Suède'],['NO','Norvège'],['DK','Danemark'],['FI','Finlande'],['PL','Pologne'],['CZ','Tchéquie'],['RO','Roumanie'],['JP','Japon'],['KR','Corée du Sud'],['AU','Australie'],['BR','Brésil'],['MX','Mexique'],['IN','Inde'],['ZA','Afrique du Sud']
@@ -47,6 +54,7 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
   const [countryOpen, setCountryOpen] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
 
   const accountRequired = isDemoMode;
   const hasRealAccount = !isDemoMode && !isLocalGuest;
@@ -58,7 +66,7 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
   }, [birthDate]);
   const [dateDraft, setDateDraft] = useState({ year: parsed.year, month: parsed.month, day: parsed.day });
 
-  if (!user) return <SafeAreaView style={s.container}><View style={s.center}><Text style={s.muted}>Aucun compte actif.</Text></View></SafeAreaView>;
+  if (!user) return <SafeAreaView style={s.container}><PersonalThemeBackdrop /><View style={s.center}><Text style={s.muted}>Aucun compte actif.</Text></View></SafeAreaView>;
   const keepSupportNumber = `Loki Music-${user.id.replace(/-/g, '').slice(0, 12).toUpperCase()}`;
 
   const goToTab = (screen: 'Listen' | 'Discover' | 'MyMusic' | 'Parties' | 'Profile') => {
@@ -75,13 +83,19 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
   const signOutNow = async () => {
     if (sessionBusy) return;
     setSessionBusy(true);
+
+    // L'interface quitte immédiatement l'identité courante. La révocation
+    // Supabase se fait ensuite ; aucun ancien profil ne reste affiché pendant
+    // une latence réseau et aucun bouton ne peut continuer à agir au nom du
+    // compte précédent.
+    useUserStore.getState().logout();
+
     try {
       if (supabase) await createAuthService(supabase).signOut();
       await clearLocalGuestMarker();
     } catch {
       await clearLocalGuestMarker();
     } finally {
-      useUserStore.getState().logout();
       setSessionBusy(false);
     }
   };
@@ -226,7 +240,7 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
     setDateOpen(false);
   };
 
-  return <SafeAreaView style={s.container}>
+  return <SafeAreaView style={s.container}><PersonalThemeBackdrop />
     <View style={s.header}>
       <TouchableOpacity style={s.headerBtn} onPress={() => goToTab('Profile')} accessibilityLabel="Retour au profil"><Text style={s.headerBtnText}>‹ Retour</Text></TouchableOpacity>
       <Text style={s.title}>Modifier le profil</Text>
@@ -235,41 +249,52 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
 
     <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       {isLocalGuest ? <TouchableOpacity style={s.accountGate} onPress={requireAccount} accessibilityRole="button" accessibilityLabel="Créer mon compte Loki Music">
-        <Text style={s.accountGateTitle}>Créer mon compte Loki Music</Text>
-        <Text style={s.accountGateText}>Tu peux préparer tout ton profil maintenant. L'inscription débloque ensuite la synchronisation, le partage public et le suivi.</Text>
+        <Text style={s.accountGateTitle}>Sauvegarder mon profil partout</Text>
+        <Text style={s.accountGateText}>Connecte-toi quand tu veux pour retrouver ce profil sur tous tes appareils.</Text>
       </TouchableOpacity> : accountRequired ? <TouchableOpacity style={s.accountGate} onPress={requireAccount} accessibilityRole="button" accessibilityLabel="Créer mon compte Loki Music">
-        <Text style={s.accountGateTitle}>🔒 Créer mon compte Loki Music</Text>
-        <Text style={s.accountGateText}>Débloque photo, profil, localisation, réseaux et partage. Tout est facultatif.</Text>
+        <Text style={s.accountGateTitle}>🔒 Sauvegarder mon profil</Text>
+        <Text style={s.accountGateText}>Crée ton compte pour synchroniser tes choix. Tu peux continuer sans remplir les champs facultatifs.</Text>
       </TouchableOpacity> : null}
 
-      <Section title="Photo" subtitle="Facultatif">
+      <Section title="Ton profil" subtitle="Ce que les autres voient. Tout est modifiable.">
         <View style={s.avatarRow}>
           {avatar ? <Image source={{ uri: avatar }} style={s.avatar} /> : <View style={[s.avatar,s.avatarFallback]}><Text style={s.avatarK}>K</Text></View>}
-          <TouchableOpacity style={s.locationButton} onPress={changeAvatar} disabled={avatarBusy}>{avatarBusy ? <ActivityIndicator color={colors.primaryLight}/> : <Text style={s.locationButtonText}>{accountRequired ? '🔒 Ajouter une photo' : 'Changer la photo'}</Text>}</TouchableOpacity>
+          <TouchableOpacity style={s.photoButton} onPress={changeAvatar} disabled={avatarBusy}>{avatarBusy ? <ActivityIndicator color={colors.primaryLight}/> : <Text style={s.photoButtonText}>{accountRequired ? '🔒 Ajouter une photo' : 'Changer la photo'}</Text>}</TouchableOpacity>
         </View>
-      </Section>
-
-      <Section title="Identité" subtitle="Facultatif">
         <Field label="Pseudo" value={username} onChangeText={setUsername} placeholder="tonpseudo" autoCapitalize="none" editable={!accountRequired} onPressIn={accountRequired ? requireAccount : undefined} />
-        <Text style={s.hint}>Visible publiquement sous la forme @{username.trim().replace(/^@+/, '') || 'pseudo'}.</Text>
+        <Text style={s.hint}>Les autres te voient comme @{username.trim().replace(/^@+/, '') || 'pseudo'}.</Text>
         <Field label="Bio" value={bio} onChangeText={setBio} placeholder="Quelques mots sur toi" multiline editable={!accountRequired} onPressIn={accountRequired ? requireAccount : undefined} />
-      </Section>
-
-      <Section title="Localisation" subtitle="Facultatif · Loki Music peut préremplir automatiquement la ville et le pays.">
-        <TouchableOpacity style={s.locationButton} onPress={useCurrentLocation} disabled={locating}>{locating ? <ActivityIndicator color={colors.primaryLight}/> : <Text style={s.locationButtonText}>{accountRequired ? '🔒 Utiliser ma position' : '⌖ Utiliser ma position'}</Text>}</TouchableOpacity>
-        <Field label="Ville" value={city} onChangeText={handleCityChange} placeholder="Commence à saisir une ville" editable={!accountRequired} onPressIn={accountRequired ? requireAccount : undefined} />
-        <TouchableOpacity style={s.lookupButton} onPress={searchCity} disabled={citySearching}>{citySearching ? <ActivityIndicator color={colors.primaryLight}/> : <Text style={s.lookupText}>{Platform.OS === 'web' ? 'Valider cette ville' : 'Rechercher et préremplir'}</Text>}</TouchableOpacity>
-        <Selector label="Pays" value={COUNTRIES.find((c) => c[0] === countryCode)?.[1] ?? 'Choisir un pays'} onPress={() => accountRequired ? requireAccount() : setCountryOpen(true)} />
-        {locationStatus ? <Text style={[s.hint,{color:'#74F3B6'}]}>{locationStatus}</Text> : null}
-        <Text style={s.hint}>Confidentialité : Loki Music n'affiche jamais ta position GPS précise. Avec « Utiliser ma position », seules la ville, le pays et une coordonnée approximative d'environ 1 km sont conservés pour la découverte locale.</Text>
         <Field label="Site web" value={website} onChangeText={setWebsite} placeholder="https://..." autoCapitalize="none" editable={!accountRequired} onPressIn={accountRequired ? requireAccount : undefined} />
       </Section>
 
+      <Section title="Localisation" subtitle="Ville et pays servent seulement à te proposer des profils proches.">
+        <TouchableOpacity style={s.locationHeroButton} onPress={useCurrentLocation} disabled={locating}>
+          {locating ? <ActivityIndicator color={colors.white}/> : <>
+            <Text style={s.locationHeroIcon}>{accountRequired ? '🔒' : '⌖'}</Text>
+            <View style={s.locationHeroCopy}><Text style={s.locationHeroTitle}>Utiliser ma position</Text><Text style={s.locationHeroHint}>Préremplir automatiquement la ville et le pays</Text></View>
+          </>}
+        </TouchableOpacity>
+        <Text style={s.locationDivider}>OU SAISIS MANUELLEMENT</Text>
+        <Field label="Ville" value={city} onChangeText={handleCityChange} placeholder="Commence à saisir une ville" editable={!accountRequired} onPressIn={accountRequired ? requireAccount : undefined} />
+        <TouchableOpacity style={s.lookupButtonWide} onPress={searchCity} disabled={citySearching}>{citySearching ? <ActivityIndicator color={colors.keep}/> : <Text style={s.lookupText}>✓ Vérifier cette ville</Text>}</TouchableOpacity>
+        <TouchableOpacity style={s.countryButtonWide} onPress={() => accountRequired ? requireAccount() : setCountryOpen(true)} accessibilityRole="button" accessibilityLabel={`Pays : ${COUNTRIES.find((c) => c[0] === countryCode)?.[1] ?? 'Choisir un pays'}`}>
+          <View style={s.countryButtonCopy}><Text style={s.countryLabel}>Pays</Text><Text style={s.countryValue} numberOfLines={1}>{COUNTRIES.find((c) => c[0] === countryCode)?.[1] ?? 'Choisir un pays'}</Text></View><Text style={s.chevron}>›</Text>
+        </TouchableOpacity>
+        {locationStatus ? <View style={s.locationStatusCard}><Text style={s.locationStatusText}>✓ {locationStatus}</Text></View> : null}
+        <TouchableOpacity style={s.privacyToggle} onPress={() => setPrivacyOpen((value) => !value)} accessibilityRole="button" accessibilityLabel="Afficher les informations de confidentialité de la localisation">
+          <Text style={s.privacyToggleText}>ⓘ Confidentialité</Text><Text style={s.privacyToggleArrow}>{privacyOpen ? '⌃' : '⌄'}</Text>
+        </TouchableOpacity>
+        {privacyOpen ? <Text style={s.privacyCopy}>Loki Music n'affiche jamais ta position GPS précise. Seules la ville, le pays et une zone approximative sont utilisés pour la découverte locale.</Text> : null}
+      </Section>
       <Section title="Informations privées" subtitle="Facultatif · jamais affichées publiquement.">
         <Selector label="Date de naissance" value={birthDate || 'Choisir une date'} onPress={() => { if (accountRequired) return requireAccount(); setDateDraft({ year: parsed.year, month: parsed.month, day: parsed.day }); setDateOpen(true); }} />
         <Text style={s.hint}>Utilisée seulement si tu veux activer les filtres d'âge et événements 18+.</Text>
         <Text style={[s.label,{marginTop:18}]}>Genre</Text>
-        <View style={s.genderWrap}>{GENDERS.map((item) => <TouchableOpacity key={item.key} style={[s.genderChip, gender===item.key&&s.genderChipActive]} onPress={()=>accountRequired ? requireAccount() : setGender(item.key)}><Text style={[s.genderText,gender===item.key&&s.genderTextActive]}>{item.label}</Text></TouchableOpacity>)}</View>
+        <View style={s.genderWrap}>{GENDERS.map((item) => <TouchableOpacity key={item.key} style={[s.genderChip, gender===item.key&&s.genderChipActive, item.key==='FEMALE'&&gender===item.key&&s.genderChipPink]} onPress={()=>accountRequired ? requireAccount() : setGender(item.key)}><Text style={[s.genderText,gender===item.key&&s.genderTextActive]}>{item.label}</Text></TouchableOpacity>)}</View>
+        <View style={[s.themeChoice, gender==='FEMALE' ? s.themeChoicePink : s.themeChoiceDark]}>
+          <Text style={s.themeChoiceTitle}>Style de l’app · {gender==='FEMALE' ? 'Rose nuit' : 'Sombre Loki'}</Text>
+          <Text style={s.themeChoiceText}>{gender==='FEMALE' ? 'Après enregistrement, Loki prend des accents roses tout en gardant les mêmes boutons et fonctions.' : 'Le design sombre Loki reste exactement comme aujourd’hui.'}</Text>
+        </View>
       </Section>
 
       {/* Adel (15/09/2026, audit) : "verifie bien qu'il n'y a pas de
@@ -278,6 +303,10 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
           Reglages avances (section Raccourcis), a l'identique. Retires
           d'ici : Reglages avances reste a un seul appui plus bas, un seul
           endroit pour ces raccourcis desormais. */}
+      <Section title="Compte & sécurité" subtitle="Adresse e-mail, mot de passe et tests de délivrabilité.">
+        <AccountEmailPanel enabled={hasRealAccount} username={username.trim().replace(/^@+/, '') || user.username} />
+      </Section>
+
       <Section title="Loki Music">
         <View style={s.supportCard}>
           <Text style={s.supportLabel}>N° membre / support</Text>
@@ -293,9 +322,10 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
           profil juste au-dessus du bouton se déconnecter ... le bouton
           déconnecter tout en bas" -- ordre : Enregistrer, Playlists,
           Réglages avancés, Se déconnecter. */}
-      <TouchableOpacity style={s.primary} onPress={save} disabled={saving}>{saving ? <ActivityIndicator color="#fff"/> : <Text style={s.primaryText}>{accountRequired ? 'CRÉER MON COMPTE POUR ENREGISTRER' : isLocalGuest ? 'Enregistrer sur cet appareil' : 'Enregistrer les modifications'}</Text>}</TouchableOpacity>
+      <TouchableOpacity style={s.primary} onPress={save} disabled={saving}>{saving ? <ActivityIndicator color={colors.white}/> : <Text style={s.primaryText}>{accountRequired ? 'CRÉER MON COMPTE POUR ENREGISTRER' : isLocalGuest ? 'Enregistrer sur cet appareil' : 'Enregistrer les modifications'}</Text>}</TouchableOpacity>
 
       <TouchableOpacity style={s.playlists} onPress={()=>goToTab('MyMusic')}><Text style={s.playlistsText}>← Revenir aux Playlists</Text></TouchableOpacity>
+      {hasRealAccount ? <TouchableOpacity style={s.playlists} onPress={openProblemReport} accessibilityRole="button" accessibilityLabel="Signaler un problème" testID="settings-report-problem"><Text style={s.playlistsText}>⚠ Signaler un problème (ou secoue le téléphone)</Text></TouchableOpacity> : null}
       {/* Adel (16-17/09/2026) : "Réglages avancés" n'est plus un écran à
           part -- ses fonctions (réseaux, créateur, aide, compte) sont
           toutes directement dans le menu ☰ du profil. Pour un compte
@@ -311,23 +341,23 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
         accessibilityRole="button"
         accessibilityLabel={hasRealAccount ? 'Se déconnecter de Loki Music' : 'Se connecter ou créer un compte Loki Music'}
       >
-        {sessionBusy ? <ActivityIndicator color={hasRealAccount ? '#FF7A86' : colors.primaryLight}/> : <Text style={hasRealAccount ? s.disconnectText : s.connectText}>{hasRealAccount ? 'SE DÉCONNECTER' : 'SE CONNECTER / CRÉER UN COMPTE'}</Text>}
+        {sessionBusy ? <ActivityIndicator color={hasRealAccount ? colors.danger : colors.primaryLight}/> : <Text style={hasRealAccount ? s.disconnectText : s.connectText}>{hasRealAccount ? 'SE DÉCONNECTER' : 'SE CONNECTER / CRÉER UN COMPTE'}</Text>}
       </TouchableOpacity>
     </ScrollView>
 
-    <Modal visible={accountOpen} transparent animationType="fade" onRequestClose={()=>setAccountOpen(false)}><View style={s.modalBackdrop}><View style={s.modalCard}><View style={s.modalHeader}><Text style={s.modalTitle}>Débloquer mon profil</Text><TouchableOpacity onPress={()=>setAccountOpen(false)}><Text style={s.close}>Plus tard</Text></TouchableOpacity></View><UsernameAccountForm initialMode="create" onSuccess={()=>setAccountOpen(false)} /><TouchableOpacity style={s.continueTrial} onPress={()=>setAccountOpen(false)}><Text style={s.continueTrialText}>Continuer en mode essai</Text></TouchableOpacity></View></View></Modal>
+    <KeepModal visible={accountOpen} transparent animationType="fade" onRequestClose={()=>setAccountOpen(false)}><View style={s.modalBackdrop}><View style={s.modalCard}><View style={s.modalHeader}><Text style={s.modalTitle}>Débloquer mon profil</Text><TouchableOpacity onPress={()=>setAccountOpen(false)}><Text style={s.close}>Plus tard</Text></TouchableOpacity></View><UsernameAccountForm initialMode="create" onSuccess={()=>setAccountOpen(false)} /><TouchableOpacity style={s.continueTrial} onPress={()=>setAccountOpen(false)}><Text style={s.continueTrialText}>Continuer en mode essai</Text></TouchableOpacity></View></View></KeepModal>
 
-    <Modal visible={countryOpen} transparent animationType="slide" onRequestClose={()=>setCountryOpen(false)}><View style={s.modalBackdrop}><View style={s.modalCard}><View style={s.modalHeader}><Text style={s.modalTitle}>Choisir le pays</Text><TouchableOpacity onPress={()=>setCountryOpen(false)}><Text style={s.close}>Fermer</Text></TouchableOpacity></View><ScrollView>{COUNTRIES.map(([code,label])=><TouchableOpacity key={code} style={s.option} onPress={()=>handleCountrySelect(code)}><Text style={s.optionText}>{label}</Text><Text style={s.optionCode}>{code}</Text></TouchableOpacity>)}</ScrollView></View></View></Modal>
+    <KeepModal visible={countryOpen} transparent animationType="slide" onRequestClose={()=>setCountryOpen(false)}><View style={s.modalBackdrop}><View style={s.modalCard}><View style={s.modalHeader}><Text style={s.modalTitle}>Choisir le pays</Text><TouchableOpacity onPress={()=>setCountryOpen(false)}><Text style={s.close}>Fermer</Text></TouchableOpacity></View><ScrollView>{COUNTRIES.map(([code,label])=><TouchableOpacity key={code} style={s.option} onPress={()=>handleCountrySelect(code)}><Text style={s.optionText}>{label}</Text><Text style={s.optionCode}>{code}</Text></TouchableOpacity>)}</ScrollView></View></View></KeepModal>
 
-    <Modal visible={dateOpen} transparent animationType="slide" onRequestClose={()=>setDateOpen(false)}><View style={s.modalBackdrop}><View style={s.modalCard}><View style={s.modalHeader}><Text style={s.modalTitle}>Date de naissance</Text><TouchableOpacity onPress={()=>setDateOpen(false)}><Text style={s.close}>Annuler</Text></TouchableOpacity></View><View style={s.dateColumns}><DateColumn title="Jour" values={Array.from({length:31},(_,i)=>i+1)} selected={dateDraft.day} onSelect={(v)=>setDateDraft(d=>({...d,day:v}))}/><DateColumn title="Mois" values={Array.from({length:12},(_,i)=>i+1)} selected={dateDraft.month} onSelect={(v)=>setDateDraft(d=>({...d,month:v}))}/><DateColumn title="Année" values={Array.from({length:parsed.currentYear-1920+1},(_,i)=>parsed.currentYear-i)} selected={dateDraft.year} onSelect={(v)=>setDateDraft(d=>({...d,year:v}))}/></View><TouchableOpacity style={s.primary} onPress={confirmDate}><Text style={s.primaryText}>Valider la date</Text></TouchableOpacity></View></View></Modal>
+    <KeepModal visible={dateOpen} transparent animationType="slide" onRequestClose={()=>setDateOpen(false)}><View style={s.modalBackdrop}><View style={s.modalCard}><View style={s.modalHeader}><Text style={s.modalTitle}>Date de naissance</Text><TouchableOpacity onPress={()=>setDateOpen(false)}><Text style={s.close}>Annuler</Text></TouchableOpacity></View><View style={s.dateColumns}><DateColumn title="Jour" values={Array.from({length:31},(_,i)=>i+1)} selected={dateDraft.day} onSelect={(v)=>setDateDraft(d=>({...d,day:v}))}/><DateColumn title="Mois" values={Array.from({length:12},(_,i)=>i+1)} selected={dateDraft.month} onSelect={(v)=>setDateDraft(d=>({...d,month:v}))}/><DateColumn title="Année" values={Array.from({length:parsed.currentYear-1920+1},(_,i)=>parsed.currentYear-i)} selected={dateDraft.year} onSelect={(v)=>setDateDraft(d=>({...d,year:v}))}/></View><TouchableOpacity style={s.primary} onPress={confirmDate} accessibilityRole="button" accessibilityLabel="Valider la date de naissance"><Text style={s.primaryText}>Valider la date</Text></TouchableOpacity></View></View></KeepModal>
   </SafeAreaView>;
 }
 
 function Section({ title, subtitle, children }: { title:string; subtitle?:string; children:React.ReactNode }) { return <View style={s.section}><Text style={s.sectionTitle}>{title}</Text>{subtitle?<Text style={s.sectionSubtitle}>{subtitle}</Text>:null}{children}</View>; }
 function Field({ label, ...props }: any) { return <View style={s.field}><Text style={s.label}>{label}</Text><TextInput style={[s.input,props.multiline&&s.multiline]} placeholderTextColor={colors.textMuted} {...props}/></View>; }
-function Selector({ label, value, onPress }: { label:string; value:string; onPress:()=>void }) { return <View style={s.field}><Text style={s.label}>{label}</Text><TouchableOpacity style={s.selector} onPress={onPress}><Text style={s.selectorText}>{value}</Text><Text style={s.chevron}>›</Text></TouchableOpacity></View>; }
+function Selector({ label, value, onPress }: { label:string; value:string; onPress:()=>void }) { return <View style={s.field}><Text style={s.label}>{label}</Text><TouchableOpacity style={s.selector} onPress={onPress} accessibilityRole="button" accessibilityLabel={`${label} : ${value}`}><Text style={s.selectorText}>{value}</Text><Text style={s.chevron}>›</Text></TouchableOpacity></View>; }
 function DateColumn({ title, values, selected, onSelect }: { title:string; values:number[]; selected:number; onSelect:(v:number)=>void }) { return <View style={s.dateCol}><Text style={s.dateTitle}>{title}</Text><ScrollView style={s.dateScroll}>{values.map(v=><TouchableOpacity key={v} style={[s.dateOption,selected===v&&s.dateOptionActive]} onPress={()=>onSelect(v)}><Text style={[s.dateText,selected===v&&s.dateTextActive]}>{String(v).padStart(title==='Année'?4:2,'0')}</Text></TouchableOpacity>)}</ScrollView></View>; }
 
 const s=StyleSheet.create({
-  container:{flex:1,backgroundColor:colors.background},center:{flex:1,alignItems:'center',justifyContent:'center'},muted:{color:colors.textMuted,fontSize:14},header:{minHeight:58,flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:14,borderBottomWidth:1,borderBottomColor:colors.border},headerBtn:{minWidth:72,minHeight:40,justifyContent:'center'},headerBtnText:{color:colors.textSecondary,fontSize:15,fontWeight:'700'},saveText:{color:colors.primaryLight,fontSize:15,fontWeight:'800',textAlign:'right'},title:{color:colors.textPrimary,fontSize:20,fontWeight:'900'},content:{padding:18,paddingBottom:38},accountGate:{backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.primary,borderRadius:radius.lg,padding:14,marginBottom:16},accountGateTitle:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},accountGateText:{color:colors.textSecondary,fontSize:13,lineHeight:19,marginTop:4},section:{backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,borderRadius:radius.lg,padding:16,marginBottom:16},sectionTitle:{color:colors.textPrimary,fontSize:18,fontWeight:'900',marginBottom:4},sectionSubtitle:{color:colors.textMuted,fontSize:14,lineHeight:20,marginBottom:10},avatarRow:{flexDirection:'row',alignItems:'center',gap:14,marginTop:10},avatar:{width:74,height:74,borderRadius:37,backgroundColor:colors.background},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarK:{color:colors.primaryLight,fontSize:26,fontWeight:'900'},field:{marginTop:14},label:{color:colors.textSecondary,fontSize:14,fontWeight:'700',marginBottom:7},input:{minHeight:46,borderWidth:1,borderColor:colors.border,borderRadius:radius.md,color:colors.textPrimary,paddingHorizontal:12,fontSize:16,backgroundColor:colors.background},multiline:{minHeight:86,paddingTop:12,textAlignVertical:'top'},hint:{color:colors.textMuted,fontSize:13,lineHeight:19,marginTop:7},selector:{minHeight:46,borderWidth:1,borderColor:colors.border,borderRadius:radius.md,backgroundColor:colors.background,paddingHorizontal:12,flexDirection:'row',alignItems:'center'},selectorText:{flex:1,color:colors.textPrimary,fontSize:16},chevron:{color:colors.primaryLight,fontSize:24,fontWeight:'800'},locationButton:{minHeight:46,borderRadius:23,borderWidth:1,borderColor:'#A884FA',alignItems:'center',justifyContent:'center',paddingHorizontal:16,backgroundColor:'#5B3F8C'},locationButtonText:{color:'#FFFFFF',fontSize:15,fontWeight:'900'},lookupButton:{minHeight:40,marginTop:8,borderRadius:20,borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center',backgroundColor:'#123D2C'},lookupText:{color:'#FFFFFF',fontSize:14,fontWeight:'900'},genderWrap:{flexDirection:'row',flexWrap:'wrap',gap:8},genderChip:{minHeight:40,paddingHorizontal:12,borderRadius:20,borderWidth:1,borderColor:colors.border,justifyContent:'center'},genderChipActive:{backgroundColor:colors.primary,borderColor:colors.primary},genderText:{color:colors.textSecondary,fontSize:14,fontWeight:'700'},genderTextActive:{color:colors.white},supportCard:{marginTop:10,marginBottom:4,padding:12,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.background},supportLabel:{color:colors.textMuted,fontSize:12,fontWeight:'800',textTransform:'uppercase',letterSpacing:.7},supportNumber:{color:colors.primaryLight,fontSize:16,fontWeight:'900',marginTop:5,letterSpacing:.5},error:{color:colors.danger,textAlign:'center',marginBottom:12,fontSize:14,fontWeight:'700'},success:{color:'#74F3B6',textAlign:'center',marginBottom:12,fontSize:14,fontWeight:'700'},primary:{minHeight:50,borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},primaryText:{color:colors.white,fontSize:16,fontWeight:'900'},connectButton:{minHeight:48,marginTop:12,borderRadius:24,borderWidth:1,borderColor:'#39C98A',backgroundColor:'#123D2C',alignItems:'center',justifyContent:'center'},connectText:{color:'#74F3B6',fontSize:14,fontWeight:'900'},disconnectButton:{minHeight:48,marginTop:12,borderRadius:24,borderWidth:1,borderColor:'#C84A58',backgroundColor:'#35161D',alignItems:'center',justifyContent:'center'},disconnectText:{color:'#FF8B96',fontSize:14,fontWeight:'900'},playlists:{minHeight:48,marginTop:12,borderRadius:24,borderWidth:1,borderColor:'#A884FA',backgroundColor:'#5B3F8C',alignItems:'center',justifyContent:'center'},playlistsText:{color:'#FFFFFF',fontSize:15,fontWeight:'900'},advanced:{minHeight:44,marginTop:8,borderRadius:22,borderWidth:1,borderColor:'#A884FA',backgroundColor:'#24163A',alignItems:'center',justifyContent:'center'},advancedText:{color:'#FFFFFF',fontSize:14,fontWeight:'900'},modalBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,0.65)',justifyContent:'flex-end'},modalCard:{maxHeight:'88%',backgroundColor:colors.backgroundCard,borderTopLeftRadius:24,borderTopRightRadius:24,padding:16,borderWidth:1,borderColor:colors.border},modalHeader:{minHeight:44,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},modalTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900'},close:{color:colors.primaryLight,fontSize:15,fontWeight:'800'},continueTrial:{minHeight:40,alignItems:'center',justifyContent:'center',marginTop:6},continueTrialText:{color:colors.textMuted,fontSize:14,fontWeight:'800'},option:{minHeight:50,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:colors.border},optionText:{flex:1,color:colors.textPrimary,fontSize:16,fontWeight:'700'},optionCode:{color:colors.textMuted,fontSize:14},dateColumns:{height:270,flexDirection:'row',gap:8,marginVertical:12},dateCol:{flex:1},dateTitle:{color:colors.textMuted,fontSize:13,fontWeight:'800',textAlign:'center',marginBottom:6},dateScroll:{flex:1,borderWidth:1,borderColor:colors.border,borderRadius:12},dateOption:{minHeight:42,alignItems:'center',justifyContent:'center'},dateOptionActive:{backgroundColor:colors.primary},dateText:{color:colors.textSecondary,fontSize:15,fontWeight:'700'},dateTextActive:{color:'#fff',fontWeight:'900'}
+  container:{flex:1,backgroundColor:colors.background},center:{flex:1,alignItems:'center',justifyContent:'center'},muted:{color:colors.textMuted,fontSize:14},header:{minHeight:68,flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:14,paddingVertical:8,borderBottomWidth:1,borderBottomColor:colors.border},headerBtn:{minWidth:84,minHeight:44,justifyContent:'center'},headerBtnText:{color:colors.textSecondary,fontSize:14,fontWeight:'800'},saveText:{color:colors.primaryLight,fontSize:14,fontWeight:'900',textAlign:'right'},title:{color:colors.textPrimary,fontSize:20,fontWeight:'900'},content:{paddingHorizontal:14,paddingTop:14,paddingBottom:40},accountGate:{backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.primary,borderRadius:radius.lg,padding:14,marginBottom:16},accountGateTitle:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},accountGateText:{color:colors.textSecondary,fontSize:13,lineHeight:19,marginTop:4},section:{backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,borderRadius:18,padding:16,marginBottom:14},sectionTitle:{color:colors.textPrimary,fontSize:18,fontWeight:'900',marginBottom:4},sectionSubtitle:{color:colors.textMuted,fontSize:14,lineHeight:20,marginBottom:10},avatarRow:{flexDirection:'row',alignItems:'center',gap:14,marginTop:10},avatar:{width:74,height:74,borderRadius:37,backgroundColor:colors.background},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarK:{color:colors.primaryLight,fontSize:26,fontWeight:'900'},photoButton:{minHeight:46,flex:1,borderRadius:23,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',paddingHorizontal:12,backgroundColor:colors.backgroundCard},photoButtonText:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},field:{marginTop:14},label:{color:colors.textSecondary,fontSize:14,fontWeight:'700',marginBottom:7},input:{minHeight:52,borderWidth:1,borderColor:colors.border,borderRadius:14,color:colors.textPrimary,paddingHorizontal:14,fontSize:16,backgroundColor:colors.backgroundCard},multiline:{minHeight:86,paddingTop:12,textAlignVertical:'top'},hint:{color:colors.textMuted,fontSize:13,lineHeight:19,marginTop:7},selector:{minHeight:52,borderWidth:1,borderColor:colors.border,borderRadius:14,backgroundColor:colors.backgroundCard,paddingHorizontal:14,flexDirection:'row',alignItems:'center'},selectorText:{flex:1,color:colors.textPrimary,fontSize:16},chevron:{color:colors.primaryLight,fontSize:24,fontWeight:'800'},locationButton:{minHeight:52,borderRadius:26,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',paddingHorizontal:16,backgroundColor:colors.primary},locationButtonText:{color:colors.white,fontSize:15,fontWeight:'900'},lookupButton:{minHeight:44,marginTop:8,borderRadius:22,borderWidth:1,borderColor:colors.keep,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(45,225,194,0.10)'},lookupText:{color:colors.keep,fontSize:13,fontWeight:'900'},locationHeroButton:{minHeight:68,borderRadius:20,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primary,paddingHorizontal:16,flexDirection:'row',alignItems:'center',gap:12},locationHeroIcon:{width:34,color:colors.white,fontSize:24,fontWeight:'900',textAlign:'center'},locationHeroCopy:{flex:1,minWidth:0},locationHeroTitle:{color:colors.white,fontSize:15,fontWeight:'900'},locationHeroHint:{color:colors.white,fontSize:11,lineHeight:16,opacity:.82,marginTop:3},locationDivider:{color:colors.textMuted,fontSize:10,fontWeight:'900',letterSpacing:1.1,textAlign:'center',marginTop:18,marginBottom:-2},lookupButtonWide:{minHeight:46,marginTop:10,borderRadius:15,borderWidth:1,borderColor:colors.keep,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(45,225,194,0.08)',paddingHorizontal:12},countryButtonWide:{minHeight:58,marginTop:10,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:14,flexDirection:'row',alignItems:'center',gap:10},countryButtonCopy:{flex:1,minWidth:0},countryLabel:{color:colors.textMuted,fontSize:10,fontWeight:'800',textTransform:'uppercase',letterSpacing:.7},countryValue:{color:colors.textPrimary,fontSize:15,fontWeight:'800',marginTop:2},locationStatusCard:{marginTop:10,borderRadius:12,borderWidth:1,borderColor:'rgba(45,225,194,0.28)',backgroundColor:'rgba(45,225,194,0.07)',paddingHorizontal:12,paddingVertical:9},locationStatusText:{color:colors.keep,fontSize:12,lineHeight:17,fontWeight:'800'},privacyToggle:{minHeight:42,marginTop:8,flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:2},privacyToggleText:{color:colors.textMuted,fontSize:12,fontWeight:'800'},privacyToggleArrow:{color:colors.primaryLight,fontSize:15,fontWeight:'900'},privacyCopy:{color:colors.textMuted,fontSize:12,lineHeight:18,marginTop:2,paddingBottom:2},genderWrap:{flexDirection:'row',flexWrap:'wrap',gap:8},genderChip:{minHeight:44,paddingHorizontal:14,borderRadius:22,borderWidth:1,borderColor:colors.border,justifyContent:'center'},genderChipActive:{backgroundColor:colors.primary,borderColor:colors.primary},genderChipPink:{backgroundColor:'#DB2777',borderColor:'#F9A8D4'},genderText:{color:colors.textSecondary,fontSize:14,fontWeight:'700'},genderTextActive:{color:colors.white},themeChoice:{marginTop:12,borderRadius:16,borderWidth:1,paddingHorizontal:14,paddingVertical:12},themeChoiceDark:{backgroundColor:colors.backgroundCard,borderColor:colors.border},themeChoicePink:{backgroundColor:'rgba(219,39,119,0.16)',borderColor:'#F472B6'},themeChoiceTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},themeChoiceText:{color:colors.textMutedGrey,fontSize:11,lineHeight:16,marginTop:3},supportCard:{marginTop:10,marginBottom:4,padding:12,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard},supportLabel:{color:colors.textMuted,fontSize:12,fontWeight:'800',textTransform:'uppercase',letterSpacing:.7},supportNumber:{color:colors.primaryLight,fontSize:16,fontWeight:'900',marginTop:5,letterSpacing:.5},error:{color:colors.danger,textAlign:'center',marginBottom:12,fontSize:14,fontWeight:'700'},success:{color:colors.keep,textAlign:'center',marginBottom:12,fontSize:14,fontWeight:'700'},primary:{minHeight:50,borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},primaryText:{color:colors.white,fontSize:16,fontWeight:'900'},connectButton:{minHeight:52,marginTop:12,borderRadius:26,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,0.10)',alignItems:'center',justifyContent:'center'},connectText:{color:colors.keep,fontSize:14,fontWeight:'900'},disconnectButton:{minHeight:52,marginTop:12,borderRadius:26,borderWidth:1,borderColor:colors.danger,backgroundColor:'rgba(255,92,114,0.10)',alignItems:'center',justifyContent:'center'},disconnectText:{color:colors.danger,fontSize:14,fontWeight:'900'},playlists:{minHeight:52,marginTop:12,borderRadius:26,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},playlistsText:{color:colors.white,fontSize:15,fontWeight:'900'},advanced:{minHeight:48,marginTop:8,borderRadius:24,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},advancedText:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},modalBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,0.65)',justifyContent:'flex-end'},modalCard:{maxHeight:'88%',backgroundColor:colors.backgroundCard,borderTopLeftRadius:24,borderTopRightRadius:24,padding:16,borderWidth:1,borderColor:colors.border},modalHeader:{minHeight:44,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},modalTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900'},close:{color:colors.primaryLight,fontSize:15,fontWeight:'800'},continueTrial:{minHeight:44,alignItems:'center',justifyContent:'center',marginTop:6},continueTrialText:{color:colors.textMuted,fontSize:14,fontWeight:'800'},option:{minHeight:50,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:colors.border},optionText:{flex:1,color:colors.textPrimary,fontSize:16,fontWeight:'700'},optionCode:{color:colors.textMuted,fontSize:14},dateColumns:{height:270,flexDirection:'row',gap:8,marginVertical:12},dateCol:{flex:1},dateTitle:{color:colors.textMuted,fontSize:13,fontWeight:'800',textAlign:'center',marginBottom:6},dateScroll:{flex:1,borderWidth:1,borderColor:colors.border,borderRadius:12},dateOption:{minHeight:44,alignItems:'center',justifyContent:'center'},dateOptionActive:{backgroundColor:colors.primary},dateText:{color:colors.textSecondary,fontSize:15,fontWeight:'700'},dateTextActive:{color:colors.white,fontWeight:'900'}
 });

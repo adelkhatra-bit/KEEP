@@ -1,6 +1,7 @@
 import type { MusicRecognitionProvider, RecognitionResult } from '@keep/music';
 import { recognizeSharedSourceKeyless } from './keylessSharedSourceRecognition';
 import { recognizeWithNativeShazam } from './nativeShazamRecognition';
+import { learnRecognitionInBackground, noteSuccessfulRecognitionForPaidSuppression, recognizeWithKeepMemoryFast } from './keepMusicCoreRecognition';
 
 /**
  * Cascade de reconnaissance Loki, du plus autonome au plus dépendant :
@@ -11,18 +12,56 @@ import { recognizeWithNativeShazam } from './nativeShazamRecognition';
  *
  * Chaque étape est best-effort : une indisponibilité ne casse jamais l'écoute.
  */
+type MemoryAwareProvider = MusicRecognitionProvider & {
+  recognizeAfterMemory?: (audioSample: ArrayBuffer | Blob) => Promise<RecognitionResult | null>;
+};
+
+async function firstRecognition(promises: Array<Promise<RecognitionResult | null>>): Promise<RecognitionResult | null> {
+  return new Promise((resolve) => {
+    let remaining = promises.length;
+    let settled = false;
+    const finishNull = () => {
+      remaining -= 1;
+      if (!settled && remaining === 0) resolve(null);
+    };
+    for (const promise of promises) {
+      promise.then((value) => {
+        if (!settled && value) {
+          settled = true;
+          resolve(value);
+          return;
+        }
+        finishNull();
+      }).catch(finishNull);
+    }
+  });
+}
+
 export class NativeFirstRecognitionProvider implements MusicRecognitionProvider {
   readonly providerId = 'keep-native-keyless-first';
 
-  constructor(private readonly fallback: MusicRecognitionProvider) {}
+  constructor(private readonly fallback: MemoryAwareProvider) {}
 
   async recognize(audioSample: ArrayBuffer | Blob): Promise<RecognitionResult | null> {
-    const native = await recognizeWithNativeShazam(audioSample);
-    if (native) return native;
+    // ShazamKit, collective KEEP memory and an explicit shared source are all
+    // free fast paths. Start them together; the first trustworthy match wins.
+    // Paid/server providers start only if every fast path returned no match.
+    const fast = await firstRecognition([
+      recognizeWithNativeShazam(audioSample),
+      recognizeWithKeepMemoryFast(audioSample),
+      recognizeSharedSourceKeyless(),
+    ]);
+    if (fast) {
+      noteSuccessfulRecognitionForPaidSuppression(fast);
+      const providerTrackId = String(fast.recognitionProviderTrackId ?? '');
+      if (!providerTrackId.startsWith('keep-memory:') && !providerTrackId.startsWith('keyless:')) {
+        void learnRecognitionInBackground(fast);
+      }
+      return fast;
+    }
 
-    const sharedSource = await recognizeSharedSourceKeyless();
-    if (sharedSource) return sharedSource;
-
-    return this.fallback.recognize(audioSample);
+    return this.fallback.recognizeAfterMemory
+      ? this.fallback.recognizeAfterMemory(audioSample)
+      : this.fallback.recognize(audioSample);
   }
 }

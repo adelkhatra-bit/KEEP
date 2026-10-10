@@ -1,31 +1,32 @@
 name: KEEP — Web public officiel
-# Workflow definition is registered from default branch; runtime deploy source stays reconcile/claude-main-20260825.
+# RELEASE RETRIGGER: publish direct-DB auth fallback after PGRST002 incident (2026-10-02 03:18 CEST)
 
 on:
   push:
     branches: ['reconcile/claude-main-20260825']
     paths:
-      - 'packages/mobile/**'
-      - 'packages/music/**'
-      - 'packages/admin/**'
-      - 'supabase/functions/keep-admin-control/**'
-      - 'supabase/functions/keep-backend/**'
-      - 'supabase/migrations/**'
-      - 'supabase/templates/**'
-      - 'scripts/verify-source-of-truth.cjs'
-      - 'package.json'
-      - 'package-lock.json'
+      # RELEASE UNIQUE : le web public part uniquement du même commit que le
+      # build TestFlight, matérialisé par .eas-build-trigger.
+      - 'packages/mobile/.eas-build-trigger'
       - '.github/workflows/web-preview-pages.yml'
   workflow_dispatch:
+
+# ACTIONS REGISTRATION REFRESHED ON DEFAULT BRANCH.\n# PUBLIC DEPLOY CONTRACT: reconcile/claude-main-20260825 is the only source
+# for https://adelkhatra-bit.github.io/KEEP. A successful deployment must
+# expose this exact commit through /KEEP/version.json.
 
 permissions:
   contents: read
   pages: write
   id-token: write
 
+# Plusieurs agents peuvent pousser à quelques secondes d'intervalle.
+# Ne JAMAIS annuler un build web déjà commencé : sinon une rafale de commits peut
+# empêcher toute publication pendant longtemps et laisser l'utilisateur sur un ancien visuel.
+# Les runs obsolètes sont déjà filtrés au démarrage par "Ignore stale queued deploys".
 concurrency:
   group: keep-pages-reconcile-claude-main-20260825
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -39,6 +40,8 @@ jobs:
       EXPO_PUBLIC_WEB_URL: 'https://adelkhatra-bit.github.io/KEEP'
       EXPO_PUBLIC_AUTH_REDIRECT_URL: 'https://adelkhatra-bit.github.io/KEEP/'
       EXPO_PUBLIC_API_URL: 'https://keep-backend-mu.vercel.app'
+      EXPO_PUBLIC_DEMO_MODE: 'false'
+      EXPO_PUBLIC_KEEP_PREVIEW: '0'
       EXPO_PUBLIC_BUILD_SHA: ${{ github.sha }}
       NEXT_PUBLIC_SUPABASE_URL: 'https://rrhqsqzcplvmwxizqnla.supabase.co'
       NEXT_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru'
@@ -56,32 +59,73 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
+      - name: Lock release SHA to TestFlight trigger
+        id: fresh
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "$KEEP_PROJECT_BRANCH" --depth=200
+          release_sha="$(git log -1 --format=%H "origin/$KEEP_PROJECT_BRANCH" -- packages/mobile/.eas-build-trigger)"
+          test -n "$release_sha"
+          if [ "$GITHUB_SHA" = "$release_sha" ]; then
+            echo "build=yes" >> "$GITHUB_OUTPUT"
+            echo "Unified release SHA confirmed: $GITHUB_SHA"
+          else
+            echo "build=no" >> "$GITHUB_OUTPUT"
+            echo "Not a release commit: $GITHUB_SHA (current TestFlight release SHA: $release_sha)"
+          fi
+
       - name: Configure GitHub Pages
+        if: steps.fresh.outputs.build == 'yes'
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
 
       - name: Setup Node
+        if: steps.fresh.outputs.build == 'yes'
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
 
       - name: Install dependencies
+        if: steps.fresh.outputs.build == 'yes'
         run: npm ci
 
       - name: Verify single source of truth
+        if: steps.fresh.outputs.build == 'yes'
         run: node scripts/verify-source-of-truth.cjs
 
+      - name: Verify route inventory (nothing disappears)
+        if: steps.fresh.outputs.build == 'yes'
+        run: node scripts/verify-route-inventory.cjs
+
+      - name: Prove public deployment source
+        if: steps.fresh.outputs.build == 'yes'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = 'reconcile/claude-main-20260825'
+          printf 'PUBLIC SOURCE: %s @ %s\n' "$GITHUB_REF_NAME" "$GITHUB_SHA"
+
       - name: Typecheck mobile
+        if: steps.fresh.outputs.build == 'yes'
         run: npm --workspace packages/mobile run type-check
 
+      - name: Guard first-run coach stays attached to real Listen screen
+        if: steps.fresh.outputs.build == 'yes'
+        working-directory: packages/mobile
+        run: npx jest src/components/__tests__/CoachMarks.background.contract.test.ts --runInBand
+
       - name: Typecheck admin
+        if: steps.fresh.outputs.build == 'yes'
         run: npm --workspace packages/admin run type-check
 
       - name: Export KEEP web
+        if: steps.fresh.outputs.build == 'yes'
         working-directory: packages/mobile
         run: npx expo export --platform web --output-dir dist-web
 
       - name: Apply browser bootstrap + project-safe asset paths
+        if: steps.fresh.outputs.build == 'yes'
         working-directory: packages/mobile
         run: |
           node scripts/fix-web-export.cjs dist-web
@@ -99,7 +143,7 @@ jobs:
           history_guard = r'''<script>(function(){
           try{
             var base='/KEEP';
-            var appRoots=['/Main','/session-recap','/session-history','/profile-settings','/profile/','/music-connections','/notifications','/offers','/apple-music-connect'];
+            var appRoots=['/Main','/session-recap','/session-history','/profile-settings','/profile/','/music-connections','/notifications','/offers','/apple-music-connect','/playlist-sale','/playlist-sale-history'];
             function normalize(raw){
               if(raw==null)return raw;
               var u=new URL(String(raw),location.href);
@@ -128,16 +172,18 @@ jobs:
           PY
 
       - name: Build Super Admin
+        if: steps.fresh.outputs.build == 'yes'
         run: npm --workspace packages/admin run build
 
       - name: Assemble public site + no-404 route shells
+        if: steps.fresh.outputs.build == 'yes'
         shell: bash
         run: |
           set -euo pipefail
           rm -rf _site
           mkdir -p _site/admin-preview _site/share-profile _site/superadmin \
             _site/privacy _site/privacy-choices _site/terms _site/support _site/mentions-legales \
-            _site/pricing _site/refund
+            _site/pricing _site/refund _site/banner-marketplace-maquette
           cp -R packages/mobile/dist-web/. _site/
           cp -R packages/admin/out/. _site/admin-preview/
           cp packages/mobile/share-profile.html _site/share-profile/index.html
@@ -149,6 +195,7 @@ jobs:
           cp packages/mobile/legal/mentions-legales.html _site/mentions-legales/index.html
           cp packages/mobile/legal/pricing.html _site/pricing/index.html
           cp packages/mobile/legal/refund.html _site/refund/index.html
+          cp packages/mobile/public/banner-marketplace-maquette.html _site/banner-marketplace-maquette/index.html
 
           cat > _site/superadmin/index.html <<'HTML'
           <!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Loki Super Admin</title><script>location.replace('/KEEP/admin-preview/'+location.search+location.hash)</script><a href="/KEEP/admin-preview/">Ouvrir Loki Super Admin</a>
@@ -157,13 +204,13 @@ jobs:
           for route in \
             Main Main/Listen Main/Discover Main/MyMusic Main/Parties Main/Profile \
             session-recap session-history profile-settings profile-settings/advanced \
-            music-connections notifications offers apple-music-connect; do
+            music-connections notifications offers apple-music-connect playlist-sale playlist-sale-history; do
             mkdir -p "_site/$route"
             cp _site/index.html "_site/$route/index.html"
           done
 
           cat > _site/404.html <<'HTML'
-          <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Loki</title></head><body style="margin:0;background:#0E0A14"><script>
+          <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Loki</title></head><body style="margin:0;background:#0B0A12"><script>
           (function(){
             var p=location.pathname,q=location.search,h=location.hash;
             if(p.indexOf('/KEEP/admin-preview')===0){
@@ -179,9 +226,10 @@ jobs:
           HTML
 
           touch _site/.nojekyll
-          printf '{"sha":"%s","builtAt":"%s"}' "$GITHUB_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > _site/version.json
+          printf '{"repository":"%s","branch":"%s","sha":"%s","builtAt":"%s"}' "$KEEP_PROJECT_REPOSITORY" "$KEEP_PROJECT_BRANCH" "$GITHUB_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > _site/version.json
 
       - name: Verify generated route shells
+        if: steps.fresh.outputs.build == 'yes'
         shell: bash
         run: |
           set -euo pipefail
@@ -200,9 +248,13 @@ jobs:
           test -f _site/mentions-legales/index.html
           test -f _site/pricing/index.html
           test -f _site/refund/index.html
+          test -f _site/banner-marketplace-maquette/index.html
+          test -f _site/playlist-sale/index.html
+          test -f _site/playlist-sale-history/index.html
           test -f _site/keep-share.png
           test -f _site/version.json
           grep -q "$GITHUB_SHA" _site/version.json
+          grep -q "$KEEP_PROJECT_BRANCH" _site/version.json
           grep -q '/KEEP/_expo/' _site/index.html
           grep -q '__keep_route' _site/404.html
           grep -q 'history.pushState=function' _site/index.html
@@ -216,16 +268,61 @@ jobs:
           grep -q 'Remboursement et droit de rétractation' _site/refund/index.html
           grep -q 'NEXT_PUBLIC' .github/workflows/web-preview-pages.yml
 
+      - name: Block black page before publish (real Chromium, PC + tablet + mobile)
+        if: steps.fresh.outputs.build == 'yes'
+        # 29/09/2026 : le site est parti en ligne avec une page noire sur
+        # ordinateur alors que la CI était verte (le test ne regardait que le
+        # texte du DOM, pas ce qui est visible). Ce contrôle sert le site
+        # assemblé EN LOCAL et refuse la publication si l'application ne
+        # remplit pas l'écran ou si la barre des 5 onglets n'est pas visible.
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save @playwright/test@1.55.0
+          npx playwright install chromium --with-deps
+          rm -rf /tmp/keep-gate && mkdir -p /tmp/keep-gate
+          ln -s "$PWD/_site" /tmp/keep-gate/KEEP
+          (cd /tmp/keep-gate && python3 -m http.server 8765 >/tmp/keep-gate.log 2>&1 &)
+          sleep 2
+          node scripts/web-visible-surface-gate.cjs http://127.0.0.1:8765/KEEP
+
+      - name: Record branch head before publish
+        id: publish_fresh
+        if: steps.fresh.outputs.build == 'yes'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "$KEEP_PROJECT_BRANCH" --depth=200
+          latest="$(git log -1 --format=%H "origin/$KEEP_PROJECT_BRANCH" -- \
+            packages/mobile packages/music packages/admin \
+            scripts/verify-source-of-truth.cjs scripts/resolve-ci-impact.cjs scripts/resolve-web-deploy-scope.cjs \
+            package.json package-lock.json .github/workflows/web-preview-pages.yml \
+            ':(exclude)packages/mobile/**/__tests__/**' \
+            ':(exclude)packages/mobile/**/*.test.ts' \
+            ':(exclude)packages/mobile/**/*.test.tsx' \
+            ':(exclude)packages/mobile/**/*.spec.ts' \
+            ':(exclude)packages/mobile/**/*.spec.tsx')"
+          test -n "$latest"
+          echo "publish=yes" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_SHA" = "$latest" ]; then
+            echo "Publish current web-impact head: $GITHUB_SHA"
+          else
+            echo "A newer web-impact SHA is queued ($latest); publish the already validated $GITHUB_SHA now so the public UI cannot starve, then the newer queued run will follow."
+          fi
+
       - name: Upload Pages artifact
+        if: steps.publish_fresh.outputs.publish == 'yes'
         uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: _site
 
       - name: Deploy to GitHub Pages
+        if: steps.publish_fresh.outputs.publish == 'yes'
         id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
 
       - name: Live refresh + direct-link HTTP smoke
+        if: steps.publish_fresh.outputs.publish == 'yes'
         shell: bash
         run: |
           set -euo pipefail
@@ -243,6 +340,8 @@ jobs:
             "$base/profile-settings/"
             "$base/notifications/"
             "$base/offers/"
+            "$base/playlist-sale/"
+            "$base/playlist-sale-history/"
             "$base/admin-preview/"
             "$base/superadmin/"
             "$base/share-profile/"
@@ -272,6 +371,12 @@ jobs:
           grep -q 'Tarifs Loki' /tmp/keep-pricing.html
           curl --retry 5 --retry-delay 2 -fsSL "$base/refund/" -o /tmp/keep-refund.html
           grep -q 'Remboursement et droit de rétractation' /tmp/keep-refund.html
+          # A green Pages deployment must prove that the public site serves
+          # THIS exact runtime commit, not merely that the URL returns HTTP 200.
+          curl --retry 10 --retry-delay 3 -fsSL -H 'Cache-Control: no-cache' "$base/version.json?sha=$GITHUB_SHA" -o /tmp/keep-version.json
+          grep -q "$GITHUB_SHA" /tmp/keep-version.json
+          grep -q "$KEEP_PROJECT_BRANCH" /tmp/keep-version.json
+          echo "LIVE SHA VERIFIED: $GITHUB_SHA"
           curl --retry 5 --retry-delay 2 -fsSL "$base/admin-preview/" -o /tmp/keep-admin.html
           grep -q 'Loki' /tmp/keep-admin.html
           dynamic_code="$(curl -sS -o /tmp/keep-dynamic.html -w '%{http_code}' "$base/profile/__keep_route_smoke__/")"
@@ -279,70 +384,5 @@ jobs:
           test "$dynamic_code" = '404'
           grep -q '__keep_route' /tmp/keep-dynamic.html
 
-      - name: Install real browser engines
-        run: |
-          npm install --no-save @playwright/test@1.55.0
-          npx playwright install chromium firefox webkit --with-deps
-
-      - name: Live browser matrix — no blank page and refresh survives
-        shell: bash
-        run: |
-          mkdir -p artifacts/public-browser-matrix
-          cat > keep-public-browser-matrix.cjs <<'JS'
-          const { chromium, firefox, webkit, devices } = require('@playwright/test');
-          const fs = require('fs');
-          const BASE = 'https://adelkhatra-bit.github.io/KEEP';
-          const routes = [
-            '/', '/Main/', '/Main/Listen/', '/Main/Discover/', '/Main/MyMusic/',
-            '/Main/Parties/', '/Main/Profile/', '/profile-settings/', '/notifications/',
-            '/offers/', '/share-profile/?u=__keep_public_smoke__', '/admin-preview/', '/superadmin/',
-            '/privacy/', '/privacy-choices/', '/terms/', '/support/', '/mentions-legales/', '/pricing/', '/refund/'
-          ];
-          const scenarios = [
-            { name: 'desktop-chromium', engine: chromium, context: { viewport: { width: 1440, height: 900 } } },
-            { name: 'android-pixel7', engine: chromium, context: { ...devices['Pixel 7'] } },
-            { name: 'iphone-safari', engine: webkit, context: { ...devices['iPhone 15'] } },
-            { name: 'desktop-firefox', engine: firefox, context: { viewport: { width: 1366, height: 768 } } },
-          ];
-          const blank = (text, html) => !text || text.trim().length < 4 || !html || html.trim().length < 20;
-          const bad404 = text => /File not found|404 There isn't a GitHub Pages site here/i.test(text || '');
-
-          (async () => {
-            const report = [];
-            for (const scenario of scenarios) {
-              const browser = await scenario.engine.launch({ headless: true });
-              const context = await browser.newContext(scenario.context);
-              const page = await context.newPage();
-              const pageErrors = [];
-              page.on('pageerror', e => pageErrors.push(String(e)));
-              for (const route of routes) {
-                const url = BASE + route;
-                const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => null);
-                await page.waitForTimeout(1400);
-                const text = await page.locator('body').innerText().catch(() => '');
-                const html = await page.content().catch(() => '');
-                const status = response ? response.status() : 0;
-                const ok = status >= 200 && status < 500 && !blank(text, html) && !bad404(text);
-                report.push({ scenario: scenario.name, route, status, ok, pageErrors: [...pageErrors] });
-                if (!ok) throw new Error(`${scenario.name} ${route} failed: status=${status} text=${text.slice(0,120)}`);
-                pageErrors.length = 0;
-                if (!route.includes('share-profile') && !route.includes('admin-preview') && !route.includes('superadmin')) {
-                  await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
-                  await page.waitForTimeout(900);
-                  const refreshed = await page.locator('body').innerText().catch(() => '');
-                  if (!refreshed || bad404(refreshed)) throw new Error(`${scenario.name} refresh ${route} failed`);
-                }
-              }
-              await browser.close();
-            }
-            fs.writeFileSync('artifacts/public-browser-matrix/report.json', JSON.stringify(report, null, 2));
-          })().catch(err => { console.error(err); process.exit(1); });
-          JS
-          node keep-public-browser-matrix.cjs
-
-      - name: Upload browser audit
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: keep-public-browser-matrix
-          path: artifacts/public-browser-matrix
+      # Publication terminée ici après validation HTTP + SHA live.
+      # Les tests navigateurs lourds restent dans les Guardians dédiés.

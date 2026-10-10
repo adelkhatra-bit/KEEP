@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CanonicalTrack } from '@keep/music';
 import { supabase } from './supabaseClient';
 
@@ -36,6 +37,7 @@ export type PublicProfileKeep = {
   sourceUserId?: string;
   sourceProfileId?: string;
   sourceUsername?: string;
+  sourceAvatarUrl?: string | null;
   sourceCertificationTier?: ProfileCertificationTier;
   // Adel (08/09/2026) : "si l'utilisateur est abonné à celui qui a
   // découvert la musique, on met vert, si il est pas abonné, tu le mets
@@ -116,6 +118,18 @@ function normalizeKeepRow(row: any, fallbackVisibility: 'PUBLIC' | 'PRIVATE' = '
 async function hydrateSourceUsernames(rows: PublicProfileKeep[]): Promise<PublicProfileKeep[]> {
   if (!supabase || !rows.length) return rows;
   const client = supabase;
+  // Source canonique: le premier utilisateur ayant réellement découvert le titre
+  // via Écouter. Une copie/reprise sociale ne peut jamais remplacer ce nom.
+  const trackIds = Array.from(new Set(rows.map((row) => row.track.id).filter(Boolean)));
+  const firstOrigins = new Map<string, { profileId: string; username: string }>();
+  for (let start = 0; start < trackIds.length; start += 100) {
+    const { data } = await Promise.resolve(client.rpc('keep_track_first_discoveries', { p_track_ids: trackIds.slice(start, start + 100) })).then((result) => result, () => ({ data: [] as any[] } as any));
+    for (const row of (data ?? []) as any[]) if (row?.track_id && row?.profile_id) firstOrigins.set(String(row.track_id), { profileId: String(row.profile_id), username: String(row.username || '') });
+  }
+  rows = rows.map((row) => {
+    const origin = firstOrigins.get(row.track.id);
+    return origin ? { ...row, sourceUserId: origin.profileId, sourceProfileId: origin.profileId, sourceUsername: origin.username || row.sourceUsername } : row;
+  });
   const allSourceIds = Array.from(new Set(rows
     .map((row) => row.sourceProfileId || row.sourceUserId)
     .filter(Boolean) as string[]));
@@ -139,16 +153,34 @@ async function hydrateSourceUsernames(rows: PublicProfileKeep[]): Promise<Public
       for (const row of data ?? []) if (row?.followee_id) following.add(String(row.followee_id));
     }
   }
+  const avatarUrls = new Map<string, string | null>();
   for (let start = 0; start < needsUsername.length; start += chunkSize) {
     const chunk = needsUsername.slice(start, start + chunkSize);
     const { data, error } = await client
       .from('profiles')
-      .select('id,username')
+      .select('id,username,avatar_url')
       .in('id', chunk)
       .eq('is_public', true);
     if (error) continue;
     for (const profile of data ?? []) {
       if (profile?.id && profile?.username) usernames.set(String(profile.id), String(profile.username));
+      if (profile?.id) avatarUrls.set(String(profile.id), profile?.avatar_url || null);
+    }
+  }
+  // Fetch avatars for all source profiles
+  for (let start = 0; start < allSourceIds.length; start += chunkSize) {
+    const chunk = allSourceIds.slice(start, start + chunkSize);
+    if (chunk.every((id) => avatarUrls.has(id))) continue; // Already fetched
+    const { data, error } = await client
+      .from('profiles')
+      .select('id,avatar_url')
+      .in('id', chunk)
+      .eq('is_public', true);
+    if (error) continue;
+    for (const profile of data ?? []) {
+      if (profile?.id && !avatarUrls.has(String(profile.id))) {
+        avatarUrls.set(String(profile.id), profile?.avatar_url || null);
+      }
     }
   }
   for (let start = 0; start < allSourceIds.length; start += chunkSize) {
@@ -160,16 +192,18 @@ async function hydrateSourceUsernames(rows: PublicProfileKeep[]): Promise<Public
     }
   }
 
-  if (!usernames.size && !tiers.size && !viewerId) return rows;
+  if (!usernames.size && !tiers.size && !viewerId && !avatarUrls.size) return rows;
   return rows.map((row) => {
     const sourceId = row.sourceProfileId || row.sourceUserId;
     const sourceUsername = row.sourceUsername || (sourceId ? usernames.get(sourceId) : undefined);
+    const sourceAvatarUrl = sourceId ? avatarUrls.get(sourceId) : undefined;
     const sourceCertificationTier = sourceId ? tiers.get(sourceId) : undefined;
     const sourceIsFollowing = viewerId && sourceId ? following.has(sourceId) : undefined;
-    if (sourceUsername === row.sourceUsername && sourceCertificationTier === undefined && sourceIsFollowing === undefined) return row;
+    if (sourceUsername === row.sourceUsername && sourceAvatarUrl === row.sourceAvatarUrl && sourceCertificationTier === undefined && sourceIsFollowing === undefined) return row;
     return {
       ...row,
       ...(sourceUsername ? { sourceUsername } : {}),
+      ...(sourceAvatarUrl !== undefined ? { sourceAvatarUrl } : {}),
       ...(sourceCertificationTier ? { sourceCertificationTier } : {}),
       ...(sourceIsFollowing !== undefined ? { sourceIsFollowing } : {}),
     };
@@ -212,18 +246,130 @@ export async function loadOwnProfileSnapshot(): Promise<OwnProfileSnapshot> {
 }
 
 const KEEP_PAGE_SIZE = 250;
+const OWN_PROFILE_KEEPS_CACHE_PREFIX = '@keep/own-profile-keeps-v1';
+
+function ownKeepsCacheKey(profileId: string) {
+  return `${OWN_PROFILE_KEEPS_CACHE_PREFIX}:${profileId}`;
+}
+
+export async function readOwnProfileKeepsCache(profileId: string): Promise<PublicProfileKeep[] | null> {
+  return readOwnKeepsCache(profileId);
+}
+
+async function readOwnKeepsCache(profileId: string): Promise<PublicProfileKeep[] | null> {
+  if (!profileId) return null;
+  try {
+    const raw = await AsyncStorage.getItem(ownKeepsCacheKey(profileId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed as PublicProfileKeep[] : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeOwnKeepsCache(profileId: string, rows: PublicProfileKeep[]) {
+  if (!profileId) return;
+  try {
+    // Borne le cache local sans limiter la source serveur. C'est un filet
+    // anti-panne, pas une deuxième base de données.
+    await AsyncStorage.setItem(ownKeepsCacheKey(profileId), JSON.stringify(rows.slice(0, 1000)));
+  } catch {}
+}
 
 async function loadPagedKeeps(rpcName: 'keep_public_profile_tracks' | 'keep_own_profile_tracks', args: Record<string, unknown>): Promise<PublicProfileKeep[]> {
   if (!supabase) return [];
   const result: PublicProfileKeep[] = [];
   for (let offset = 0; ; offset += KEEP_PAGE_SIZE) {
     const { data, error } = await supabase.rpc(rpcName, { ...args, p_limit: KEEP_PAGE_SIZE, p_offset: offset });
-    if (error) throw error;
+    if (error) {
+      if (rpcName !== 'keep_own_profile_tracks') throw error;
+
+      // Protection globale : le profil propriétaire ne doit jamais devenir
+      // vide parce qu'un RPC enrichi est momentanément indisponible. Les
+      // keep_decisions + tracks du propriétaire restent la source minimale
+      // RLS-safe et permettent de reconstruire toute sa musique sans écrire
+      // ni modifier aucune donnée utilisateur.
+      const { data: sessionData } = await supabase.auth.getSession();
+      const profileId = sessionData.session?.user?.id;
+      if (!profileId) throw error;
+
+      const base = await supabase
+        .from('keep_decisions')
+        .select('id,track_id,visibility,created_at,context,source_user_id,source_type')
+        .eq('profile_id', profileId)
+        .eq('decision', 'KEPT')
+        .order('created_at', { ascending: true })
+        .range(offset, offset + KEEP_PAGE_SIZE - 1);
+      if (base.error) throw error;
+
+      const decisions = Array.isArray(base.data) ? base.data : [];
+      const trackIds = Array.from(new Set(decisions.map((row: any) => String(row?.track_id || '')).filter(Boolean)));
+      const trackMap = new Map<string, any>();
+      for (let start = 0; start < trackIds.length; start += 100) {
+        const trackResult = await supabase
+          .from('tracks')
+          .select('id,isrc,title,artist,album,duration_sec,artwork_url,genres,provider_ids,preview_url,available_on,external_urls')
+          .in('id', trackIds.slice(start, start + 100));
+        if (trackResult.error) throw error;
+        for (const track of trackResult.data ?? []) if (track?.id) trackMap.set(String(track.id), track);
+      }
+
+      for (const row of decisions as any[]) {
+        const track = trackMap.get(String(row?.track_id || ''));
+        if (!track) continue;
+        result.push(normalizeKeepRow({
+          decision_id: row.id,
+          kept_at: row.created_at,
+          visibility: row.visibility,
+          context: row.context,
+          source_user_id: row.source_user_id,
+          source_type: row.source_type,
+          track_id: track.id,
+          isrc: track.isrc,
+          title: track.title,
+          artist: track.artist,
+          album: track.album,
+          duration_sec: track.duration_sec,
+          artwork_url: track.artwork_url,
+          genres: track.genres,
+          provider_ids: track.provider_ids,
+          preview_url: track.preview_url,
+          available_on: track.available_on,
+          external_urls: track.external_urls,
+        }, row.visibility === 'PRIVATE' ? 'PRIVATE' : 'PUBLIC'));
+      }
+      if (decisions.length < KEEP_PAGE_SIZE) break;
+      continue;
+    }
+
     const rows = Array.isArray(data) ? data : [];
     for (const row of rows as any[]) result.push(normalizeKeepRow(row));
     if (rows.length < KEEP_PAGE_SIZE) break;
   }
-  return hydrateSourceUsernames(result);
+  return hydrateSourceUsernamesWithinBudget(result);
+}
+
+// ERR-PROFILE-QUEUE-STARVATION-031 : les musiques étaient déjà reçues mais
+// restaient cachées tant que l'enrichissement « découvreur » (pseudo, avatar,
+// certification, suivi) n'avait pas fini -- jusqu'à 75 s de plus sur un
+// Supabase lent. Sur un serveur normal l'enrichissement finit bien avant ce
+// délai et rien ne change à l'écran ; sur un serveur saturé, les musiques
+// s'affichent quand même et les pseudos complets arrivent au rafraîchissement
+// suivant. Aucune donnée n'est modifiée.
+const SOURCE_HYDRATION_BUDGET_MS = 6000;
+
+async function hydrateSourceUsernamesWithinBudget(rows: PublicProfileKeep[]): Promise<PublicProfileKeep[]> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const budget = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), SOURCE_HYDRATION_BUDGET_MS);
+  });
+  try {
+    const enriched = await Promise.race([hydrateSourceUsernames(rows).catch(() => rows), budget]);
+    return enriched ?? rows;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 export async function loadPublicProfileKeeps(profileId: string): Promise<PublicProfileKeep[]> {
@@ -249,9 +395,9 @@ export type ProfileRepriser = {
  * style musical et s'ils sont déjà suivis, pour proposer de s'abonner en un
  * geste.
  */
-export async function loadProfileReprisers(profileId: string): Promise<ProfileRepriser[]> {
+export async function loadProfileReprisers(profileId: string, limit = 16): Promise<ProfileRepriser[]> {
   if (!supabase || !profileId) return [];
-  const { data, error } = await supabase.rpc('keep_profile_reprisers', { p_profile_id: profileId });
+  const { data, error } = await supabase.rpc('keep_profile_reprisers_page', { p_profile_id: profileId, p_limit: Math.max(1, Math.min(limit, 40)) });
   if (error || !Array.isArray(data)) return [];
   return data.map((row: any) => ({
     profileId: String(row.profile_id),
@@ -266,11 +412,24 @@ export async function loadProfileReprisers(profileId: string): Promise<ProfileRe
 }
 
 export async function loadOwnProfileKeeps(): Promise<PublicProfileKeep[]> {
-  // Le RPC propriétaire conserve PUBLIC + PRIVATE pour l'identité canonique et
-  // l'anti-doublon. Cette couche est exclusivement destinée à l'écran Profil :
-  // elle ne doit jamais lui livrer une décision privée à rendre visuellement.
-  const rows = await loadPagedKeeps('keep_own_profile_tracks', {});
-  return rows.filter((row) => row.visibility === 'PUBLIC');
+  // Le RPC propriétaire est la source canonique du propriétaire : PUBLIC +
+  // PRIVATE. Les morceaux privés restent visibles uniquement sur SON écran.
+  if (!supabase) return [];
+  const { data: sessionData } = await supabase.auth.getSession().catch(() => ({ data: { session: null } } as any));
+  const profileId = sessionData.session?.user?.id ? String(sessionData.session.user.id) : '';
+
+  try {
+    const rows = await loadPagedKeeps('keep_own_profile_tracks', {});
+    if (profileId) void writeOwnKeepsCache(profileId, rows);
+    return rows;
+  } catch (error) {
+    // Incident réel 02/10/2026 : Supabase peut répondre 503/504 alors que les
+    // 46+ morceaux de l'utilisateur sont toujours en base. Dans ce cas on
+    // affiche le dernier snapshot local au lieu de faire croire à une suppression.
+    const cached = profileId ? await readOwnKeepsCache(profileId) : null;
+    if (cached) return cached;
+    throw error;
+  }
 }
 
 export async function loadProfileDiscoveryImpacts(profileId: string): Promise<Record<string, DiscoveryImpact>> {

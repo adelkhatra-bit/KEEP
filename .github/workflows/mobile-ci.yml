@@ -10,6 +10,14 @@ on:
       - 'scripts/verify-profile-data-integrity.cjs'
       - 'scripts/verify-source-of-truth.cjs'
       - 'scripts/verify-mobile-text-contrast.cjs'
+      - 'scripts/verify-mobile-accessibility-contract.cjs'
+      - 'scripts/verify-music-anti-duplicate-contract.cjs'
+      - 'config/mobile-accessibility-contract.json'
+      - 'docs/KEEP_CAHIER_DES_CHARGES_UI.md'
+      - 'docs/KEEP_MASTER_SPEC.md'
+      - 'config/keep-ui-baseline.json'
+      - 'scripts/verify-ui-layout-baseline.cjs'
+      - 'scripts/verify-global-user-regression-guard.cjs'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/mobile-ci.yml'
@@ -22,10 +30,18 @@ on:
       - 'scripts/verify-profile-data-integrity.cjs'
       - 'scripts/verify-source-of-truth.cjs'
       - 'scripts/verify-mobile-text-contrast.cjs'
+      - 'scripts/verify-ui-layout-baseline.cjs'
+      - 'config/keep-ui-baseline.json'
+      - 'docs/KEEP_CAHIER_DES_CHARGES_UI.md'
+      - 'docs/KEEP_MASTER_SPEC.md'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/mobile-ci.yml'
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -54,6 +70,18 @@ jobs:
 
       - name: KEEP mobile text contrast contract
         run: node scripts/verify-mobile-text-contrast.cjs
+
+      - name: KEEP mobile accessibility contract
+        run: node scripts/verify-mobile-accessibility-contract.cjs
+
+      - name: KEEP music anti-duplicate contract
+        run: node scripts/verify-music-anti-duplicate-contract.cjs
+
+      - name: KEEP UI baseline contract
+        run: node scripts/verify-ui-layout-baseline.cjs
+
+      - name: KEEP global user regression guard
+        run: node scripts/verify-global-user-regression-guard.cjs
 
       - name: Typecheck mobile
         run: npm --workspace packages/mobile run type-check

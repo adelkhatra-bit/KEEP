@@ -1,0 +1,228 @@
+// @ts-nocheck
+import fs from 'fs';
+import path from 'path';
+
+const read = (...segments: string[]) =>
+  fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\\r\\n/g, '\\n');
+
+describe('Demo keep confirmation + visited profile premium design', () => {
+  const swipe = read(__dirname, '..', '..', 'components', 'MusicSwipeDeckModal.tsx');
+  const listen = read(__dirname, '..', '..', 'components', 'TrackListenControls.tsx');
+  const profile = read(__dirname, '..', 'PublicUserProfileScreen.tsx');
+  const boutique = read(__dirname, '..', '..', 'components', 'SellerBoutique.tsx');
+  const ownerProfile = read(__dirname, '..', 'ProfilePublicScreen.tsx');
+  const styleCard = read(__dirname, '..', '..', 'components', 'ProfileStyleCard.tsx');
+  const featureFlags = read(__dirname, '..', '..', 'services', 'featureFlagService.ts');
+  const battle = read(__dirname, '..', '..', 'components', 'KeepBattleMobileGameV3.tsx');
+  const profileSettings = read(__dirname, '..', 'ProfileSettingsMobileScreen.tsx');
+  const myMusic = read(__dirname, '..', 'MyMusicScreen.tsx');
+  const audioPreview = read(__dirname, '..', '..', 'services', 'audioPreviewService.ts');
+
+  it('never chooses PUBLIC implicitly when account/demo state requires attention', () => {
+    expect(swipe).not.toContain("try { await onKeep?.(current, 'PUBLIC'); }");
+    const visibilityPrompt = swipe.indexOf('if (askVisibilityOnKeep) {');
+    const accountGate = swipe.indexOf('if (requiresAccount) {', visibilityPrompt);
+    expect(visibilityPrompt).toBeGreaterThanOrEqual(0);
+    expect(accountGate).toBeGreaterThan(visibilityPrompt);
+    expect(swipe).toContain('setKeepPromptOpen(true)');
+    expect(swipe).toContain("confirmKeep('PUBLIC')");
+    expect(swipe).toContain("confirmKeep('PRIVATE')");
+  });
+
+  it('lets demo mode exercise the Public/Private choice locally instead of skipping it', () => {
+    expect(profile).toContain("requiresAccount={!effectiveViewerId && !isDemoMode}");
+    expect(profile).not.toContain('requiresAccount={!viewer || isLocalGuest || isDemoMode}');
+    expect(profile).toContain("Alert.alert('Mode démo'");
+    expect(profile).toContain("visibility === 'PUBLIC' ? 'PUBLIC sur le profil' : 'PRIVÉ'");
+  });
+
+  it('still requires a real account after a guest has chosen visibility, without saving first', () => {
+    expect(profile).toContain("if (!effectiveViewerId) {");
+    expect(profile).toContain('Ton choix de visibilité est bien pris en compte, mais crée ou connecte ton compte');
+  });
+
+  it('resolves an inline audio preview even when discovery search links exist', () => {
+    expect(listen).toContain('if (track.previewUrl || embedUrl) return;');
+    expect(listen).not.toContain('if (track.previewUrl || embedUrl || externalPlayUrl) return;');
+    expect(listen).toContain('resolveTrackPreviewUrl(track)');
+  });
+
+  it('uses colorful public style cards and a separate compact Drop list for locked collections', () => {
+    expect(profile).toContain("import ProfileStyleCard from '../components/ProfileStyleCard';");
+    expect(profile).toContain('mode="PUBLIC"');
+    expect(profile).toContain("onPress={() => openBrowseSwipe({ type: 'genre', value: genre, label: genre })}");
+    expect(profile).toContain('artworkUrl={genreArtwork[genre]}');
+    // 02/10/2026 : boutique vendeur validée par Adel (SellerBoutique : Drop du moment 3 max + étagère + boutique).
+    expect(profile).toContain('<SellerBoutique');
+    expect(boutique).toContain('accessibilityLabel="Collections à débloquer"');
+    expect(boutique).toContain('TOUCHE POUR ÉCOUTER · TITRES PROTÉGÉS');
+    expect(profile).not.toContain("mode={unlocked ? 'UNLOCKED' : 'LOCKED'}");
+    expect(styleCard).toContain('<ImageBackground');
+    expect(styleCard).toContain('const PUBLIC_GRADIENTS');
+  });
+
+  it('keeps sale products out of the public style grid and never reveals their artwork through the locked row', () => {
+    // Les cartes de la boutique n'utilisent jamais la jaquette des titres masqués.
+    expect(boutique).toContain('function OfferCard(');
+    expect(boutique).not.toContain('artworkUrl');
+    expect(boutique).not.toContain('coverUrl');
+    expect(profile).not.toContain('key={`sale-style:${offer.offerId}`}');
+    expect(profile).toContain('fullWidth={totalStyleCardCount % 2 === 1 && index === freeStyleCardCount - 1}');
+  });
+
+  it('never hides active sale products behind the checkout feature flag', () => {
+    expect(featureFlags).toContain('export async function isPlaylistMarketplaceVisible(): Promise<boolean>');
+    expect(featureFlags).toContain('return Boolean(supabase);');
+    expect(featureFlags).toContain("if (Platform.OS !== 'web') return false;");
+    expect(featureFlags).toContain("return isFeatureEnabled('playlist_marketplace');");
+  });
+
+  it('makes a seller and their Drops unmistakable without adding a bulky shop header', () => {
+    expect(profile).toContain('offers={profileBoutiqueOffers}');
+    expect(boutique).toContain('★ PÉPITE À LA UNE');
+    expect(boutique).toContain("ownerMode ? 'MA BOUTIQUE MUSICALE · MES PÉPITES' : 'BOUTIQUE MUSICALE · SES PÉPITES'");
+    expect(boutique).toContain('Tout voir · {visibleOffers.length} ›');
+    expect(boutique).toContain('TOUCHE POUR ÉCOUTER · TITRES PROTÉGÉS');
+    expect(profile).not.toContain('BOUTIQUE MUSICALE ACTIVE');
+  });
+
+  it('shows already-owned counts directly on public style cards', () => {
+    expect(profile).toContain('const genreAlreadyOwnedCounts = useMemo(() => {');
+    expect(profile).toContain('déjà chez toi');
+    expect(profile).toContain("badgeLabel={allOwned ? '✓ DÉJÀ CHEZ TOI'");
+  });
+
+  it('uses the same immersive visual system on the owner profile and attributes social discoveries inline', () => {
+    expect(ownerProfile).toContain("import ProfileStyleCard from '../components/ProfileStyleCard';");
+    expect(ownerProfile).toContain('style={s.ownerStyleGrid}');
+    expect(ownerProfile).toContain('mode="PUBLIC"');
+    expect(ownerProfile).toContain("actionLabel={sourceUsername ? `Découvert par ${sourceUsername.replace(/^@+/, '')}` : undefined}");
+    expect(ownerProfile).not.toContain("actionLabel={marketplaceEnabled ? 'CRÉER' : undefined}");
+  });
+
+  it('gives a newly registered empty profile a real first action instead of a dead empty state', () => {
+    expect(ownerProfile).toContain('TON UNIVERS COMMENCE ICI');
+    expect(ownerProfile).toContain('Garde ta première découverte.');
+    expect(ownerProfile).toContain("navigation.navigate('Main', { screen: 'Listen' })");
+  });
+
+  it('plays public style audio inline without forcing navigation', () => {
+    expect(profile).toContain('const playInlinePublicTrack = async');
+    expect(profile).toContain('toggleTrackPreview(');
+    expect(profile).toContain('const resolveInlinePreview = async');
+    expect(profile).toContain('resolveTrackPreviewUrl(track)');
+    expect(profile).toContain('inlinePreviewUrlCacheRef');
+    expect(profile).toContain("setInlineListenNotice('✓ Déjà dans ta collection · l’écoute continue')");
+    const inlineStart = profile.indexOf('const playInlinePublicTrack = async');
+    const inlineEnd = profile.indexOf('const playInlineSalePreview = async', inlineStart);
+    expect(profile.slice(inlineStart, inlineEnd)).not.toContain("Alert.alert('Déjà dans ta collection'");
+    expect(profile).toContain('onPlayPress={() => void playInlinePublicTrack');
+  });
+
+  it('plays locked collection previews anonymously from the collection carousel', () => {
+    expect(profile).toContain('loadPlaylistSaleOfferPreviewTracks(offer.playlistId)');
+    // 29/09/2026 : toucher la ligne = préécoute anonyme complète ; ▶ = aperçu immersif 15 s.
+    // Toucher une carte de la boutique = même parcours (aperçu anonyme immersif).
+    expect(profile).toContain('onOpenOffer={(offer) => openSaleFolder(offer)}');
+    expect(profile).toContain('setImmersivePreviewOffer(offer);');
+    expect(boutique).toContain('Écouter l\'aperçu de ${offerDisplayName(offer)}');
+  });
+
+  it('renders locked sale cards with a vivid dedicated palette', () => {
+    expect(styleCard).toContain('const SALE_GRADIENTS');
+    expect(styleCard).toContain("['#FF2D78', '#7A00FF']");
+    expect(styleCard).toContain('colors={locked ? salePalette');
+    expect(styleCard).toContain('onPlayPress?: () => void;');
+  });
+
+  it('identifies the listened profile and first discoverer inside Swipe for the whole playback session', () => {
+    expect(swipe).toContain('sourceUsername?: string;');
+    expect(swipe).toContain('sourceProfileId?: string;');
+    expect(swipe).toContain("Découvert par @{currentSourceUsername.replace(/^@/, '')}");
+    expect(swipe).toContain('◎ DÉCOUVERT PAR @{currentSourceUsername.replace(/^@/, \'\')} · VOIR / SUIVRE');
+    expect(profile).toContain('sourceUsername={profile.username}');
+    expect(profile).toContain('sourceAvatarUrl={profile.avatar}');
+    expect(profile).toContain('sourceProfileId={profile.id}');
+    expect(ownerProfile).toContain('sourceUsername={user.username}');
+  });
+
+  it('keeps Battle match preferences intentionally compact at three mixed styles', () => {
+    expect(battle).toContain('real.length >= 3');
+    expect(battle).toContain('3 styles maximum');
+    expect(battle).toContain('le Solo et les Battles les mélangeront réellement pendant la partie');
+  });
+
+  it('never calls the authenticated Battle credit RPC for demo or local guests', () => {
+    expect(ownerProfile).toContain('if (!isLocalGuest && !isDemoMode) {');
+    expect(battle).toContain('userState.isLocalGuest || userState.isDemoMode');
+    expect(battle).toContain('setMyCreditStatus(null);');
+  });
+
+  it('exposes real accessible birth-date controls for the 390x844 guardian', () => {
+    expect(profileSettings).toContain('accessibilityLabel={`${label} : ${value}`}');
+    expect(profileSettings).toContain('accessibilityLabel="Valider la date de naissance"');
+  });
+
+  it('shows the real number of styles separately from the number of tracks', () => {
+    expect(ownerProfile).toContain("{genreFolders.length} style{genreFolders.length > 1 ? 's' : ''} · {profileTotalKeepCount} morceau");
+    expect(ownerProfile).toContain("Ton empreinte musicale");
+    expect(ownerProfile).toContain("<Text style={s.dnaCompactScore}>{styleCoveragePercent}%</Text>");
+  });
+
+  it('opens the real music-management mode directly from the profile', () => {
+    expect(ownerProfile).toContain("screen: 'MyMusic', params: { openManageMusic: true }");
+    expect(myMusic).toContain("if (!route?.params?.openManageMusic) return;");
+    expect(myMusic).toContain("setActiveTab('MUSIQUES')");
+    expect(myMusic).toContain("{manageMusicMode ? 'COMMANDES VISIBLES' : 'MA VISIBILITÉ'}");
+    expect(myMusic).toContain("setOriginFilter('ALL')");
+    expect(myMusic).toContain('setSocialSectionExpanded(true)');
+    expect(myMusic).toContain('setManageMusicMode(true)');
+    expect(myMusic).toContain('expanded={manageMusicMode || expanded}');
+    expect(myMusic).toContain("Public · Privé · Retirer sous chaque morceau");
+  });
+
+  it('uses the kept library as the single source for the Styles count', () => {
+    expect(myMusic).toContain("const STYLE_ID_PREFIX = 'keep-style:'");
+    expect(myMusic).toContain('const profileStyleGroups = useMemo(() => groupTracksByStyle(localKeptTracks), [localKeptTracks]);');
+    expect(fs.readFileSync(path.join(__dirname, '../../services/styleGroups.ts'), 'utf8')).toContain('for (const track of tracks)');
+    expect(myMusic).toContain("if (playlist.id.startsWith(STYLE_ID_PREFIX))");
+    expect(myMusic).toContain('MES STYLES · {stylePlaylists.length}');
+    expect(myMusic).toContain('SUGGESTIONS AUTO · {automaticStylePlaylists.length}');
+    expect(myMusic).toContain('ne sont PAS comptées dans tes {stylePlaylists.length} Styles');
+    expect(myMusic).not.toContain('for (const track of allKnownTracks)');
+    expect(ownerProfile).toContain("{genreFolders.length} style{genreFolders.length > 1 ? 's' : ''}");
+  });
+
+  it('keeps already-owned public tracks playable inside social Swipe', () => {
+    expect(swipe).toContain("setPrefilterRemovedCount(0)");
+    expect(swipe).toContain(": (loop ? shuffle(inputTracks) : inputTracks);");
+    expect(swipe).not.toContain("preparedTracksRef.current = result.tracks");
+    expect(swipe).toContain("rightLabel={currentAlreadyKept ? 'DÉJÀ' : 'GARDER'}");
+  });
+
+  it('waits for the Swipe deck to be ready before starting audio, preventing the first-preview cut', () => {
+    expect(swipe).toContain('setPreparingDeck(true)');
+    expect(swipe).toContain('if (!visible || preparingDeck || !current)');
+    expect(swipe).toContain('[visible, preparingDeck, current?.id');
+  });
+
+  it('does not shorten normal profile previews with the Battle 9-second offset', () => {
+    expect(audioPreview).toContain('defaultToBattleOffset = true');
+    expect(audioPreview).toContain('defaultToBattleOffset ? 9000 : 0');
+    expect(audioPreview).toContain('playWebSegment(key, previewUrl, 0, 30000, onStateChange, onEnded, false)');
+  });
+
+  it('keeps social Swipe listening continuous after an excerpt ends', () => {
+    expect(swipe).toContain('if (socialDiscoveryMode) {');
+    expect(swipe).toContain('endAdvanceTimer.current = setTimeout(() => {');
+    expect(swipe).toContain('advanceIndex();');
+    expect(swipe).toContain("}, 120);");
+    expect(swipe).toContain('↻ RÉÉCOUTER');
+  });
+
+  it('keeps sold tracks out of the free Swipe source', () => {
+    expect(profile).toContain('const visible = maskedIds.length ? normalized.filter((t) => !maskedIds.includes(t.trackId)) : normalized;');
+    expect(profile).toContain('setTracks(visible);');
+    expect(profile).toContain('const swipeTracks = useMemo<CanonicalTrack[]>(() => tracks.map((track) => ({');
+  });
+});

@@ -1,3 +1,6 @@
+## AVANT TOUTE ACTION
+Consulter `.rtk/AGENTS_RULES.md` — règles absolues du projet Loki Music.
+
 # KEEP (Loki Music) — État du projet (source de vérité unique)
 
 Ce fichier est le tableau de bord central pour **toute IA** qui travaille sur ce
@@ -31,10 +34,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-09-22T13:26:53.106Z
-- Branche : `HEAD`
-- Dernier commit : `f766644` (f76664440c2ffa14ff4fa40285e5f041eed16f47) — chore(reconcile): port eas.json prod fix (remove hardcoded Supabase env) + recover agent coordination files from main
-- Date du dernier commit : 2026-09-22T13:25:41+00:00
+- Régénéré le : 2026-10-06T21:53:55.488Z
+- Branche : `copilot/reconcileclaude-main-20260825`
+- Dernier commit : `0f4775bd` (0f4775bd97085704d3a4984d1babfdec66086638) — Débloquer les gardes d’intégration des modules Stories validés
+- Date du dernier commit : 2026-10-06T21:50:17Z
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -58,8 +61,7 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 - ✅ Auth (pseudo + mot de passe + e-mail vérifié obligatoires depuis le
   01/09/2026 ; connexion par pseudo OU e-mail pour compatibilité anciens
   comptes) — `authService.ts`, `keep-username-auth`.
-- ✅ Essai gratuit invité (3 Free) + bonus inscription (+20 Free) = 23 Free
-  avant abonnement.
+- ✅ Économie FREE : invité = 3 reconnaissances réussies au total ; nouveau compte = +5 FREE ; quotas Écouter = 5/30/60/150 par jour selon la formule, puis 1 FREE par reconnaissance réussie. Les comptes créés avant le 04/10/2026 conservent leur bonus historique.
 - ✅ Écouter (Home) — reconnaissance audio serveur (AudD + repli ACRCloud),
   aucun secret provider côté mobile.
 - ✅ Découvertes (Loki Swipe) — swipe multi-morceaux, autoplay web fiabilisé.
@@ -122,16 +124,16 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
-- `f766644` (2026-09-22, adelkhatra-bit) — chore(reconcile): port eas.json prod fix (remove hardcoded Supabase env) + recover agent coordination files from main
-- `580f483` (2026-09-22, adelkhatra-bit) — chore(state): regenerate PROJECT_STATE.md after pull 3276a24
-- `3276a24` (2026-09-22, adelkhatra-bit) — fix(marketplace): resolve price save error + detailed error messages
-- `d3deba0` (2026-09-22, adelkhatra-bit) — feat(infra): PROJECT_STATE.md + hooks Git pour mémoire partagée inter-IA
-- `54a269d` (2026-09-22, adelkhatra-bit) — feat(anti-shazam): random offset + pitch shift + TTS overlay
-- `a12d641` (2026-09-22, adelkhatra-bit) — chore(branding): replace KEEP verb with garder in UI
-- `2562f5e` (2026-09-22, adelkhatra-bit) — perf(battle): prefetch next round audio during answer pause
-- `23356f3` (2026-09-22, adelkhatra-bit) — fix(audio): minor edge cases -- ended event web + manche sautee visible
-- `a98868f` (2026-09-22, adelkhatra-bit) — fix(audio): resout un conflit reel entre capture micro et lecture de previews
-- `49f60e8` (2026-09-22, adelkhatra-bit) — docs(app-store): notes reviewer + checklist de soumission
+- `0f4775bd` (2026-10-06, copilot-swe-agent[bot]) — Débloquer les gardes d’intégration des modules Stories validés
+- `88ffffe9` (2026-10-06, copilot-swe-agent[bot]) — chore: aligner la branche agent sur la source produit 0138b4e5
+- `0138b4e5` (2026-10-06, Claude) — Stories: anti-doublon entre membres (cadenas + « Déjà en story chez @x, repartage-la »)
+- `39a9fb06` (2026-10-06, Claude) — Ma story s'ouvre sans faux « terminée », secousse = menu du robot (directions + signaler)
+- `c7cb3e76` (2026-10-06, Claude) — Docs: idées 183-188 (proposition lien partagé, premiers pas, parrainage, barre d'onglets) en attente d'OK
+- `6da2753e` (2026-10-06, Claude) — Lien partagé: le visiteur écoute et voit les stories, toute action demande un compte sur place
+- `d61db043` (2026-10-06, Claude) — Lien partagé = vraie app en invité (stories visibles, fonctions bloquées), vues de story en bulles, Services musicaux jamais bloqués, règle 2 mots
+- `16f5c12e` (2026-10-06, Claude) — Lien de partage: même interface que le profil de l'app (styles + liste repliée), parrainage conservé à l'inscription depuis le lien
+- `f27b139e` (2026-10-06, Claude) — Story: vues façon Instagram (musique vue + écoutée/passée/arrêtée), secousse localisée et fenêtre ouverte sur place
+- `d6262cf8` (2026-10-06, Claude) — Super Admin: menu en 8 rubriques, page Signalements (secousses), styles communs carte/bouton
 <!-- AUTO:RECENT-COMMITS:END -->
 
 Détail complet de chaque mission : `AGENT_MESSAGES.md` (journal narratif par
@@ -139,7 +141,38 @@ agent) et messages des sessions de chat (non versionnés).
 
 ---
 
+## Apple iOS — signature non destructive (23/09/2026)
+
+- Bundle principal existant à conserver : `com.adelkhatra.keep` (App Store Connect app `6812393589`, Team `WTG9399DBK`).
+- Certificat de distribution et provisioning profile App Store du bundle principal : déjà présents dans EAS/Apple ; la CI doit uniquement les lire et les réutiliser.
+- Le bootstrap CI est **read-only** : aucun `POST` de création/modification/révocation de Bundle ID, capability, certificat ou provisioning profile.
+- La clé App Store Connect actuelle sait lire l'app, les Bundle IDs, certificats et profils ; un `403` a été observé sur les mutations du Developer Portal. Ne pas contourner ce `403` en recréant des ressources.
+- `com.adelkhatra.keep.share-extension` / `LokiShareExtension` est temporairement retirée du premier build TestFlight. Ne pas la recréer automatiquement. Réactivation après la première publication, avec Bundle ID + profil dédiés préparés manuellement puis réintroduits dans la config.
+- Les builds iOS utilisent `--freeze-credentials` pour empêcher EAS d'essayer de réparer/créer des credentials pendant un job non interactif.
+
 ## 4. Points ouverts
+
+- **07/10/2026 — IDEA-189, LOCAL_ONLY** : tableau versions/preuves dans Opérations existant, SHA/test obligatoires pour les nouveaux « Corrigé », compteurs exacts avec erreurs honnêtes, actionlint épinglé et synthèse GitHub lecture seule. Typechecks admin/mobile, build admin, 1377 tests mobile, PostgreSQL isolé et navigateur fixtures 390/1440 réussis. Migration `/home/runner/work/KEEP/KEEP/supabase/migrations/20261006235000_problem_report_evidence.sql` non appliquée ; intégration/CI/livraison restent à faire par le parent, sans PASS global. Actionlint global hérité rouge, version publique DNS indisponible, TestFlight inconnu. Détails dans `/home/runner/work/KEEP/KEEP/.context/activeContext.md` et `/home/runner/work/KEEP/KEEP/AGENT_MESSAGES.md`.
+
+- **06/10/2026 — Déblocage des intégrations en revue Copilot** : arbre produit `0138b4e5` préservé, contrôles Stories/provenance/empreintes protégées corrigés sans modifier le design ni le runtime. Preuves : 282 suites / 1 377 tests, typechecks mobile/admin/music, gardes et export + navigateur Chromium (PC/tablette/Android, direct + refresh). Reste l'intégration produit et la revalidation CI distante ; aucun déploiement ni vérification iPhone/Firefox/WebKit. Détails : `.context/activeContext.md`.
+- **Limites de sécurité du contrôle final** : 11 alertes CodeQL préexistantes dans des fichiers inchangés du produit ; Swift non analysé (création de base échouée). Aucune alerte sur les gardes modifiés ; moteur de revue automatique indisponible.
+- **Revue de repli** : agent `code-review` en lecture seule sur le diff produit `0138b4e5..HEAD`, aucun problème significatif détecté. Préservation des données vérifiée après commit ; correctif publié uniquement en revue.
+- **🔔 Passe du 05/10/2026 soir (stories/robot/classement/profil/menu) — voir `.context/activeContext.md` (section « À LIRE EN PREMIER »)** : tout est poussé sur la branche, rien n'est confirmé sur iPhone ; commits récents (robot sans partie, menu ☰, Artistes, badge 🔒) non livrés tant qu'un trigger `.eas-build-trigger` n'est pas ajouté ; vérification TestFlight par module, rappel QR ordinateur, mode marketing = restent à faire.
+- **Idées d'Adel** : source unique `docs/IDEAS_INBOX.md` (stories musicales, masquage des musiques en vente, barre à 5 onglets, missions…). Toute IA y note chaque nouvelle idée avant de coder.
+- **Passe du 05/10/2026 (exécutant, propositions Claude n°8, n°1, n°5, n°9.1-9.2, n°6 sûre)** : robot « page noire » corrigé (le site non connecté affiche l'écran QR ordinateur, le robot simule un appareil approuvé) ; build iOS ShazamKit compatible iOS 15.1 ; Super Admin `/team` responsive ; worker push (marketing, plafond 8/24 h) ; garde OTA liée au build iOS réussi ; écran Offres en 3 cartes ; inventaire des routes (`scripts/verify-route-inventory.cjs`). **Migrations commitées mais NON appliquées en production, accord d'Adel requis** : `20261005013000_keep_admin_marketplace_currency_text`, `20261005050000_push_cap_and_instant_kick` (+ déploiement `keep-push-worker`), `20261005060000_premium_price_4_99`. Restent : barre 5 onglets / menu ☰ / missions (6a-6c), boutique + univers musical (n°8.2-8.4), annuels (produits App Store Connect), n°9.3-9.7.
+- **🔴 Connexion impossible (02/10/2026) — base Supabase saturée** : instance
+  Micro (1 Go), quota d'I/O disque épuisé (checkpoint de 48 Ko = 11 s, Auth
+  « context deadline exceeded » / « failed to connect localhost:5432 »). Action
+  **Adel** : Dashboard → Settings → Compute and Disk → Micro → Small. Le code ne
+  peut pas lever ce blocage. Verrou anti-récidive en place : contrat
+  `authResilience` + `verify-product-contract.cjs` (bloquant publication web/OTA).
+- **Contenu utilisateur vérifié intact (02/10 18h UTC)** : profils, playlists (22), titres (181), GARDER (120), abonnements (26), FREE calculés (adel4A 95, othmane 123, teyou 80…). « Contenu manquant » à l'écran = requêtes en échec (serveur saturé), pas une perte.
+- **Gouvernance (action Adel)** : activer la protection de branche GitHub sur `reconcile/claude-main-20260825` (PR obligatoire + revue CODEOWNERS + contrôles requis) et passer le connecteur Supabase des IA en lecture seule.
+- **Chat (MusicAgoraPanel)** : filet réseau toutes les 2,5 s quand une
+  conversation est ouverte — à passer ≥ 5 s après le gel (déclaré dans
+  `authResilience.fastIntervalAllowlist`).
+- **Tests** : 108 suites Jest en échec AVANT ce correctif (dette existante,
+  non causée par lui) — à assainir.
 
 - **Test device en attente (Adel)** : préchargement audio Battle (latence),
   correctif micro/preview, anti-Shazam (« lance Shazam pendant la preview »).
@@ -156,6 +189,16 @@ agent) et messages des sessions de chat (non versionnés).
   infrastructure de mémoire partagée (ce fichier + hooks) livrée en premier
   comme demandé ; audit API exhaustif et intégration Super Admin à suivre,
   après validation de ce rapport par Adel.
+- **[À VALIDER] (Adel) — workflow iOS obsolète** : `eas-build-ios.yml`
+  (« Build iOS EAS + TestFlight ») est à supprimer/désactiver par
+  l'utilisateur. Il échoue systématiquement sur une erreur Apple 401
+  (Distribution Certificate non validé + provisioning profiles non
+  récupérables + clé App Store Connect API expirée/invalide). Il fait doublon
+  et produit un faux ❌ rouge trompeur. **L'app iOS build correctement via
+  `auto-eas-build.yml`** (qui bootstrap lui-même le certificat de signature).
+  Suppression impossible par les agents IA : le token de l'app GitHub n'a pas
+  la permission `workflows`. Action manuelle : github.com →
+  `.github/workflows/eas-build-ios.yml` → Delete file → commit.
 - Détail exhaustif des chantiers non urgents : `BACKLOG.md`.
 
 ---
@@ -248,3 +291,68 @@ Admin sans repasser par la confirmation propre à chaque plateforme externe.
 Cette table sera remplacée par l'audit exhaustif de la section 6, étape 2 —
 gardée volontairement courte ici pour ne pas dupliquer un travail pas encore
 fait.
+
+
+## Loki — contrat produit profil musical / Web-first (23/09/2026)
+- Source de travail unique : branche `reconcile/claude-main-20260825`.
+- Validation prioritaire sur Loki Web/React Native Web avant de consommer un nouveau build mobile ; reporter sur iOS/Android une fois le parcours validé, sans créer une deuxième application ni un deuxième design.
+- Aucun refresh manuel ne doit être requis après une mutation : création/mise en vente d'une playlist, achat/déverrouillage, création/modification d'une soirée. L'état local doit être mis à jour immédiatement puis réconcilié avec Supabase.
+- Profil propriétaire ET profil visité : la zone musique doit privilégier des dossiers/collections automatiques par style (Funk, Techno, House, Rap, etc.) plutôt qu'une longue liste de morceaux.
+- Le moteur Smart Albums/Vibes trie automatiquement les morceaux par genre/style, crée les dossiers et permet au propriétaire de les renommer. Une playlist mélangée doit pouvoir être redistribuée automatiquement dans ces dossiers.
+- Ouvrir un dossier gratuit lance le Swipe continu de tous ses morceaux.
+- Dossier payant : cadenas + style/nom du dossier + nombre de titres + prix total. Avant achat, aucun titre, artiste ou jaquette ne doit être révélé ; uniquement préécoute audio protégée, animation Loki, court texte de découverte et bouton ACHETER.
+- Après paiement confirmé : déverrouillage immédiat sans refresh, puis accès au Swipe complet et au contenu livré selon les droits marketplace.
+- Une Vibe/Smart Album mise en vente ne doit jamais rester simultanément accessible gratuitement par un autre chemin du profil.
+- Les agents doivent suivre ces points comme backlog durable avec statuts demandé / codé / testé / déployé / restant, et ne pas les considérer terminés sur la seule présence de code.
+
+
+
+## App Store — publication clé en main (23/09/2026)
+- **Automatisation créée** (Option 1, sans .p8) : `packages/mobile/fastlane/` (Fastfile/Appfile/Deliverfile/Gemfile + metadata fr-FR « Loki Music »), `scripts/publish-app-store.sh`, capture 6.5" (`59878944`).
+- **Guide** : `docs/APP_STORE_VOCAL_GUIDE.md` — Chemin A (auto via mot de passe spécifique app) + Chemin B (manuel iPhone, 100% fiable).
+- **État** : build 312 v1.0.0 déjà sur TestFlight (« Prêt à soumettre »). Non soumis — reste 1 action de 30 s (mot de passe spécifique app OU Chemin B). Lien : https://appstoreconnect.apple.com/apps/6812393589/appstore
+- **Marketplace v1** : flag `playlist_marketplace` OFF (achat lien externe = rejet Apple 3.1.1). Statut : codé, non déployé (attente Apple IAP/StoreKit). Rien supprimé.
+- **Audit profil vente** : préécoute protégée ✅, titres masqués ✅, anti-Shazam ✅, envie d'achat ✅. Vitrine « En vente » remontée en haut du profil (`bb89c56f`).
+
+
+## Loki — design profil Styles / commerce social (24/09/2026)
+- **VALIDÉ** : profil propriétaire et profil visité centrés sur des dossiers par style, longue liste secondaire seulement.
+- Référence : `docs/PROFILE_STYLE_COMMERCE_REDESIGN.md`.
+- Maquette : `docs/mockups/ProfileStylesMarketplace.html`.
+- Audit complet Écouter/Découvertes/Playlists/Soirées/Profil/Inscription/Super Admin : `docs/audit/AUDIT_UX_FUNNEL_20260924.md`.
+- Owner hero : accès direct `INVITER/PARTAGER` et `GÉRER MES VENTES`.
+- Visitor : styles gratuits ouvrent Swipe ; styles payants = cadenas + quantité + prix + preview masquée.
+- Rien ne disparaît : `Voir tous les morceaux` conserve la vue détaillée et toutes les actions sociales.
+- Point technique à corriger : dossiers payants reliés à leur vraie offre, pas à `saleOffers[0]`.
+- Statut : design poussé ; intégration code démarrée ensuite sur la branche unique.
+
+
+## 2026-09-27 — Poste de commandement inter-IA
+- Porte d’entrée canonique : `docs/AGENT_COMMAND_CENTER.md`.
+- Configuration machine-lisible : `.github/agent-command-center.json`.
+- Triage automatique : `.github/workflows/agent-command-triage.yml`.
+- Premier run réel du triage : GitHub Actions run `36316053776` = **SUCCESS** sur `572a431a92b765c108ff0fa6e5c7b8e77d208d37`.
+- Toute IA doit conserver la branche unique `reconcile/claude-main-20260825`, utiliser le verrou/journal existants et respecter les états LOCAL_ONLY → COMMITTED_LOCAL → PUSHED_REMOTE → TESTED_REMOTE → DEPLOYED.
+
+
+## 30/09/2026 — Protection données production + Public API Toolbox
+- **PUSHED_REMOTE + TESTED_REMOTE** : `8432ede5` ; Data preservation run `36781517649` = **SUCCESS**.
+- `config/keep-data-preservation.json` centralise les tables critiques et ledgers append-only.
+- `scripts/verify-data-preservation.cjs` bloque les opérations destructives et les modifications d'anciennes migrations ; checkout CI complet pour couvrir les push multi-commits.
+- `scripts/public-api-search.mjs` permet à ChatGPT/Claude de rechercher le catalogue GitHub `public-apis/public-apis` sans ajouter de dépendance à l'application.
+- Supabase KEEP est actuellement sur le **plan Free** : avant une échelle de millions d'utilisateurs, prévoir plan production, sauvegardes automatiques et PITR selon RPO/RTO.
+- Point sécurité ouvert : auditer individuellement les avertissements Security Advisor sur fonctions SECURITY DEFINER exécutables par anon avant montée en charge.
+
+
+## 2026-10-01 — Bibliothèque produit canonique / anti-régression
+- Nouvelle source machine obligatoire : `config/keep-product-contract.json`.
+- Hiérarchie de vérité : dernière décision explicite d'Adel → product contract → master spec → code/schéma live → anciens commentaires/tests.
+- Profil propriétaire verrouillé : barre `PLUS | Abonnés | Reprises | FREE`; FREE juste après Reprises, jamais à côté du type Utilisateur/Créateur.
+- Certification et solde FREE sont des données réelles Supabase : aucun correctif UI n'a le droit de les écrire/réinitialiser pour faire correspondre l'écran.
+- Nouveau guard : `scripts/verify-product-contract.cjs` + workflow `KEEP — Product Contract Guard`.
+- Toute nouvelle décision durable doit mettre à jour contrat + spec + guards dans le même changement, sinon le CI bloque.
+
+
+### Points ouverts — complément Codex 08/10/2026
+
+Journal de référence : AGENT_MESSAGES.md, commit ea955e816ea7ff9955b30261c22c002739d07e82. Catalogue : règles EXACT ajoutées en production pour9 styles, rattrapage additif testé/réexécutable et lecture zéro mapping manquant ; SQL exact dans journal, miroir migration canonique à intégrer. Pas de contenu/profil/FREE/auth modifié. Priorités restantes : QR (confirmation/proof privé/usage unique/révocation serveur), badge sessions basé sur historique pending et arrêt micro attendu avant Ma session, Plus/Moins et description Découverte repliée. Défauts documentés ERROR_LEDGER, demandes soirées/MP3/Pulse enregistrées IDEAS_INBOX. Deux exceptions marketplace expliquent certaines différences entre testeurs ; pending local non synchronisé PC. Aucun nouveau code UI poussé, aucune nouvelle publication ni validation iPhone/App Store. Desktop Commander ne voit aucun appareil ; accès à la copie canonique et validations tsc/rendu restent nécessaires. Aucun verrou posé, aucune personne déconnectée.

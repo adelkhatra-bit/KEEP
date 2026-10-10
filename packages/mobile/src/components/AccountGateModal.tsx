@@ -1,9 +1,11 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, KeyboardAvoidingView, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import UsernameAccountForm from './UsernameAccountForm';
+import WebPairingLifecycle from './WebPairingLifecycle';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import { colors } from '../theme/colors';
 import { radius, spacing } from '../theme/spacing';
+import KeepModal from './KeepModal';
 
 // Adel (08/09/2026) : "pourquoi ça me met sur le profil ... trouve une
 // solution lorsque tu imposes de la création du compte ... le Popo doit
@@ -12,7 +14,7 @@ import { radius, spacing } from '../theme/spacing';
 // (App.tsx), ce popup s'ouvre par-dessus n'importe quel écran sans jamais
 // naviguer : l'utilisateur ne quitte donc jamais l'endroit d'où il a
 // déclenché la création/connexion de compte.
-export default function AccountGateModal() {
+function AccountGateModalInner() {
   const visible = useAccountGateStore((s) => s.visible);
   const mode = useAccountGateStore((s) => s.mode);
   const followUsername = useAccountGateStore((s) => s.followUsername);
@@ -23,7 +25,7 @@ export default function AccountGateModal() {
   const pop = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (!celebrate) { pop.setValue(0); return; }
-    Animated.spring(pop, { toValue: 1, useNativeDriver: true, friction: 5, tension: 90 }).start();
+    Animated.spring(pop, { toValue: 1, useNativeDriver: Platform.OS !== 'web', friction: 5, tension: 90 }).start();
     const timer = setTimeout(close, 1800);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -32,7 +34,7 @@ export default function AccountGateModal() {
   if (!visible) return null;
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={close}>
+    <KeepModal visible transparent animationType="fade" onRequestClose={close}>
       <KeyboardAvoidingView
         style={s.backdrop}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -51,15 +53,20 @@ export default function AccountGateModal() {
           </View>
         )}
       </KeyboardAvoidingView>
-    </Modal>
+    </KeepModal>
   );
+}
+
+export default function AccountGateModal() {
+  // Instance UNIQUE du jumelage ordinateur (montée toujours, connecté ou non) : deux montages = deux popups et deux approbations.
+  return <><WebPairingLifecycle /><AccountGateModalInner /></>;
 }
 
 const s = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(4, 3, 8, 0.78)', justifyContent: 'center', alignItems: 'center', padding: spacing.md },
-  sheet: { width: '100%', maxWidth: 520, maxHeight: '92%', backgroundColor: colors.backgroundCard, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: 18, paddingBottom: 24 },
-  handle: { width: 44, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginBottom: 16 },
-  cancel: { minHeight: 42, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+  sheet: { width: '100%', maxWidth: 520, maxHeight: '94%', backgroundColor: colors.backgroundCard, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: 18, paddingTop: 12, paddingBottom: 12 },
+  handle: { width: 44, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginBottom: 10 },
+  cancel: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
   cancelText: { color: colors.textMuted, fontSize: 13, fontWeight: '700' },
   celebrateCard: { width: '100%', maxWidth: 360, alignSelf: 'center', marginBottom: '30%', backgroundColor: colors.backgroundCard, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.primary, padding: 26, alignItems: 'center' },
   celebrateIcon: { fontSize: 44 },

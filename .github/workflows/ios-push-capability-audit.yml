@@ -1,0 +1,64 @@
+# audit-run: 2026-10-04T11:55:00+02:00 diagnose-testflight-push-environment
+# audit-trigger-chatgpt: 2026-10-04T15:29:00Z
+# audit-trigger-live: 2026-10-04T14:21:00Z
+name: Loki iOS Push Capability Audit
+# audit-trigger: 2026-10-04T16:36:00+02:00 verify-testflight-push-after-audio-lock
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/ios-push-capability-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Inspect Apple Push capability
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          node <<'NODE'
+          const crypto = require('node:crypto');
+          const enc = x => Buffer.from(JSON.stringify(x)).toString('base64url');
+          const now = Math.floor(Date.now()/1000);
+          const key = Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(),'base64');
+          const unsigned = enc({alg:'ES256',kid:process.env.ASC_KEY_ID.trim(),typ:'JWT'})+'.'+
+            enc({iss:process.env.ASC_ISSUER_ID.trim(),iat:now-30,exp:now+600,aud:'appstoreconnect-v1'});
+          const token = unsigned+'.'+crypto.sign('sha256',Buffer.from(unsigned),{key,dsaEncoding:'ieee-p1363'}).toString('base64url');
+
+          async function api(path){
+            const r=await fetch('https://api.appstoreconnect.apple.com'+path,{headers:{Authorization:'Bearer '+token}});
+            const t=await r.text();
+            if(!r.ok) throw new Error(path+' HTTP '+r.status+' '+t.slice(0,1200));
+            return JSON.parse(t);
+          }
+
+          (async()=>{
+            const list=await api('/v1/bundleIds?filter[identifier]=com.adelkhatra.keep&limit=50');
+            const bundle=(list.data||[]).find(x=>x.attributes?.identifier==='com.adelkhatra.keep');
+            if(!bundle) throw new Error('BUNDLE_ID_NOT_FOUND');
+            const caps=await api('/v1/bundleIds/'+bundle.id+'/bundleIdCapabilities');
+            const normalized=(caps.data||[]).map(x=>({
+              id:x.id,
+              capabilityType:x.attributes?.capabilityType,
+              settings:x.attributes?.settings||[]
+            }));
+            console.log('=== PUSH CAPABILITY AUDIT ===');
+            console.log(JSON.stringify({bundleId:bundle.id,identifier:bundle.attributes?.identifier,capabilities:normalized},null,2));
+            console.log('=== END PUSH CAPABILITY AUDIT ===');
+            const push=normalized.find(x=>x.capabilityType==='PUSH_NOTIFICATIONS');
+            if(!push) {
+              console.error('PUSH_NOTIFICATIONS capability is missing on Apple Bundle ID');
+              process.exit(2);
+            }
+          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE

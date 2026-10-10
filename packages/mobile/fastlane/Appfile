@@ -1,0 +1,8 @@
+# Appfile — Loki Music (App Store Connect)
+# Aucun secret en clair : tout vient des variables d'environnement.
+# Renseignees au moment du run (voir docs/APP_STORE_VOCAL_GUIDE.md).
+
+app_identifier(ENV["LOKI_APP_IDENTIFIER"] || "com.adelkhatra.keep")
+apple_id(ENV["FASTLANE_USER"])            # Apple ID (email du compte Apple Developer)
+team_id(ENV["APPLE_TEAM_ID"] || "WTG9399DBK")   # Team ID
+itc_team_id(ENV["ITC_TEAM_ID"])           # App Store Connect team (facultatif)

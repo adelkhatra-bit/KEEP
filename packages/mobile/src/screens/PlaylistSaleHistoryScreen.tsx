@@ -44,8 +44,8 @@ export default function PlaylistSaleHistoryScreen({ navigation }: any) {
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <TouchableOpacity onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('PlaylistSale'))} accessibilityLabel="Retour">
-          <Text style={s.back}>‹</Text>
+        <TouchableOpacity style={s.backButton} onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('PlaylistSale'))} accessibilityRole="button" accessibilityLabel="Retour">
+          <Text style={s.back}>←</Text>
         </TouchableOpacity>
         <View style={s.headerText}>
           <Text style={s.title}>Historique des ventes</Text>
@@ -100,19 +100,20 @@ export default function PlaylistSaleHistoryScreen({ navigation }: any) {
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  header: { minHeight: 58, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colors.border },
-  back: { color: colors.textPrimary, fontSize: 36, lineHeight: 40, width: 42 },
-  headerText: { flex: 1, alignItems: 'center' },
+  header: { minHeight: 68, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colors.border },
+  backButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},
+  back: { color: colors.textPrimary, fontSize: 24, lineHeight: 26, fontWeight:'800' },
+  headerText: { flex: 1, alignItems: 'center', paddingHorizontal:spacing.sm },
   title: { ...typography.h3, color: colors.textPrimary },
   subtitle: { color: colors.primaryLight, fontSize: 11, fontWeight: '800', marginTop: 2 },
-  headerSpacer: { width: 42 },
+  headerSpacer: { width: 44 },
   centerView: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.lg },
   errorText: { color: colors.danger, fontSize: 13, fontWeight: '700', textAlign: 'center' },
-  retryBtn: { marginTop: spacing.md, paddingHorizontal: 20, paddingVertical: 10, borderRadius: radius.md, backgroundColor: colors.primary },
+  retryBtn: { minHeight:48, marginTop: spacing.md, paddingHorizontal: 20, borderRadius: 24, backgroundColor: colors.primary, alignItems:'center', justifyContent:'center' },
   retryBtnText: { color: '#FFF', fontSize: 12, fontWeight: '900' },
   emptyText: { color: colors.textMuted, fontSize: 13, fontWeight: '700', textAlign: 'center' },
-  list: { padding: spacing.lg, gap: spacing.md },
-  row: { borderRadius: radius.lg, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, padding: spacing.lg },
+  list: { paddingHorizontal: spacing.md, paddingTop:spacing.md, paddingBottom:spacing.xxxl },
+  row: { borderRadius: 20, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom:spacing.md },
   rowTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   rowInfo: { flex: 1, paddingRight: spacing.sm },
   rowPlaylist: { color: colors.textPrimary, fontSize: 14, fontWeight: '900' },
@@ -120,7 +121,7 @@ const s = StyleSheet.create({
   rowAmount: { color: colors.textPrimary, fontSize: 16, fontWeight: '900' },
   rowBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.sm },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: radius.sm, borderWidth: 1 },
-  statusBadgeCompleted: { backgroundColor: '#101D17', borderColor: colors.success },
+  statusBadgeCompleted: { backgroundColor: 'rgba(45,225,194,0.10)', borderColor: colors.success },
   statusBadgePending: { backgroundColor: colors.backgroundElevated, borderColor: colors.border },
   statusBadgeText: { fontSize: 10, fontWeight: '900' },
   statusBadgeTextCompleted: { color: colors.success },

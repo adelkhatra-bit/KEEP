@@ -1,0 +1,71 @@
+From b82d58ddbb018b2d40c39d0b7261c9882139ebf8 Mon Sep 17 00:00:00 2001
+From: Loki Music Agent <agent@lokimusic.local>
+Date: Wed, 23 Sep 2026 23:04:45 +0000
+Subject: [PATCH] =?UTF-8?q?fix(e2e):=20stabilize=20playlists=E2=86=92profi?=
+ =?UTF-8?q?le=20navigation=20after=20deletion?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ .../mobile-web-importmeta-diagnostic.yml      | 26 ++++++++++++++++---
+ 1 file changed, 22 insertions(+), 4 deletions(-)
+
+diff --git a/.github/workflows/mobile-web-importmeta-diagnostic.yml b/.github/workflows/mobile-web-importmeta-diagnostic.yml
+index 4fb4ad81..8f1c86b4 100644
+--- a/.github/workflows/mobile-web-importmeta-diagnostic.yml
++++ b/.github/workflows/mobile-web-importmeta-diagnostic.yml
+@@ -98,6 +98,24 @@ jobs:
+               else await dialog.dismiss();
+             });
+ 
++            // Clic d'onglet du bas robuste : après une suppression, un overlay
++            // transitoire (animation de repli de la ligne / re-render de la
++            // barre) peut intercepter le clic « Profil ». On attend la
++            // stabilité, on remet l'onglet dans le viewport, puis on reclique
++            // de façon déterministe si un overlay a intercepté le premier clic.
++            const safeBottomTabClick = async (name) => {
++              const tab = page.getByText(name, { exact: true }).last();
++              await tab.waitFor({ state: 'visible', timeout: 20000 });
++              await tab.scrollIntoViewIfNeeded().catch(() => {});
++              await page.waitForTimeout(350);
++              try {
++                await tab.click({ timeout: 8000 });
++              } catch (interceptErr) {
++                await page.waitForTimeout(800);
++                await tab.click({ timeout: 8000 });
++              }
++            };
++
+             const response = await page.goto('http://127.0.0.1:8081', { waitUntil: 'networkidle', timeout: 60000 });
+             if (!response || !response.ok()) throw new Error(`HTTP runtime failed: ${response ? response.status() : 'no response'}`);
+             await page.waitForTimeout(1500);
+@@ -170,9 +188,9 @@ jobs:
+             await allMusic.click();
+             await page.waitForTimeout(400);
+ 
+-            const deleteButtons = page.getByLabel('Supprimer ce morceau de KEEP');
++            const deleteButtons = page.getByLabel('Supprimer ce morceau de Loki Music');
+             const beforeDeleteCount = await deleteButtons.count();
+-            if (beforeDeleteCount < 1) throw new Error('Delete button missing from KEEP playlist');
++            if (beforeDeleteCount < 1) throw new Error('Delete button missing from Loki Music playlist');
+             const deleteButton = deleteButtons.first();
+             const trackBody = deleteButton.locator('xpath=../..');
+             const trackBodyText = (await trackBody.innerText()).trim();
+@@ -181,11 +199,11 @@ jobs:
+ 
+             await deleteButton.click();
+             await page.waitForTimeout(800);
+-            const afterDeleteCount = await page.getByLabel('Supprimer ce morceau de KEEP').count();
++            const afterDeleteCount = await page.getByLabel('Supprimer ce morceau de Loki Music').count();
+             if (afterDeleteCount !== beforeDeleteCount - 1) throw new Error(`Delete UI loop failed: buttons ${beforeDeleteCount} -> ${afterDeleteCount}`);
+             if (await page.getByText(deletedTitle, { exact: true }).count()) throw new Error(`Deleted track still visible in Playlists: ${deletedTitle}`);
+ 
+-            await page.getByText('Profil', { exact: true }).last().click();
++            await safeBottomTabClick('Profil');
+             await page.waitForTimeout(500);
+             if (await page.getByText(deletedTitle, { exact: true }).count()) throw new Error(`Deleted track still visible on Profile: ${deletedTitle}`);
+ 
+-- 
+2.39.5
+

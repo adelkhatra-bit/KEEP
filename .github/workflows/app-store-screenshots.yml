@@ -1,0 +1,374 @@
+name: Loki App Store Screenshots
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/app-store-screenshots.yml'
+
+concurrency:
+  group: loki-app-store-screenshots
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: true
+      EXPO_PUBLIC_SUPABASE_URL: https://rrhqsqzcplvmwxizqnla.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru
+      EXPO_PUBLIC_DEMO_MODE: 'false'
+      EXPO_PUBLIC_KEEP_PREVIEW: '0'
+      EXPO_PUBLIC_KEEP_REAL_RECOGNITION: 'false'
+      EXPO_PUBLIC_API_URL: http://127.0.0.1:3010
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install chromium --with-deps
+      - name: Start Loki web runtime
+        working-directory: packages/mobile
+        run: |
+          node scripts/start-web.cjs --port 8081 --clear >/tmp/loki-appstore.log 2>&1 &
+          for i in {1..120}; do
+            if grep -Fq '[KEEP WEB] READY http://localhost:8081' /tmp/loki-appstore.log 2>/dev/null && curl -fsS http://127.0.0.1:8081 >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/loki-appstore.log
+          exit 1
+
+      - name: Capture App Store 6.5 inch screenshots
+        run: |
+          mkdir -p artifacts/app-store-65
+          python3 - <<'PY'
+          import math, struct, wave
+          rate=44100
+          seconds=30
+          with wave.open('/tmp/loki-tone.wav','wb') as out:
+              out.setnchannels(1); out.setsampwidth(2); out.setframerate(rate)
+              frames=bytearray()
+              for i in range(rate*seconds):
+                  frames.extend(struct.pack('<h', int(0.30*32767*math.sin(2*math.pi*440*i/rate))))
+              out.writeframes(frames)
+          PY
+          cat > capture-app-store.cjs <<'JS'
+          const { chromium } = require('playwright');
+
+          async function clickVisible(page, text) {
+            const loc = page.getByText(text,{exact:true}).last();
+            await loc.waitFor({state:'visible',timeout:20000});
+            await loc.click({force:true});
+            await page.waitForTimeout(800);
+          }
+
+          (async()=>{
+            const browser = await chromium.launch({
+              headless:true,
+              args:[
+                '--use-fake-ui-for-media-stream',
+                '--use-fake-device-for-media-stream',
+                '--use-file-for-fake-audio-capture=/tmp/loki-tone.wav'
+              ]
+            });
+            const context = await browser.newContext({
+              viewport:{width:428,height:926},
+              deviceScaleFactor:3,
+              locale:'fr-FR'
+            });
+            await context.grantPermissions(['microphone'], {origin:'http://127.0.0.1:8081'});
+            const page = await context.newPage();
+            page.on('dialog', d => d.dismiss().catch(()=>{}));
+
+            await page.goto('http://127.0.0.1:8081',{waitUntil:'domcontentloaded',timeout:60000});
+            const free = page.getByText('ESSAYER GRATUITEMENT',{exact:true}).last();
+            if (await free.isVisible().catch(()=>false)) {
+              await free.click({force:true});
+              await page.waitForTimeout(1200);
+            }
+
+            // Fermer complètement le mini-tour avant toute capture App Store.
+            // Il apparaît via AsyncStorage dans un useEffect après le rendu initial :
+            // attendre explicitement son éventuelle apparition avant de décider
+            // qu'il n'existe pas.
+            const firstCoach = page.getByLabel('Passer le mini-tour').last();
+            await firstCoach.waitFor({state:'visible',timeout:5000}).catch(()=>{});
+            for (let i=0;i<7;i++) {
+              const byLabel = page.getByLabel('Passer le mini-tour').last();
+              const byText = page.getByText('Passer',{exact:true}).last();
+              if (await byLabel.isVisible().catch(()=>false)) {
+                await byLabel.click({force:true});
+                await page.waitForTimeout(250);
+                continue;
+              }
+              if (await byText.isVisible().catch(()=>false)) {
+                await byText.click({force:true});
+                await page.waitForTimeout(250);
+                continue;
+              }
+              break;
+            }
+
+            for (const tab of ['Loki Music','Découvertes','Playlists','Soirées','Profil']) {
+              await page.getByText(tab,{exact:true}).last().waitFor({state:'visible',timeout:20000});
+            }
+
+            const snap = async (name) => {
+              await page.screenshot({
+                path:'artifacts/app-store-65/'+name+'.jpg',
+                type:'jpeg',
+                quality:94
+              });
+            };
+
+            await clickVisible(page,'Loki Music');
+            await snap('01-loki-music');
+
+            const start = page.getByLabel(/Trouver le morceau|Identifier un morceau|Activer le micro|Démarrer une écoute/).last();
+            if (await start.isVisible().catch(()=>false)) {
+              await start.click({force:true});
+              await page.getByText(/MICRO · (?:ANALYSE|ACTIF)/i).last().waitFor({state:'visible',timeout:15000}).catch(()=>{});
+              await page.waitForTimeout(500);
+              await snap('02-ecoute-micro');
+              const stop = page.getByLabel('Couper le micro').last();
+              if (await stop.isVisible().catch(()=>false)) await stop.click({force:true});
+            }
+
+            await clickVisible(page,'Découvertes');
+            await snap('03-decouvertes');
+
+            await clickVisible(page,'Playlists');
+            await snap('04-playlists');
+
+            await clickVisible(page,'Soirées');
+            await snap('05-soirees');
+
+            await clickVisible(page,'Profil');
+            await snap('06-profil');
+
+            const size = await page.evaluate(()=>({w:innerWidth,h:innerHeight,dpr:devicePixelRatio}));
+            console.log('Captured viewport', size, '=> expected PNG 1284x2778');
+
+            await context.close();
+            await browser.close();
+          })().catch(err=>{console.error(err);process.exit(1)});
+          JS
+          node capture-app-store.cjs
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def jpeg_size(raw):
+              if raw[:2] != b'\xff\xd8':
+                  raise SystemExit('Not a JPEG')
+              i=2
+              sof={0xC0,0xC1,0xC2,0xC3,0xC5,0xC6,0xC7,0xC9,0xCA,0xCB,0xCD,0xCE,0xCF}
+              while i+9 < len(raw):
+                  if raw[i] != 0xFF:
+                      i += 1
+                      continue
+                  marker=raw[i+1]
+                  if marker in sof:
+                      h=int.from_bytes(raw[i+5:i+7],'big')
+                      w=int.from_bytes(raw[i+7:i+9],'big')
+                      return w,h
+                  if marker in (0xD8,0xD9):
+                      i += 2
+                      continue
+                  if i+4 > len(raw):
+                      break
+                  seg=int.from_bytes(raw[i+2:i+4],'big')
+                  if seg < 2:
+                      break
+                  i += 2 + seg
+              raise SystemExit('JPEG dimensions not found')
+
+          failed=[]
+          for p in sorted(Path('artifacts/app-store-65').glob('*.jpg')):
+              raw=p.read_bytes()
+              w,h=jpeg_size(raw)
+              print(p.name,(w,h),'JPEG')
+              if (w,h)!=(1284,2778):
+                  failed.append((p.name,(w,h)))
+          if failed:
+              raise SystemExit('Bad App Store screenshot dimensions: '+repr(failed))
+          PY
+
+
+      - name: Upload screenshots to App Store Connect
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        run: |
+          node <<'NODE'
+          const fs=require('node:fs');
+          const path=require('node:path');
+          const crypto=require('node:crypto');
+
+          const required=['ASC_API_KEY_P8_BASE64','ASC_KEY_ID','ASC_ISSUER_ID','ASC_APP_ID'];
+          if(required.some(k=>!process.env[k]?.trim())) throw new Error('Missing App Store Connect configuration');
+
+          const key=Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(),'base64');
+          const enc=x=>Buffer.from(JSON.stringify(x)).toString('base64url');
+          const now=Math.floor(Date.now()/1000);
+          const unsigned=enc({alg:'ES256',kid:process.env.ASC_KEY_ID.trim(),typ:'JWT'})+'.'+
+            enc({iss:process.env.ASC_ISSUER_ID.trim(),iat:now-30,exp:now+900,aud:'appstoreconnect-v1'});
+          const token=unsigned+'.'+crypto.sign('sha256',Buffer.from(unsigned),{key,dsaEncoding:'ieee-p1363'}).toString('base64url');
+
+          async function api(p,{method='GET',body,allow404=false}={}){
+            const res=await fetch('https://api.appstoreconnect.apple.com'+p,{
+              method,
+              headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+              body:body?JSON.stringify(body):undefined
+            });
+            if(allow404&&res.status===404)return null;
+            const txt=await res.text();
+            if(!res.ok)throw new Error(method+' '+p+' HTTP '+res.status+' '+txt.slice(0,1000));
+            return txt?JSON.parse(txt):null;
+          }
+
+          async function uploadBinary(operation, buffer){
+            const headers={};
+            for(const h of operation.requestHeaders||[]) headers[h.name]=h.value;
+            const body=buffer.subarray(operation.offset,operation.offset+operation.length);
+            const res=await fetch(operation.url,{method:operation.method||'PUT',headers,body});
+            if(!res.ok) throw new Error('Apple asset PUT failed HTTP '+res.status);
+          }
+
+          async function waitProcessed(id){
+            let last='UNKNOWN';
+            for(let i=0;i<30;i++){
+              const shot=await api('/v1/appScreenshots/'+id+'?fields[appScreenshots]=fileName,assetDeliveryState');
+              const state=shot.data?.attributes?.assetDeliveryState?.state||'UNKNOWN';
+              last=state;
+              if(['COMPLETE','UPLOAD_COMPLETE'].includes(state)) return state;
+              if(state==='FAILED'){
+                const errors=shot.data?.attributes?.assetDeliveryState?.errors||[];
+                throw new Error('Screenshot processing failed: '+JSON.stringify(errors));
+              }
+              await new Promise(r=>setTimeout(r,2000));
+            }
+            return last;
+          }
+
+          (async()=>{
+            const appId=process.env.ASC_APP_ID.trim();
+            const versions=await api('/v1/apps/'+appId+
+              '/appStoreVersions?filter[platform]=IOS&fields[appStoreVersions]=versionString,appStoreState&limit=50');
+            const version=(versions.data||[]).find(v=>v.attributes?.appStoreState==='PREPARE_FOR_SUBMISSION')||(versions.data||[])[0];
+            if(!version) throw new Error('No editable iOS App Store version found');
+
+            const locs=await api('/v1/appStoreVersions/'+version.id+
+              '/appStoreVersionLocalizations?fields[appStoreVersionLocalizations]=locale&limit=50');
+            const loc=(locs.data||[]).find(x=>x.attributes?.locale==='fr-FR')||(locs.data||[])[0];
+            if(!loc) throw new Error('No App Store localization found');
+
+            const sets=await api('/v1/appStoreVersionLocalizations/'+loc.id+
+              '/appScreenshotSets?filter[screenshotDisplayType]=APP_IPHONE_65&fields[appScreenshotSets]=screenshotDisplayType&limit=50');
+            let set=(sets.data||[]).find(x=>x.attributes?.screenshotDisplayType==='APP_IPHONE_65');
+            if(!set){
+              const created=await api('/v1/appScreenshotSets',{
+                method:'POST',
+                body:{data:{
+                  type:'appScreenshotSets',
+                  attributes:{screenshotDisplayType:'APP_IPHONE_65'},
+                  relationships:{appStoreVersionLocalization:{data:{type:'appStoreVersionLocalizations',id:loc.id}}}
+                }}
+              });
+              set=created.data;
+              console.log('Created APP_IPHONE_65 screenshot set.');
+            } else {
+              console.log('Using existing APP_IPHONE_65 screenshot set.');
+            }
+
+            let existing=await api('/v1/appScreenshotSets/'+set.id+
+              '/appScreenshots?fields[appScreenshots]=fileName,assetDeliveryState&limit=200');
+
+            const oldShots=[...(existing.data||[])];
+
+            const dir='artifacts/app-store-65';
+            // Le profil invité affiche un identifiant technique : garder le
+            // fichier dans l'artefact de contrôle mais ne pas l'envoyer au Store.
+            const files=fs.readdirSync(dir)
+              .filter(n=>n.endsWith('.jpg') && !n.startsWith('06-profil'))
+              .sort();
+            if(files.length<5) throw new Error('Expected at least five App Store screenshots; got '+files.length);
+
+            // Le set Apple est limité à 10. Libérer uniquement les places
+            // nécessaires avant l'upload afin de ne jamais laisser la fiche vide.
+            const needSlots=Math.max(0, oldShots.length+files.length-10);
+            for(const shot of oldShots.slice(0,needSlots)){
+              await api('/v1/appScreenshots/'+shot.id,{method:'DELETE'});
+              console.log('Freed old slot:',shot.attributes?.fileName||shot.id);
+            }
+
+            const uploadedIds=[];
+            for(const originalName of files){
+              const name='loki-clean-'+originalName;
+              const file=path.join(dir,originalName);
+              const buffer=fs.readFileSync(file);
+              const reservation=await api('/v1/appScreenshots',{
+                method:'POST',
+                body:{data:{
+                  type:'appScreenshots',
+                  attributes:{fileName:name,fileSize:buffer.length},
+                  relationships:{appScreenshotSet:{data:{type:'appScreenshotSets',id:set.id}}}
+                }}
+              });
+              const shot=reservation.data;
+              for(const op of shot.attributes?.uploadOperations||[]) await uploadBinary(op,buffer);
+              const md5=crypto.createHash('md5').update(buffer).digest('hex');
+              await api('/v1/appScreenshots/'+shot.id,{
+                method:'PATCH',
+                body:{data:{type:'appScreenshots',id:shot.id,attributes:{uploaded:true,sourceFileChecksum:md5}}}
+              });
+              const state=await waitProcessed(shot.id);
+              if(!['COMPLETE','UPLOAD_COMPLETE'].includes(state)) throw new Error(name+' did not complete: '+state);
+              uploadedIds.push(shot.id);
+              console.log('Uploaded clean screenshot:',name,'state',state);
+            }
+
+            // Les nouvelles captures sont chez Apple : retirer maintenant tout
+            // l'ancien lot (doublons et images de première installation).
+            for(const shot of oldShots){
+              if(uploadedIds.includes(shot.id)) continue;
+              const current=await api('/v1/appScreenshots/'+shot.id+'?fields[appScreenshots]=fileName',{allow404:true});
+              if(current?.data){
+                await api('/v1/appScreenshots/'+shot.id,{method:'DELETE'});
+                console.log('Removed superseded screenshot:',shot.attributes?.fileName||shot.id);
+              }
+            }
+
+            existing=await api('/v1/appScreenshotSets/'+set.id+
+              '/appScreenshots?fields[appScreenshots]=fileName,assetDeliveryState&limit=200');
+            const finalShots=(existing.data||[]);
+            console.log('APP_IPHONE_65 final screenshots:',finalShots.map(x=>x.attributes?.fileName));
+            if(finalShots.length!==files.length) throw new Error('Unexpected final screenshot count: '+finalShots.length);
+            if(finalShots.some(x=>!String(x.attributes?.fileName||'').startsWith('loki-clean-'))) {
+              throw new Error('Old screenshots still present after cleanup');
+            }
+          })().catch(e=>{console.error(e.message||String(e));process.exit(1)});
+          NODE
+
+      - name: Upload screenshot pack
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: loki-app-store-65-${{ github.run_id }}
+          path: artifacts/app-store-65/*.jpg
+          if-no-files-found: warn
+          retention-days: 14

@@ -9,6 +9,16 @@ on:
       - '.github/workflows/mobile-web-importmeta-diagnostic.yml'
   workflow_dispatch:
 
+# Régression 04/10 verrouillée : le scénario privé doit exécuter un vrai clic
+# sur le bouton accessible avant d'attendre loki-chat-thread-scroll.
+# Tous les navigateurs CI pointant vers le Supabase de production passent
+# désormais UN PAR UN. Le 02/10, plusieurs Chromium concurrents + le vrai web
+# ont coïncidé avec des /auth/v1/user et /token en 500/504 faute de transaction
+# Postgres. Aucun test visuel ne doit pouvoir affamer l'auth utilisateur.
+concurrency:
+  group: keep-production-supabase-browser-audits
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
@@ -22,6 +32,7 @@ jobs:
       EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru
       EXPO_PUBLIC_DEMO_MODE: 'true'
       EXPO_PUBLIC_KEEP_PREVIEW: '1'
+      EXPO_PUBLIC_KEEP_CHAT_VISUAL_TEST: '1'
       EXPO_PUBLIC_API_URL: http://127.0.0.1:3010
 
     steps:
@@ -71,7 +82,33 @@ jobs:
 
           (async () => {
             const browser = await chromium.launch({ headless: true });
-            const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+            const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+
+            // JAMAIS charger la base Supabase de production avec ce test visuel.
+            // Les RPC du chat utiles au scénario sont mockés plus bas au niveau
+            // de la page (prioritaires sur le contexte). Tout autre PostgREST
+            // reçoit une réponse neutre locale. Les anciens audits tapaient
+            // remote_config / crédits invités en boucle et contribuaient aux
+            // timeouts de connexion réels observés sur Loki Music.
+            await context.route('**/rest/v1/**', async route => {
+              const url = route.request().url();
+              if (url.includes('/rpc/')) {
+                if (url.includes('/rpc/keep_guest_device_credit_status')) {
+                  return route.fulfill({
+                    status: 200,
+                    contentType: 'application/json',
+                    body: JSON.stringify([{ consumed: 0, credit_limit: 3, remaining: 3 }]),
+                  });
+                }
+                if (url.includes('/rpc/keep_feature_flag_enabled_for_me')) {
+                  return route.fulfill({ status: 200, contentType: 'application/json', body: 'false' });
+                }
+                return route.fulfill({ status: 200, contentType: 'application/json', body: 'null' });
+              }
+              return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+            });
+
+            const page = await context.newPage();
             const errors = [];
             const httpFailures = [];
 
@@ -94,7 +131,128 @@ jobs:
               else await dialog.dismiss();
             });
 
-            const response = await page.goto('http://127.0.0.1:8081', { waitUntil: 'networkidle', timeout: 60000 });
+            async function clickRobust(locator, label) {
+              let lastError;
+              for (let attempt = 1; attempt <= 6; attempt++) {
+                try {
+                  await locator.waitFor({ state: 'visible', timeout: 10000 });
+                  await locator.scrollIntoViewIfNeeded().catch(() => {});
+                  await page.keyboard.press('Escape').catch(() => {});
+                  await page.waitForTimeout(120 * attempt);
+                  await locator.click({ timeout: 4000 });
+                  return;
+                } catch (error) {
+                  lastError = error;
+                  const message = String(error && error.message ? error.message : error || '');
+                  if (attempt === 6 && /intercepts pointer events/i.test(message)) {
+                    await locator.click({ force: true, timeout: 2000 });
+                    return;
+                  }
+                  await page.waitForTimeout(200 * attempt);
+                }
+              }
+              throw new Error(`${label}: ${lastError && lastError.message ? lastError.message : lastError}`);
+            }
+
+            // Fil long déterministe : le test doit réellement pouvoir détecter
+            // une ouverture au milieu de l'historique. Sans messages assez longs,
+            // scrollHeight === clientHeight et un faux positif serait possible.
+            let syntheticSentBody = '';
+            let syntheticDirectSentBody = '';
+            const directProfileId = '11111111-1111-4111-8111-111111111111';
+            const syntheticRecentMessages = Array.from({ length: 30 }, (_, index) => {
+              const id = 5030 - index;
+              return {
+                id,
+                room_slug: 'place',
+                profile_id: '11111111-1111-4111-8111-111111111111',
+                username: 'testchat',
+                kind: 'USER',
+                body: `Historique visuel ${id} · message assez long pour forcer un vrai défilement vertical dans le tchat Loki.`,
+                created_at: new Date(Date.UTC(2026, 9, 2, 10, 0, index)).toISOString(),
+              };
+            });
+            const syntheticDirectMessages = Array.from({ length: 30 }, (_, index) => {
+              const id = 7030 - index;
+              return {
+                id,
+                room_slug: 'place',
+                profile_id: directProfileId,
+                username: 'profil-test',
+                kind: 'USER',
+                body: `Direct visuel ${id} · historique assez long pour prouver que l'ouverture arrive vraiment sur le plus récent.`,
+                created_at: new Date(Date.UTC(2026, 9, 2, 10, 30, index)).toISOString(),
+                target_profile_id: '22222222-2222-4222-8222-222222222222',
+                target_username: 'moi',
+              };
+            });
+            await page.route('**/rest/v1/rpc/keep_agora_my_conversations**', async route => {
+              await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify([{
+                  other_profile_id: directProfileId,
+                  other_username: 'profil-test',
+                  other_avatar_url: null,
+                  last_message_id: 7030,
+                  last_room_slug: 'place',
+                  last_body: 'Direct visuel 7030',
+                  last_created_at: new Date(Date.UTC(2026, 9, 2, 11, 58, 0)).toISOString(),
+                  last_shared_track_id: null,
+                  last_sale_offer_id: null,
+                }]),
+              });
+            });
+            await page.route('**/rest/v1/rpc/keep_agora_my_groups**', async route => {
+              await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+            });
+            await page.route('**/rest/v1/rpc/keep_agora_direct_messages_v2**', async route => {
+              const rows = syntheticDirectSentBody
+                ? [{
+                    id: 7031,
+                    room_slug: 'place',
+                    profile_id: '22222222-2222-4222-8222-222222222222',
+                    username: 'moi',
+                    kind: 'USER',
+                    body: syntheticDirectSentBody,
+                    created_at: new Date(Date.UTC(2026, 9, 2, 11, 59, 30)).toISOString(),
+                    target_profile_id: directProfileId,
+                    target_username: 'profil-test',
+                  }, ...syntheticDirectMessages.slice(0, 29)]
+                : syntheticDirectMessages;
+              await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) });
+            });
+            await page.route('**/rest/v1/rpc/keep_agora_messages_v6**', async route => {
+              const rows = syntheticSentBody
+                ? [{
+                    id: 5031,
+                    room_slug: 'place',
+                    profile_id: '22222222-2222-4222-8222-222222222222',
+                    username: 'moi',
+                    kind: 'USER',
+                    body: syntheticSentBody,
+                    created_at: new Date(Date.UTC(2026, 9, 2, 11, 59, 0)).toISOString(),
+                  }, ...syntheticRecentMessages.slice(0, 29)]
+                : syntheticRecentMessages;
+              await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) });
+            });
+            await page.route('**/rest/v1/rpc/keep_agora_post_message_v5**', async route => {
+              const payload = route.request().postDataJSON?.() || {};
+              const body = String(payload.p_body || 'Message test envoyé');
+              const direct = Boolean(payload.p_target_profile_id);
+              if (direct) syntheticDirectSentBody = body;
+              else syntheticSentBody = body;
+              await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({ messageId: direct ? 7031 : 5031 }),
+              });
+            });
+            await page.route('**/rest/v1/rpc/keep_agora_mark_room_read**', async route => {
+              await route.fulfill({ status: 200, contentType: 'application/json', body: 'true' });
+            });
+
+            const response = await page.goto('http://127.0.0.1:8081', { waitUntil: 'domcontentloaded', timeout: 60000 });
             if (!response || !response.ok()) throw new Error(`HTTP runtime failed: ${response ? response.status() : 'no response'}`);
             await page.waitForTimeout(1500);
 
@@ -106,6 +264,175 @@ jobs:
             if (!bodyText || bodyText.length < 10) throw new Error('Visual audit failed: document.body.innerText is empty or effectively blank');
             if (!rootHtml || rootHtml.trim().length < 20) throw new Error('Visual audit failed: #root is empty or effectively blank');
             if (!bodyBox || bodyBox.width < 200 || bodyBox.height < 200) throw new Error(`Visual audit failed: invalid body dimensions ${JSON.stringify(bodyBox)}`);
+
+            // Le nouveau tchat doit être réellement visible sous forme de languette
+            // repliée sur le bord, même dans la preview. Ce repère est stable et
+            // indépendant du texte marketing.
+            const chatDrawer = page.getByTestId('loki-global-chat-drawer');
+            await chatDrawer.waitFor({ state: 'visible', timeout: 15000 });
+            const chatDrawerBox = await chatDrawer.boundingBox();
+            if (!chatDrawerBox || chatDrawerBox.width < 20 || chatDrawerBox.height < 20) {
+              throw new Error(`Chat drawer not visibly rendered: ${JSON.stringify(chatDrawerBox)}`);
+            }
+            const chatVisibleWidth = Math.max(0, Math.min(390, chatDrawerBox.x + chatDrawerBox.width) - Math.max(0, chatDrawerBox.x));
+            const chatVisibleHeight = Math.max(0, Math.min(844, chatDrawerBox.y + chatDrawerBox.height) - Math.max(0, chatDrawerBox.y));
+            if (chatVisibleWidth < 24 || chatVisibleHeight < 40) {
+              throw new Error(`Chat drawer exists but is effectively outside viewport: ${JSON.stringify({ chatDrawerBox, chatVisibleWidth, chatVisibleHeight })}`);
+            }
+
+            // Preuve visuelle réelle du design validé : le robot ouvre d'abord
+            // la mini-fenêtre, puis le bouton ⤢ ouvre le même composant plein
+            // écran que la production. Ne jamais réintroduire l'ouverture directe.
+            await clickRobust(chatDrawer, 'Open chat mini');
+            const miniChat = page.getByTestId('loki-chat-mini');
+            await miniChat.waitFor({ state: 'visible', timeout: 10000 });
+            const expandChat = page.getByLabel('Agrandir le tchat en plein écran').last();
+            await expandChat.waitFor({ state: 'visible', timeout: 10000 });
+            await clickRobust(expandChat, 'Expand chat fullscreen');
+            const fullChat = page.getByTestId('loki-chat-fullscreen-modal');
+            await fullChat.waitFor({ state: 'visible', timeout: 10000 });
+            const fullChatBox = await fullChat.boundingBox();
+            if (!fullChatBox || fullChatBox.width < 380 || fullChatBox.height < 820 || fullChatBox.x > 1 || fullChatBox.y > 1) {
+              throw new Error(`Full-screen chat does not cover the mobile viewport from origin: ${JSON.stringify(fullChatBox)}`);
+            }
+            await page.getByPlaceholder('Rechercher une conversation…').waitFor({ state: 'visible', timeout: 10000 });
+            await page.screenshot({ path: 'artifacts/real-browser/keep-chat-fullscreen-390x844.png', fullPage: true });
+
+            // Cas exact remonté : ouvrir une conversation privée depuis la liste
+            // (comme après un profil) doit afficher tout de suite le message le plus
+            // récent et un Envoi doit rester visible sans geste manuel.
+            // Cible le vrai bouton accessible du TouchableOpacity. Les anciens
+            // "\\n" écrits littéralement ci-dessous avaient commenté le locator
+            // ET le clic : le test attendait donc un fil qu'il n'avait jamais ouvert.
+            const directConversationRow = page.getByRole('button', { name: 'Ouvrir la conversation avec profil-test' }).last();
+            await directConversationRow.waitFor({ state: 'visible', timeout: 10000 });
+            const directRowA11y = await directConversationRow.evaluate(el => ({
+              role: el.getAttribute('role'),
+              ariaLabel: el.getAttribute('aria-label'),
+            }));
+            if (directRowA11y.role !== 'button' || directRowA11y.ariaLabel !== 'Ouvrir la conversation avec profil-test') {
+              throw new Error(`Direct conversation row accessibility contract broken: ${JSON.stringify(directRowA11y)}`);
+            }
+            await clickRobust(directConversationRow, 'Open direct profile conversation');
+            const directThread = page.getByTestId('loki-chat-thread-scroll').last();
+            await directThread.waitFor({ state: 'visible', timeout: 10000 });
+            await page.waitForTimeout(900);
+            const directOpenedScroll = await directThread.evaluate(el => ({
+              scrollTop: el.scrollTop,
+              scrollHeight: el.scrollHeight,
+              clientHeight: el.clientHeight,
+              distance: el.scrollHeight - el.clientHeight - el.scrollTop,
+            }));
+            if (directOpenedScroll.distance > 12) {
+              throw new Error(`Direct chat opened away from latest message: ${JSON.stringify(directOpenedScroll)}`);
+            }
+            const newestDirectBubble = page.getByText(/Direct visuel 7030/).last();
+            await newestDirectBubble.waitFor({ state: 'visible', timeout: 10000 });
+            const directMessage = 'Message direct test visible immédiatement';
+            const directInput = page.getByPlaceholder('Écris un message…').last();
+            await directInput.waitFor({ state: 'visible', timeout: 10000 });
+            await page.waitForTimeout(500);
+            const directComposerFocused = await directInput.evaluate(el => document.activeElement === el);
+            if (!directComposerFocused) {
+              throw new Error('Direct chat composer did not receive focus when the user thread opened');
+            }
+            await directInput.fill(directMessage);
+            await clickRobust(page.getByLabel('Envoyer le message').last(), 'Send direct profile chat message');
+            const directSentBubble = page.getByText(directMessage, { exact: true }).last();
+            await directSentBubble.waitFor({ state: 'visible', timeout: 10000 });
+            await page.waitForTimeout(900);
+            const directSentScroll = await directThread.evaluate(el => ({
+              scrollTop: el.scrollTop,
+              scrollHeight: el.scrollHeight,
+              clientHeight: el.clientHeight,
+              distance: el.scrollHeight - el.clientHeight - el.scrollTop,
+            }));
+            if (directSentScroll.distance > 12) {
+              throw new Error(`Direct sent message not visible at latest: ${JSON.stringify(directSentScroll)}`);
+            }
+            const [directThreadBox, directSentBox] = await Promise.all([directThread.boundingBox(), directSentBubble.boundingBox()]);
+            if (!directThreadBox || !directSentBox || directSentBox.y < directThreadBox.y - 2 || directSentBox.y + directSentBox.height > directThreadBox.y + directThreadBox.height + 2) {
+              throw new Error(`Direct sent bubble is outside visible thread: ${JSON.stringify({ directThreadBox, directSentBox })}`);
+            }
+            await page.screenshot({ path: 'artifacts/real-browser/keep-chat-direct-latest-390x844.png', fullPage: true });
+            await clickRobust(page.getByLabel('Retour aux conversations').last(), 'Back to chat inbox');
+
+            // Vérifie aussi le comportement visuel réel du fil : à l'ouverture
+            // d'une conversation, on doit voir le message le plus récent, jamais
+            // atterrir au milieu de l'historique.
+            await clickRobust(page.getByTestId('loki-chat-place-entry').last(), 'Open public chat composer');
+            const threadScroll = page.getByTestId('loki-chat-thread-scroll').last();
+            await threadScroll.waitFor({ state: 'visible', timeout: 10000 });
+            await page.waitForTimeout(900);
+            const openedScroll = await threadScroll.evaluate(el => ({
+              scrollTop: el.scrollTop,
+              scrollHeight: el.scrollHeight,
+              clientHeight: el.clientHeight,
+              distance: el.scrollHeight - el.clientHeight - el.scrollTop,
+            }));
+            if (openedScroll.distance > 12) {
+              throw new Error(`Chat opened away from latest message: ${JSON.stringify(openedScroll)}`);
+            }
+            const newestLoadedBubble = page.getByText(/Historique visuel 5030/).last();
+            await newestLoadedBubble.waitFor({ state: 'visible', timeout: 10000 });
+            const [threadBoxAtOpen, newestBox] = await Promise.all([threadScroll.boundingBox(), newestLoadedBubble.boundingBox()]);
+            if (!threadBoxAtOpen || !newestBox || newestBox.y < threadBoxAtOpen.y - 2 || newestBox.y + newestBox.height > threadBoxAtOpen.y + threadBoxAtOpen.height + 2) {
+              throw new Error(`Newest loaded chat bubble is outside visible thread: ${JSON.stringify({ threadBoxAtOpen, newestBox })}`);
+            }
+
+            // Pendant la saisie, le clavier/compositeur peut changer de hauteur.
+            // Le fil doit suivre visuellement le bas sans swipe manuel.
+            const composerInput = page.getByPlaceholder('Écris un message…').last();
+            await composerInput.waitFor({ state: 'visible', timeout: 10000 });
+            await page.waitForTimeout(700);
+            const composerFocused = await composerInput.evaluate(el => document.activeElement === el);
+            if (!composerFocused) {
+              throw new Error('Chat composer did not receive focus when the thread opened');
+            }
+            const sentVisualMessage = 'Message test visible immédiatement';
+            await composerInput.fill(sentVisualMessage);
+            await page.waitForTimeout(700);
+            const typedScroll = await threadScroll.evaluate(el => ({
+              scrollTop: el.scrollTop,
+              scrollHeight: el.scrollHeight,
+              clientHeight: el.clientHeight,
+              distance: el.scrollHeight - el.clientHeight - el.scrollTop,
+            }));
+            if (typedScroll.distance > 12) {
+              throw new Error(`Chat stopped following bottom while typing: ${JSON.stringify(typedScroll)}`);
+            }
+
+            // Reproduit le geste signalé par l'utilisateur : écrire puis Envoyer.
+            // Le nouveau message doit apparaître dans le viewport sans aucun swipe.
+            await clickRobust(page.getByLabel('Envoyer le message').last(), 'Send chat message');
+            const sentBubble = page.getByText(sentVisualMessage, { exact: true }).last();
+            await sentBubble.waitFor({ state: 'visible', timeout: 10000 });
+            await page.waitForTimeout(900);
+            const sentScroll = await threadScroll.evaluate(el => ({
+              scrollTop: el.scrollTop,
+              scrollHeight: el.scrollHeight,
+              clientHeight: el.clientHeight,
+              distance: el.scrollHeight - el.clientHeight - el.scrollTop,
+            }));
+            if (sentScroll.distance > 12) {
+              throw new Error(`Sent chat message is not pinned to latest: ${JSON.stringify(sentScroll)}`);
+            }
+            const [threadBoxAfterSend, sentBox] = await Promise.all([threadScroll.boundingBox(), sentBubble.boundingBox()]);
+            if (!threadBoxAfterSend || !sentBox || sentBox.y < threadBoxAfterSend.y - 2 || sentBox.y + sentBox.height > threadBoxAfterSend.y + threadBoxAfterSend.height + 2) {
+              throw new Error(`Sent chat bubble is outside visible thread: ${JSON.stringify({ threadBoxAfterSend, sentBox })}`);
+            }
+            await page.screenshot({ path: 'artifacts/real-browser/keep-chat-latest-message-follow-390x844.png', fullPage: true });
+
+            await page.getByLabel('Ouvrir les actions du message').waitFor({ state: 'visible', timeout: 10000 });
+            await clickRobust(page.getByLabel('Ouvrir les actions du message').last(), 'Open composer actions');
+            await page.getByText('RÉACTIONS', { exact: true }).last().waitFor({ state: 'visible', timeout: 10000 });
+            await page.getByText('MORCEAU', { exact: true }).last().waitFor({ state: 'visible', timeout: 10000 });
+            if (await page.getByText('QR PAYPAL', { exact: true }).count() !== 0) {
+              throw new Error('QR PayPal must stay direct-message only, not in La Place');
+            }
+            await page.screenshot({ path: 'artifacts/real-browser/keep-chat-actions-390x844.png', fullPage: true });
+            await clickRobust(page.getByLabel('Fermer la messagerie').last(), 'Close full-screen messenger');
+            await fullChat.waitFor({ state: 'hidden', timeout: 10000 });
 
             // Samsung/Chrome Android : un swipe vertical ne doit jamais faire sortir
             // la barre des 5 onglets du viewport visible.
@@ -123,70 +450,68 @@ jobs:
               throw new Error(`Samsung bottom navigation moved with page scroll: ${bottomBefore.y} -> ${bottomAfter.y}`);
             }
 
-            await bottomProfileTab.click();
+            await clickRobust(bottomProfileTab, 'Profile bottom tab');
             await page.waitForTimeout(700);
 
-            // Cible les vrais onglets du profil via leur libellé d'accessibilité,
-            // pas un texte KEEP/Vibes/Albums pouvant exister ailleurs sur la page.
-            const vibesTab = page.getByLabel('Profil Vibes');
-            const albumsTab = page.getByLabel('Profil Albums');
-            const keepTab = page.getByLabel('Profil KEEP');
-            if (await vibesTab.count() === 0 || await albumsTab.count() === 0 || await keepTab.count() === 0) throw new Error('Profile music tabs not found');
+            // La cloche doit rester inline : ouverture du panneau latéral, onglets
+            // séparés Messages / Activité / Réglages, sans quitter le profil.
+            const profileBell = page.getByLabel(/^Notifications(?:, .* non lues)?$/).last();
+            await profileBell.waitFor({ state: 'visible', timeout: 15000 });
+            const profileUrlBeforeBell = page.url();
+            await clickRobust(profileBell, 'Profile notification bell');
+            await page.getByText('MESSAGES', { exact: true }).last().waitFor({ state: 'visible', timeout: 15000 });
+            await page.getByText('ACTIVITÉ', { exact: true }).last().waitFor({ state: 'visible', timeout: 15000 });
+            await page.getByText('RÉGLAGES', { exact: true }).last().waitFor({ state: 'visible', timeout: 15000 });
+            if (page.url() !== profileUrlBeforeBell) throw new Error('Bell navigation changed URL instead of staying inline');
+            await page.screenshot({ path: 'artifacts/real-browser/keep-chat-bell-390x844.png', fullPage: true });
+            // Ferme par le backdrop visible à gauche du tiroir. Le bouton ×
+            // existe bien dans le produit, mais React Native Web ne l'expose pas
+            // toujours comme locator accessible stable dans Chromium headless.
+            await page.mouse.click(8, 120);
+            await page.getByText('MESSAGES', { exact: true }).last().waitFor({ state: 'hidden', timeout: 10000 });
 
-            await vibesTab.click();
-            await page.waitForTimeout(250);
-            if (await page.getByText(/KEEP construit ton univers/i).count()) throw new Error('Vibes tab kept KEEP content mounted');
+            // Cible les vrais onglets ACTUELS du profil propriétaire. La refonte
+            // v3 a volontairement supprimé Albums et renommé KEEP en Musiques :
+            // le test doit suivre le contrat produit réel, pas un ancien layout.
+            const musicTab = page.getByLabel('Profil Styles');
+            const vibesTab = page.getByLabel('Profil Playlists');
+            const artistsTab = page.getByLabel('Profil Artistes');
+            if (await musicTab.count() === 0 || await vibesTab.count() === 0 || await artistsTab.count() === 0) throw new Error('Profile music tabs not found');
 
-            await albumsTab.click();
+            const vibesBefore = await vibesTab.innerHTML();
+            await clickRobust(vibesTab, 'Profile Playlists tab');
             await page.waitForTimeout(250);
-            if (await page.getByText(/KEEP construit ton univers/i).count()) throw new Error('Albums tab kept KEEP content mounted');
+            const vibesAfter = await vibesTab.innerHTML();
+            if (vibesAfter === vibesBefore) throw new Error('Playlists tab did not visibly change state after click');
 
-            await keepTab.click();
+            const artistsBefore = await artistsTab.innerHTML();
+            await clickRobust(artistsTab, 'Profile Artists tab');
             await page.waitForTimeout(250);
-            if (await page.getByText(/KEEP construit ton univers/i).count() === 0) throw new Error('KEEP tab did not remount immediately; browser refresh would still be required');
+            const artistsAfter = await artistsTab.innerHTML();
+            if (artistsAfter === artistsBefore) throw new Error('Artists tab did not visibly change state after click');
+
+            const musicBefore = await musicTab.innerHTML();
+            await clickRobust(musicTab, 'Profile Styles tab');
+            await page.waitForTimeout(250);
+            const musicAfter = await musicTab.innerHTML();
+            if (musicAfter === musicBefore) throw new Error('Styles tab did not remount immediately; browser refresh would still be required');
 
             await page.screenshot({ path: 'artifacts/real-browser/keep-profile-tabs-390x844.png', fullPage: true });
 
-            // Boucle complète SUPPRIMER : Playlists -> bouton -> confirmation ->
-            // disparition -> Profil -> reload -> toujours absent.
+            // Ce workflow vérifie le runtime global et la navigation Playlists.
+            // La boucle destructive Écouter -> Garder -> Supprimer -> Profil -> reload
+            // est couverte séparément par delete-track-e2e.yml avec son propre fixture,
+            // afin que ce smoke runtime ne dépende jamais d'un morceau préexistant.
             const playlistsBottomTab = page.getByText('Playlists', { exact: true }).last();
             if (await playlistsBottomTab.count() === 0) throw new Error('Playlists bottom tab not found');
-            await playlistsBottomTab.click();
+            await clickRobust(playlistsBottomTab, 'Playlists bottom tab');
             await page.waitForTimeout(500);
-
-            const allMusic = page.getByText('Toute ma musique', { exact: true }).first();
-            if (await allMusic.count() === 0) throw new Error('Delete audit fixture missing: Toute ma musique');
-            await allMusic.click();
-            await page.waitForTimeout(400);
-
-            const deleteButtons = page.getByLabel('Supprimer ce morceau de KEEP');
-            const beforeDeleteCount = await deleteButtons.count();
-            if (beforeDeleteCount < 1) throw new Error('Delete button missing from KEEP playlist');
-            const deleteButton = deleteButtons.first();
-            const trackBody = deleteButton.locator('xpath=../..');
-            const trackBodyText = (await trackBody.innerText()).trim();
-            const deletedTitle = trackBodyText.split('\n').map(v => v.trim()).find(Boolean) || '';
-            if (!deletedTitle) throw new Error('Unable to identify track title before delete');
-
-            await deleteButton.click();
-            await page.waitForTimeout(800);
-            const afterDeleteCount = await page.getByLabel('Supprimer ce morceau de KEEP').count();
-            if (afterDeleteCount !== beforeDeleteCount - 1) throw new Error(`Delete UI loop failed: buttons ${beforeDeleteCount} -> ${afterDeleteCount}`);
-            if (await page.getByText(deletedTitle, { exact: true }).count()) throw new Error(`Deleted track still visible in Playlists: ${deletedTitle}`);
-
-            await page.getByText('Profil', { exact: true }).last().click();
-            await page.waitForTimeout(500);
-            if (await page.getByText(deletedTitle, { exact: true }).count()) throw new Error(`Deleted track still visible on Profile: ${deletedTitle}`);
-
-            await page.reload({ waitUntil: 'networkidle', timeout: 60000 });
-            await page.waitForTimeout(900);
-            const profileAfterReload = page.getByText('Profil', { exact: true }).last();
-            if (await profileAfterReload.count() === 0) throw new Error('Profile tab missing after reload');
-            await profileAfterReload.click();
-            await page.waitForTimeout(400);
-            if (await page.getByText(deletedTitle, { exact: true }).count()) throw new Error(`Deleted track returned after full reload: ${deletedTitle}`);
-
-            await page.screenshot({ path: 'artifacts/real-browser/keep-delete-loop-390x844.png', fullPage: true });
+            const myTracksEntry = page.getByText(/^Écouter mes morceaux · \d+$/).last();
+            if (await myTracksEntry.count() === 0) throw new Error('Écouter mes morceaux entry not found');
+            await clickRobust(myTracksEntry, 'Écouter mes morceaux entry');
+            await page.waitForTimeout(300);
+            await page.getByText('Mes morceaux', { exact: true }).last().waitFor({ state: 'visible', timeout: 10000 });
+            await page.screenshot({ path: 'artifacts/real-browser/keep-playlists-390x844.png', fullPage: true });
 
             const report = [
               `URL: ${page.url()}`,
@@ -194,10 +519,20 @@ jobs:
               `BODY_LENGTH: ${bodyText.length}`,
               `ROOT_HTML_LENGTH: ${rootHtml.length}`,
               `BODY_BOX: ${JSON.stringify(bodyBox)}`,
+              'CHAT_DRAWER_VISIBLE: PASS',
+              'CHAT_FULLSCREEN_390x844: PASS',
+              'CHAT_DIRECT_PROFILE_OPENS_ON_LATEST: PASS',
+              'CHAT_DIRECT_SENT_BUBBLE_VISIBLE_WITHOUT_SWIPE: PASS',
+              'CHAT_OPENS_ON_LATEST_MESSAGE: PASS',
+              'CHAT_NEWEST_BUBBLE_VISIBLE_IN_VIEWPORT: PASS',
+              'CHAT_FOLLOWS_BOTTOM_WHILE_TYPING: PASS',
+              'CHAT_SENT_BUBBLE_VISIBLE_WITHOUT_SWIPE: PASS',
+              'CHAT_COMPOSER_AUTOFOCUS: PASS',
+              'BELL_INLINE_TABS_VISIBLE: PASS',
               'SAMSUNG_BOTTOM_NAV_STABLE_AFTER_SWIPE: PASS',
               'PROFILE_TAB_SWITCH_NO_REFRESH: PASS',
-              `DELETE_TRACK: ${deletedTitle}`,
-              'DELETE_PLAYLIST_TO_PROFILE_TO_RELOAD: PASS',
+              'PLAYLISTS_TAB_RUNTIME: PASS',
+              'DELETE_E2E: delegated to KEEP — Suppression morceau E2E 390x844',
               `ERROR_COUNT: ${errors.length}`,
               `HTTP_FAILURE_COUNT: ${httpFailures.length}`,
               '',
@@ -213,6 +548,20 @@ jobs:
             fs.writeFileSync('artifacts/real-browser/report.txt', report);
 
             if (errors.length > 0 || httpFailures.length > 0) throw new Error(`Browser runtime issues detected:\n${[...httpFailures, ...errors].join('\n')}`);
+
+            const desktopPage = await context.newPage();
+            await desktopPage.setViewportSize({ width: 1440, height: 900 });
+            const desktopResponse = await desktopPage.goto('http://127.0.0.1:8081', { waitUntil: 'domcontentloaded', timeout: 60000 });
+            if (!desktopResponse || !desktopResponse.ok()) throw new Error(`Desktop runtime failed: ${desktopResponse ? desktopResponse.status() : 'no response'}`);
+            const manualUpdate = desktopPage.getByTestId('keep-manual-update-control');
+            if (await manualUpdate.count() !== 0) throw new Error('Manual update control must never be user-visible');
+            if (await desktopPage.getByText('Actualiser Loki Music', { exact: true }).count() !== 0) throw new Error('Actualiser Loki Music must never be user-visible');
+            if (await desktopPage.getByText('METTRE À JOUR', { exact: true }).count() !== 0) throw new Error('METTRE À JOUR must never be user-visible');
+            if (await desktopPage.getByText(/Nouvelle version de Loki Music disponible/i).count() !== 0) throw new Error('Version update banner must never be user-visible');
+            await desktopPage.screenshot({ path: 'artifacts/real-browser/keep-desktop-silent-update-1440x900.png', fullPage: true });
+            fs.appendFileSync('artifacts/real-browser/report.txt', '\nSILENT_UPDATE_UI_ABSENT: PASS\n');
+            await desktopPage.close();
+
             await browser.close();
           })().catch(err => {
             console.error(err);

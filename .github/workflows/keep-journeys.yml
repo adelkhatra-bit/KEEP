@@ -1,0 +1,83 @@
+name: KEEP — Robot de parcours (tchat, boutique, paiement)
+# audit-trigger-chatgpt-parity: 2026-10-04T15:34:00Z
+
+# Rejoue les parcours utilisateur (fenêtre d'écoute FREE/€, boutique Pépites,
+# tchat de groupe, vente FREE en groupe, réponses/réactions, administration
+# d'un groupe, absence de redirection, message en direct) dans un vrai
+# Chromium, sur PC et mobile, contre un export web local de KEEP.
+#
+# Le backend Supabase est entièrement simulé avec des données SYNTHÉTIQUES
+# (packages/mobile/e2e/journeys/fake-supabase.cjs) : aucune requête vers la
+# production, aucune écriture, aucun déploiement. Ce workflow ne publie rien.
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'packages/mobile/**'
+  schedule:
+    - cron: '23 */6 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: keep-journeys-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  parcours:
+    name: Parcours Chromium (PC + mobile)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      CI: true
+      EXPO_PUBLIC_SUPABASE_URL: https://rrhqsqzcplvmwxizqnla.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru
+      EXPO_PUBLIC_API_URL: https://keep-backend-mu.vercel.app
+      EXPO_PUBLIC_DEMO_MODE: 'false'
+      EXPO_PUBLIC_KEEP_PREVIEW: '0'
+      EXPO_PUBLIC_BUILD_SHA: ${{ github.sha }}
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Installer Node 20
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Construire l'export web de KEEP (local, non publié)
+        working-directory: packages/mobile
+        run: npx expo export --platform web --clear --output-dir dist-journeys
+
+      - name: Installer Chromium (Playwright)
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install chromium --with-deps
+
+      - name: Lancer le robot de parcours
+        run: node packages/mobile/e2e/journeys/run-journeys.cjs packages/mobile/dist-journeys
+
+      - name: Ajouter le rapport au résumé de l'exécution
+        if: always()
+        run: |
+          if [ -f artifacts/journeys/RAPPORT.md ]; then
+            cat artifacts/journeys/RAPPORT.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Le robot de parcours n'a produit aucun rapport (étape précédente en échec)." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Conserver le rapport et les captures
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: keep-journeys-${{ github.run_id }}
+          path: artifacts/journeys
+          if-no-files-found: ignore
+          retention-days: 7

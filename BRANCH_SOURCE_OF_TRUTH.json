@@ -1,0 +1,29 @@
+{
+  "repository": "adelkhatra-bit/KEEP",
+  "canonicalBranch": "reconcile/claude-main-20260825",
+  "applicationSourceBranch": "reconcile/claude-main-20260825",
+  "publicWebSourceBranch": "reconcile/claude-main-20260825",
+  "githubPagesWorkflow": ".github/workflows/web-preview-pages.yml",
+  "frozenDefaultBranch": "main",
+  "frozenDefaultBranchPurpose": "GitHub metadata only; never a product source",
+  "productSourceCount": 1,
+  "allowedRemoteBranches": [
+    "reconcile/claude-main-20260825",
+    "main",
+    "dependabot/*"
+  ],
+  "archivedLegacyRefs": "refs/tags/archive/legacy-*",
+  "forbiddenRemoteBranches": [
+    "web-preview",
+    "admin-preview",
+    "chatgpt/*",
+    "claude*",
+    "copilot/*",
+    "fix/*",
+    "backup/*",
+    "security/*",
+    "vercel/*"
+  ],
+  "rule": "Never infer the product source from GitHub's default branch. Always use canonicalBranch explicitly. Read productContract before any product edit. All legacy human branches are archive-only.",
+  "productContract": "config/keep-product-contract.json"
+}

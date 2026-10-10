@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { useUserStore } from '../store/useUserStore';
 import { colors } from '../theme/colors';
@@ -72,17 +72,6 @@ export default function PublicProfilePanel({ navigation }: any) {
     }
   };
 
-  const updateProfileVisibility = async (value: boolean) => {
-    const nextUser = { ...user, isPublic: value };
-    setUser(nextUser);
-    try {
-      if (isLocalGuest) await stageGuestProfileForUpgrade(nextUser);
-      else if (supabase && !isDemoMode) await createProfileService(supabase).saveOwnProfile(nextUser);
-    } catch {
-      Alert.alert('Profil public', 'La visibilité sera resynchronisée à la prochaine connexion.');
-    }
-  };
-
   const saveNetwork = async (platform: SocialLink['platform']) => {
     const value = (drafts[platform] ?? linkFor(platform)?.url ?? '').trim();
     if (!value) return void Alert.alert('Lien manquant', 'Ajoute le lien de ton réseau social.');
@@ -135,12 +124,7 @@ export default function PublicProfilePanel({ navigation }: any) {
   };
 
   return <View>
-    <View style={s.switchRow}>
-      <View style={s.switchText}><Text style={s.label}>Profil visible</Text><Text style={s.help}>Permet aux autres utilisateurs de découvrir tes goûts musicaux.</Text></View>
-      <Switch value={user.isPublic} onValueChange={(value) => void updateProfileVisibility(value)} trackColor={{ false: colors.background, true: colors.primary }} />
-    </View>
-
-    <Text style={[s.sectionTitle, { marginTop: 16 }]}>Réseaux sociaux</Text>
+    <Text style={s.sectionTitle}>Réseaux sociaux</Text>
     <Text style={s.help}>Un logo en couleur signifie que le réseau est renseigné.</Text>
     {NETWORKS.map(({ platform, label }) => {
       const existing = linkFor(platform);
@@ -192,12 +176,11 @@ export default function PublicProfilePanel({ navigation }: any) {
 const s = StyleSheet.create({
   sectionTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '900', marginBottom: 6 },
   label: { color: colors.textSecondary, fontSize: 14, fontWeight: '800' }, help: { color: colors.textMuted, fontSize: 12, lineHeight: 17, marginTop: 3 },
-  switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 }, switchText: { flex: 1 },
   networkBlock: { marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border }, networkTitle: { flexDirection: 'row', alignItems: 'center', gap: 9 }, networkLabelWrap: { flex: 1 },
   logo: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', borderWidth: 1 }, logoOff: { backgroundColor: '#17121F', borderColor: '#40354E' },
   connectionState: { color: colors.textMuted, fontSize: 11, fontWeight: '800', marginTop: 1 },
-  input: { minHeight: 42, marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: 12, fontSize: 14, color: colors.textPrimary, backgroundColor: colors.background },
+  input: { minHeight: 44, marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: 12, fontSize: 14, color: colors.textPrimary, backgroundColor: colors.background },
   row: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 8 },
-  primaryButton: { minHeight: 38, paddingHorizontal: 14, borderRadius: 19, justifyContent: 'center', backgroundColor: colors.primary }, primaryText: { color: colors.white, fontSize: 13, fontWeight: '900' },
-  secondaryButton: { minHeight: 38, paddingHorizontal: 14, borderRadius: 19, justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundElevated }, secondaryText: { color: colors.textSecondary, fontSize: 13, fontWeight: '800' }, dangerText: { color: colors.danger, fontSize: 13, fontWeight: '800' },
+  primaryButton: { minHeight: 44, paddingHorizontal: 14, borderRadius: 22, justifyContent: 'center', backgroundColor: colors.primary }, primaryText: { color: colors.white, fontSize: 13, fontWeight: '900' },
+  secondaryButton: { minHeight: 44, paddingHorizontal: 14, borderRadius: 22, justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundElevated }, secondaryText: { color: colors.textSecondary, fontSize: 13, fontWeight: '800' }, dangerText: { color: colors.danger, fontSize: 13, fontWeight: '800' },
 });

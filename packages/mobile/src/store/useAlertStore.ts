@@ -9,6 +9,9 @@ type AlertStoreState = {
   queue: AlertRequest[];
   show: (title: string, message: string | undefined, buttons: AlertButton[]) => void;
   hide: () => void;
+  /** Couches d'alerte montées DANS une fenêtre (Modal) ouverte : la plus récente affiche l'alerte, jamais la fenêtre racine (cachée derrière sur iOS). */
+  hostStack: string[];
+  registerHost: (id: string) => () => void;
 };
 
 /**
@@ -32,6 +35,11 @@ type AlertStoreState = {
 export const useAlertStore = create<AlertStoreState>((set, get) => ({
   current: null,
   queue: [],
+  hostStack: [],
+  registerHost: (id) => {
+    set((state) => ({ hostStack: [...state.hostStack.filter((item) => item !== id), id] }));
+    return () => set((state) => ({ hostStack: state.hostStack.filter((item) => item !== id) }));
+  },
   show: (title, message, buttons) => {
     const request: AlertRequest = { title, message, buttons };
     if (get().current) {

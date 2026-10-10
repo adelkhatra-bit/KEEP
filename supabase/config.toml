@@ -1,0 +1,15 @@
+project_id = "rrhqsqzcplvmwxizqnla"
+
+# Public pre-login/auth endpoints. Security remains enforced inside each function
+# (rate limits, payload validation, one-time tokens/secrets where applicable).
+[functions.keep-auth-email]
+verify_jwt = false
+
+[functions.keep-username-auth]
+verify_jwt = false
+
+[functions.keep-brevo-webhook]
+verify_jwt = false
+
+# keep-account-email is intentionally NOT public: the deployed function currently
+# requires an authenticated account and must keep verify_jwt=true.

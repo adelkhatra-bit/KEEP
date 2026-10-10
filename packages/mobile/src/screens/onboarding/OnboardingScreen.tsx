@@ -3,9 +3,13 @@ import { ActivityIndicator, Linking, Platform, SafeAreaView, ScrollView, StyleSh
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import UsernameAccountForm, { UsernameAccountMode } from '../../components/UsernameAccountForm';
+import WebCompanionPairingScreen from '../../components/WebCompanionPairingScreen';
+import OnboardingGenresScreen from './OnboardingGenresScreen';
 import { loadStagedGuestProfile, mergeStagedGuestProfile } from '../../services/guestUpgradeService';
 import { claimPendingReferral, stageReferralFromUrl } from '../../services/referralService';
 import { useUserStore } from '../../store/useUserStore';
+import { isWebShareVisit } from '../../services/webShareVisitor';
+import { useAccountGateStore } from '../../store/useAccountGateStore';
 import { colors } from '../../theme/colors';
 import { radius, spacing, typography } from '../../theme/spacing';
 
@@ -79,6 +83,11 @@ export default function OnboardingScreen() {
   const [accountOpen, setAccountOpen] = useState(Boolean(intent.mode || intent.followUsername));
   const [accountMode, setAccountMode] = useState<UsernameAccountMode>(intent.mode || (intent.followUsername ? 'login' : 'create'));
   const [busy, setBusy] = useState(false);
+  // Maquette validée (docs/mockups/Onboarding.html, 22/09/2026) : après une
+  // création de compte réussie, on propose le choix des styles musicaux
+  // avant de rejoindre l'app. Ignoré pour une simple connexion (compte déjà
+  // configuré) et skippable à tout moment ("Passer cette étape").
+  const [genresOpen, setGenresOpen] = useState(false);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
@@ -126,7 +135,9 @@ export default function OnboardingScreen() {
   // fonctionnel pendant ce court instant, en repli si cette entrée
   // automatique échoue (ex. stockage local indisponible).
   useEffect(() => {
-    if (accountOpen || intent.followUsername) return;
+    // Web : l'essai invité ne démarre QUE pour un lien partagé (profil vu « comme connecté », fonctions bloquées).
+    if (Platform.OS === 'web' && !isWebShareVisit()) return;
+    if (accountOpen || (Platform.OS !== 'web' && intent.followUsername)) return;
     if (useUserStore.getState().user) return;
     void handleGuestPress();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -138,7 +149,15 @@ export default function OnboardingScreen() {
   };
 
   const finishAccount = () => {
-    void claimPendingReferral().catch(() => false).finally(closeAccount);
+    void claimPendingReferral().catch(() => false);
+    const createdAccount = accountMode === 'create';
+    const hasGenres = (useUserStore.getState().user?.favoriteGenres.length ?? 0) > 0;
+    if (createdAccount && !hasGenres) {
+      setGenresOpen(true);
+      return;
+    }
+    closeAccount();
+    useAccountGateStore.getState().handleSuccess();
   };
 
   const continueWithoutSignup = async () => {
@@ -151,6 +170,27 @@ export default function OnboardingScreen() {
   // lien partagé : il reste disponible uniquement si un développeur l'active
   // explicitement dans un build __DEV__.
   const showDemo = __DEV__ && process.env.EXPO_PUBLIC_KEEP_SHOW_DEMO === '1';
+
+  if (Platform.OS === 'web' && !isWebShareVisit()) {
+    return <WebCompanionPairingScreen />;
+  }
+  if (Platform.OS === 'web' && !accountOpen) {
+    // Lien partagé : l'invité entre tout de suite sur le profil ; écran d'attente le temps de préparer l'essai.
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }} testID="web-share-visit-loading">
+        <ActivityIndicator color={colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
+  if (genresOpen) {
+    return (
+      <OnboardingGenresScreen
+        onDone={() => { setGenresOpen(false); closeAccount(); useAccountGateStore.getState().handleSuccess(); }}
+        onSkip={() => { setGenresOpen(false); closeAccount(); useAccountGateStore.getState().handleSuccess(); }}
+      />
+    );
+  }
 
   if (accountOpen) {
     return (
@@ -196,16 +236,28 @@ export default function OnboardingScreen() {
       </View>
 
       <View style={styles.actions}>
-        <TouchableOpacity style={[styles.button, styles.trialButton]} onPress={handleGuestPress} disabled={busy}>
+        <TouchableOpacity
+          style={[styles.button, styles.trialButton]}
+          onPress={handleGuestPress}
+          disabled={busy}
+          accessibilityRole="button"
+          accessibilityLabel="Essayer gratuitement"
+          testID="onboarding-trial-button"
+        >
           {busy ? <ActivityIndicator color={colors.white} /> : <>
             <Text style={styles.trialButtonText}>ESSAYER GRATUITEMENT</Text>
             <Text style={styles.trialHint}>3 téléchargements sans inscription</Text>
           </>}
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.accountGhostButton} onPress={() => { setAccountMode('create'); setAccountOpen(true); }} disabled={busy}>
-          <Text style={styles.accountGhostText}>Se connecter / Créer mon compte</Text>
-        </TouchableOpacity>
+        <View style={styles.accountChoiceRow}>
+          <TouchableOpacity style={styles.accountGhostButton} onPress={() => { setAccountMode('login'); setAccountOpen(true); }} disabled={busy} accessibilityRole="button" accessibilityLabel="J’ai déjà un compte">
+            <Text style={styles.accountGhostText}>J’AI DÉJÀ UN COMPTE</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.accountCreateLink} onPress={() => { setAccountMode('create'); setAccountOpen(true); }} disabled={busy} accessibilityRole="button" accessibilityLabel="Créer mon compte">
+            <Text style={styles.accountCreateText}>Créer mon compte</Text>
+          </TouchableOpacity>
+        </View>
 
         {showDemo ? (
           <TouchableOpacity style={styles.demoButton} onPress={() => enterDemoMode()} accessibilityRole="button" accessibilityLabel="Entrer en mode démo" testID="onboarding-demo-button">
@@ -235,8 +287,11 @@ const styles = StyleSheet.create({
   // Maquette validée (22/09/2026, architecture B) : un seul CTA dominant sur
   // l'écran d'accueil -- Essayer gratuitement reste le bouton plein, celui-ci
   // devient un lien discret sans fond ni bordure.
-  accountGhostButton:{minHeight:44,alignItems:'center',justifyContent:'center'},
-  accountGhostText:{color:colors.primaryLight,fontSize:14,fontWeight:'800'},
+  accountChoiceRow:{alignItems:'center',justifyContent:'center',gap:spacing.sm},
+  accountGhostButton:{minHeight:44,alignItems:'center',justifyContent:'center',paddingHorizontal:12},
+  accountGhostText:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},
+  accountCreateLink:{minHeight:44,alignItems:'center',justifyContent:'center',paddingHorizontal:12,borderWidth:1.5,borderColor:colors.primaryLight,borderRadius:radius.pill},
+  accountCreateText:{color:colors.primaryLight,fontSize:13,fontWeight:'800'},
   accountScroll:{flex:1},
   accountScrollContent:{flexGrow:1,justifyContent:'center',paddingHorizontal:spacing.xl,paddingVertical:spacing.xl},
   accountCard:{width:'100%',maxWidth:520,alignSelf:'center',gap:spacing.sm},

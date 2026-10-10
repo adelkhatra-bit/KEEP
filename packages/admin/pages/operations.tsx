@@ -1,8 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import Hint from '../components/Hint';
 import { supabase } from '../lib/supabaseClient';
 import { INTEGRATION_PROVIDER_LINKS } from '../lib/integrationLinks';
+import { openProviderPopup } from '../lib/providerWindow';
 import { invokeAdminFunction } from '../lib/invokeFunction';
+import ReleaseEvidence from '../components/ReleaseEvidence';
 
 type IntegrationRow = {
   key: string;
@@ -89,10 +92,12 @@ export default function Operations() {
   const [keylessHealth, setKeylessHealth] = useState<KeylessHealth | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pushLoaded, setPushLoaded] = useState(false);
 
   const load = async () => {
     setLoading(true);
     setError(null);
+    setPushLoaded(false);
     try {
       if (!supabase) throw new Error('Supabase Super Admin non configuré.');
       const [integrationResult, runtimeResult, pushSummaryResult, pushRecentResult, keylessResult, autoRepairResult] = await Promise.all([
@@ -110,6 +115,7 @@ export default function Operations() {
       setRuntime((runtimeResult.data ?? []) as RuntimeRow[]);
       setPushSummary((pushSummaryResult.data ?? []) as PushSummaryRow[]);
       setPushRecent((pushRecentResult.data ?? []) as PushRecentRow[]);
+      setPushLoaded(true);
       setKeylessHealth(!keylessResult.error && keylessResult.data?.ok ? keylessResult.data as KeylessHealth : null);
       setAutoRepair(!autoRepairResult.error ? (autoRepairResult.data ?? []) as AutoRepairRow[] : []);
     } catch (e: any) {
@@ -141,25 +147,25 @@ export default function Operations() {
         : { text: 'CONFIGURÉ · À CONTRÔLER', tone: '#a78bfa' };
   return (
     <AdminLayout>
-      <div className="page-title">Santé Loki Music & Support abonnés</div>
-      <div className="page-subtitle">Reconnaissance musicale, services externes, livraison push réelle et support utilisateurs dans une vue unique.</div>
+      <div className="page-title">Santé <Hint title="Santé" text={<>Reconnaissance musicale, services externes, livraison push réelle et support utilisateurs dans une vue unique.</>}/></div>
 
+      <ReleaseEvidence />
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
       <button onClick={() => void load()} disabled={loading} style={{ marginBottom: 18 }}>
         {loading ? 'Analyse…' : 'Actualiser l’analyse'}
       </button>
 
       <div className="card" style={{ marginBottom: 22 }}>
-        <h3 style={{ marginTop: 0 }}>Réparation automatique Loki Music</h3>
+        <h3 style={{ marginTop: 0 }}>Réparation <Hint title="Réparation" text="Réparation automatique Loki Music."/></h3>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.55 }}>Le Guardian serveur contrôle chaque minute les états réparables sans risque : invitations Battle expirées et manches bloquées après leur délai. Les clés externes manquantes restent signalées et ne sont jamais inventées.</p>
         <strong style={{ color: autoRepair.length ? '#86efac' : '#f59e0b' }}>{autoRepair.length ? 'ACTIF · contrôle automatique chaque minute' : 'À CONTRÔLER'}</strong>
         {autoRepair[0] ? <div style={{ marginTop: 8, color: 'var(--text-muted)' }}>Dernier passage : {new Date(autoRepair[0].ran_at).toLocaleString()} · défis expirés {autoRepair[0].stale_challenges_expired} · manches finalisées {autoRepair[0].battle_rounds_finalized} · manches avancées {autoRepair[0].battle_rounds_advanced}</div> : null}
       </div>
 
       <div className="card" style={{ marginBottom: 22 }}>
-        <h3 style={{ marginTop: 0 }}>Reconnaissance musicale — ordre réel de secours</h3>
+        <h3 style={{ marginTop: 0 }}>Secours <Hint title="Secours" text="Ordre réel de secours des moteurs de reconnaissance musicale."/></h3>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.55 }}>
-          Loki Music ne dépend plus d’une seule API. Sur iPhone, ShazamKit est tenté avant les fournisseurs payants. Un partage TikTok / Instagram / Snapchat / YouTube / Facebook peut aussi être résolu sans clé via les métadonnées publiques et un recoupement de catalogues. AudD et ACRCloud restent des moteurs supplémentaires automatiquement utilisés lorsqu’ils sont configurés et validés.
+          Loki Music ne dépend plus d’une seule API. Sur iPhone, ShazamKit est tenté avant les fournisseurs payants. Un partage TikTok / Instagram / Snapchat / YouTube / Facebook peut aussi être résolu sans clé via les métadonnées publiques et un recoupement de catalogues. ACRCloud est le moteur serveur principal lorsqu’il est configuré. AudD reste un moteur complémentaire optionnel et n’est utilisé que si une clé valide est réellement connectée.
         </p>
         <table>
           <thead><tr><th>Moteur</th><th>État</th><th>Clé requise</th><th>Contrôle</th></tr></thead>
@@ -173,17 +179,17 @@ export default function Operations() {
             <tr>
               <td><strong>ShazamKit iOS</strong><div style={{ color: 'var(--text-muted)', fontSize: 11 }}>empreinte audio native Apple</div></td>
               <td><strong style={{ color: '#93c5fd' }}>INTÉGRÉ · TEST APPAREIL REQUIS</strong></td>
-              <td>Pas de clé AudD/ACRCloud</td>
+              <td>Aucune clé payante</td>
               <td style={{ maxWidth: 360, whiteSpace: 'normal' }}>Module natif présent. L’App Service ShazamKit et le comportement réel seront certifiés avec le build iPhone/TestFlight.</td>
             </tr>
             <tr>
-              <td><strong>AudD</strong><div style={{ color: 'var(--text-muted)', fontSize: 11 }}>fallback serveur</div></td>
+              <td><strong>AudD</strong><div style={{ color: 'var(--text-muted)', fontSize: 11 }}>moteur optionnel</div></td>
               <td><strong style={{ color: audd ? statusInfo(audd, runtimeByKey.get('AUDD_API_KEY')).tone : '#8f849f' }}>{audd ? statusInfo(audd, runtimeByKey.get('AUDD_API_KEY')).text : 'NON CONFIGURÉE'}</strong></td>
               <td>Oui</td>
               <td style={{ maxWidth: 360, whiteSpace: 'normal' }}>{runtimeByKey.get('AUDD_API_KEY')?.last_error ?? 'La clé est testée côté fournisseur au moment de son enregistrement dans Clés & intégrations.'}</td>
             </tr>
             <tr>
-              <td><strong>ACRCloud</strong><div style={{ color: 'var(--text-muted)', fontSize: 11 }}>second fallback serveur</div></td>
+              <td><strong>ACRCloud</strong><div style={{ color: 'var(--text-muted)', fontSize: 11 }}>moteur serveur principal</div></td>
               <td><strong style={{ color: acrState.tone }}>{acrState.text}</strong></td>
               <td>Oui · 3 paramètres</td>
               <td style={{ maxWidth: 360, whiteSpace: 'normal' }}>{acrRuntime?.last_error ?? 'Host + Access Key + Access Secret sont validés ensemble dès que les trois sont renseignés.'}</td>
@@ -199,7 +205,7 @@ export default function Operations() {
       </div>
 
       <div className="card" style={{ marginBottom: 22 }}>
-        <h3 style={{ marginTop: 0 }}>Services / clés pouvant générer un coût</h3>
+        <h3 style={{ marginTop: 0 }}>Coûts <Hint title="Coûts" text="Services et clés pouvant générer un coût."/></h3>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.55 }}>
           Une clé épuisée, un quota atteint ou un paiement requis remonte en rouge dès que le moteur enregistre l’erreur fournisseur. Le bouton ouvre directement le site officiel du fournisseur pour recharger ou gérer l’offre.
         </p>
@@ -216,7 +222,7 @@ export default function Operations() {
                 <td><strong style={{ color: state.tone }}>{state.text}</strong><div style={{ color: 'var(--text-muted)', fontSize: 11 }}>{row.configured ? (row.source ?? 'CONFIGURÉE') : 'Aucune clé active'}</div></td>
                 <td>{live?.last_checked_at ? new Date(live.last_checked_at).toLocaleString('fr-FR') : 'Pas encore contrôlée'}</td>
                 <td style={{ maxWidth: 280, whiteSpace: 'normal' }}>{live?.last_error ?? row.hint ?? '—'}</td>
-                <td><a href={billing.url} target="_blank" rel="noreferrer" style={{ color: '#c4b5fd', fontWeight: 800 }}>{billing.label}</a></td>
+                <td><button type="button" onClick={() => billing.url && openProviderPopup(billing.url, `loki-billing-${row.key}`)} style={{ color: '#ffffff', fontWeight: 800, background: 'rgba(124,92,252,.12)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px', cursor: 'pointer' }}>{billing.label}</button></td>
               </tr>;
             })}
           </tbody>
@@ -224,19 +230,19 @@ export default function Operations() {
       </div>
 
       <div className="card" style={{ marginBottom: 22 }}>
-        <h3 style={{ marginTop: 0 }}>Notifications push — livraison réelle</h3>
+        <h3 style={{ marginTop: 0 }}>Push <Hint title="Push" text="Livraison réelle des notifications push."/></h3>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.55 }}>
           Loki Music distingue maintenant la création, l’acceptation par Expo et le reçu final. Un appareil désinscrit est retiré automatiquement quand Expo renvoie <strong>DeviceNotRegistered</strong>.
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: 10, marginBottom: 16 }}>
           {['TOKENS_REGISTERED', 'CREATED', 'NO_DEVICE', 'SENT', 'DELIVERED', 'FAILED', 'ATTEMPTS_24H'].map((status) => (
             <div key={status} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, background: 'var(--bg-card)' }}>
-              <div style={{ color: PUSH_TONES[status], fontSize: 22, fontWeight: 900 }}>{pushByStatus.get(status) ?? 0}</div>
+              <div style={{ color: PUSH_TONES[status], fontSize: 22, fontWeight: 900 }}>{pushLoaded ? (pushByStatus.get(status) ?? 'Indisponible') : 'Indisponible'}</div>
               <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 3 }}>{PUSH_LABELS[status]}</div>
             </div>
           ))}
         </div>
-        {!loading && (pushByStatus.get('TOKENS_REGISTERED') ?? 0) === 0 && (
+        {!loading && pushLoaded && pushByStatus.get('TOKENS_REGISTERED') === 0 && (
           <div className="demo-banner" style={{ borderColor: '#f59e0b', marginBottom: 14 }}>
             Aucun téléphone réel n’a encore enregistré de token Expo. Les notifications in-app existent, mais aucun push système ne peut être livré tant qu’un build iPhone/Android n’a pas enregistré son appareil.
           </div>
@@ -244,7 +250,7 @@ export default function Operations() {
         <table>
           <thead><tr><th>Utilisateur</th><th>Notification</th><th>État</th><th>Tentatives</th><th>Créée</th><th>Erreur / livraison</th></tr></thead>
           <tbody>
-            {!loading && pushRecent.length === 0 && <tr><td colSpan={6}>Aucune notification.</td></tr>}
+            {!loading && pushLoaded && pushRecent.length === 0 && <tr><td colSpan={6}>Aucune notification.</td></tr>}
             {pushRecent.slice(0, 25).map((row) => <tr key={row.notification_id}>
               <td>{row.username ? `@${row.username}` : '—'}</td>
               <td style={{ maxWidth: 240, whiteSpace: 'normal' }}>{row.title}</td>
@@ -264,7 +270,7 @@ export default function Operations() {
           tableau utilisateurs) dupliquait exactement la page Utilisateurs
           (meme donnee admin_user_directory). Un seul endroit desormais. */}
       <div className="card">
-        <h3 style={{ marginTop: 0 }}>Recherche d’un utilisateur (numéro support, pseudo, e-mail)</h3>
+        <h3 style={{ marginTop: 0 }}>Recherche <Hint title="Recherche" text="Par numéro support, pseudo ou e-mail."/></h3>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.55, marginBottom: 12 }}>
           La recherche et la fiche complète d’un utilisateur (plan, actions, numéro support) vivent dans « Utilisateurs », pour ne pas avoir deux annuaires à maintenir.
         </p>

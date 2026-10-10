@@ -1,8 +1,11 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import postgres from "npm:postgres@3.4.7";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const DB_URL = Deno.env.get("SUPABASE_DB_URL") ?? "";
+const directDb = DB_URL ? postgres(DB_URL, { prepare: false, max: 1, idle_timeout: 10 }) : null;
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false, autoRefreshToken: false } });
 
 const headers = {
@@ -28,6 +31,28 @@ async function requireAdmin(req: Request): Promise<Actor> {
   if (!token) throw new Error("unauthorized");
   const { data: auth, error } = await admin.auth.getUser(token);
   if (error || !auth.user) throw new Error("unauthorized");
+
+  // Incident 02/10/2026 : PostgREST peut tomber en PGRST002 alors que
+  // PostgreSQL + Supabase Auth restent sains. Le Super Admin ne doit pas
+  // perdre l'accès aux dossiers utilisateurs pendant cette panne.
+  if (directDb) {
+    try {
+      const rows = await directDb`
+        select id::text as id, role::text as role, is_active
+        from public.admin_users
+        where id = ${auth.user.id}::uuid
+          and is_active = true
+        limit 1
+      `;
+      const row: any = rows[0];
+      if (!row) throw new Error("admin_required");
+      return { id: auth.user.id, role: String(row.role) };
+    } catch (directError) {
+      if (String((directError as any)?.message ?? directError) === "admin_required") throw directError;
+      console.error("[keep-admin-user-control] direct admin lookup failed", directError);
+    }
+  }
+
   const { data: row, error: roleError } = await admin.from("admin_users").select("id,role,is_active").eq("id", auth.user.id).eq("is_active", true).maybeSingle();
   if (roleError || !row) throw new Error("admin_required");
   return { id: auth.user.id, role: String(row.role) };
@@ -79,13 +104,125 @@ async function cleanupAvatarFolder(profileId: string) {
 }
 
 async function getUserSnapshot(profileId: string) {
+  if (directDb) {
+    try {
+      const [
+        profileRows,
+        privateRows,
+        socialRows,
+        requirementRows,
+        decisionRows,
+        playlistRows,
+        downloadRows,
+        usageRows,
+        authResult,
+      ] = await Promise.all([
+        directDb`
+          select id::text as id, username, display_name, bio, avatar_url, city,
+                 country_code, kind::text as kind, website, is_public,
+                 discovery_hidden, created_at, updated_at, follower_count_override
+          from public.profiles
+          where id = ${profileId}::uuid
+          limit 1
+        `,
+        directDb`
+          select birth_date, gender::text as gender
+          from public.profile_private_info
+          where profile_id = ${profileId}::uuid
+          limit 1
+        `,
+        directDb`
+          select platform::text as platform, url, visibility::text as visibility
+          from public.social_links
+          where profile_id = ${profileId}::uuid
+          order by created_at asc
+        `,
+        directDb`
+          select requirements, updated_at
+          from public.user_profile_requirements
+          where profile_id = ${profileId}::uuid
+          limit 1
+        `,
+        directDb`
+          select id, decision::text as decision, visibility::text as visibility,
+                 context, source_user_id::text as source_user_id, source_type::text as source_type
+          from public.keep_decisions
+          where profile_id = ${profileId}::uuid
+        `,
+        directDb`
+          select count(*)::int as count
+          from public.playlists
+          where owner_id = ${profileId}::uuid
+        `,
+        directDb`
+          select consumed_count
+          from public.download_credit_usage
+          where profile_id = ${profileId}::uuid
+          limit 1
+        `,
+        directDb`
+          select recognized_count, last_recognized_at
+          from public.music_usage_counters
+          where profile_id = ${profileId}::uuid
+          limit 1
+        `,
+        admin.auth.admin.getUserById(profileId),
+      ]);
+
+      const profile: any = profileRows[0];
+      if (!profile) throw new Error("profile_not_found");
+      const privateInfo: any = privateRows[0] ?? null;
+      const requirements: any = requirementRows[0] ?? null;
+      const authUser = (authResult as any)?.data?.user ?? null;
+      const decisions: any[] = Array.from(decisionRows as any);
+      const realEmail = authUser?.email && !authUser.email.endsWith("@keep.local") ? authUser.email : null;
+      const isSocialKeep = (row: any) => row?.decision === "KEPT" && (
+        row?.context?.creditPolicy === "SOCIAL_ZERO_CREDIT"
+        || Boolean(row?.source_user_id)
+        || row?.source_type === "profile"
+        || Boolean(typeof row?.context?.sourceProfileId === "string" && row.context.sourceProfileId.trim())
+      );
+      const socialKeeps = decisions.filter(isSocialKeep).length;
+      const ownKeeps = decisions.filter((row: any) => row.decision === "KEPT" && !isSocialKeep(row)).length;
+
+      return {
+        profile,
+        privateInfo,
+        socialLinks: Array.from(socialRows as any),
+        requirements: Array.isArray(requirements?.requirements) ? requirements.requirements : [],
+        requirementsUpdatedAt: requirements?.updated_at ?? null,
+        auth: {
+          email: realEmail,
+          emailVerified: Boolean(realEmail && authUser?.email_confirmed_at),
+          emailConfirmedAt: realEmail ? authUser?.email_confirmed_at ?? null : null,
+          isAnonymous: Boolean(authUser?.is_anonymous),
+          bannedUntil: authUser?.banned_until ?? null,
+        },
+        usage: {
+          kept: decisions.filter((row: any) => row.decision === "KEPT").length,
+          ownKeeps,
+          socialKeeps,
+          passed: decisions.filter((row: any) => row.decision === "PASSED").length,
+          publicKeeps: decisions.filter((row: any) => row.decision === "KEPT" && row.visibility === "PUBLIC").length,
+          playlists: Number((playlistRows as any)[0]?.count ?? 0),
+          downloadsConsumed: Number((downloadRows as any)[0]?.consumed_count ?? 0),
+          recognizedCount: Number((usageRows as any)[0]?.recognized_count ?? 0),
+          lastRecognizedAt: (usageRows as any)[0]?.last_recognized_at ?? null,
+        },
+      };
+    } catch (directError) {
+      if (String((directError as any)?.message ?? directError) === "profile_not_found") throw directError;
+      console.error("[keep-admin-user-control] direct snapshot failed", directError);
+    }
+  }
+
   const [{ data: profile, error: profileError }, { data: privateInfo }, { data: socials }, { data: requirements }, authResult, keepResult, playlistResult, downloadResult, musicUsageResult] = await Promise.all([
     admin.from("profiles").select("id,username,display_name,bio,avatar_url,city,country_code,kind,website,is_public,discovery_hidden,created_at,updated_at,follower_count_override").eq("id", profileId).maybeSingle(),
     admin.from("profile_private_info").select("birth_date,gender").eq("profile_id", profileId).maybeSingle(),
     admin.from("social_links").select("platform,url,visibility").eq("profile_id", profileId),
     admin.from("user_profile_requirements").select("requirements,updated_at").eq("profile_id", profileId).maybeSingle(),
     admin.auth.admin.getUserById(profileId),
-    admin.from("keep_decisions").select("id,decision,visibility,context,source_user_id", { count: "exact" }).eq("profile_id", profileId),
+    admin.from("keep_decisions").select("id,decision,visibility,context,source_user_id,source_type", { count: "exact" }).eq("profile_id", profileId),
     admin.from("playlists").select("id", { count: "exact", head: true }).eq("owner_id", profileId),
     admin.from("download_credit_usage").select("consumed_count").eq("profile_id", profileId).maybeSingle(),
     admin.from("music_usage_counters").select("recognized_count,last_recognized_at").eq("profile_id", profileId).maybeSingle(),
@@ -94,8 +231,14 @@ async function getUserSnapshot(profileId: string) {
   const authUser = authResult.data.user ?? null;
   const decisions = keepResult.data ?? [];
   const realEmail = authUser?.email && !authUser.email.endsWith("@keep.local") ? authUser.email : null;
-  const socialKeeps = decisions.filter((row: any) => row.decision === "KEPT" && (row.context?.creditPolicy === "SOCIAL_ZERO_CREDIT" || row.source_user_id)).length;
-  const ownKeeps = decisions.filter((row: any) => row.decision === "KEPT" && row.context?.creditPolicy !== "SOCIAL_ZERO_CREDIT" && !row.source_user_id).length;
+  const isSocialKeep = (row: any) => row?.decision === "KEPT" && (
+    row?.context?.creditPolicy === "SOCIAL_ZERO_CREDIT"
+    || Boolean(row?.source_user_id)
+    || row?.source_type === "profile"
+    || Boolean(typeof row?.context?.sourceProfileId === "string" && row.context.sourceProfileId.trim())
+  );
+  const socialKeeps = decisions.filter(isSocialKeep).length;
+  const ownKeeps = decisions.filter((row: any) => row.decision === "KEPT" && !isSocialKeep(row)).length;
   return {
     profile,
     privateInfo: privateInfo ?? null,
@@ -230,7 +373,7 @@ Deno.serve(async (req) => {
       const { error: grantError } = await admin.from("admin_credit_grants").insert({ profile_id: profileId, amount, reason, granted_by: actor.id });
       if (grantError) throw grantError;
       const title = amount > 0 ? `🎁 Loki Music t'offre ${amount} Free` : `Ajustement de ton solde Free`;
-      const notifBody = reason || (amount > 0 ? "Un petit geste de l'équipe Loki Music -- profites-en !" : "Ton solde Free a été ajusté par l'équipe Loki Music.");
+      const notifBody = reason || (amount > 0 ? "Un petit geste de Loki Music -- profites-en !" : "Ton solde Free a été ajusté par Loki Music.");
       await admin.from("notifications").insert({ profile_id: profileId, type: "ADMIN_CREDIT_GRANT", title, body: notifBody, data: { amount, reason } });
       await audit(actor.id, "user.credits.granted", profileId, { amount, reason });
       const { data: creditRemaining } = await admin.rpc("keep_theoretical_free_credit_remaining_for_profile", { p_uid: profileId });

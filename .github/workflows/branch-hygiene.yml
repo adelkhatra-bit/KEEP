@@ -1,0 +1,82 @@
+name: KEEP — Branch hygiene
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'BRANCH_SOURCE_OF_TRUTH.json'
+      - '.github/workflows/branch-hygiene.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  remove-misleading-legacy-branches:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Lock canonical source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = 'adelkhatra-bit/KEEP'
+          test "$GITHUB_REF_NAME" = 'reconcile/claude-main-20260825'
+
+      - name: Archive then delete every non-canonical human branch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          canonical='reconcile/claude-main-20260825'
+
+          mapfile -t branches < <(
+            gh api --paginate "repos/$GITHUB_REPOSITORY/branches?per_page=100" --jq '.[].name'
+          )
+
+          for branch in "${branches[@]}"; do
+            case "$branch" in
+              "$canonical"|main|dependabot/*|archive/*)
+                echo "KEEP: $branch"
+                continue
+                ;;
+            esac
+
+            sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$branch" --jq '.object.sha')"
+            safe="$(printf '%s' "$branch" | sed -E 's#[^A-Za-z0-9._-]+#--#g')"
+            tag="archive/legacy-${safe}-${sha:0:8}"
+
+            if ! gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" >/dev/null 2>&1; then
+              gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs"                 -f ref="refs/tags/$tag"                 -f sha="$sha" >/dev/null
+              echo "Archived branch $branch -> tag $tag"
+            else
+              echo "Archive tag already exists: $tag"
+            fi
+
+            gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch"
+            echo "Deleted confusing branch: $branch"
+          done
+
+      - name: Verify only canonical/default/automation branches remain
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          canonical='reconcile/claude-main-20260825'
+          unexpected=0
+
+          while IFS= read -r branch; do
+            case "$branch" in
+              "$canonical"|main|dependabot/*|archive/*)
+                ;;
+              *)
+                echo "ERROR: unexpected human branch still exists: $branch"
+                unexpected=1
+                ;;
+            esac
+          done < <(gh api --paginate "repos/$GITHUB_REPOSITORY/branches?per_page=100" --jq '.[].name')
+
+          test "$unexpected" = 0
+          echo "Branch hygiene verified: ONE human product branch = $canonical"

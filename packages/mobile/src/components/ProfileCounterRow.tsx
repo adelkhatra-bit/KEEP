@@ -1,5 +1,5 @@
-import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import { colors } from '../theme/colors';
 import { radius } from '../theme/spacing';
 import { formatCompactNumber } from '../utils/formatCompactNumber';
@@ -13,6 +13,8 @@ export type ProfileCounterItem = {
   // Abonnés/Abonnements), les autres (Morceaux/Reprises) restent tels quels.
   onPress?: () => void;
   active?: boolean;
+  hint?: string;
+  disabled?: boolean;
 };
 
 type Props = {
@@ -23,8 +25,17 @@ type Props = {
 };
 
 export default function ProfileCounterRow({ items, kind = 'keeps', style }: Props) {
+  const glow = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(glow, { toValue: 1, duration: 1300, useNativeDriver: false }),
+      Animated.timing(glow, { toValue: 0, duration: 1300, useNativeDriver: false }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [glow]);
   return (
-    <View style={[styles.row, kind === 'connections' ? styles.connections : styles.keeps, style]}>
+    <View style={[styles.row, kind === 'connections' ? styles.connections : styles.keeps, items.length >= 4 && styles.fourItems, style]}>
       {items.map((item) => {
         const content = (
           <>
@@ -32,18 +43,20 @@ export default function ProfileCounterRow({ items, kind = 'keeps', style }: Prop
             <Text style={styles.label}>{item.label}</Text>
           </>
         );
-        return item.onPress ? (
+        const interactive = Boolean(item.onPress) && !item.disabled;
+        const handlePress = () => { if (!interactive) return; item.onPress?.(); };
+        return (
           <TouchableOpacity
             key={item.label}
-            style={[styles.item, styles.itemClickable, item.active && styles.itemActive]}
-            onPress={item.onPress}
+            style={[styles.item, items.length >= 4 && styles.itemFour, interactive && styles.itemClickable, !interactive && styles.itemPrivate, item.active && styles.itemActive]}
+            onPress={handlePress}
+            disabled={!interactive}
             accessibilityRole="button"
             accessibilityLabel={`${item.value} ${item.label}`}
           >
             {content}
+            {interactive ? <Animated.View pointerEvents="none" style={[styles.clickCue,{opacity:glow}]} /> : null}
           </TouchableOpacity>
-        ) : (
-          <View key={item.label} style={styles.item}>{content}</View>
         );
       })}
     </View>
@@ -53,6 +66,7 @@ export default function ProfileCounterRow({ items, kind = 'keeps', style }: Prop
 const styles = StyleSheet.create({
   row: {
     alignSelf: 'stretch',
+    minHeight: 62,
     flexShrink: 1,
     flexDirection: 'row',
     backgroundColor: colors.backgroundCard,
@@ -62,17 +76,21 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   connections: { marginTop: 8 },
+  fourItems: { marginTop: 8 },
   keeps: { marginTop: 10 },
   item: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 6 },
+  itemFour: { paddingHorizontal: 2 },
   // Adel (07/09/2026) : "fais un contour ... pour qu'on comprenne que c'est
   // cliquable" -- un chiffre cliquable (Morceaux, Reprises, Abonnés...) doit
   // se voir avant même d'être touché, pas seulement au survol/à l'appui.
-  itemClickable: { margin: 3, borderRadius: radius.md, borderWidth: 1, borderColor: 'rgba(139,92,246,.45)' },
+  itemClickable: { borderRightWidth: 1, borderRightColor: colors.border },
   itemActive: { backgroundColor: 'rgba(139,92,246,.16)' },
-  value: { color: '#FFFFFF', fontSize: 20, fontWeight: '800', textAlign: 'center' },
+  itemPrivate: { opacity: 0.82 },
+  clickCue: { position:'absolute', left:8, right:8, bottom:4, height:1, borderRadius:1, backgroundColor:'rgba(255,255,255,.55)' },
+  value: { color: '#FFFFFF', fontSize: 18, fontWeight: '800', textAlign: 'center' },
   // Adel (11/09/2026) : retours utilisateurs "le profil c'est trop petit,
   // on a du mal à voir" -- 11px illisible pour Abonnés/Reprises/Morceaux/
   // Abonnements sur un vrai écran de téléphone, remonté à 13px partout où
   // ce composant est utilisé (profil propriétaire, visité, partagé, Discover).
-  label: { color: '#FFFFFF', fontSize: 13, width: '100%', lineHeight: 16, marginTop: 3, textAlign: 'center', fontWeight: '700' },
+  label: { color: colors.textMuted, fontSize: 10, width: '100%', lineHeight: 13, marginTop: 2, textAlign: 'center', fontWeight: '800' },
 });

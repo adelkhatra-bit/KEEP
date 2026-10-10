@@ -11,7 +11,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const STOREFRONTS = ["US", "FR", "GB", "CA", "AU"];
+const STOREFRONTS = ["US", "FR", "GB", "CA", "AU", "DE", "ES", "BR", "MX", "IN", "JP", "KR", "AE"];
 
 function json(status: number, payload: unknown) {
   return new Response(JSON.stringify(payload), { status, headers: { ...corsHeaders, "content-type": "application/json", "cache-control": "no-store" } });
@@ -43,20 +43,60 @@ function yearFrom(value: unknown): number | null {
 function themesFor(genreRaw: unknown, year: number | null): string[] {
   const genre = norm(genreRaw);
   const out = new Set<string>();
-  if (/afro|afrobeats|afro beat|amapiano/.test(genre)) out.add("AFRO");
+  if (/afro|afrobeats|afro beat|amapiano|afropop|afro pop|afro house/.test(genre)) out.add("AFRO");
+  if (/amapiano/.test(genre)) out.add("AMAPIANO");
+  if (/afro house/.test(genre)) out.add("AFROHOUSE");
+  if (/afropop|afro pop/.test(genre)) out.add("AFROPOP");
   if (/french pop|chanson francaise/.test(genre)) out.add("CHANSON_FR");
   if (/classical|classique|opera/.test(genre)) out.add("CLASSIQUE");
   if (/disco/.test(genre)) out.add("DISCO");
-  if (/dance|electronic|electronica|house|techno|edm|trance/.test(genre)) out.add("ELECTRO");
+  if (/dance|electronic|electronica|house|techno|edm|trance|dubstep|garage|drum bass|drum and bass/.test(genre)) out.add("ELECTRO");
+  if (/house/.test(genre)) out.add("HOUSE");
+  if (/techno/.test(genre)) out.add("TECHNO");
+  if (/trance|psytrance/.test(genre)) out.add("TRANCE");
+  if (/drum bass|drum and bass|dnb|jungle/.test(genre)) out.add("DNB");
+  if (/dubstep/.test(genre)) out.add("DUBSTEP");
+  if (/uk garage|2 step|garage/.test(genre)) out.add("UK_GARAGE");
+  if (/grime/.test(genre)) out.add("GRIME");
+  if (/drill/.test(genre)) out.add("DRILL");
   if (/funk/.test(genre)) out.add("FUNK");
   if (/jazz/.test(genre)) out.add("JAZZ");
-  if (/latin|latino|reggaeton|salsa|bachata/.test(genre)) out.add("LATINO");
+  if (/latin|latino|reggaeton|salsa|bachata|cumbia|merengue/.test(genre)) out.add("LATINO");
+  if (/reggaeton|urbano latino|urban latin/.test(genre)) out.add("REGGAETON");
+  if (/salsa/.test(genre)) out.add("SALSA");
+  if (/bachata/.test(genre)) out.add("BACHATA");
+  if (/cumbia/.test(genre)) out.add("CUMBIA");
+  if (/merengue/.test(genre)) out.add("MERENGUE");
+  if (/flamenco/.test(genre)) out.add("FLAMENCO");
+  if (/fado/.test(genre)) out.add("FADO");
+  if (/zouk/.test(genre)) out.add("ZOUK");
+  if (/kompa|compas/.test(genre)) out.add("KOMPA");
+  if (/gnawa|gnaoua/.test(genre)) out.add("GNAWA");
+  if (/chaabi/.test(genre)) out.add("CHAABI");
+  if (/khaleeji/.test(genre)) out.add("KHALEEJI");
+  if (/egyptian/.test(genre)) out.add("EGYPT_POP");
+  if (/j pop|japanese pop|city pop/.test(genre)) out.add("JPOP");
+  if (/anime|anisong/.test(genre)) out.add("ANIME");
+  if (/c pop|cantopop|chinese pop/.test(genre)) out.add("CPOP");
+  if (/mandopop|mandarin pop/.test(genre)) out.add("MANDOPOP");
+  if (/punjabi|bhangra/.test(genre)) out.add("PUNJABI");
+  if (/lofi|lo fi|chillhop/.test(genre)) out.add("LOFI");
+  if (/ambient|downtempo/.test(genre)) out.add("AMBIENT");
+  if (/folk|singer songwriter/.test(genre)) out.add("FOLK");
   if (/\bpop\b/.test(genre)) out.add("POP");
   if (/rai|maghreb|arabic/.test(genre)) out.add("RAI");
   if (/reggae|dancehall/.test(genre)) out.add("REGGAE");
+  if (/dancehall/.test(genre)) out.add("DANCEHALL");
+  if (/gospel|christian/.test(genre)) out.add("GOSPEL");
   if (/r b|rnb|rhythm blues/.test(genre)) out.add("RNB");
   if (/soul/.test(genre)) { out.add("SOUL"); out.add("RNB"); }
   if (/rock|alternative|metal|punk|grunge/.test(genre)) out.add("ROCK");
+  if (/alternative|indie/.test(genre)) out.add("ALTERNATIVE");
+  if (/metal|metalcore/.test(genre)) out.add("METAL");
+  if (/punk/.test(genre)) out.add("PUNK");
+  if (/country/.test(genre)) out.add("COUNTRY");
+  if (/blues/.test(genre)) out.add("BLUES");
+  if (/soundtrack|original score|film score|bande originale/.test(genre)) out.add("SOUNDTRACK");
   if (/hip hop|rap/.test(genre)) out.add("RAP_US");
   if (year != null && year >= 1980 && year <= 1989) out.add("ANNEES_80");
   if (year != null && year >= 1990 && year <= 1999) out.add("ANNEES_90");

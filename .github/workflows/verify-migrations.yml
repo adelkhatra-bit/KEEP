@@ -5,6 +5,7 @@ name: KEEP — Vérification migrations SQL (PostgreSQL réel)
 # exécute les assertions métier réelles (triggers, cohérence devise, RLS,
 # confidentialité Public/Privé, suppression KEEP et invitation ami préremplie).
 # La branche de travail unique KEEP est la seule source active.
+# final-runtime-audit: 2026-10-04 battle-push-mobile
 
 on:
   push:

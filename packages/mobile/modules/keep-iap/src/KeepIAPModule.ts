@@ -19,6 +19,9 @@ export type KeepIAPTransaction = {
   revocationDateMs?: number | null;
   appAccountToken?: string | null;
   jwsRepresentation?: string;
+  purchaseToken?: string;
+  packageName?: string;
+  platform?: 'ios' | 'android';
 };
 
 export type KeepIAPNativeModule = {

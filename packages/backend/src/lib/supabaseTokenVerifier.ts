@@ -13,11 +13,19 @@ import { TokenVerifier } from './keepAuth';
  * planter ou, pire, de laisser passer une route sensible sans protection.
  */
 export function createSupabaseTokenVerifier(): TokenVerifier | null {
-  const url = process.env.SUPABASE_URL;
-  const anonKey = process.env.SUPABASE_ANON_KEY;
-  if (!url || !anonKey) return null;
+  const url = process.env.SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL;
+  // Un déploiement backend historique pouvait avoir la service_role sans
+  // SUPABASE_ANON_KEY et montait alors toutes les routes /library en 503.
+  // auth.getUser(token) peut être vérifié avec une clé serveur ou publishable :
+  // aucune de ces clés n'est renvoyée au client.
+  const verifierKey =
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_PUBLISHABLE_KEY ||
+    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !verifierKey) return null;
 
-  const client = createClient(url, anonKey);
+  const client = createClient(url, verifierKey, { auth: { persistSession: false, autoRefreshToken: false } });
   return {
     async verify(accessToken) {
       const { data, error } = await client.auth.getUser(accessToken);
