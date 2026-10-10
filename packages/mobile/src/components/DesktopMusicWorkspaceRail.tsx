@@ -4,6 +4,7 @@ import { colors } from '../theme/colors';
 import { useSessionStore } from '../store/useSessionStore';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useUserStore } from '../store/useUserStore';
+import { Alert } from '../utils/keepAlert';
 
 /**
  * Un poste de travail exploite les gouttières autour de l'écoute centrale.
@@ -22,6 +23,24 @@ export default function DesktopMusicWorkspaceRail({
   if (Platform.OS !== 'web' || width < 1100) return null;
   const railWidth = Math.max(150, Math.min(260, Math.floor((width - 760) / 2) - 22));
   const recent = sessions.filter((session) => !session.id.startsWith('__keep-')).slice(0, 3);
+  const openShortcut = (screen: string, title: string) => {
+    if (!useSessionStore.getState().isActive) {
+      navigation.navigate(screen);
+      return;
+    }
+    Alert.alert(
+      'Terminer l’écoute avant ' + title + ' ?',
+      'Le micro sera arrêté. Les morceaux déjà détectés restent dans Mes Sessions. Tu pourras les réécouter, les swiper et les garder ensuite.',
+      [
+        { text: 'Continuer l’écoute', style: 'cancel' },
+        { text: 'Arrêter et ouvrir', onPress: () => {
+          useSessionStore.getState().requestEndSession();
+          navigation.navigate(screen);
+        } },
+      ],
+      { cancelable: true },
+    );
+  };
   const shortcuts: Array<{ title: string; screen: string; hint: string }> = [
     { title: 'Découvertes', screen: 'Discover', hint: 'Explorer les trouvailles' },
     { title: 'Playlists', screen: 'MyMusic', hint: 'Mes collections' },
@@ -45,7 +64,7 @@ export default function DesktopMusicWorkspaceRail({
         </View>
         <Text style={s.section}>Accès rapide</Text>
         {shortcuts.map(({ title, screen, hint }) => (
-          <TouchableOpacity key={screen} style={s.link} onPress={() => navigation.navigate(screen)} accessibilityRole="button" accessibilityLabel={'Ouvrir ' + title}>
+          <TouchableOpacity key={screen} style={s.link} onPress={() => openShortcut(screen, title)} accessibilityRole="button" accessibilityLabel={'Ouvrir ' + title}>
             <Text style={s.linkName}>{title}</Text>
             <Text style={s.linkHint}>{hint}</Text>
           </TouchableOpacity>
