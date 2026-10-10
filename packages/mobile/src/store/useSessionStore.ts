@@ -13,6 +13,7 @@ import { clearSharedMusicSource, getSharedMusicSource } from '../services/shared
 import { prepareRecognitionNotifications } from '../services/recognitionNotificationService';
 import { useSessionHistoryStore } from './useSessionHistoryStore';
 import { useAccountGateStore } from './useAccountGateStore';
+import { useUserStore } from './useUserStore';
 import { advanceMusicPresenceGate, classifyMusicPresence, createMusicPresenceGateState, type MusicPresenceVerdict } from '../services/musicPresence';
 import { listenQuotaMessage, loadListenEconomyStatus, recordListenSuccess, type ListenEconomyStatus } from '../services/listenEconomyService';
 
@@ -207,7 +208,9 @@ interface SessionStore {
 
 function persistLiveSession(state: SessionStore) {
   if (!state.isActive || !state.sessionId || !state.startedAt || state.tracks.length === 0) return;
+  const identity = useUserStore.getState();
   useSessionHistoryStore.getState().upsertSession({
+    ownerUserId: identity.user && !identity.isDemoMode && !identity.isLocalGuest ? identity.user.id : undefined,
     id: state.sessionId,
     startedAt: state.startedAt,
     endedAt: null,
@@ -648,7 +651,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     void clearSharedMusicSource();
     const s = get();
     if (!s.sessionId || !s.startedAt) return null;
-    const session: KeepSession = { id: s.sessionId, startedAt: s.startedAt, endedAt: new Date().toISOString(), title: title ?? null, locationLabel: s.locationLabel, lat: s.lat, lng: s.lng, tracks: s.tracks };
+    const identity = useUserStore.getState();
+    const ownerUserId = identity.user && !identity.isDemoMode && !identity.isLocalGuest ? identity.user.id : undefined;
+    const session: KeepSession = { ownerUserId, id: s.sessionId, startedAt: s.startedAt, endedAt: new Date().toISOString(), title: title ?? null, locationLabel: s.locationLabel, lat: s.lat, lng: s.lng, tracks: s.tracks };
     if (session.tracks.length > 0) useSessionHistoryStore.getState().upsertSession(session);
     presenceGate = createMusicPresenceGateState();
     listenFreeAuthorizedForNextSuccess = false;
