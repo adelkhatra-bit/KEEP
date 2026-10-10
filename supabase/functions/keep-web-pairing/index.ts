@@ -8,6 +8,10 @@ const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
+// Partage sur ordinateur : 24 h puis déconnexion automatique (Adel 10/10/2026).
+// Calculé depuis created_at : aucune colonne ni migration nécessaire.
+const PC_SHARE_DURATION_MS = 24 * 60 * 60 * 1000;
+
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -239,12 +243,17 @@ Deno.serve(async (req) => {
       const id = String(body?.sessionId ?? "");
       const { data } = await admin
         .from("web_companion_sessions")
-        .select("id,revoked_at")
+        .select("id,revoked_at,created_at")
         .eq("id", id)
         .eq("user_id", auth.user.id)
         .maybeSingle();
       if (!data) return json(404, { error: "session_not_found" });
       if (data.revoked_at) return json(200, { ok: true, revoked: true, revokedAt: data.revoked_at });
+      if (Date.now() - new Date(data.created_at).getTime() >= PC_SHARE_DURATION_MS) {
+        const expiredAt = new Date().toISOString();
+        await admin.from("web_companion_sessions").update({ revoked_at: expiredAt }).eq("id", id).is("revoked_at", null);
+        return json(200, { ok: true, revoked: true, revokedAt: expiredAt, expired: true });
+      }
       await admin.from("web_companion_sessions").update({ last_seen_at: new Date().toISOString() }).eq("id", id);
       return json(200, { ok: true, revoked: false });
     }

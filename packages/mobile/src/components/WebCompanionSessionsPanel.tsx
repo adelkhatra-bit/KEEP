@@ -7,6 +7,7 @@ import {
   revokeWebCompanionSession,
   WebCompanionSession,
 } from '../services/webPairingService';
+import { loadPcShareFreeCost, pcShareHoursLeft, pcShareMessage } from '../services/pcShareService';
 
 function label(session: WebCompanionSession) {
   return session.device_label || 'Ordinateur Loki';
@@ -35,7 +36,11 @@ export default function WebCompanionSessionsPanel() {
 
   if (Platform.OS === 'web') return null;
 
-  const active = sessions.filter((s) => !s.revoked_at);
+  const active = sessions.filter((s) => !s.revoked_at && pcShareHoursLeft(s.created_at) > 0);
+
+  const explainShare = () => {
+    void loadPcShareFreeCost().then((cost) => Alert.alert('Partager sur mon PC', pcShareMessage(cost)));
+  };
 
   const disconnect = (session: WebCompanionSession) => {
     Alert.alert(
@@ -60,6 +65,9 @@ export default function WebCompanionSessionsPanel() {
 
   return (
     <View style={s.wrap}>
+      <TouchableOpacity style={s.share} onPress={explainShare} accessibilityRole="button" accessibilityLabel="Partager sur mon PC" testID="pc-share-button">
+        <Text style={s.shareText}>🖥️ Partager sur mon PC · 24 h</Text>
+      </TouchableOpacity>
       <Text style={s.title}>Ordinateurs connectés</Text>
       <Text style={s.help}>Les connexions ordinateur se font uniquement avec le QR Loki Music affiché sur le Web.</Text>
       {loading ? <Text style={s.muted}>Vérification…</Text> : active.length === 0 ? (
@@ -68,7 +76,7 @@ export default function WebCompanionSessionsPanel() {
         <View key={session.id} style={s.row}>
           <View style={s.info}>
             <Text style={s.device}>{label(session)}</Text>
-            <Text style={s.muted}>Dernière activité : {new Date(session.last_seen_at).toLocaleString('fr-FR')}</Text>
+            <Text style={s.muted}>Dernière activité : {new Date(session.last_seen_at).toLocaleString('fr-FR')} · déconnexion auto dans {pcShareHoursLeft(session.created_at)} h</Text>
           </View>
           <TouchableOpacity
             style={s.disconnect}
@@ -98,6 +106,8 @@ const s = StyleSheet.create({
   device: { color: colors.textPrimary, fontSize: 13, fontWeight: '800' },
   disconnect: { minHeight: 38, paddingHorizontal: 12, borderRadius: 19, borderWidth: 1, borderColor: colors.danger, alignItems: 'center', justifyContent: 'center' },
   disconnectText: { color: colors.danger, fontSize: 11, fontWeight: '900' },
+  share: { minHeight: 46, marginBottom: 12, borderRadius: 23, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+  shareText: { color: colors.textPrimary, fontSize: 14, fontWeight: '900' },
   refresh: { minHeight: 38, marginTop: 10, alignItems: 'center', justifyContent: 'center' },
   refreshText: { color: colors.primaryLight, fontSize: 12, fontWeight: '800' },
 });
