@@ -106,7 +106,7 @@ const MENU_GROUPS: ProfileMenuGroup[] = [
       { key: 'profile', icon: '👤', label: 'Réglages du profil', hint: 'Photo · pseudo · bio · ville · pays' },
       { key: 'identityShare', icon: '▦', label: 'Carte', hint: 'QR · lien · partage' },
       { key: 'musicTaste', icon: '♫', label: 'Mes goûts musicaux', hint: 'Styles · langues · pays · Loki Pulse' },
-      { key: 'ear', icon: '👂', label: 'Mon oreille', hint: 'Niveau · défis · rapport de communauté' },
+      { key: 'ear', icon: '🏆', label: 'Défi Loki · Ma progression', hint: 'Découvrir · garder · publier des stories · faire grandir sa communauté' },
       { key: 'publicProfile', icon: '🌐', label: 'Réseaux & site web', hint: 'Instagram · TikTok · Snapchat · YouTube · X · Facebook' },
       { key: 'chatSettings', icon: '💬', label: 'Messagerie', hint: 'Pages · côté · hauteur · alertes' },
     ],
