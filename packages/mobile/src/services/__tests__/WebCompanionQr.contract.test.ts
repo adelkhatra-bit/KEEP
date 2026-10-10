@@ -21,7 +21,10 @@ describe('Web companion QR contract', () => {
     expect(edge).toContain("keep://pair?pairing_id=");
     expect(pairing).toContain("approveDesktopPairing");
     expect(lifecycle).toContain("Linking.addEventListener('url'");
-    expect(chatHost).toContain('<WebPairingLifecycle />');
+    // Une seule instance, montée à la racine (App.tsx) : deux montages = deux popups et deux approbations.
+    // App.tsx est protégé : l'instance unique vit dans AccountGateModal (monté toujours).
+    expect(chatHost).not.toContain('<WebPairingLifecycle');
+    expect((read('..', '..', 'components', 'AccountGateModal.tsx').match(/<WebPairingLifecycle \/>/g) || []).length).toBe(1);
   });
 
   it('stores no refresh token in the pairing backend and uses one-time magic-link auth', () => {
