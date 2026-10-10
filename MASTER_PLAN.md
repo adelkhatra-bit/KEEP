@@ -152,3 +152,8 @@ Résumé : trois largeurs différentes selon l'onglet (700 / 1130 / 1890 px) ; l
 5. L'offre tchat sort de la boutique (section « Messagerie privée » séparée).
 6. Propriétaire : badge « ACTIVE / DÉSACTIVÉE » + bouton Modifier sur chaque carte.
 **Fichiers :** `SellerBoutique.tsx` (propriétaire du design), `ProfilePublicScreen.tsx` (en-tête). **Garde-fous :** `SellerBoutique.contract.test.ts`, règle Apple 3.1.1 (€ masqué sur iPhone), parité 390×844 / 1440×900. Rien n'est codé tant qu'Adel n'a pas validé.
+
+## Plan ☰ de l'écoute en demi-écran (10/10/2026) — À VALIDER PAR ADEL
+**Constat :** le ☰ (et la pastille « N prêts à trier ») de `TopBar` appelle `navigation.navigate('SessionHistory')` : écran complet, l'écoute passe derrière, l'utilisateur ne sait plus comment revenir.
+**Proposition :** une feuille basse (≈ 50 % de la hauteur, accordéon qui se déploie depuis le haut du ☰) par-dessus l'écoute, qui ne la coupe pas : (1) « Cette session » = morceaux trouvés à trier, avec GARDER / PASSER ; (2) une ligne « Tout l'historique › » qui seule ouvre `SessionHistory` en plein écran ; (3) fermeture par toucher du fond, glisser vers le bas ou bouton ×, retour exact sur l'écoute. Composant réutilisant la liste existante (aucune seconde logique de session). Sur PC (1440×900) : panneau latéral de 420 px.
+**Garde-fous :** écoute en cours jamais interrompue ; parité mobile / PC ; test dual-viewport ; barre des 5 onglets inchangée. Aucun code avant validation.
