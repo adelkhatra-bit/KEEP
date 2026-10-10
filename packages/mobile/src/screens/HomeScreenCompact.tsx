@@ -180,6 +180,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   useEffect(() => () => { if (snackTimer.current) clearTimeout(snackTimer.current); }, []);
   const [privacyBusy, setPrivacyBusy] = useState(false);
   const [manualSearchOpen, setManualSearchOpen] = useState(false);
+  const [sessionPeekOpen, setSessionPeekOpen] = useState(false);
   const [demoListenLimit, setDemoListenLimit] = useState(3);
   const [demoListenUsed, setDemoListenUsed] = useState(0);
   const demoListenUsedRef = useRef(0);
@@ -556,8 +557,24 @@ export default function HomeScreenCompact({ navigation }: any) {
   const destination = current?.existingMatch?.playlistName || current?.recommendations?.[0]?.playlistName || playlists[0]?.name || 'Mes découvertes';
 
   const finishSession = () => {
+    setSessionPeekOpen(false);
     setKeepChoiceOpen(false);
     requestEndSession();
+  };
+  const openSessionHistorySafely = () => {
+    setSessionPeekOpen(false);
+    if (!useSessionStore.getState().isActive) { navigation.navigate('SessionHistory'); return; }
+    Alert.alert('Terminer l’écoute pour ouvrir Mes Sessions ?',
+      'Le micro sera arrêté. Les morceaux détectés restent dans ta session pour être réécoutés, swipés et sélectionnés. Tu pourras ensuite relancer une écoute.',
+      [
+        { text: 'Continuer l’écoute', style: 'cancel' },
+        { text: 'Arrêter et ouvrir Mes Sessions', onPress: () => {
+          requestEndSession();
+          navigation.navigate('SessionHistory');
+        } },
+      ],
+      { cancelable: true },
+    );
   };
 
   const doKeep = async (entryId: string, playlistId: string | undefined, visibility: KeepVisibility) => {
@@ -743,7 +760,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   return (
     <SafeAreaView style={s.container}><PersonalThemeBackdrop />
       <AuroraBackground active={isActive && !micIdle} />
-      <TopBar navigation={navigation} readyCount={detected} title="À toi de jouer" />
+      <TopBar navigation={navigation} readyCount={detected} title="À toi de jouer" onOpenSessions={() => setSessionPeekOpen(true)} />
 
       <ScrollView
         style={s.main}
@@ -915,6 +932,28 @@ export default function HomeScreenCompact({ navigation }: any) {
         <TouchableOpacity style={s.secondary} onPress={finishSession} accessibilityRole="button" accessibilityLabel="Couper le micro"><Text style={s.secondaryText}>■  COUPER LE MICRO</Text></TouchableOpacity>
       </View>
 
+      <KeepModal visible={sessionPeekOpen} transparent animationType="fade" onRequestClose={() => setSessionPeekOpen(false)}>
+        <View style={s.modalOverlay}><View style={[s.modalCard, { maxWidth: 440, maxHeight: '78%' }]}>
+          <Text style={s.modalTitle}>Ta session en cours</Text>
+          <Text style={{ color: C.green, fontSize: 12, marginTop: 8, fontWeight: '800' }}>● Le micro continue d’écouter</Text>
+          <Text style={s.modalBody}>{tracks.length} morceau{tracks.length > 1 ? 'x' : ''} détecté{tracks.length > 1 ? 's' : ''} · {tracks.filter((x) => x.status === 'pending').length} à swiper</Text>
+          <ScrollView style={{ maxHeight: 215, marginTop: 10 }}>
+            {tracks.length === 0 ? <Text style={s.modalBody}>Les morceaux reconnus apparaissent ici.</Text> : tracks.slice(0, 8).map((entry) => (
+              <View key={entry.id} style={{ borderBottomWidth: 1, borderBottomColor: C.line, paddingVertical: 8 }}>
+                <Text style={{ color: C.text, fontSize: 13, fontWeight: '700' }} numberOfLines={1}>{entry.track.title} — {entry.track.artist}</Text>
+                <Text style={{ color: C.muted, fontSize: 11 }}>{entry.status === 'kept' ? 'Gardé' : entry.status === 'passed' ? 'Passé' : entry.status === 'already_saved' ? 'Déjà gardé' : 'À swiper'}</Text>
+              </View>
+            ))}
+          </ScrollView>
+          <Text style={{ color: C.text, fontSize: 12, lineHeight: 18, marginTop: 12 }}>Pour réécouter les extraits, swiper et sélectionner tes morceaux, termine d’abord l’écoute. Les morceaux détectés sont conservés.</Text>
+          <TouchableOpacity onPress={() => setSessionPeekOpen(false)} style={[s.modalBtn, { backgroundColor: C.purple, marginTop: 16 }]} accessibilityRole="button" accessibilityLabel="Continuer l'écoute sans couper le micro">
+            <Text style={s.modalBtnText}>CONTINUER L’ÉCOUTE</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={openSessionHistorySafely} style={[s.modalBtn, { marginTop: 8 }]} accessibilityRole="button" accessibilityLabel="Arrêter puis ouvrir Mes Sessions">
+            <Text style={s.modalBtnText}>TERMINER ET OUVRIR MES SESSIONS</Text>
+          </TouchableOpacity>
+        </View></View>
+      </KeepModal>
       <KeepVisibilityChoiceModal
         visible={keepChoiceOpen}
         title={keepEditId ? 'Modifier la visibilité' : 'Garder ce morceau'}
@@ -979,7 +1018,8 @@ export default function HomeScreenCompact({ navigation }: any) {
   );
 }
 
-function TopBar({ navigation, readyCount = 0, title }: any) {
+function TopBar({ navigation, readyCount = 0, title, onOpenSessions }: any) {
+  const openSessions = () => onOpenSessions ? onOpenSessions() : navigation.navigate('SessionHistory');
   const readyPulse = useRef(new Animated.Value(0.45)).current;
   // Adel (05/10/2026) : quand des sessions deviennent prêtes, le ROBOT du Tchat le dit (bulle à côté de lui, vibration courte + son discret) ;
   // un appui sur la bulle ouvre directement les sessions. Le ☰ pulse en plus pour le signaler.
@@ -1004,7 +1044,7 @@ function TopBar({ navigation, readyCount = 0, title }: any) {
     {title ? <Text style={s.topTitle} numberOfLines={1}>{title}</Text> : null}
     <View style={[s.topBarActions, { marginLeft: 'auto' }]}>
       {readyCount > 0 ? (
-        <TouchableOpacity onPress={() => navigation.navigate('SessionHistory')} accessibilityRole="button" accessibilityLabel={`${readyCount} morceaux prêts à écouter et trier`}>
+        <TouchableOpacity onPress={openSessions} accessibilityRole="button" accessibilityLabel={`${readyCount} morceaux prêts à écouter et trier`}>
           <Animated.View style={[s.readyPill, { opacity: readyPulse }]}>
             <View style={s.readyDot} />
             <Text style={s.readyText} numberOfLines={1}>{readyCount} {readyCount === 1 ? 'prêt à trier' : 'prêts à trier'}</Text>
@@ -1012,7 +1052,7 @@ function TopBar({ navigation, readyCount = 0, title }: any) {
         </TouchableOpacity>
       ) : null}
       {/* Adel (05/10/2026) : le ☰ s'anime (halo qui pulse + pastille du nombre) quand des sessions sont prêtes : l'utilisateur comprend qu'il a quelque chose à ouvrir. */}
-      <TouchableOpacity onPress={() => navigation.navigate('SessionHistory')} accessibilityRole="button" accessibilityLabel={readyCount > 0 ? `Ouvrir mes sessions : ${readyCount} morceau${readyCount > 1 ? 'x' : ''} prêt${readyCount > 1 ? 's' : ''}` : 'Ouvrir mes sessions'} testID="home-sessions-menu">
+      <TouchableOpacity onPress={openSessions} accessibilityRole="button" accessibilityLabel={readyCount > 0 ? `Ouvrir mes sessions : ${readyCount} morceau${readyCount > 1 ? 'x' : ''} prêt${readyCount > 1 ? 's' : ''}` : 'Ouvrir mes sessions'} testID="home-sessions-menu">
         <Animated.View style={[s.round, readyCount > 0 && s.roundReady, readyCount > 0 && { transform: [{ scale: readyPulse.interpolate({ inputRange: [0.45, 1], outputRange: [1, 1.1] }) }] }]}>
           <Text style={s.roundText}>☰</Text>
         </Animated.View>
