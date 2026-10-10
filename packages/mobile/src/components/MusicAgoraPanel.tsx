@@ -1466,6 +1466,10 @@ export default function MusicAgoraPanel({
         {enabled ? <TouchableOpacity style={[s.homeToggle, homeEnabled && s.homeToggleOn]} disabled={settingsBusy} onPress={() => void updateHomeChat(!homeEnabled)} accessibilityRole="switch" accessibilityState={{ checked: homeEnabled }}>
           <Text style={[s.homeToggleText, homeEnabled && s.homeToggleTextOn]}>{homeEnabled ? 'MESSAGERIE · ACTIVÉE' : 'MESSAGERIE · DÉSACTIVÉE'}</Text>
         </TouchableOpacity> : null}
+        {/* Plein écran : la boîte de messages n'avait aucun moyen de se fermer (Adel 10/10/2026, ERR-123/129). */}
+        {onCompactClose ? <TouchableOpacity style={s.compactClose} onPress={() => onCompactClose()} accessibilityRole="button" accessibilityLabel="Fermer la messagerie" testID="chat-fullscreen-close">
+          <Text style={s.compactCloseText}>×</Text>
+        </TouchableOpacity> : null}
       </View>
       <Text style={s.subtitle}>Messages publics par salon, réponses ciblées, musique écoutable. Filtre d’insultes, signalement, blocage et anti-spam actifs.</Text>
       {enabled && homeEnabled ? <TouchableOpacity onPress={() => void updateNotifications(!notificationsEnabled)} style={s.notificationsToggle}>
