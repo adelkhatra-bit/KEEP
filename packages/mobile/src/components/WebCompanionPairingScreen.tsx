@@ -1,7 +1,8 @@
 import React from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { colors } from '../theme/colors';
+import { designProfileForWidth } from '../theme/designProfile';
 import {
   claimDesktopPairing,
   createDesktopPairing,
@@ -9,7 +10,15 @@ import {
   rememberPendingWebPairing,
 } from '../services/webPairingService';
 
+/** Taille du QR selon la hauteur réellement visible (Adel 10/10/2026 : « l'écran est coupé, fais le QR plus petit »). */
+export function pairingQrSize(windowHeight: number, pageZoom = 1): number {
+  const visible = windowHeight / Math.max(1, pageZoom);
+  return Math.max(120, Math.min(220, Math.round(visible - 420)));
+}
+
 export default function WebCompanionPairingScreen() {
+  const { width, height } = useWindowDimensions();
+  const qrSize = pairingQrSize(height, designProfileForWidth(width).pageZoom);
   const [challenge, setChallenge] = React.useState<DesktopPairingChallenge | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [message, setMessage] = React.useState('Préparation de la connexion…');
@@ -78,17 +87,17 @@ export default function WebCompanionPairingScreen() {
   const locked = !loading && (!challenge || secondsLeft <= 0);
 
   return (
-    <View style={s.container} testID="loki-web-companion-pairing">
+    <ScrollView style={s.scroll} contentContainerStyle={s.container} testID="loki-web-companion-pairing" showsVerticalScrollIndicator={false}>
       <View style={s.card}>
         <Text style={s.logo}>Loki Music</Text>
         <Text style={s.title}>Connexion ordinateur</Text>
         <Text style={s.body}>Ouvre Loki Music sur ton téléphone déjà connecté, puis scanne ce QR code.</Text>
 
-        <View style={s.qrBox}>
+        <View style={[s.qrBox, { width: qrSize + 32, height: qrSize + 32 }]}>
           {loading ? <ActivityIndicator color={colors.primaryLight} size="large" /> : locked ? (
             <Text style={s.error} testID="loki-web-qr-locked">QR expiré — non scannable</Text>
           ) : challenge ? (
-            <QRCode value={challenge.qrUrl} size={220} backgroundColor="#FFFFFF" color="#000000" />
+            <QRCode value={challenge.qrUrl} size={qrSize} backgroundColor="#FFFFFF" color="#000000" />
           ) : <Text style={s.error}>QR indisponible</Text>}
         </View>
 
@@ -103,17 +112,18 @@ export default function WebCompanionPairingScreen() {
 
         <Text style={s.foot}>Aucune création de compte sur ordinateur. La connexion est autorisée depuis ton téléphone.</Text>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, minHeight: '100vh' as any, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  card: { width: '100%', maxWidth: 520, alignItems: 'center', borderRadius: 28, paddingHorizontal: 28, paddingVertical: 32, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
+  scroll: { flex: 1, backgroundColor: colors.background },
+  container: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
+  card: { width: '100%', maxWidth: 520, alignItems: 'center', borderRadius: 28, paddingHorizontal: 24, paddingVertical: 20, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
   logo: { color: colors.primaryLight, fontSize: 34, fontWeight: '900', letterSpacing: 2 },
   title: { marginTop: 12, color: colors.textPrimary, fontSize: 22, fontWeight: '900' },
   body: { marginTop: 10, color: colors.textSecondary, fontSize: 15, lineHeight: 22, textAlign: 'center' },
-  qrBox: { width: 252, height: 252, marginTop: 24, borderRadius: 24, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', padding: 16 },
+  qrBox: { marginTop: 16, borderRadius: 24, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', padding: 16 },
   status: { marginTop: 18, color: colors.textPrimary, fontSize: 14, fontWeight: '800', textAlign: 'center' },
   timer: { marginTop: 6, color: colors.textMuted, fontSize: 12 },
   error: { color: colors.danger, fontWeight: '800' },

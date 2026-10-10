@@ -59,4 +59,12 @@ describe('Web companion QR contract', () => {
     expect(lifecycle).toContain('PairingUnusableError');
     expect(lifecycle).toContain('QR code expiré');
   });
+
+  it('écran QR PC : défilable, QR adapté à la hauteur visible, plus de minHeight 100vh (texte coupé, 10/10/2026)', () => {
+    const screen = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'WebCompanionPairingScreen.tsx'), 'utf8');
+    expect(screen).toContain('<ScrollView');
+    expect(screen).toContain('pairingQrSize(');
+    expect(screen).not.toContain("minHeight: '100vh'");
+    expect(screen).toContain('size={qrSize}');
+  });
 });
