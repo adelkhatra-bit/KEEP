@@ -232,6 +232,18 @@ export default function MusicSwipeDeckModal({
   useEffect(() => { setSourceQuick(null); }, [current?.id, visible]);
   const [storyIds, setStoryIds] = useState<Set<string>>(new Set());
   const [storyIdsReady, setStoryIdsReady] = useState(false);
+  // Anti-doublon préchargé dès l'ouverture du morceau : « Mettre en story » répond tout de suite (Adel, 10/10/2026 : « ça rame »).
+  const [holdersById, setHoldersById] = useState<Record<string, StoryHolder>>({});
+  const addingRef = useRef(false);
+  useEffect(() => {
+    let live = true;
+    if (!visible || !current?.id) return undefined;
+    const meId = String(useUserStore.getState().user?.id ?? '');
+    void loadOtherStoryHolders([resolveKeptTrackId(current.id), current.id], meId)
+      .then((found) => { if (live) setHoldersById((previous) => ({ ...previous, ...found })); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [visible, current?.id]);
   const [justAdded, setJustAdded] = useState<Set<string>>(new Set());
   const [offeredIds, setOfferedIds] = useState<Set<string>>(new Set());
   useEffect(() => {
@@ -280,15 +292,17 @@ export default function MusicSwipeDeckModal({
       return;
     }
     if (alreadyInStory && justAddedNow) return;
+    // Un tap = une seule fenêtre de confirmation (sinon plusieurs popups s'empilent derrière la fenêtre ouverte).
+    if (addingRef.current) return;
+    addingRef.current = true;
+    setTimeout(() => { addingRef.current = false; }, 700);
     if (alreadyInStory) {
       Alert.alert('Elle y était déjà', `« ${current.title} » a été ajoutée à ta story plus tôt : elle y reste visible 24 h après son ajout. Pas de doublon.`, [{ text: 'OK', style: 'cancel' }]);
       return;
     }
     // Anti-doublon entre stories (Adel, 06/10/2026) : déjà en story chez un AUTRE membre (que celui d'où l'on écoute) → on ne la remet
     // pas à neuf ; on va la voir chez lui et on la repartage depuis sa story (il reste crédité).
-    const meId = String(useUserStore.getState().user?.id ?? '');
-    const holders = await loadOtherStoryHolders([resolveKeptTrackId(current.id), current.id], meId).catch(() => ({} as Record<string, StoryHolder>));
-    const holder = holders[resolveKeptTrackId(current.id)] ?? holders[current.id];
+    const holder = holdersById[resolveKeptTrackId(current.id)] ?? holdersById[current.id];
     if (holder && holder.profileId !== currentSourceProfileId) {
       Alert.alert('Déjà en story', `Chez @${holder.username}. Va la voir et repartage-la.`, [
         { text: 'OK', style: 'cancel' },

@@ -35,3 +35,17 @@ describe('Garde générale : aucune source de story sans limite de 24 h (nouveau
     expect(svc).toContain('STORY_WINDOW_HOURS * 3600 * 1000');
   });
 });
+
+describe('Mettre en story : réponse immédiate, une seule fenêtre par tap (Adel, 10/10/2026 : « ça rame », popups derrière)', () => {
+  const deck = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'MusicSwipeDeckModal.tsx'), 'utf8');
+  it('le contrôle anti-doublon est préchargé à l’ouverture, pas attendu au tap', () => {
+    expect(deck).toContain('setHoldersById');
+    expect(deck).toContain('holdersById[resolveKeptTrackId(current.id)]');
+    const start = deck.indexOf('const addCurrentToStory');
+    expect(deck.slice(start, start + 3000)).not.toContain('await loadOtherStoryHolders');
+  });
+  it('un tap ouvre une seule confirmation (garde anti double tap)', () => {
+    expect(deck).toContain('addingRef.current = true');
+    expect(deck).toContain('if (addingRef.current) return;');
+  });
+});

@@ -68,3 +68,4 @@ Rapport d'audit externe : `docs/AUDIT_EXTERNE_2026-10-06.md`. Notifications : `d
 2026-10-10 · claude/release-trigger-20261010 · PR #85 fusionnée (ea69722b) mais site/OTA sautés (ERR-117) · PR de release en squash
 2026-10-10 · claude/release-trigger-20261010 · IDEA-219 Studio ordinateur + QR e-mail notée, plan MASTER_PLAN, protocole de test avant livraison ajouté à INTEGRATION_CHECKLIST
 2026-10-10 · claude/release-trigger-20261010 · IDEA-220 Lia (guide des boutons allumés) notée + plan MASTER_PLAN, à valider
+2026-10-10 · claude/release-trigger-20261010 · ERR-119 (ajout en story lent + popup derrière) corrigé localement ; ERR-120 (QR PC non publié) dépend de la fusion de la PR #86
