@@ -160,14 +160,29 @@ export function loadLokiPulse(limit = 36, profileId?: string): Promise<LokiPulse
 }
 
 
+// Un choix Garder/Masquer ne doit jamais ressortir depuis le dernier cache
+// hors ligne, notamment après la reconnexion d'un PC par QR.
+async function removePulseTrackFromOwnCache(trackId: string): Promise<void> {
+  if (!supabase || !trackId) return;
+  const { data } = await supabase.auth.getUser();
+  const profileId = data.user?.id;
+  if (!profileId) return;
+  const items = await readPulseCache(profileId, 60);
+  const kept = items.filter((item) => item.track.id !== trackId);
+  pulseMemoryCache.set(profileId, kept);
+  await AsyncStorage.setItem(pulseCacheKey(profileId), JSON.stringify(kept)).catch(() => {});
+}
+
 export async function hideLokiPulseTrack(trackId: string): Promise<void> {
   if (!supabase || !trackId) return;
   const { error } = await supabase.rpc('keep_loki_pulse_hide', { p_track_id: trackId });
   if (error) throw error;
+  await removePulseTrackFromOwnCache(trackId).catch(() => {});
 }
 
 export async function markLokiPulseTrackKept(trackId: string): Promise<void> {
   if (!supabase || !trackId) return;
   const { error } = await supabase.rpc('keep_loki_pulse_mark_kept', { p_track_id: trackId });
   if (error) throw error;
+  await removePulseTrackFromOwnCache(trackId).catch(() => {});
 }
