@@ -182,3 +182,13 @@ Résumé : trois largeurs différentes selon l'onglet (700 / 1130 / 1890 px) ; l
 3. Écran « Voir qui » : par spectateur, liste des musiques avec ✓ entière / ⏭ passée / ❤️, puis message de fin « Félicitations » + pourcentage.
 4. Base (accord requis) : éventuelle RPC v5 agrégeant j'aime + complétion ; signaux envoyés au moteur de goût (déjà identifiés manquants).
 5. Tests : contrat + jest ; parité mobile 390 / PC 1440.
+
+## Plan IDEA-219 — Studio ordinateur (DJ) + QR par e-mail (à valider par Adel, aucun code avant accord)
+Existant : QR PC, popup Oui/Non + lieu (fonction `keep-web-pairing` écrite, NON déployée), session 24 h (écrite, NON déployée), clé Super Admin `web_share_free_cost` (migration NON appliquée), bouton « Partager sur mon PC ».
+1. **Lien par e-mail** : nouvelle action `email` de `keep-web-pairing` + modèle d'e-mail via `keep-auth-email` (Brevo déjà utilisé) ; lien unique 5 min ; ouvre l'app/web sur « Connecter cet ordinateur ? » (même popup Oui/Non). Réponse à « Gmail ? » : le lien est un lien https classique : Gmail/Outlook l'ouvrent dans le navigateur ou l'app KEEP (lien universel), aucun code de boîte e-mail à copier.
+2. **Studio** : écran réservé web (`Platform.OS==='web'` + session PC valide), import MP3 + visuel (photo/courte vidéo), stockage Supabase Storage, diffusion « avant-première » à ses abonnés ; verrou `CREATOR_PRO` ; jamais disponible sur mobile.
+3. **Durée / paiement** : 24 h puis déconnexion ; gratuit au lancement (prix 0 annoncé dans la fenêtre), puis débit FREE selon le Super Admin ; ligne dédiée dans Offres.
+4. **Super Admin** : réglages (durée, prix FREE, activation Studio), liste des sessions PC, bouton Déconnecter.
+5. **Robot** : rubrique « Studio ordinateur » ajoutée au scénario par rubrique.
+6. **Tests avant livraison** : protocole `docs/INTEGRATION_CHECKLIST.md` § « Protocole de test avant livraison » (parité PC 1440 / 1366×650 / mobile 390, preuve image, connexion réelle, anti-régression).
+Écritures de production à valider : déploiement `keep-web-pairing`, migrations prix/Studio, bucket Storage.
