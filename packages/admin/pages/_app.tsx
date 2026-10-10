@@ -19,11 +19,22 @@ function LiveMarker() {
 // Tri-etat volontaire : une erreur reseau/serveur ('error') n'est PAS un refus
 // ('denied'). Seul un refus explicite ferme la session ; une panne passagere ne
 // doit jamais deconnecter le Super Admin.
+// Délai maximal : sans lui, une base lente laissait « Vérification de la session… » indéfiniment
+// (aucune erreur, aucun bouton). Au-delà, on propose « Réessayer » sans fermer la session.
+const ROLE_CHECK_DEADLINE_MS = 12000;
+
 async function checkAdminRole():Promise<RoleCheck>{
   if(!supabase)return 'error';
-  const {data,error}=await supabase.rpc('get_my_admin_role');
-  if(error)return 'error';
-  return data&&ADMIN_ROLES.includes(String(data))?'allowed':'denied';
+  try{
+    const {data,error}=await Promise.race([
+      supabase.rpc('get_my_admin_role'),
+      new Promise<never>((_,reject)=>setTimeout(()=>reject(new Error('role_check_timeout')),ROLE_CHECK_DEADLINE_MS)),
+    ]);
+    if(error)return 'error';
+    return data&&ADMIN_ROLES.includes(String(data))?'allowed':'denied';
+  }catch{
+    return 'error';
+  }
 }
 
 function friendlyAuthError(message?:string){
@@ -111,9 +122,10 @@ export default function App({Component,pageProps}:AppProps){
     if(!client){update('signed_out');return;}
     let active=true;
     const resolve=async()=>{
-      const {data}=await client.auth.getSession();
+      let data:Awaited<ReturnType<typeof client.auth.getSession>>['data']=null as any;
+      try{ ({data}=await client.auth.getSession()); }catch{ data=null as any; }
       if(!active)return;
-      const user=data.session?.user;
+      const user=data?.session?.user;
       if(!user){update('signed_out');return;}
       if(stateRef.current!=='allowed')update('checking_role');
       const role=await checkAdminRole();
