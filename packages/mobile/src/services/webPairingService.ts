@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient';
 
 const PENDING_PAIRING_KEY = 'loki:web-pairing-pending';
 const COMPANION_SESSION_KEY = 'loki:web-companion-session';
+const CHALLENGE_KEY = 'loki:web-pairing-challenge';
 
 export type DesktopPairingChallenge = {
   pairingId: string;
@@ -149,4 +150,31 @@ export async function listWebCompanionSessions(): Promise<WebCompanionSession[]>
 export async function revokeWebCompanionSession(sessionId: string): Promise<boolean> {
   const result = await invoke<{ ok: true; revoked: boolean }>({ action: 'revoke', sessionId });
   return Boolean(result.revoked);
+}
+
+/**
+ * Le QR affiché survit à un rechargement de la page (Adel 10/10/2026 : « j'ai scanné, ça n'a pas démarré » : le serveur a bien reçu
+ * l'approbation à 00:49:04, mais la page du PC s'était rechargée 4 s plus tard et avait créé un NOUVEAU QR, perdant l'approbation).
+ * Seul le jeton propre à ce navigateur est gardé (sessionStorage, onglet courant), jamais de refresh token.
+ */
+export function saveDesktopChallenge(challenge: DesktopPairingChallenge): void {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+  try { window.sessionStorage.setItem(CHALLENGE_KEY, JSON.stringify(challenge)); } catch { /* stockage indisponible : un nouveau QR sera créé */ }
+}
+
+export function loadDesktopChallenge(now = Date.now(), minMs = 15000): DesktopPairingChallenge | null {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return null;
+  try {
+    const raw = window.sessionStorage.getItem(CHALLENGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const left = new Date(parsed?.expiresAt).getTime() - now;
+    if (!parsed?.pairingId || !parsed?.token || !parsed?.qrUrl || !Number.isFinite(left) || left < minMs) return null;
+    return parsed as DesktopPairingChallenge;
+  } catch { return null; }
+}
+
+export function clearDesktopChallenge(): void {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+  try { window.sessionStorage.removeItem(CHALLENGE_KEY); } catch { /* sans effet */ }
 }

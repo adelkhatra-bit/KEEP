@@ -67,4 +67,14 @@ describe('Web companion QR contract', () => {
     expect(screen).not.toContain("minHeight: '100vh'");
     expect(screen).toContain('size={qrSize}');
   });
+
+  it('le QR survit à un rechargement du PC : approbation jamais perdue (10/10/2026)', () => {
+    const screen = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'WebCompanionPairingScreen.tsx'), 'utf8');
+    const svc = fs.readFileSync(path.join(__dirname, '..', 'webPairingService.ts'), 'utf8');
+    expect(screen).toContain('loadDesktopChallenge()');
+    expect(screen).toContain('saveDesktopChallenge(next)');
+    expect(screen).toContain('void create(false)');
+    expect(svc).toContain('sessionStorage');
+    expect(svc).not.toMatch(/refresh_token/);
+  });
 });

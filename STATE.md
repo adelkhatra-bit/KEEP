@@ -60,3 +60,4 @@ Rapport d'audit externe : `docs/AUDIT_EXTERNE_2026-10-06.md`. Notifications : `d
 2026-10-10 · claude/superadmin-session-forgot-password-v2 · story éternelle (boutique sans âge) corrigée · jest 293/1422 OK
 2026-10-10 · claude/superadmin-session-forgot-password-v2 (repartie de reconcile après fusion #84) · écran QR PC adaptatif · jest 293/1423 OK
 2026-10-10 · claude/superadmin-session-forgot-password-v2 · audit stories tous utilisateurs + garde de non-régression · jest 293/1425
+2026-10-10 · claude/superadmin-session-forgot-password-v2 · release (.eas-build-trigger + android) + QR conservé après rechargement · jest 293/1426

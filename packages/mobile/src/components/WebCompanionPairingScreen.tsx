@@ -5,9 +5,12 @@ import { colors } from '../theme/colors';
 import { designProfileForWidth } from '../theme/designProfile';
 import {
   claimDesktopPairing,
+  clearDesktopChallenge,
   createDesktopPairing,
   DesktopPairingChallenge,
+  loadDesktopChallenge,
   rememberPendingWebPairing,
+  saveDesktopChallenge,
 } from '../services/webPairingService';
 
 /** Taille du QR selon la hauteur réellement visible (Adel 10/10/2026 : « l'écran est coupé, fais le QR plus petit »). */
@@ -24,11 +27,14 @@ export default function WebCompanionPairingScreen() {
   const [message, setMessage] = React.useState('Préparation de la connexion…');
   const [secondsLeft, setSecondsLeft] = React.useState(0);
 
-  const create = React.useCallback(async () => {
+  const create = React.useCallback(async (forceNew = true) => {
     setLoading(true);
     setMessage('Préparation de la connexion…');
     try {
-      const next = await createDesktopPairing();
+      // Après un rechargement de la page, on reprend le MÊME QR (déjà scanné ou en cours) au lieu d'en créer un autre.
+      const saved = forceNew ? null : loadDesktopChallenge();
+      const next = saved ?? await createDesktopPairing();
+      if (!saved) saveDesktopChallenge(next);
       setChallenge(next);
       setSecondsLeft(Math.max(0, Math.ceil((new Date(next.expiresAt).getTime() - Date.now()) / 1000)));
       setMessage('Scanne ce QR code avec ton téléphone connecté à Loki Music.');
@@ -41,7 +47,7 @@ export default function WebCompanionPairingScreen() {
   }, []);
 
   React.useEffect(() => {
-    void create();
+    void create(false);
   }, [create]);
 
   React.useEffect(() => {
@@ -67,6 +73,7 @@ export default function WebCompanionPairingScreen() {
         }
         if (result.status === 'APPROVED' && result.actionLink) {
           rememberPendingWebPairing(challenge.pairingId, challenge.token);
+          clearDesktopChallenge();
           setMessage('Téléphone validé. Connexion de cet ordinateur…');
           window.location.assign(result.actionLink);
           return;
@@ -105,7 +112,7 @@ export default function WebCompanionPairingScreen() {
         {challenge && secondsLeft > 0 ? <Text style={s.timer}>Valable encore {secondsLeft} s</Text> : null}
 
         {!loading && (!challenge || secondsLeft <= 0) ? (
-          <TouchableOpacity style={s.button} onPress={() => { void create(); }} accessibilityRole="button" accessibilityLabel="Rafraîchir le QR">
+          <TouchableOpacity style={s.button} onPress={() => { void create(true); }} accessibilityRole="button" accessibilityLabel="Rafraîchir le QR">
             <Text style={s.buttonText}>RAFRAÎCHIR LE QR</Text>
           </TouchableOpacity>
         ) : null}
