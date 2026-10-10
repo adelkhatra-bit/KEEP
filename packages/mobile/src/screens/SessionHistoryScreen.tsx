@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList, Pressable, useWindowDimensions } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { useTranslation } from 'react-i18next';
 import { isCloudProfileRecoverySession, useSessionHistoryStore } from '../store/useSessionHistoryStore';
@@ -22,6 +22,8 @@ function pendingTracks(session: KeepSession): number {
 
 export default function SessionHistoryScreen({ navigation }: any) {
   const { t } = useTranslation();
+  const { width, height } = useWindowDimensions();
+  const desktop = width >= 800;
   const sessions = useSessionHistoryStore((s) => s.sessions);
   // Les morceaux gardés restaurés depuis Supabase alimentent le profil musical/Loki DNA,
   // mais ne constituent pas un historique complet de session (les PASS/pending
@@ -106,7 +108,9 @@ export default function SessionHistoryScreen({ navigation }: any) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.overlay, { justifyContent: desktop ? 'flex-end' : 'flex-end' }]}>
+      <Pressable style={styles.backdrop} onPress={() => navigation.goBack()} accessibilityLabel="Fermer les sessions" accessibilityRole="button" />
+      <SafeAreaView style={[styles.container, styles.sheet, desktop ? { width: Math.min(480, width * 0.48), height: height - 32, marginVertical: 16, marginRight: 16, borderRadius: 22 } : { width: '100%', height: Math.round(height * 0.78), borderTopLeftRadius: 24, borderTopRightRadius: 24 }]}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.helpButton} onPress={() => setHelpOpen(true)} accessibilityRole="button" accessibilityLabel="Comprendre Mes Sessions">
           <Text style={styles.helpButtonText}>?</Text>
@@ -132,11 +136,15 @@ export default function SessionHistoryScreen({ navigation }: any) {
       ) : (
         <FlatList data={visibleSessions} keyExtractor={(item) => item.id} renderItem={renderItem} contentContainerStyle={styles.list} />
       )}
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  overlay: { flex: 1, flexDirection: 'column', alignItems: 'flex-end', backgroundColor: 'rgba(0,0,0,0.36)' },
+  backdrop: { ...StyleSheet.absoluteFillObject },
+  sheet: { overflow: 'hidden', borderWidth: 1, borderColor: colors.border },
   container: { flex: 1, backgroundColor: colors.background },
   header: { minHeight:68, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
   backButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},

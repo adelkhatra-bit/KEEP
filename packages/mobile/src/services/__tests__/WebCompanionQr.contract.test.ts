@@ -14,7 +14,7 @@ describe('Web companion QR contract', () => {
   it('desktop onboarding is QR-only and never auto-enters guest mode', () => {
     // Seule exception (Adel 06/10/2026) : un lien partagé ouvre le profil en invité ; sans lien, le web reste QR uniquement.
     expect(onboarding).toContain("if (Platform.OS === 'web' && !isWebShareVisit()) return;");
-    expect(onboarding).toContain("if (Platform.OS === 'web' && !isWebShareVisit()) {\n    return <WebCompanionPairingScreen />;");
+    expect(onboarding).toMatch(/if \(Platform\.OS === 'web' && !isWebShareVisit\(\)\) \{\s*return <WebCompanionPairingScreen \/>;\s*\}/);
   });
 
   it('uses one shared mobile/web runtime and a native deep link for approval', () => {
