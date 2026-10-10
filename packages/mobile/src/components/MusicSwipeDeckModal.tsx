@@ -1277,7 +1277,7 @@ const s = StyleSheet.create({
   desktopAsideDivider:{height:1,backgroundColor:'#403052',marginVertical:5},
   desktopAsideSection:{color:'#B79CFF',fontSize:12,fontWeight:'900',letterSpacing:1},
   desktopAsideHint:{color:'#FFFFFF',fontSize:14,lineHeight:22},
-  desktopAsideFoot:{color:'#D8CFDF',fontSize:12,lineHeight:18,marginTop:9},
+  desktopAsideFoot:{color:colors.textSecondary,fontSize:12,lineHeight:18,marginTop:9},
   container:{flex:1,width:'100%',maxWidth:520,backgroundColor:'#090610'},
   header:{zIndex:30,minHeight:92,paddingHorizontal:18,paddingVertical:16,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#241A32'},
   headerText:{flex:1,paddingRight:12},eyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1.5},title:{color:'#F8F6FC',fontSize:20,fontWeight:'900',marginTop:2},subtitle:{color:'#FFFFFF',fontSize:14,lineHeight:20,marginTop:6,paddingBottom:2},
