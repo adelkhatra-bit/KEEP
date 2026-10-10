@@ -141,3 +141,14 @@ Résumé : trois largeurs différentes selon l'onglet (700 / 1130 / 1890 px) ; l
 - **Tests d'acceptation :** captures 1920×1080, 1440×900, 1366×768 et 390×844 sur les 5 onglets avec la session simulée ; largeur du contenu identique sur les 5 onglets ; aucun débordement ; le tutoriel ne recouvre jamais le bouton principal ; le téléphone 390×844 reste inchangé pixel pour pixel.
 - **Question à trancher :** largeur maximale souhaitée (1280 px ? 1440 px ?) et barre des 5 onglets : conservée en bas, centrée dans la colonne (recommandé), ou déplacée sur le côté.
 
+
+## Plan Boutique musicale — clarté + envie d'acheter (10/10/2026) — À VALIDER PAR ADEL
+**Audit (lecture seule, base réelle, compte adel4A) :** la RPC `keep_playlist_sale_my_offers` filtre bien `seller_id = auth.uid()` : aucune offre d'un autre vendeur n'est affichée. 3 offres actives : (1) « Pépite Tchat · @adel4A » 1 € (offre de conversation privée, `keep-chat:`), (2) « Ma collection · 5 titres » 2 €, (3) « Ma collection · 8 titres » FREE 3 (la base compte 10 titres : le nom est figé à la création). 5 autres offres sont désactivées. **Causes de la confusion :** noms génériques identiques « Ma collection », nombre de titres dans le nom qui devient faux, bandeau mélangeant pastille « 1 € » (offre tchat) et collections, trois niveaux d'en-têtes superposés (profil → « Ma boutique musicale » → « Mes pépites »), filtres répartis sur deux lignes.
+**Proposition de design (inspirée des vitrines Spotify/Bandcamp/Apple Music) :**
+1. Un seul en-tête : « Ma boutique · 2 collections ».
+2. UNE rangée de filtres alignée : `Tout 2` · `FREE 1` · `Boutique € 1` · `Nouveautés`.
+3. Cartes uniformes (pochette carrée, nom, « 5 titres », prix en gros, bouton unique ACHETER / DÉBLOQUER avec FREE) ; grille 2 colonnes mobile, 3-4 colonnes PC.
+4. Nom d'offre éditable à la création (défaut = nom de la playlist, jamais « Ma collection ») ; nombre de titres calculé en direct, jamais écrit dans le nom.
+5. L'offre tchat sort de la boutique (section « Messagerie privée » séparée).
+6. Propriétaire : badge « ACTIVE / DÉSACTIVÉE » + bouton Modifier sur chaque carte.
+**Fichiers :** `SellerBoutique.tsx` (propriétaire du design), `ProfilePublicScreen.tsx` (en-tête). **Garde-fous :** `SellerBoutique.contract.test.ts`, règle Apple 3.1.1 (€ masqué sur iPhone), parité 390×844 / 1440×900. Rien n'est codé tant qu'Adel n'a pas validé.
