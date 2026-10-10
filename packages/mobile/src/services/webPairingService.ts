@@ -5,6 +5,19 @@ const PENDING_PAIRING_KEY = 'loki:web-pairing-pending';
 const COMPANION_SESSION_KEY = 'loki:web-companion-session';
 const CHALLENGE_KEY = 'loki:web-pairing-challenge';
 
+export const PC_TARGET_SCREENS = [
+  { name: 'Listen', label: 'Loki Music' },
+  { name: 'Discover', label: 'Découvertes' },
+  { name: 'MyMusic', label: 'Playlists' },
+  { name: 'Parties', label: 'Soirées' },
+  { name: 'Profile', label: 'Profil' },
+] as const;
+export type PcTargetScreen = (typeof PC_TARGET_SCREENS)[number]['name'];
+
+export function isPcTargetScreen(screen: unknown): screen is PcTargetScreen {
+  return typeof screen === 'string' && PC_TARGET_SCREENS.some((item) => item.name === screen);
+}
+
 export type DesktopPairingChallenge = {
   pairingId: string;
   token: string;
@@ -135,10 +148,20 @@ export function clearWebCompanionSessionId(): void {
   window.localStorage.removeItem(COMPANION_SESSION_KEY);
 }
 
-export async function getWebCompanionSessionStatus(sessionId: string): Promise<{ revoked: boolean; revokedAt?: string }> {
+export async function getWebCompanionSessionStatus(sessionId: string): Promise<{ revoked: boolean; revokedAt?: string; requestedScreen?: PcTargetScreen | null; screenRequestId?: string | null }> {
   return invoke<{ ok: true; revoked: boolean; revokedAt?: string }>({
     action: 'status',
     sessionId,
+  });
+}
+
+/** Envoie un vrai ordre serveur au PC jumelé ; ne crée ni QR ni autre session. */
+export async function requestWebCompanionScreen(sessionId: string, screen: PcTargetScreen): Promise<void> {
+  if (!isPcTargetScreen(screen)) throw new Error('Onglet ordinateur invalide.');
+  await invoke<{ ok: true; requestedScreen: PcTargetScreen; screenRequestId: string }>({
+    action: 'show-screen',
+    sessionId,
+    screen,
   });
 }
 

@@ -5,6 +5,8 @@ import { supabase } from '../services/supabaseClient';
 import { createAuthService } from '../services/authService';
 import { useUserStore } from '../store/useUserStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
+import { navigationRef } from '../navigation/navigationRef';
+import { confirmLeaveGame } from '../services/gameExitGuard';
 import {
   approveDesktopPairing,
   cancelDesktopPairing,
@@ -12,6 +14,7 @@ import {
   clearWebCompanionSessionId,
   currentWebCompanionSessionId,
   getWebCompanionSessionStatus,
+  isPcTargetScreen,
   parsePairingDeepLink,
   previewDesktopPairing,
   PairingUnusableError,
@@ -27,6 +30,7 @@ export default function WebPairingLifecycle() {
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const [pendingApproval, setPendingApproval] = React.useState<PendingApproval | null>(null);
   const approvingRef = React.useRef(false);
+  const handledPcScreenRef = React.useRef<string | null>(null);
 
   const handleNativePairingUrl = React.useCallback((url: string | null | undefined) => {
     if (Platform.OS === 'web' || !url) return;
@@ -144,6 +148,24 @@ export default function WebPairingLifecycle() {
           useUserStore.getState().logout();
           await createAuthService(client).signOut().catch(() => {});
           return;
+        }
+        // Commande de navigation issue du téléphone : une seule fois par événement,
+        // même après rechargement du navigateur, et sans sortir de force d'un Solo.
+        if (status.screenRequestId && isPcTargetScreen(status.requestedScreen) && navigationRef.isReady()) {
+          const eventKey = sessionId + ':' + status.screenRequestId;
+          if (handledPcScreenRef.current !== eventKey) {
+            handledPcScreenRef.current = eventKey;
+            const storeKey = 'loki:pc:last-screen:' + sessionId;
+            let alreadyHandled = false;
+            try { alreadyHandled = window.sessionStorage.getItem(storeKey) === status.screenRequestId; } catch { /* privée */ }
+            if (!alreadyHandled) {
+              try { window.sessionStorage.setItem(storeKey, status.screenRequestId); } catch { /* privée */ }
+              const screen = status.requestedScreen;
+              confirmLeaveGame(() => {
+                if (navigationRef.isReady()) (navigationRef.navigate as any)('Main', { screen });
+              });
+            }
+          }
         }
       } catch {
         // Une panne réseau ne déconnecte jamais un ordinateur sain.

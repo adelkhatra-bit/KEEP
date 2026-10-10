@@ -237,13 +237,43 @@ Deno.serve(async (req) => {
       return json(200, { ok: true, session });
     }
 
+
+    // Ouverture d'un des cinq onglets sur un PC déjà autorisé.
+    // Jamais de nouvelle session ni de lien magique : seul son propriétaire peut l'envoyer.
+    if (action === "show-screen") {
+      const auth = await requireUser(req);
+      if ("error" in auth) return auth.error;
+      const id = String(body?.sessionId ?? "");
+      const screen = String(body?.screen ?? "");
+      const allowedScreens = ["Listen", "Discover", "MyMusic", "Parties", "Profile"];
+      if (!allowedScreens.includes(screen)) return json(400, { error: "invalid_screen" });
+      if (!/^[0-9a-f-]{36}$/i.test(id)) return json(400, { error: "invalid_session_id" });
+
+      const { data: session, error: lookupError } = await admin.from("web_companion_sessions")
+        .select("id,created_at,revoked_at")
+        .eq("id", id).eq("user_id", auth.user.id).maybeSingle();
+      if (lookupError) throw lookupError;
+      if (!session) return json(404, { error: "session_not_found" });
+      if (session.revoked_at || Date.now() - new Date(session.created_at).getTime() >= PC_SHARE_DURATION_MS) {
+        return json(410, { error: "session_expired_or_revoked" });
+      }
+      const eventId = crypto.randomUUID();
+      const { data: updated, error: updateError } = await admin.from("web_companion_sessions")
+        .update({ requested_screen: screen, screen_request_id: eventId })
+        .eq("id", id).eq("user_id", auth.user.id).is("revoked_at", null)
+        .select("id").maybeSingle();
+      if (updateError) throw updateError;
+      if (!updated) return json(409, { error: "session_state_changed" });
+      return json(200, { ok: true, requestedScreen: screen, screenRequestId: eventId });
+    }
+
     if (action === "status") {
       const auth = await requireUser(req);
       if ("error" in auth) return auth.error;
       const id = String(body?.sessionId ?? "");
       const { data } = await admin
         .from("web_companion_sessions")
-        .select("id,revoked_at,created_at")
+        .select("id,revoked_at,created_at,requested_screen,screen_request_id")
         .eq("id", id)
         .eq("user_id", auth.user.id)
         .maybeSingle();
@@ -255,7 +285,7 @@ Deno.serve(async (req) => {
         return json(200, { ok: true, revoked: true, revokedAt: expiredAt, expired: true });
       }
       await admin.from("web_companion_sessions").update({ last_seen_at: new Date().toISOString() }).eq("id", id);
-      return json(200, { ok: true, revoked: false });
+      return json(200, { ok: true, revoked: false, requestedScreen: data.requested_screen ?? null, screenRequestId: data.screen_request_id ?? null });
     }
 
     if (action === "list") {

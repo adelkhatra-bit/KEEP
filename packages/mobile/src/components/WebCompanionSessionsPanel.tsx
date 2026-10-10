@@ -2,10 +2,15 @@ import React from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { colors } from '../theme/colors';
+import { navigationRef } from '../navigation/navigationRef';
 import {
   listWebCompanionSessions,
   revokeWebCompanionSession,
   WebCompanionSession,
+  PC_TARGET_SCREENS,
+  PcTargetScreen,
+  isPcTargetScreen,
+  requestWebCompanionScreen,
 } from '../services/webPairingService';
 import { loadPcShareFreeCost, pcShareHoursLeft, pcShareMessage } from '../services/pcShareService';
 
@@ -17,14 +22,17 @@ export default function WebCompanionSessionsPanel() {
   const [sessions, setSessions] = React.useState<WebCompanionSession[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [busyId, setBusyId] = React.useState<string | null>(null);
+  const [sendingId, setSendingId] = React.useState<string | null>(null);
+  const [loadError, setLoadError] = React.useState(false);
 
   const refresh = React.useCallback(async () => {
     if (Platform.OS === 'web') return;
     setLoading(true);
     try {
       setSessions(await listWebCompanionSessions());
+      setLoadError(false);
     } catch {
-      setSessions([]);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -38,8 +46,42 @@ export default function WebCompanionSessionsPanel() {
 
   const active = sessions.filter((s) => !s.revoked_at && pcShareHoursLeft(s.created_at) > 0);
 
-  const explainShare = () => {
-    void loadPcShareFreeCost().then((cost) => Alert.alert('Partager sur mon PC', pcShareMessage(cost)));
+  const sendScreen = async (session: WebCompanionSession, screen: PcTargetScreen) => {
+    if (sendingId) return;
+    setSendingId(session.id);
+    try {
+      await requestWebCompanionScreen(session.id, screen);
+      const title = PC_TARGET_SCREENS.find((item) => item.name === screen)?.label ?? screen;
+      Alert.alert('Partager sur mon PC', title + ' : ouverture demandée sur cet ordinateur.');
+    } catch {
+      Alert.alert('Partager sur mon PC', 'Envoi impossible. Vérifie que ton ordinateur est toujours connecté, puis réessaie.');
+    } finally {
+      setSendingId(null);
+    }
+  };
+
+  const explainShare = async () => {
+    try {
+      const fresh = await listWebCompanionSessions();
+      setSessions(fresh);
+      setLoadError(false);
+      const online = fresh.filter((s) => !s.revoked_at && pcShareHoursLeft(s.created_at) > 0
+        && Date.now() - new Date(s.last_seen_at).getTime() < 60000);
+      if (online.length === 1) {
+        const route = navigationRef.isReady() ? navigationRef.getCurrentRoute()?.name : null;
+        await sendScreen(online[0], isPcTargetScreen(route) ? route : 'Profile');
+        return;
+      }
+      if (online.length > 1) {
+        Alert.alert('Partager sur mon PC', 'Choisis un ordinateur et un onglet dans la liste ci-dessous.');
+        return;
+      }
+      const cost = await loadPcShareFreeCost();
+      Alert.alert('Partager sur mon PC', pcShareMessage(cost));
+    } catch {
+      setLoadError(true);
+      Alert.alert('Partager sur mon PC', 'Impossible de vérifier la connexion à l’ordinateur pour le moment.');
+    }
   };
 
   const disconnect = (session: WebCompanionSession) => {
@@ -65,15 +107,17 @@ export default function WebCompanionSessionsPanel() {
 
   return (
     <View style={s.wrap}>
-      <TouchableOpacity style={s.share} onPress={explainShare} accessibilityRole="button" accessibilityLabel="Partager sur mon PC" testID="pc-share-button">
+      <TouchableOpacity style={s.share} onPress={() => { void explainShare(); }} accessibilityRole="button" accessibilityLabel="Partager sur mon PC" testID="pc-share-button">
         <Text style={s.shareText}>🖥️ Partager sur mon PC · 24 h</Text>
       </TouchableOpacity>
       <Text style={s.title}>Ordinateurs connectés</Text>
       <Text style={s.help}>Les connexions ordinateur se font uniquement avec le QR Loki Music affiché sur le Web.</Text>
-      {loading ? <Text style={s.muted}>Vérification…</Text> : active.length === 0 ? (
+      {loadError ? <Text style={s.error}>État du PC indisponible — impossible de vérifier la connexion.</Text> : null}
+      {loading ? <Text style={s.muted}>Vérification…</Text> : !loadError && active.length === 0 ? (
         <Text style={s.muted}>Aucun ordinateur connecté.</Text>
       ) : active.map((session) => (
-        <View key={session.id} style={s.row}>
+        <View key={session.id}>
+        <View style={s.row}>
           <View style={s.info}>
             <Text style={s.device}>{label(session)}</Text>
             <Text style={s.muted}>Dernière activité : {new Date(session.last_seen_at).toLocaleString('fr-FR')} · déconnexion auto dans {pcShareHoursLeft(session.created_at)} h</Text>
@@ -88,6 +132,17 @@ export default function WebCompanionSessionsPanel() {
             <Text style={s.disconnectText}>{busyId === session.id ? '…' : 'Déconnecter'}</Text>
           </TouchableOpacity>
         </View>
+        <View style={s.targets}>
+          {PC_TARGET_SCREENS.map((item) => (
+            <TouchableOpacity key={item.name} style={s.target} disabled={sendingId !== null}
+              onPress={() => { void sendScreen(session, item.name); }}
+              accessibilityRole="button"
+              accessibilityLabel={'Afficher ' + item.label + ' sur ' + label(session)}>
+              <Text style={s.targetText}>{sendingId === session.id ? 'Envoi…' : item.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        </View>
       ))}
       <TouchableOpacity style={s.refresh} onPress={() => { void refresh(); }} accessibilityRole="button">
         <Text style={s.refreshText}>Actualiser</Text>
@@ -101,6 +156,10 @@ const s = StyleSheet.create({
   title: { color: colors.textPrimary, fontSize: 14, fontWeight: '900' },
   help: { color: colors.textMuted, fontSize: 12, lineHeight: 17, marginTop: 4 },
   muted: { color: colors.textMuted, fontSize: 11, marginTop: 7 },
+  error: { color: colors.danger, fontSize: 12, marginTop: 7 },
+  targets: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 7 },
+  target: { minHeight: 38, paddingHorizontal: 11, borderRadius: 19, borderWidth: 1, borderColor: colors.primary, justifyContent: 'center' },
+  targetText: { color: colors.textPrimary, fontSize: 11, fontWeight: '800' },
   row: { marginTop: 10, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard, flexDirection: 'row', alignItems: 'center', gap: 10 },
   info: { flex: 1 },
   device: { color: colors.textPrimary, fontSize: 13, fontWeight: '800' },

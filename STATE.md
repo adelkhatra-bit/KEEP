@@ -81,3 +81,5 @@ Rapport d'audit externe : `docs/AUDIT_EXTERNE_2026-10-06.md`. Notifications : `d
 2026-10-10 · claude/release-trigger-20261010 · (ce commit) · ERR-132 : état indisponible ≠ désactivé (flags), rôle admin borné testé, 409 refresh, i18n bornée · jest mobile 296/296, tsc OK
 2026-10-10 · claude/release-trigger-20261010 · (ce commit) · ERR-132 corrigé : l'échec dual-viewport PRÉCÈDE la panne Supabase ; ERR-133 ouvert + diagnostic ajouté au test · base redémarrée 14:26 UTC (API 200)
 2026-10-10 · claude/release-trigger-20261010 · (ce commit) · ERR-133 cause prouvée : demo_discovery_locked=true (01/10) vs test obsolète ; décision d'Adel attendue · preuve run 38061684027
+
+2026-10-10 · reconcile/claude-main-20260825 · PC QR : session Windows active contrôlée côté Supabase (heartbeat), bouton Partager ne transmettait aucun onglet ; transfert sécurisé des cinq onglets codé sans toucher App.tsx/Navigation.tsx, migration 20261010200738 appliquée ; CI et appareil réel à vérifier (voir ERR-PC-SCREEN-HANDOFF-134).
