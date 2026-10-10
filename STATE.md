@@ -53,3 +53,4 @@ Rapport d'audit externe : `docs/AUDIT_EXTERNE_2026-10-06.md`. Notifications : `d
 2026-10-10 · claude/superadmin-session-forgot-password-v2 · zoom PC 1.2/1.4 · Partager sur mon PC 24 h + clé Super Admin web_share_free_cost · jest 290/1408 OK
 2026-10-10 · claude/superadmin-session-forgot-password-v2 · robot par rubrique + plus gros + profils de design · jest 291/1415 OK
 2026-10-10 · claude/superadmin-session-forgot-password-v2 · audit goût + notifications stories + Loki Pulse PC (docs) · IDEA-207 à 210
+2026-10-10 · claude/superadmin-session-forgot-password-v2 · robot discret (✕, silence 2 h, punchlines) · audit écoute vs Shazam (docs) · jest 292/1419 OK

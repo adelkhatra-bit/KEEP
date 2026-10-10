@@ -4,6 +4,7 @@ import { canRobotSpeak, composeRobotLine, LOW_FREE_THRESHOLD, type Memory, type 
 import { useRobotMessageStore } from '../store/useRobotMessageStore';
 import { playNotificationCue } from './notificationSoundService';
 import { useGameSessionStore } from '../store/useGameSessionStore';
+import { composeQuietOffer, isRobotQuiet, registerRobotDismissal } from './robotQuietService';
 import { composeCall, composeWelcomeBack, HELP_ACTIONS, pickTip, shouldWelcomeBack, spokenWelcome, type HelpActionKey, type RobotAction } from './robotHelp';
 
 /**
@@ -17,6 +18,8 @@ export async function robotSay(kind: RobotCoachKind, options: { count?: number; 
   if (useGameSessionStore.getState().isGameInProgress) return false;
   if (useRobotMessageStore.getState().message && !options.force) return false;
   if (useRobotMessageStore.getState().quiet > 0) return false;
+  // Silence demandé par l'utilisateur (2 h) : seuls ses propres appels (force) passent.
+  if (!options.force && await isRobotQuiet()) return false;
   const now = Date.now();
   let memory: Memory = {};
   try { const raw = await AsyncStorage.getItem(KEY); memory = raw ? JSON.parse(raw) : {}; } catch { memory = {}; }
@@ -95,4 +98,13 @@ export async function summonRobot(username: string, routeName?: string | null): 
 /** Explication du robot une fois arrivé à l'endroit choisi : quoi toucher, en deux phrases. */
 export async function robotExplain(key: HelpActionKey): Promise<boolean> {
   return robotSay('ROBOT_TIP', { text: pickTip(key, Date.now()), force: true });
+}
+
+/** Ferme une info du robot (bulle, bandeau) : si c'est la 3e fermeture d'affilée, il propose de se faire discret, avec une punchline. */
+export function closeRobotInfo(): void {
+  useRobotMessageStore.getState().dismiss();
+  if (registerRobotDismissal()) {
+    const offer = composeQuietOffer(Date.now());
+    setTimeout(() => { void robotSay('ROBOT_CALL', { text: offer.text, actions: offer.actions, force: true }); }, 400);
+  }
 }
