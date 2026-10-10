@@ -38,6 +38,16 @@ if (typeof document !== 'undefined') {
         #root { position:relative; inset:auto; width:100%; height:100dvh; min-height:100vh; max-height:100dvh; overflow:hidden; }
         @supports not (height: 100dvh) { #root { height:100vh; max-height:100vh; } }
       }
+      /* Ordinateur uniquement (Adel 10/10/2026 : « trop petit pour un ordinateur »).
+         Même application, agrandie par la fenêtre : zoom CSS sur #root, dont la taille
+         est divisée par le même facteur pour garder #root = fenêtre (jamais de page noire,
+         jamais de défilement sur body). Téléphone (< 1100 px) strictement inchangé. */
+      @media (min-width: 1100px) {
+        #root { zoom:1.2; width:calc(100vw / 1.2); height:calc(100dvh / 1.2); min-height:calc(100vh / 1.2); max-height:calc(100dvh / 1.2); }
+      }
+      @media (min-width: 1700px) {
+        #root { zoom:1.4; width:calc(100vw / 1.4); height:calc(100dvh / 1.4); min-height:calc(100vh / 1.4); max-height:calc(100dvh / 1.4); }
+      }
     `;
     document.head.appendChild(style);
   }
