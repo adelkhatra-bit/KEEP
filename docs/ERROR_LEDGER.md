@@ -592,3 +592,9 @@ Pour passer une ligne à `VERIFIED` :
 - Correctif (10/10/2026) : `getFeatureState` distingue `enabled` / `disabled` / `unavailable` ; Découvertes affiche « Connexion ralentie… » + Réessayer, jamais « désactivée », et n'active rien par défaut. Super Admin : `checkAdminRole` extrait dans `packages/admin/lib/adminRoleCheck.ts` (503/délai => `error`, session conservée ; refus réel => `denied`). Auth : un 409 de rafraîchissement ne devient plus « pas de session » (repli sur session locale NON expirée seulement). `i18n` : un seul chargement par langue + pause 5 min après échec.
 - Preuves : tests `featureFlagUnavailable`, `adminRoleCheckOutage`, `authSessionRefreshConflict` ; suite mobile 296/296, tsc admin+mobile OK.
 - Statut : CORRIGÉ_LOCAL_POUSSÉ — passera à VERIFIED après CI verte ; `dual-viewport` reste rouge tant que PostgREST renvoie 503 (panne de santé réelle, volontairement non contournée).
+
+## ERR-133 — dual-viewport : « 1 · DISTANCE » invisible sur l'écran Découvertes, échec ancien (10/10/2026)
+- Symptôme : `locator.waitFor` 15 s sur `getByText('1 · DISTANCE')` après le clic sur l'onglet Découvertes (390×844, invité).
+- Faits : rouge sur `main` (runs planifiés) et sur la PR depuis 01:17 UTC, donc avant la panne ; toujours rouge après le redémarrage de la base. Le texte existe dans `DiscoverScreen.tsx` (panneau de recherche, mode PERSONNES).
+- Action : diagnostic ajouté au test (journal du contenu réel de la page + capture `03a-discover-failure.png`) ; aucune condition assouplie.
+- Statut : OUVERT — cause à prouver avec le journal du prochain run.
