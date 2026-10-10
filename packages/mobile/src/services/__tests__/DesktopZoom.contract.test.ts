@@ -10,8 +10,10 @@ describe('Ordinateur : vraie disposition desktop sans étirer l’application mo
     expect(index).toContain('@media (min-width: 1100px)');
     expect(index).toMatch(/#root\s*\{\s*zoom:1;\s*width:100vw;/);
     expect(index).not.toMatch(/zoom:1\.[24]/);
-    // Le script d'export écrit une page 404 SPA, pas de mise à l’échelle concurrente.
-    expect(shell).toContain('404.html');
+    // Le script d'export n'écrit pas le shell 404 (créé par le workflow Pages).
+    // Il ne doit pas écraser le viewport natif avec le zoom d'un écran mobile.
+    expect(shell).toContain('keep-desktop-shell');
+    expect(shell).toContain('#root{zoom:1;width:100vw!important;');
     expect(shell).not.toMatch(/zoom:1\.[24]/);
   });
   it('jamais height:auto sur html/body/#root (incident page noire 29/09)', () => {
