@@ -155,7 +155,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
           if (row.key === 'desktop_boutique_columns_wide') values.wide = n;
         }
         setAdminDesktopColumns(values);
-      }).catch(() => { /* Configuration temporairement inaccessible : dimensions sûres par défaut. */ });
+      }, () => { /* Configuration temporairement inaccessible : dimensions sûres par défaut. */ });
     return () => { active = false; };
   }, [desktopStore]);
   const storeColumns = desktopStore ? (windowWidth >= 1700 ? adminDesktopColumns.wide : adminDesktopColumns.desktop) : 2;
