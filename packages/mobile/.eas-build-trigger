@@ -44,4 +44,4 @@ release: profil visité (Artistes en dossiers + retour vers mon profil), contrô
 release: stories 24 h (boutique, cache, anti-doublon), QR ordinateur (Oui/Non, expiré, rechargement, écran adapté), PC agrandi, robot par rubrique et discret, partage PC 24 h, total des j'aime (2026-10-10T01:05Z)
 release: stories 24 h, QR ordinateur (Oui/Non, expiré, lien expiré, rechargement, jumelage unique), PC agrandi, robot par rubrique, partage PC 24 h, total des j'aime (2026-10-10T01:30Z, commit de release unique en squash)
 release: PR 86 en ligne
-
+release: partage QR des cinq onglets, synchronisation privee des recherches PC/iOS (2026-10-10T20:22Z)
