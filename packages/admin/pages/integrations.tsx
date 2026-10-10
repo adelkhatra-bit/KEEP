@@ -146,11 +146,11 @@ export default function Integrations() {
     // rendre la reconnaissance indisponible : ne jamais le présenter comme
     // une panne bloquante ni le dupliquer dans la zone d'alerte.
     if (row.key === 'AUDD_API_KEY' && !row.configured && acrCloudActive) return false;
+    // Une clé enregistrée mais pas encore testée n'est PAS une clé manquante : elle reste dans sa catégorie avec « Configurée · à tester ».
     return !row.configured
       || Boolean(row.configurationIssue)
       || status === 'ERROR'
-      || status === 'EXHAUSTED'
-      || (row.category === 'recognition' && status === 'UNKNOWN');
+      || status === 'EXHAUSTED';
   };
 
   const attentionRows = useMemo(
@@ -267,7 +267,9 @@ export default function Integrations() {
       && !row.configured
       && acrCloudActive
       && (status === 'NOT_CONFIGURED' || status === 'UNKNOWN');
-    const displayedStatus = optionalAudd ? 'Optionnel · ACRCloud actif' : STATUS_LABELS[status];
+    const displayedStatus = optionalAudd
+      ? 'Optionnel · ACRCloud actif'
+      : status === 'UNKNOWN' && row.configured ? 'Configurée · à tester' : STATUS_LABELS[status];
     const displayedStatusColor = optionalAudd ? '#c9c3d2' : STATUS_COLORS[status];
     return (
       <div

@@ -71,3 +71,4 @@ Rapport d'audit externe : `docs/AUDIT_EXTERNE_2026-10-06.md`. Notifications : `d
 2026-10-10 · claude/release-trigger-20261010 · ERR-119 (ajout en story lent + popup derrière) corrigé localement ; ERR-120 (QR PC non publié) dépend de la fusion de la PR #86
 2026-10-10 · claude/release-trigger-20261010 · ERR-121 : mise en story de sa propre boutique passe par keep_pin_story_track (sans migration)
 2026-10-10 · claude/release-trigger-20261010 · ERR-122 : boucle PC sans délai max corrigée ; jumelage 7f3169e0 approuvé côté téléphone, PC non connecté (ancienne version)
+- 2026-10-10 · claude/release-trigger-20261010 · (commit local) · Super Admin Clés : clé enregistrée non testée = « Configurée · à tester », plus classée « manquante » · preuve : tsc packages/admin exit 0 ; COMMITTED_LOCAL — PUSH non fait (PR #86 rouge)
