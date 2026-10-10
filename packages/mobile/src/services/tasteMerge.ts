@@ -5,8 +5,12 @@ export function mergeTasteRecommendations(items: LokiPulseItem[], recommendation
   if (!recommendations.length) return items;
   const seen = new Set<string>();
   const out: LokiPulseItem[] = [];
+  const seenSongs = new Set<string>();
   for (const item of [...recommendations, ...items]) {
     if (seen.has(item.track.id)) continue;
+    const identity = String(item.track.isrc || '').trim().toUpperCase() || [item.track.artist, item.track.title].map(x => String(x || '').normalize('NFKC').toLocaleLowerCase('fr-FR').trim()).join('|');
+    if (seenSongs.has(identity)) continue;
+    seenSongs.add(identity);
     seen.add(item.track.id);
     out.push(item);
   }
