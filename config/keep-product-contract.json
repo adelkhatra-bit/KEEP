@@ -769,6 +769,11 @@
     "minNetworkPollIntervalMs": 5000,
     "fastIntervalAllowlist": [
       {
+        "file": "packages/mobile/src/components/WebCompanionSessionsPanel.tsx",
+        "snippet": "setInterval(() => setNow(Date.now()), 1000)",
+        "reason": "Compte à rebours PC purement local; aucun appel réseau dans cet intervalle"
+      },
+      {
         "file": "packages/mobile/src/services/useStoryCountdown.ts",
         "snippet": "setInterval(() => setNow(Date.now()), 1000)",
         "reason": "chronomètre 24 h de la story, affichage seul, aucun réseau"
