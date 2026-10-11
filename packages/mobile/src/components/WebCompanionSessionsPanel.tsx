@@ -1,5 +1,5 @@
 import React from 'react';
-import { AppState, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AppState, Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { colors } from '../theme/colors';
 import { navigationRef } from '../navigation/navigationRef';
@@ -84,34 +84,62 @@ export default function WebCompanionSessionsPanel({ buttonOnly = false }: { butt
     }
   };
 
+  // Send only the public site URL; pairing IDs and QR tokens never leave the app.
+  const sharePcLink = () => {
+    const message = 'Ouvre Loki Music sur ton PC et scanne le QR : https://adelkhatra-bit.github.io/KEEP/';
+    Alert.alert('Lien PC', 'Comment envoyer le lien ?', [
+      { text: 'WhatsApp', onPress: () => { void Linking.openURL('https://wa.me/?text=' + encodeURIComponent(message)).catch(() => Alert.alert('Lien PC', 'WhatsApp indisponible.')); } },
+      { text: 'E-mail', onPress: () => { void Linking.openURL('mailto:?subject=' + encodeURIComponent('Loki Music PC') + '&body=' + encodeURIComponent(message)).catch(() => Alert.alert('Lien PC', 'Messagerie indisponible.')); } },
+      { text: 'Annuler', style: 'cancel' },
+    ]);
+  };
+
   const explainShare = async () => {
     try {
       const fresh = await listWebCompanionSessions();
       setSessions(fresh);
       setLoadError(false);
-      const online = fresh.filter((s) => !s.revoked_at && pcShareHoursLeft(s.created_at, now) > 0
-        && Date.now() - new Date(s.last_seen_at).getTime() < 60000);
+      const online = fresh.filter((session) => !session.revoked_at && pcShareHoursLeft(session.created_at, Date.now()) > 0
+        && Date.now() - new Date(session.last_seen_at).getTime() < 60000);
+      const route = navigationRef.isReady() ? navigationRef.getCurrentRoute()?.name : null;
+      const target = isPcTargetScreen(route) ? route : 'Listen';
       if (online.length === 1) {
-        const route = navigationRef.isReady() ? navigationRef.getCurrentRoute()?.name : null;
-        await sendScreen(online[0], isPcTargetScreen(route) ? route : 'Profile');
+        Alert.alert('PC connecté', label(online[0]) + ' est connecté. Ouvrir cette rubrique sur le PC ?', [
+          { text: 'Ouvrir sur PC', onPress: () => { void sendScreen(online[0], target); } },
+          { text: 'Lien PC', onPress: sharePcLink },
+          { text: 'Annuler', style: 'cancel' },
+        ]);
         return;
       }
       if (online.length > 1) {
-        Alert.alert('Partager sur mon PC', 'Choisis un ordinateur et un onglet dans la liste ci-dessous.');
+        const actions = online.slice(0, 2).map((session) => ({
+          text: label(session).slice(0, 24),
+          onPress: () => { void sendScreen(session, target); },
+        }));
+        Alert.alert('Choisir un PC',
+          online.length > 2 ? 'Autres PC : Profil > Mes sessions.' : 'Ouvrir cette rubrique sur quel PC ?',
+          [...actions, { text: 'Annuler', style: 'cancel' }],
+        );
         return;
       }
       const cost = await loadPcShareFreeCost();
-      Alert.alert('Partager sur mon PC', pcShareMessage(cost));
+      Alert.alert('Aucun PC connecté', 'Ouvre Loki Music sur PC et scanne le QR. ' + pcShareMessage(cost), [
+        { text: 'Envoyer lien', onPress: sharePcLink },
+        { text: 'Fermer', style: 'cancel' },
+      ]);
     } catch {
       setLoadError(true);
-      Alert.alert('Partager sur mon PC', 'Impossible de vérifier la connexion à l’ordinateur pour le moment.');
+      Alert.alert('PC', 'Connexion indisponible. Réessaie ou envoie le lien.', [
+        { text: 'Envoyer lien', onPress: sharePcLink },
+        { text: 'Fermer', style: 'cancel' },
+      ]);
     }
   };
 
   if (buttonOnly) return (
     <TouchableOpacity style={s.quickShare} onPress={() => { void explainShare(); }} accessibilityRole="button"
-      accessibilityLabel="Transférer l'écran Loki sur mon ordinateur connecté" testID="home-transfer-to-pc">
-      <Text style={s.quickShareText}>PC ↗ Transférer sur mon ordinateur</Text>
+      accessibilityLabel="Ouvrir Loki Music sur PC ou envoyer le lien" testID="home-transfer-to-pc">
+      <Text style={s.quickShareText}>PC ↗</Text>
     </TouchableOpacity>
   );
   if (Platform.OS === 'web') return null;
