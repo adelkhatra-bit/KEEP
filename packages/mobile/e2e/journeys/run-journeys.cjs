@@ -938,6 +938,12 @@ const listenPcAndEventStoryJourney = {
       const transfer = page.locator('[data-testid="home-transfer-to-pc"]');
       checks.push(['transfert PC visible depuis accueil iPhone', await transfer.isVisible()]);
       checks.push(['quota restant renseigné', (await page.locator('body').innerText()).includes('RESTANTES')]);
+      const shareErrors = [];
+      page.on('pageerror', (error) => { shareErrors.push(String(error.message)); });
+      page.on('dialog', (dialog) => { void dialog.dismiss(); });
+      await transfer.click();
+      await page.waitForTimeout(450);
+      checks.push(['transfert PC actionnable sans erreur JavaScript', shareErrors.length === 0]);
     }
     await shot('accueil-quotas-et-pc');
     await page.goto(`${BASE}/Main/Profile/`, { waitUntil:'load' });
@@ -993,6 +999,12 @@ const desktopPartiesBattleSidebarJourney = {
     checks.push(['cartes de soirée dans la largeur PC', !!homeRect && homeRect.width >= viewport.width * 0.57]);
     const actions = page.getByRole('button', { name: /Créer une soirée|Voir mes soirées|Voir mes invitations/i });
     checks.push(['les trois actions Soirées sont présentes', (await actions.count()) >= 3]);
+    const dockRect = await page.getByTestId('loki-global-chat-drawer').boundingBox();
+    const actionRects = await Promise.all((await actions.all()).map((action) => action.boundingBox()));
+    const dockOverlapsActions = !!dockRect && actionRects.some((card) => !!card
+      && dockRect.x < card.x + card.width && dockRect.x + dockRect.width > card.x
+      && dockRect.y < card.y + card.height && dockRect.y + dockRect.height > card.y);
+    checks.push(['le Tchat ne recouvre aucune des trois cartes Soirées', !dockOverlapsActions]);
     await shot('soirees-pleine-largeur');
     await page.getByRole('button', { name: 'Ouvrir directement Battle' }).click();
     const stage = page.getByTestId('desktop-battle-stage');

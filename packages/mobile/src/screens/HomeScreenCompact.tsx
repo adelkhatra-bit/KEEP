@@ -442,7 +442,7 @@ export default function HomeScreenCompact({ navigation }: any) {
     return () => unsubscribe?.();
   }, [navigation, user?.id]);
   useEffect(() => {
-    if (isDemoMode || musicEngine.isDemoMode || !user) return undefined;
+    if (isDemoMode || !user) return undefined;
     void refreshListenEconomyStatus();
     const unsubscribe = navigation?.addListener?.('focus', () => { void refreshListenEconomyStatus(); });
     return () => unsubscribe?.();
@@ -707,7 +707,7 @@ export default function HomeScreenCompact({ navigation }: any) {
                 ◉  TROUVER LE MORCEAU
               </MotionActionButton>
             </View>
-            {isDemoMode || musicEngine.isDemoMode ? (
+            {isDemoMode || (musicEngine.isDemoMode && !listenEconomyStatus) ? (
               <View style={s.demoRow}>
                 <Text style={s.demo}>MODE DÉMO{isDemoMode ? ` · ${Math.min(demoListenUsed, demoListenLimit)}/${demoListenLimit} TROUVAILLES` : ''}</Text>
                 <TouchableOpacity style={s.demoHelp} onPress={explainDemo} accessibilityRole="button" accessibilityLabel="À quoi servent le mode démo et les FREE ?">

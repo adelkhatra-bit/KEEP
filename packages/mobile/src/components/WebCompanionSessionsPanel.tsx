@@ -59,15 +59,9 @@ export default function WebCompanionSessionsPanel({ buttonOnly = false }: { butt
     };
   }, [refresh, buttonOnly]);
 
-  if (Platform.OS === 'web') return null;
-
-  if (buttonOnly) return (
-    <TouchableOpacity style={s.quickShare} onPress={() => { void explainShare(); }} accessibilityRole="button"
-      accessibilityLabel="Transférer l'écran Loki sur mon ordinateur connecté" testID="home-transfer-to-pc">
-      <Text style={s.quickShareText}>PC ↗ Transférer sur mon ordinateur</Text>
-    </TouchableOpacity>
-  );
-
+  // Le bouton compact doit aussi fonctionner sur un navigateur mobile ;
+  // le panneau complet reste réservé à l'application native.
+  // Son callback est déclaré avant le retour anticipé (pas de variable non initialisée).
   const active = sessions.filter((s) => !s.revoked_at && pcShareHoursLeft(s.created_at, now) > 0);
 
   const timeLeft = (createdAt: string) => {
@@ -113,6 +107,14 @@ export default function WebCompanionSessionsPanel({ buttonOnly = false }: { butt
       Alert.alert('Partager sur mon PC', 'Impossible de vérifier la connexion à l’ordinateur pour le moment.');
     }
   };
+
+  if (buttonOnly) return (
+    <TouchableOpacity style={s.quickShare} onPress={() => { void explainShare(); }} accessibilityRole="button"
+      accessibilityLabel="Transférer l'écran Loki sur mon ordinateur connecté" testID="home-transfer-to-pc">
+      <Text style={s.quickShareText}>PC ↗ Transférer sur mon ordinateur</Text>
+    </TouchableOpacity>
+  );
+  if (Platform.OS === 'web') return null;
 
   const disconnect = (session: WebCompanionSession) => {
     Alert.alert(

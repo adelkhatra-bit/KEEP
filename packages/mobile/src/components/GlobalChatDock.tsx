@@ -616,9 +616,17 @@ export default function GlobalChatDock() {
   const gameInProgress = useGameSessionStore((state) => state.isGameInProgress);
   const [gameBottom, setGameBottom] = useState<number | null>(null);
   useEffect(() => { if (!gameInProgress) setGameBottom(null); }, [gameInProgress]);
-  const dockBottom = gameInProgress
-    ? Math.max(minBottom, Math.min(maxBottom, gameBottom ?? maxBottom))
-    : Math.max(minBottom, Math.min(maxBottom, bottomOffset));
+  // Sur un PC compact, Soirées/Battle affiche trois actions en haut.
+  // Garder le tiroir au bas de cet écran évite de recouvrir « Invitations »,
+  // sans modifier la position sauvegardée de l'utilisateur sur les autres onglets.
+  const compactPartiesDock = desktopDock && width <= 1120 && activeSurface === 'PARTIES' && !gameInProgress;
+  const [compactPartiesDockBottom, setCompactPartiesDockBottom] = useState<number | null>(null);
+  useEffect(() => { if (!compactPartiesDock) setCompactPartiesDockBottom(null); }, [compactPartiesDock]);
+  const dockBottom = compactPartiesDock
+    ? compactPartiesDockBottom ?? 16
+    : gameInProgress
+      ? Math.max(minBottom, Math.min(maxBottom, gameBottom ?? maxBottom))
+      : Math.max(minBottom, Math.min(maxBottom, bottomOffset));
   const middleBottom = Math.max(minBottom, Math.min(maxBottom, Math.round(height * 0.58)));
   const verticalPreset = Math.abs(bottomOffset - maxBottom) <= Math.abs(bottomOffset - middleBottom) && Math.abs(bottomOffset - maxBottom) <= Math.abs(bottomOffset - minBottom)
     ? 'HIGH'
@@ -652,6 +660,16 @@ export default function GlobalChatDock() {
         Animated.spring(drag, { toValue: { x: 0, y: 0 }, useNativeDriver: true, friction: 7 }).start();
         return;
       }
+      if (compactPartiesDock) {
+        // Déplacement manuel conservé, sans écraser la préférence verticale des autres écrans.
+        setCompactPartiesDockBottom(Math.max(12, Math.min(maxBottom, dragStartBottom.current - gesture.dy)));
+        if (nextSide !== side) {
+          setSide(nextSide);
+          void saveMusicAgoraPosition(nextSide, bottomOffset).catch(() => {});
+        }
+        Animated.spring(drag, { toValue: { x: 0, y: 0 }, useNativeDriver: true, friction: 7 }).start();
+        return;
+      }
       setSide(nextSide);
       setBottomOffset(nextBottom);
       void saveMusicAgoraPosition(nextSide, nextBottom)
@@ -659,7 +677,7 @@ export default function GlobalChatDock() {
         .catch(() => {});
       Animated.spring(drag, { toValue: { x: 0, y: 0 }, useNativeDriver: true, friction: 7 }).start();
     },
-  }), [bottomOffset, dockBottom, drag, gameInProgress, maxBottom, minBottom, setBottomOffset, setSide, side]);
+  }), [bottomOffset, compactPartiesDock, dockBottom, drag, gameInProgress, maxBottom, minBottom, setBottomOffset, setSide, side]);
 
   const saveProfileSettings = async (
     enabled: boolean,
