@@ -195,3 +195,5 @@ Règle produit verrouillée (04/10/2026) :
 - privilégier les actions inline au lieu d’empiler les navigations ;
 - mêmes règles Mobile + Web, source unique `packages/mobile/src`.
 Le contrat machine est `config/keep-product-contract.json > uxInteractionRules` et la CI refuse toute suppression de ces invariants.
+
+- Reliability and learning rules: read docs/LOKI_RELIABILITY_LEARNING_CONTRACT.md before modifying Loki. Continue using STATE.md and docs/ERROR_LEDGER.md as the existing execution log.
