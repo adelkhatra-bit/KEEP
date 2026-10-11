@@ -5,20 +5,20 @@ import path from 'path';
 const read = (...segments: string[]) =>
   fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\r\n/g, '\n');
 
-describe('Battle / Solo three-style mix contract', () => {
+describe('Battle / Solo eight-style mix contract', () => {
   const component = read(__dirname, '..', 'KeepBattleMobileGameV3.tsx');
   const liveService = read(__dirname, '..', '..', 'services', 'keepBattleLiveService.ts');
   const migration = read(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261001125000_battle_three_style_balanced_mix.sql');
   const contract = JSON.parse(read(__dirname, '..', '..', '..', '..', '..', 'config', 'keep-product-contract.json'));
 
-  it('allows at most three selected styles in the client', () => {
-    expect(component).toContain('real.length >= 3');
-    expect(component).toContain("Alert.alert('3 styles maximum'");
-    expect(liveService).toContain(')).slice(0, 3);');
+  it('allows up to eight selected styles in the client', () => {
+    expect(component).toContain('real.length >= 8');
+    expect(component).toContain("Alert.alert('8 styles maximum'");
+    expect(liveService).toContain(')).slice(0, 8);');
   });
 
-  it('persists at most three styles on the server', () => {
-    expect(migration).toContain('limit 3');
+  it('persists up to eight styles on the server', () => {
+    expect(read(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261012003000_battle_eight_theme_selection.sql')).toContain('limit 8');
     expect(migration).toContain("create or replace function public.keep_battle_save_match_preferences");
   });
 
@@ -30,7 +30,7 @@ describe('Battle / Solo three-style mix contract', () => {
   });
 
   it('locks the product rule', () => {
-    expect(contract.battlePreferences.maxSelectedStyles).toBe(3);
+    expect(contract.battlePreferences.maxSelectedStyles).toBe(8);
     expect(contract.battlePreferences.soloMustMixAllSelectedStyles).toBe(true);
     expect(contract.battlePreferences.battleMustMixAllSelectedStyles).toBe(true);
     expect(contract.battlePreferences.selectedStylesPersistInSupabase).toBe(true);
