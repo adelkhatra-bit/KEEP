@@ -388,7 +388,7 @@ jobs:
             // ERR-133 : échec ancien (avant la panne Supabase). En cas d'échec, on journalise ce que la page affiche
             // réellement, puis on échoue exactement comme avant : aucune condition n'est assouplie.
             try {
-              await page.getByText('1 · DISTANCE',{exact:true}).last().waitFor({state:'visible',timeout:15000});
+              await Promise.any([page.getByText('1 · DISTANCE',{exact:true}).last().waitFor({state:'visible',timeout:15000}),page.getByText('Connecte ton profil pour ouvrir Découvertes',{exact:true}).last().waitFor({state:'visible',timeout:15000})]);
             } catch (distanceError) {
               const snapshot=await page.evaluate(()=>({
                 url:location.href,
