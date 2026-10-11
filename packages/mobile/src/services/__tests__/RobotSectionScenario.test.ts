@@ -34,7 +34,7 @@ describe('Robot : scénario par rubrique', () => {
     expect(all).toMatch(/Partager sur mon PC/);
   });
   it('rubrique inconnue : menu général, secousse et 5 touchers passent par le même scénario', () => {
-    expect(scenarioForRoute('Offers', 'adel', 0).text).toContain('On fait quoi');
+    expect(scenarioForRoute('Offers', 'adel', 0).text).toContain("Qu'est-ce que je peux faire pour toi");
     expect(src('src/components/ProblemReportHost.tsx')).toContain('currentScreenName())');
     expect(src('src/services/robotCoachService.ts')).toContain("sectionOfRoute(routeName) !== 'OTHER'");
   });
