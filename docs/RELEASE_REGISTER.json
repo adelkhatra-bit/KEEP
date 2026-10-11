@@ -1,5 +1,14 @@
 [
   {
+    "commit": "f8dbd60c9caa6ac32f804c2568f00b6387fe788c",
+    "web": "f8dbd60c9caa6ac32f804c2568f00b6387fe788c",
+    "testflight": "iOS #228 in_progress (release f8dbd60)",
+    "ota": "OTA #1019 in_progress (release f8dbd60)",
+    "date": "2026-10-11 23:35",
+    "tests": "pass",
+    "changes": "feat(loki): unify iPhone and desktop quota, sessions, events and Pulse (#112)"
+  },
+  {
     "commit": "d678e5602dc290c16cf072a2938f7a3993c05b96",
     "web": "d678e5602dc290c16cf072a2938f7a3993c05b96",
     "testflight": "iOS #227 success (release a1d7ac3)",
