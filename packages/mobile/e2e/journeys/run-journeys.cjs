@@ -958,7 +958,65 @@ const listenPcAndEventStoryJourney = {
   },
 };
 
+// Reproduction utilisateur PC HP : Soirées et Battle doivent remplir la largeur
+// restante, la colonne identité/micro/session tient sans scroll même à 560px.
+const desktopPartiesBattleSidebarJourney = {
+  id: 'desktop-soirees-battle-sidebar-sans-scroll',
+  titre: 'PC : Soirées et Battle sur toute la largeur, micro visible sans défiler',
+  devices: [
+    ['PC compact 1024x560', { width: 1024, height: 560 }],
+    ['PC HP 1098x620', { width: 1098, height: 620 }],
+    ['PC standard 1440x900', { width: 1440, height: 900 }],
+  ],
+  mobileFlags: false,
+  fakeOptions: { pcSession: true },
+  async run({ page, viewport, shot }) {
+    const checks = [];
+    const fit = (rect) => Boolean(rect && rect.y >= -2 && rect.y + rect.height <= viewport.height + 2 && rect.x >= -2 && rect.x + rect.width <= viewport.width + 2);
+    await page.goto(`${BASE}/Main/Parties/`, { waitUntil: 'load' });
+    const sidebar = page.getByTestId('desktop-sidebar');
+    await sidebar.waitFor({ state: 'visible', timeout: 35000 });
+    const username = await sidebar.innerText();
+    checks.push(['logo Loki Music et @testeur visibles dans la colonne', username.includes('Loki Music') && username.includes('@testeur')]);
+    const micro = page.getByTestId('desktop-mic-status');
+    const microRect = await micro.boundingBox();
+    checks.push(['pastille MICRO À L’ARRÊT accessible immédiatement en haut', fit(microRect) && microRect.y < 220]);
+    checks.push(['état micro lisible et non tronqué', (await micro.innerText()).includes('MICRO À L’ARRÊT')]);
+    const sessions = page.getByTestId('desktop-open-sessions');
+    const sessionRect = await sessions.boundingBox();
+    checks.push(['MES SESSIONS accessible sans scroll latéral', fit(sessionRect)]);
+    const navFit = await sidebar.evaluate((el) => el.scrollHeight <= el.clientHeight + 3);
+    checks.push(['barre latérale sans défilement vertical', navFit]);
+    const home = page.getByTestId('parties-home-actions');
+    await home.waitFor({ state: 'visible', timeout: 30000 });
+    const homeRect = await home.boundingBox();
+    checks.push(['cartes de soirée dans la largeur PC', !!homeRect && homeRect.width >= viewport.width * 0.57]);
+    const actions = page.getByRole('button', { name: /Créer une soirée|Voir mes soirées|Voir mes invitations/i });
+    checks.push(['les trois actions Soirées sont présentes', (await actions.count()) >= 3]);
+    await shot('soirees-pleine-largeur');
+    await page.getByRole('button', { name: 'Ouvrir directement Battle' }).click();
+    const stage = page.getByTestId('desktop-battle-stage');
+    await stage.waitFor({ state: 'visible', timeout: 30000 });
+    const stageRect = await stage.boundingBox();
+    const sidebarRect = await sidebar.boundingBox();
+    checks.push(['Battle occupe toute la largeur hors barre latérale', !!stageRect && !!sidebarRect && stageRect.width >= viewport.width - sidebarRect.width - 18]);
+    checks.push(['fond Battle violet présent sur la totalité du bureau', await page.getByTestId('desktop-battle-atmosphere').isVisible()]);
+    checks.push(['panneau informations gauche présent sans chevauchement', await page.getByTestId('desktop-battle-left').isVisible()]);
+    checks.push(['panneau informations droit présent sans chevauchement', await page.getByTestId('desktop-battle-right').isVisible()]);
+    const left = await page.getByTestId('desktop-battle-left').boundingBox();
+    const right = await page.getByTestId('desktop-battle-right').boundingBox();
+    checks.push(['panneaux desktop entièrement dans leur zone', !!left && !!right && !!stageRect && left.x >= stageRect.x && right.x + right.width <= stageRect.x + stageRect.width + 2 && left.x + left.width < right.x]);
+    await shot('battle-pleine-largeur');
+    const docWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+    checks.push(['aucun débordement horizontal page', docWidth <= viewport.width + 4]);
+    const sidebarMicroBattle = await page.getByTestId('desktop-mic-status').boundingBox();
+    checks.push(['état micro reste affiché pendant Battle', fit(sidebarMicroBattle)]);
+    return { details: { homeRect, microRect, sessionRect, stageRect, left, right, docWidth }, failures: failed(checks), ok: 'Soirées, Battle et sidebar visibles dans la fenêtre PC, sans bande noire vide ni défilement latéral' };
+  },
+};
+
 const JOURNEYS = [
+  desktopPartiesBattleSidebarJourney,
   listenPcAndEventStoryJourney,
   desktopHomeStoryJourney,
   pcConnectionCountdownJourney,
