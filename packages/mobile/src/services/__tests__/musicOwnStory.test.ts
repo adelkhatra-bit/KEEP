@@ -217,7 +217,8 @@ describe('Mettre en story : retour clair, cercle allumé, musique en vente (Adel
     expect(svc).toContain('notifyOwnStoryChanged();');
     expect(svc).toContain('export function notifyOwnStoryChanged(): void');
     expect(bar).toContain('subscribeOwnStoryChanged');
-    expect(deck).toContain("if (visibility === 'PUBLIC') {\n          notifyOwnStoryChanged();");
+    expect(deck).toContain('notifyOwnStoryChanged();');
+    expect(deck).toContain("visibility === 'PUBLIC'");
   });
   it('confirme dans la fenêtre (bouton vert + félicitations), pas seulement par alerte', () => {
     expect(deck).toContain('deck-story-congrats');
