@@ -1233,7 +1233,9 @@ const s = StyleSheet.create({
   desktopIdleIdentity: { flex: 0.42, minWidth: 220, alignItems: 'center', justifyContent: 'center' },
   desktopIdleActions: { flex: 0.58, minWidth: 270, alignItems: 'center', justifyContent: 'center' },
   desktopIdleHero: { maxWidth: 930, minHeight: 275, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 26, paddingHorizontal: 30, paddingVertical: 22, borderRadius: 28, borderWidth: 1, borderColor: 'rgba(167,139,250,0.38)', backgroundColor: 'rgba(16,12,32,0.88)' },
-  desktopIdleFit: { justifyContent: 'center', paddingTop: 0, paddingBottom: 8, paddingHorizontal: 18, overflow: 'visible' },
+  // Réserve à droite le couloir du bot TCHAT PC : aucun chevauchement du CTA
+  // et du texte de reconnaissance sur les fenêtres Windows à 1024–1098 px.
+  desktopIdleFit: { justifyContent: 'center', paddingTop: 0, paddingBottom: 8, paddingHorizontal: 18, paddingRight: 190, overflow: 'visible' },
   desktopTopBar: { maxWidth: 960, minHeight: 50, paddingTop: 2, paddingBottom: 2 },
   idlePills: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 14 },
   micPillReady: { backgroundColor: 'rgba(124,92,252,0.14)', borderColor: 'rgba(124,92,252,0.45)' },
