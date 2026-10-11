@@ -404,7 +404,7 @@ export default function GlobalChatDock() {
     // Fallback léger seulement tant qu'il reste des conversations non lues.
     // Un message lu sur mobile disparaît ainsi du PC même si Realtime se coupe.
     const interval = setInterval(() => {
-      if (AppState.currentState !== 'active') return;
+      if (Platform.OS !== 'web' && AppState.currentState !== 'active') return;
       if (Platform.OS === 'web' && typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       if (Object.keys(useGlobalChatStore.getState().unreadByTarget).length > 0) void refresh();
     }, 30000);
