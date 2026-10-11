@@ -550,7 +550,6 @@ export default function HomeScreenCompact({ navigation }: any) {
   }, [canGoOlder, currentIndex, tracks]);
 
   const detected = tracks.length;
-  const kept = tracks.filter((tr) => tr.status === 'kept' || tr.status === 'already_saved').length;
   const pending = current?.status === 'pending';
   const alreadySaved = current?.status === 'already_saved';
   // Audit Adel (11/09/2026) : cet ecran a son propre rendu de carte (jamais
