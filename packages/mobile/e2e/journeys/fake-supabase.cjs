@@ -262,6 +262,22 @@ function createFakeSupabase(options = {}) {
           return json(200, obj ? null : []);
       }
     }
+    if (opts.ownStory && p === '/rest/v1/keep_decisions' && req.method() === 'GET'
+      && u.searchParams.get('profile_id') === 'eq.' + UID
+      && u.searchParams.get('visibility') === 'eq.PUBLIC') {
+      const storyTrack = {
+        id: '0b5e7a1c-0000-4000-8000-00000000c999',
+        title: 'Ma musique de démonstration',
+        artist: 'Artiste de test', album: 'Album test',
+        artwork_url: null, preview_url: null, genres: ['House'],
+        provider_ids: {}, external_urls: {}, available_on: [],
+      };
+      return json(200, [{
+        profile_id: UID, created_at: recent(60000),
+        track: storyTrack,
+        profile: { username: USERNAME, avatar_url: null, discovery_hidden: false },
+      }]);
+    }
     if (p === '/rest/v1/notifications' && req.method() === 'GET') return json(200, unreadNotifications.filter((n) => !state.readNotifications.includes(n.id)).sort((a, b) => b.created_at.localeCompare(a.created_at)));
     if (p === '/rest/v1/tracks' && opts.newKeepNotif && u.searchParams.get('id') === `eq.${SECRET_TRACK.id}`) {
       const row = { ...SECRET_TRACK, preview_url: `${opts.origin}/none.mp3` };
