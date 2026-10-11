@@ -131,7 +131,7 @@ jobs:
       - name: Block black page + wrong navigation (real Chromium, PC + tablet + mobile)
         run: |
           set -euo pipefail
-          (cd _gate && python3 -m http.server 8765 --bind 127.0.0.1 >/dev/null 2>&1 &)
+          node scripts/gate-static-server.cjs _gate 8765 >/dev/null 2>&1 &
           sleep 2
           node scripts/web-visible-surface-gate.cjs http://127.0.0.1:8765/KEEP
 
