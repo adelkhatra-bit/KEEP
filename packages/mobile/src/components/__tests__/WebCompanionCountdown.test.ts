@@ -1,4 +1,4 @@
-import { formatWebCompanionRemaining, webCompanionRemainingMs } from '../WebCompanionCountdown';
+import { formatWebCompanionRemaining, webCompanionRemainingMs } from '../../services/webCompanionCountdown';
 import fs from 'fs';
 import path from 'path';
 
