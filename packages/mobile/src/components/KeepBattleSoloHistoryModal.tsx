@@ -59,7 +59,7 @@ export function KeepBattleSoloHistoryModal({ visible, onClose }: KeepBattleSoloH
   };
 
   return (
-    <KeepModal visible={visible} animationType="slide" transparent={true} statusBarTranslucent>
+    <KeepModal visible={visible} animationType="fade" transparent={true} statusBarTranslucent>
       <View style={[s.backdrop, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={s.sheet}>
           <View style={s.header}>
@@ -116,8 +116,8 @@ export function KeepBattleSoloHistoryModal({ visible, onClose }: KeepBattleSoloH
 }
 
 const s = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,.78)', justifyContent: 'flex-end' },
-  sheet: { maxHeight: '88%', backgroundColor: '#151020', borderTopLeftRadius: 26, borderTopRightRadius: 26, borderWidth: 1, borderColor: '#493369', padding: 18 },
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,.78)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16 },
+  sheet: { width: '100%', maxWidth: 520, maxHeight: '82%', backgroundColor: '#151020', borderRadius: 26, borderWidth: 1, borderColor: '#493369', padding: 18 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
   title: { color: '#FFF', fontSize: 18, fontWeight: '900' },
   close: { color: '#E1D7FF', fontSize: 14, fontWeight: '900' },
