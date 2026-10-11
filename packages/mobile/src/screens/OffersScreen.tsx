@@ -189,7 +189,7 @@ export default function OffersScreen({ navigation, route }: any) {
   const [showFreeDetails, setShowFreeDetails] = useState(false);
   const [discoveryExpanded, setDiscoveryExpanded] = useState(false);
   // Lot n°9.2 (05/10/2026) : l'écran doit se lire en 5 secondes. Trois cartes
-  // en haut ; les textes longs passent dans « En savoir plus » (rien n'est supprimé).
+  // en haut ; les textes longs passent dans « Plus » (rien n'est supprimé).
   const [introExpanded, setIntroExpanded] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const sectionY = useRef<Record<string, number>>({});
@@ -517,10 +517,10 @@ export default function OffersScreen({ navigation, route }: any) {
                 style={s.disclosureButton}
                 onPress={() => setExpandedPlanCode((current) => current === plan.code ? null : plan.code)}
                 accessibilityRole="button"
-                accessibilityLabel={`En savoir plus sur ${planLabel(plan.code)}`}
+                accessibilityLabel={`Afficher les détails de ${planLabel(plan.code)}`}
                 accessibilityState={{ expanded: expandedPlanCode === plan.code }}
               >
-                <Text style={s.disclosureText}>{expandedPlanCode === plan.code ? 'Réduire' : 'En savoir plus'}</Text>
+                <Text style={s.disclosureText}>{expandedPlanCode === plan.code ? 'Réduire' : 'Plus'}</Text>
                 <Text style={s.disclosureChevron}>{expandedPlanCode === plan.code ? '⌃' : '⌄'}</Text>
               </TouchableOpacity>
               {expandedPlanCode === plan.code ? <View style={s.planDetails}>
@@ -579,10 +579,10 @@ export default function OffersScreen({ navigation, route }: any) {
             style={s.disclosureButton}
             onPress={() => setRulesExpanded((value) => !value)}
             accessibilityRole="button"
-            accessibilityLabel="En savoir plus sur les règles"
+            accessibilityLabel="Afficher les règles"
             accessibilityState={{ expanded: rulesExpanded }}
           >
-            <Text style={s.disclosureText}>{rulesExpanded ? 'Réduire' : 'En savoir plus'}</Text>
+            <Text style={s.disclosureText}>{rulesExpanded ? 'Réduire' : 'Plus'}</Text>
             <Text style={s.disclosureChevron}>{rulesExpanded ? '⌃' : '⌄'}</Text>
           </TouchableOpacity>
           {rulesExpanded ? <View style={s.rulesDetails}>
@@ -598,10 +598,10 @@ export default function OffersScreen({ navigation, route }: any) {
             style={s.disclosureButton}
             onPress={() => setIntroExpanded((value) => !value)}
             accessibilityRole="button"
-            accessibilityLabel="En savoir plus sur le fonctionnement de Loki Music"
+            accessibilityLabel="Afficher le fonctionnement de Loki Music"
             accessibilityState={{ expanded: introExpanded }}
           >
-            <Text style={s.disclosureText}>{introExpanded ? 'Réduire' : 'En savoir plus : comment Loki Music grandit avec toi'}</Text>
+            <Text style={s.disclosureText}>{introExpanded ? 'Réduire' : 'Plus'}</Text>
             <Text style={s.disclosureChevron}>{introExpanded ? '⌃' : '⌄'}</Text>
           </TouchableOpacity>
           {introExpanded ? <>
@@ -633,10 +633,10 @@ export default function OffersScreen({ navigation, route }: any) {
               style={s.disclosureButton}
               onPress={() => setDiscoveryExpanded((value) => !value)}
               accessibilityRole="button"
-              accessibilityLabel="En savoir plus sur l'attribution des découvertes"
+              accessibilityLabel="Afficher l'attribution des découvertes"
               accessibilityState={{ expanded: discoveryExpanded }}
             >
-              <Text style={s.disclosureText}>{discoveryExpanded ? 'Réduire' : 'En savoir plus'}</Text>
+              <Text style={s.disclosureText}>{discoveryExpanded ? 'Réduire' : 'Plus'}</Text>
               <Text style={s.disclosureChevron}>{discoveryExpanded ? '⌃' : '⌄'}</Text>
             </TouchableOpacity>
             {discoveryExpanded ? <View style={s.discoveryDetails}>
@@ -756,10 +756,10 @@ export default function OffersScreen({ navigation, route }: any) {
               style={s.disclosureButton}
               onPress={() => setBattleExpanded((value) => !value)}
               accessibilityRole="button"
-              accessibilityLabel="En savoir plus sur les Loki Music Battles"
+              accessibilityLabel="Afficher les détails des Loki Music Battles"
               accessibilityState={{ expanded: battleExpanded }}
             >
-              <Text style={s.disclosureText}>{battleExpanded ? 'Reduire' : 'En savoir plus'}</Text>
+              <Text style={s.disclosureText}>{battleExpanded ? 'Reduire' : 'Plus'}</Text>
               <Text style={s.disclosureChevron}>{battleExpanded ? 'v' : '>'}</Text>
             </TouchableOpacity>
             {/* Adel (04/09/2026) : "oublie pas de rajouter aussi dans les
