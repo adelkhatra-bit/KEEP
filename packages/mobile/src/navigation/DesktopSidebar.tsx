@@ -22,8 +22,11 @@ export default function DesktopSidebar({ items, activeName, onSelect, onOpenSess
   const { height } = useWindowDimensions();
   // Aucun défilement de la sidebar PC : compacter les éléments AVANT que
   // « MICRO À L’ARRÊT » et « MES SESSIONS » passent sous la fenêtre.
-  const compact = height < 760;
-  const veryShort = height < 520;
+  const compact = height < 820;
+  // En fenêtre PC basse (écran HP / zoom navigateur), la carte du micro
+  // reste dans le viewport, sans ScrollView ni barre latérale défilante.
+  const veryShort = height < 680;
+  const tiny = height < 490;
   const username = useUserStore((s) => s.user?.username);
   const isListening = useSessionStore((s) => s.isActive);
   const liveCount = useSessionStore((s) => s.tracks.length);
@@ -32,11 +35,11 @@ export default function DesktopSidebar({ items, activeName, onSelect, onOpenSess
   const lastCount = sessions.find((session) => !session.id.startsWith('__keep-'))?.tracks.length ?? 0;
   return (
     <View style={s.side} testID="desktop-sidebar" accessibilityLabel="Navigation Loki Music">
-      <View style={[s.inner, compact && s.innerCompact, veryShort && s.innerVeryShort]} testID="desktop-sidebar-fitted">
-        <View style={[s.brandBox, compact && s.brandBoxCompact]} accessibilityLabel="Compte Loki Music connecté">
+      <View style={[s.inner, compact && s.innerCompact, veryShort && s.innerVeryShort, tiny && s.innerTiny]} testID="desktop-sidebar-fitted">
+        <View style={[s.brandBox, compact && s.brandBoxCompact, veryShort && s.brandBoxVeryShort]} accessibilityLabel="Compte Loki Music connecté">
           <Text style={[s.brand, compact && s.brandCompact]}>Loki Music</Text>
           <Text style={s.user} numberOfLines={1}>{username ? `@${String(username).replace(/^@/, '')}` : 'Utilisateur Loki'}</Text>
-          <View style={s.brandAccent} />
+          {!veryShort ? <View style={s.brandAccent} /> : null}
         </View>
         <View style={[s.list, compact && s.listCompact]} testID="desktop-sidebar-nav">
           {items.map((item) => {
@@ -45,7 +48,7 @@ export default function DesktopSidebar({ items, activeName, onSelect, onOpenSess
               <TouchableOpacity
                 key={item.name}
                 testID={`desktop-nav-${item.name}`}
-                style={[s.item, compact && s.itemCompact, veryShort && s.itemVeryShort, active && s.itemActive]}
+                style={[s.item, compact && s.itemCompact, veryShort && s.itemVeryShort, tiny && s.itemTiny, active && s.itemActive]}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
                 accessibilityLabel={`Aller à l’onglet ${item.label}`}
@@ -57,12 +60,12 @@ export default function DesktopSidebar({ items, activeName, onSelect, onOpenSess
             );
           })}
         </View>
-        <View style={[s.session, compact && s.sessionCompact, veryShort && s.sessionVeryShort]} testID="desktop-session-card">
+        <View style={[s.session, compact && s.sessionCompact, veryShort && s.sessionVeryShort, tiny && s.sessionTiny]} testID="desktop-session-card">
           <Text style={[s.sessionStatus, compact && s.sessionStatusCompact]} testID="desktop-mic-status">{isListening ? '● MICRO EN COURS' : '● MICRO À L’ARRÊT'}</Text>
           {!veryShort ? <><Text style={[s.sessionValue, compact && s.sessionValueCompact]}>{isListening ? liveCount : lastCount}</Text>
           <Text style={s.sessionLabel}>morceaux {isListening ? 'détectés' : 'dans la dernière session'}</Text></> : null}
-          {listenEconomy ? <Text style={s.quotaStatus}>{listenEconomy.includedRemaining} identifications restantes · {listenEconomy.periodMode === 'WEEK' ? 'semaine' : listenEconomy.periodMode === 'MONTH' ? 'mois' : listenEconomy.periodMode === 'NEVER' ? 'crédit sans recharge' : 'aujourd’hui'}</Text> : null}
-          <TouchableOpacity style={[s.primary, compact && s.primaryCompact]} onPress={onOpenSessions} testID="desktop-open-sessions" accessibilityRole="button" accessibilityLabel="Afficher mes sessions">
+          {listenEconomy && !tiny ? <Text style={[s.quotaStatus, veryShort && s.quotaCompact]} numberOfLines={veryShort ? 1 : 2}>{listenEconomy.includedRemaining} identifications restantes · {listenEconomy.periodMode === 'WEEK' ? 'semaine' : listenEconomy.periodMode === 'MONTH' ? 'mois' : listenEconomy.periodMode === 'NEVER' ? 'crédit sans recharge' : 'aujourd’hui'}</Text> : null}
+          <TouchableOpacity style={[s.primary, compact && s.primaryCompact, tiny && s.primaryTiny]} onPress={onOpenSessions} testID="desktop-open-sessions" accessibilityRole="button" accessibilityLabel="Afficher mes sessions">
             <Text style={s.primaryText}>{isListening ? 'VOIR SANS ARRÊTER' : 'MES SESSIONS'}</Text>
           </TouchableOpacity>
         </View>
@@ -74,19 +77,25 @@ export default function DesktopSidebar({ items, activeName, onSelect, onOpenSess
 const s = StyleSheet.create({
   side: { width: DESKTOP_SIDEBAR_WIDTH, height: '100%', flexShrink: 0, backgroundColor: '#0E0A14', borderRightWidth: 1, borderRightColor: '#2B2038' },
   innerCompact: { paddingTop: 10, paddingBottom: 10, paddingHorizontal: 10, gap: 1 },
-  innerVeryShort: { paddingTop: 4, paddingBottom: 4 },
+  innerVeryShort: { paddingTop: 5, paddingBottom: 5, gap: 0 },
+  innerTiny: { paddingTop: 2, paddingBottom: 2 },
+  brandBoxVeryShort: { paddingBottom: 3 },
+  itemTiny: { minHeight: 31, paddingVertical: 0 },
+  sessionTiny: { paddingVertical: 5 },
+  quotaCompact: { marginTop: 2, lineHeight: 13 },
+  primaryTiny: { minHeight: 32, marginTop: 4 },
   brandBoxCompact: { paddingBottom: 5 },
   brandCompact: { fontSize: 18 },
-  listCompact: { marginTop: 7, gap: 2 },
+  listCompact: { marginTop: 6, gap: 2 },
   itemCompact: { minHeight: 40, paddingHorizontal: 9, gap: 8 },
-  itemVeryShort: { minHeight: 34 },
+  itemVeryShort: { minHeight: 36 },
   iconCompact: { fontSize: 17, width: 22 },
   labelCompact: { fontSize: 13 },
   sessionCompact: { marginTop: 'auto', padding: 9 },
-  sessionVeryShort: { padding: 6 },
+  sessionVeryShort: { paddingHorizontal: 8, paddingVertical: 7, marginTop: 'auto' },
   sessionStatusCompact: { fontSize: 10 },
   sessionValueCompact: { fontSize: 24, marginTop: 2 },
-  primaryCompact: { minHeight: 38, marginTop: 6 },
+  primaryCompact: { minHeight: 36, marginTop: 4 },
   inner: { flex: 1, minHeight: 0, paddingHorizontal: 14, paddingTop: 22, paddingBottom: 18, gap: 4 },
   brandBox: { paddingHorizontal: 4, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#302444' },
   brandAccent: { width: 42, height: 3, marginTop: 10, borderRadius: 2, backgroundColor: colors.primaryLight },
