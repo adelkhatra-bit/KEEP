@@ -458,13 +458,12 @@ export default function GlobalChatDock() {
         if (!unreadKey) return;
         const sender = chatNotificationSender(item);
         const chatState = useGlobalChatStore.getState();
-        if (chatState.isOpen) return;
         flashEdge();
         if (!chatState.isOpen) chatState.prime(chatNotificationTarget(item));
         if (chatEnabled && chatNotificationsEnabled && chatSoundEnabled) {
           void playNotificationCue('DEFAULT').catch(() => {});
         }
-        if (chatEnabled && chatNotificationsEnabled && chatVoiceEnabled) {
+        if (chatEnabled && chatNotificationsEnabled && chatVoiceEnabled && !chatState.isOpen) {
           void speakLokiText(`Message de ${sender}`, {
             language: 'fr-FR',
             rate: 0.95,
