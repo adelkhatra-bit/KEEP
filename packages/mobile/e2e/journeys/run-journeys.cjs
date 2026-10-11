@@ -883,6 +883,8 @@ const desktopHomeStoryJourney = {
     if (desktop) {
       checks.push(['deux colonnes desktop réellement disposées côte à côte', !!homeRect && homeRect.width >= 560]);
       checks.push(['compteur de connexion PC toujours visible', await page.locator('[data-testid="pc-connected-countdown"]').isVisible()]);
+      const chatLauncher = await page.locator('[data-testid="loki-global-chat-drawer"]').boundingBox();
+      checks.push(['bouton Tchat complètement visible sur bureau, même à 1098 px', !!chatLauncher && chatLauncher.x >= -2 && chatLauncher.x + chatLauncher.width <= viewport.width + 2]);
     }
     await shot('accueil-cadre');
     await page.goto(`${BASE}/Main/Profile/`, { waitUntil: 'load' });
@@ -896,13 +898,15 @@ const desktopHomeStoryJourney = {
     const storyRect = await player.boundingBox();
     const header = page.getByText('Ta story', { exact: true }).last();
     const headerRect = await header.boundingBox();
+    const viewerChip = await page.locator('[data-testid="story-views-chip"]').boundingBox();
+    checks.push(['compteur des spectateurs non coupé dans la Story', inViewport(viewerChip) && !!viewerChip && viewerChip.height >= 34]);
     checks.push(['lecteur Story entièrement contenu dans le viewport', inViewport(storyRect)]);
     checks.push(['titre Story accessible en haut', !!headerRect && headerRect.y >= 0 && headerRect.y <= viewport.height * 0.35]);
     if (desktop) checks.push(['Story centrée horizontalement en fenêtre de téléphone',
       !!storyRect && storyRect.width <= 525 && Math.abs(storyRect.x + storyRect.width / 2 - viewport.width / 2) < 15]);
     await shot('story-cadree');
     return {
-      details: { homeRect, buttonRect, storyRect, headerRect },
+      details: { homeRect, buttonRect, storyRect, headerRect, viewerChip },
       failures: failed(checks),
       ok: 'Accueil et Story dans la fenêtre, sans bouton coupé ni double hamburger PC',
     };
