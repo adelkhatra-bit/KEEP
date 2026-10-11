@@ -185,6 +185,16 @@ function createFakeSupabase(options = {}) {
     if (p.startsWith('/realtime/')) return route.abort();
     if (p === '/auth/v1/user') return json(200, user);
     if (p === '/auth/v1/token') return json(200, session);
+    if (opts.pcSession && p.includes('/functions/v1/keep-web-pairing')) {
+      const action = body().action;
+      const createdAt = new Date(Date.now() - 75 * 60 * 1000).toISOString();
+      if (action === 'list') return json(200, { ok: true, sessions: [{
+        id: 'pc-e2e-1', device_label: 'PC Chromium test',
+        created_at: createdAt, last_seen_at: new Date().toISOString(), revoked_at: null,
+      }] });
+      if (action === 'status') return json(200, { ok: true, revoked: false });
+      return json(200, { ok: true });
+    }
     if (p.startsWith('/auth/') || p.startsWith('/functions/')) return json(200, {});
     if (p.startsWith('/rest/v1/rpc/')) {
       const name = p.split('/').pop();
