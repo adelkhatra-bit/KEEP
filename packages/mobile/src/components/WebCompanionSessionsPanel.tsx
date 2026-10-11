@@ -1,5 +1,5 @@
 import React from 'react';
-import { AppState, Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AppState, Linking, Platform, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { colors } from '../theme/colors';
 import { navigationRef } from '../navigation/navigationRef';
@@ -12,7 +12,7 @@ import {
   isPcTargetScreen,
   requestWebCompanionScreen,
 } from '../services/webPairingService';
-import { loadPcShareFreeCost, pcShareHoursLeft, pcShareMessage } from '../services/pcShareService';
+import { loadPcShareFreeCost, pcShareHoursLeft } from '../services/pcShareService';
 
 function label(session: WebCompanionSession) {
   return session.device_label || 'Ordinateur Loki';
@@ -84,15 +84,27 @@ export default function WebCompanionSessionsPanel({ buttonOnly = false }: { butt
     }
   };
 
-  // Send only the public site URL; pairing IDs and QR tokens never leave the app.
-  const sharePcLink = () => {
-    const message = 'Ouvre Loki Music sur ton PC et scanne le QR : https://adelkhatra-bit.github.io/KEEP/';
-    Alert.alert('Lien PC', 'Comment envoyer le lien ?', [
-      { text: 'WhatsApp', onPress: () => { void Linking.openURL('https://wa.me/?text=' + encodeURIComponent(message)).catch(() => Alert.alert('Lien PC', 'WhatsApp indisponible.')); } },
-      { text: 'E-mail', onPress: () => { void Linking.openURL('mailto:?subject=' + encodeURIComponent('Loki Music PC') + '&body=' + encodeURIComponent(message)).catch(() => Alert.alert('Lien PC', 'Messagerie indisponible.')); } },
-      { text: 'Annuler', style: 'cancel' },
-    ]);
+  // Partager uniquement l'URL publique : aucun QR/token de connexion ne quitte l'app.
+  const pcInvitation = 'Loki Music sur PC : https://adelkhatra-bit.github.io/KEEP/\nSur le PC, affiche le QR puis scanne-le sur ton téléphone.';
+  const sharePcLink = async (channel: 'WHATSAPP' | 'EMAIL' | 'OTHER') => {
+    try {
+      if (channel === 'WHATSAPP') {
+        await Linking.openURL('https://wa.me/?text=' + encodeURIComponent(pcInvitation));
+      } else if (channel === 'EMAIL') {
+        await Linking.openURL('mailto:?subject=' + encodeURIComponent('Loki Music PC') + '&body=' + encodeURIComponent(pcInvitation));
+      } else {
+        await Share.share({ message: pcInvitation, title: 'Loki Music PC' });
+      }
+    } catch {
+      Alert.alert('Lien PC', 'Partage indisponible. Essaie WhatsApp ou e-mail.');
+    }
   };
+  const linkOptions = () => [
+    { text: 'WhatsApp', onPress: () => { void sharePcLink('WHATSAPP'); } },
+    { text: 'E-mail', onPress: () => { void sharePcLink('EMAIL'); } },
+    { text: 'Autres', onPress: () => { void sharePcLink('OTHER'); } },
+    { text: 'Annuler', style: 'cancel' as const },
+  ];
 
   const explainShare = async () => {
     try {
@@ -103,36 +115,24 @@ export default function WebCompanionSessionsPanel({ buttonOnly = false }: { butt
         && Date.now() - new Date(session.last_seen_at).getTime() < 60000);
       const route = navigationRef.isReady() ? navigationRef.getCurrentRoute()?.name : null;
       const target = isPcTargetScreen(route) ? route : 'Listen';
-      if (online.length === 1) {
-        Alert.alert('PC connecté', label(online[0]) + ' est connecté. Ouvrir cette rubrique sur le PC ?', [
-          { text: 'Ouvrir sur PC', onPress: () => { void sendScreen(online[0], target); } },
-          { text: 'Lien PC', onPress: sharePcLink },
-          { text: 'Annuler', style: 'cancel' },
-        ]);
-        return;
-      }
-      if (online.length > 1) {
-        const actions = online.slice(0, 2).map((session) => ({
-          text: label(session).slice(0, 24),
+      if (online.length) {
+        const pcChoices = online.slice(0, 2).map((session) => ({
+          text: online.length === 1 ? 'Sur mon PC' : label(session).slice(0, 20),
           onPress: () => { void sendScreen(session, target); },
         }));
-        Alert.alert('Choisir un PC',
-          online.length > 2 ? 'Autres PC : Profil > Mes sessions.' : 'Ouvrir cette rubrique sur quel PC ?',
-          [...actions, { text: 'Annuler', style: 'cancel' }],
+        Alert.alert(online.length === 1 ? 'PC connecté' : 'Choisir un PC',
+          online.length > 2 ? 'Autres PC : Profil > Mes sessions. Ou envoie le lien.' : 'Ouvrir ici ou envoyer le lien ?',
+          [...pcChoices, ...linkOptions()],
         );
         return;
       }
       const cost = await loadPcShareFreeCost();
-      Alert.alert('Aucun PC connecté', 'Ouvre Loki Music sur PC et scanne le QR. ' + pcShareMessage(cost), [
-        { text: 'Envoyer lien', onPress: sharePcLink },
-        { text: 'Fermer', style: 'cancel' },
-      ]);
+      Alert.alert('Aucun PC connecté',
+        'Envoie le lien, puis scanne le QR sur le PC. 24 h · ' + (cost > 0 ? 'Gratuit actuellement.' : 'Gratuit.'),
+        linkOptions());
     } catch {
       setLoadError(true);
-      Alert.alert('PC', 'Connexion indisponible. Réessaie ou envoie le lien.', [
-        { text: 'Envoyer lien', onPress: sharePcLink },
-        { text: 'Fermer', style: 'cancel' },
-      ]);
+      Alert.alert('Connexion PC à vérifier', 'Tu peux toujours envoyer le lien.', linkOptions());
     }
   };
 
@@ -168,7 +168,7 @@ export default function WebCompanionSessionsPanel({ buttonOnly = false }: { butt
   return (
     <View style={s.wrap}>
       <TouchableOpacity style={s.share} onPress={() => { void explainShare(); }} accessibilityRole="button" accessibilityLabel="Partager sur mon PC" testID="pc-share-button">
-        <Text style={s.shareText}>🖥️ Partager sur mon PC · 24 h</Text>
+        <Text style={s.shareText}>PC · Partager</Text>
       </TouchableOpacity>
       <Text style={s.title}>Ordinateurs connectés</Text>
       <Text style={s.help}>Les connexions ordinateur se font uniquement avec le QR Loki Music affiché sur le Web.</Text>
