@@ -11,7 +11,7 @@ import { playNotificationCue, primeNotificationAudio } from '../services/notific
 import { navigateToSharedProfile, navigationRef } from '../navigation/navigationRef';
 import { useRobotMessageStore } from '../store/useRobotMessageStore';
 import { useDesignProfile } from '../theme/designProfile';
-import { PHONE_MAX_WIDTH } from '../layout/layoutMode';
+import { useLayoutMode } from '../layout/layoutMode';
 import { QUIET_CONFIRMS, setRobotQuiet } from '../services/robotQuietService';
 import StoryVisitorToast from './StoryVisitorToast';
 import { ROBOT_ACTIONS } from '../services/robotCoachMessages';
@@ -186,6 +186,7 @@ export default function GlobalChatDock() {
   const safeAreaInsets = useContext(SafeAreaInsetsContext);
   const insets = safeAreaInsets ?? initialWindowMetrics?.insets ?? { top: 0, right: 0, bottom: 0, left: 0 };
   const { height, width } = useWindowDimensions();
+  const { isWide: isDesktopOrTablet } = useLayoutMode(); // un ordinateur garde la mini-fenêtre bureau même fenêtre étroite
   // Adel (02/10/2026) : toucher le robot ouvre une MINI-fenêtre, la page
   // reste visible derrière ; ⤢ passe en plein écran. Remis en mini à chaque
   // fermeture.
@@ -699,7 +700,7 @@ export default function GlobalChatDock() {
   // Mini-fenêtre : moitié basse de l'écran au-dessus des onglets (téléphone),
   // 380 px en bas à droite (ordinateur) ; clavier ouvert → elle s'agrandit
   // au-dessus du clavier pour garder la zone d'écriture visible.
-  const desktopMini = width >= PHONE_MAX_WIDTH;
+  const desktopMini = isDesktopOrTablet;
   // Adel (02/10/2026) : « quand j'écris sur le téléphone, écran noir, ça
   // remonte trop ». Clavier ouvert : la mini-fenêtre reste COMPACTE, posée
   // juste au-dessus du clavier (380 px max), la page reste visible au-dessus.

@@ -1,4 +1,4 @@
-import { PHONE_MAX_WIDTH } from '../layout/layoutMode';
+import { useLayoutMode } from '../layout/layoutMode';
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList, Pressable, useWindowDimensions } from 'react-native';
 import { Alert } from '../utils/keepAlert';
@@ -24,7 +24,8 @@ function pendingTracks(session: KeepSession): number {
 export default function SessionHistoryScreen({ navigation }: any) {
   const { t } = useTranslation();
   const { width, height } = useWindowDimensions();
-  const desktop = width >= PHONE_MAX_WIDTH;
+  const { isWide } = useLayoutMode();
+  const desktop = isWide;
   const sessions = useSessionHistoryStore((s) => s.sessions);
   // Les morceaux gardés restaurés depuis Supabase alimentent le profil musical/Loki DNA,
   // mais ne constituent pas un historique complet de session (les PASS/pending

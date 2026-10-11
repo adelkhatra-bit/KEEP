@@ -45,7 +45,7 @@ function createOnce(): Promise<DesktopPairingChallenge> {
 
 export default function WebCompanionPairingScreen() {
   const { width, height } = useWindowDimensions();
-  const { isDesktop: isDesktopLayout } = useLayoutMode();
+  const { isWideDesktop: isDesktopLayout } = useLayoutMode();
   const qrSize = pairingQrSize(height, designProfileForWidth(width).pageZoom);
   const [challenge, setChallenge] = React.useState<DesktopPairingChallenge | null>(null);
   const [loading, setLoading] = React.useState(true);

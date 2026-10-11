@@ -35,9 +35,12 @@ if (!BASE) {
 //  - bureau (souris, >= 1024 px) : barre latérale DesktopSidebar, les 5 entrées visibles ;
 //  - tablette / téléphone (tactile, pas de pointeur fin) : barre du bas, les 5 onglets visibles.
 const scenarios = [
-  { name: 'desktop-1440', expectNav: 'sidebar', context: { viewport: { width: 1440, height: 900 } } },
-  { name: 'desktop-1366', expectNav: 'sidebar', context: { viewport: { width: 1366, height: 768 } } },
-  { name: 'desktop-1098-pc-175pct', expectNav: 'sidebar', context: { viewport: { width: 1098, height: 800 } } },
+  { name: 'desktop-1440', expectNav: 'sidebar', expectCompact: false, context: { viewport: { width: 1440, height: 900 } } },
+  { name: 'desktop-1366', expectNav: 'sidebar', expectCompact: false, context: { viewport: { width: 1366, height: 768 } } },
+  { name: 'desktop-1098-pc-175pct', expectNav: 'sidebar', expectCompact: false, context: { viewport: { width: 1098, height: 800 } } },
+  // Un ordinateur reste un ordinateur (Adel, 11/10/2026) : souris à 712 px (panneau Claude ouvert) et 900 px = barre latérale COMPACTE.
+  { name: 'desktop-712-mouse-compact', expectNav: 'sidebar', expectCompact: true, context: { viewport: { width: 712, height: 800 } } },
+  { name: 'desktop-900-mouse-compact', expectNav: 'sidebar', expectCompact: true, context: { viewport: { width: 900, height: 800 } } },
   { name: 'tablet-1024-touch', expectNav: 'bottom', context: { viewport: { width: 1024, height: 768 }, hasTouch: true, isMobile: true } },
   { name: 'phone-390', expectNav: 'bottom', context: { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true } },
   { name: 'android-pixel7', expectNav: 'bottom', context: { ...devices['Pixel 7'] } },
@@ -145,7 +148,7 @@ async function measure(page, expectedTab) {
     const sidebarControls = [...document.querySelectorAll('[data-testid^="desktop-nav-"]')].filter(visible);
     if (sidebarControls.length >= 5) {
       const activeBrand = 'rgb(167, 139, 250)';
-      const inSidebar = (label) => sidebarControls.find((el) => textOf(el).includes(label));
+      const inSidebar = (label) => sidebarControls.find((el) => textOf(el).includes(label) || String(el.getAttribute('aria-label') || '').includes(label));
       const sidebarTabs = tabLabels.filter((label) => Boolean(inSidebar(label)));
       const control = inSidebar(expectedTab);
       const sidebarActive = control
@@ -155,6 +158,7 @@ async function measure(page, expectedTab) {
         vh,
         rootHeight: rootRect ? Math.round(rootRect.height) : -1,
         nav: 'sidebar',
+        sidebarWidth: Math.round((document.querySelector('[data-testid="desktop-sidebar"]')?.getBoundingClientRect().width) || 0),
         visibleTabs: sidebarTabs,
         activeTabSelected: sidebarActive,
         booting: document.documentElement.classList.contains('keep-booting'),
@@ -215,6 +219,7 @@ async function measure(page, expectedTab) {
         const problems = [];
         if (m.rootHeight < m.vh * 0.9) problems.push(`#root = ${m.rootHeight}px pour une fenêtre de ${m.vh}px (page noire)`);
         if (m.nav !== scenario.expectNav) problems.push(`navigation attendue « ${scenario.expectNav} » mais trouvée « ${m.nav} »`);
+        if (scenario.expectNav === 'sidebar' && typeof scenario.expectCompact === 'boolean' && (m.sidebarWidth < 120) !== scenario.expectCompact) problems.push(`barre latérale ${scenario.expectCompact ? 'compacte' : 'complète'} attendue (largeur ${m.sidebarWidth}px)`);
         if (m.visibleTabs.length < 5) problems.push(`les 5 onglets ne sont pas visibles (visibles: ${m.visibleTabs.join(', ') || 'aucun'})`);
         if (!m.activeTabSelected) problems.push(`mauvais onglet actif après ${phase}: « ${route.marker} » n’est pas sélectionné`);
         if (m.booting) problems.push('écran de démarrage jamais levé');

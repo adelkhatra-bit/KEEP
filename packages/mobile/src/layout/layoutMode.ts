@@ -1,5 +1,5 @@
 import { Platform, useWindowDimensions } from 'react-native';
-import { layoutModeFor } from './layoutModeCore';
+import { layoutModeFor, isCompactDesktopWidth } from './layoutModeCore';
 
 export * from './layoutModeCore';
 
@@ -18,6 +18,10 @@ export function useLayoutMode() {
     isPhone: mode === 'phone',
     isTablet: mode === 'tablet',
     isDesktop: mode === 'desktop',
+    /** bureau, fenêtre étroite (640–1023 px) : barre latérale compacte, une colonne. */
+    isCompactDesktop: mode === 'desktop' && isCompactDesktopWidth(width),
+    /** bureau, fenêtre large (>= 1024 px) : barre latérale complète, mises en page en colonnes. */
+    isWideDesktop: mode === 'desktop' && !isCompactDesktopWidth(width),
     /** tablette ou bureau : tout ce qui n'est pas le téléphone verrouillé. */
     isWide: mode !== 'phone',
   };

@@ -1,5 +1,5 @@
 import { Platform, StyleSheet, Text, Dimensions } from 'react-native';
-import { MIN_READABLE_FONT_SIZE, PHONE_MAX_WIDTH } from './layoutMode';
+import { MIN_READABLE_FONT_SIZE, hasFinePointer, layoutModeFor } from './layoutMode';
 
 /**
  * Textes >= 11 px sur tablette et ordinateur (Adel, 11/10/2026 : libellés d'onglets
@@ -16,7 +16,7 @@ export function installMinReadableFontSize() {
   installed = true;
   const original = anyText.render;
   anyText.render = function patchedRender(props: any, ref: any) {
-    if (props && Dimensions.get('window').width >= PHONE_MAX_WIDTH) {
+    if (props && layoutModeFor(Dimensions.get('window').width, hasFinePointer(), true) !== 'phone') {
       const flat = StyleSheet.flatten(props.style) as any;
       const size = flat?.fontSize;
       if (typeof size === 'number' && size > 0 && size < MIN_READABLE_FONT_SIZE) {

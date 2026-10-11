@@ -246,7 +246,7 @@ function guardWebShareVisitor(state: any) {
 }
 
 export default function Navigation() {
-  const { isDesktop } = useLayoutMode();
+  const { isDesktop, isCompactDesktop } = useLayoutMode();
   const { tab } = useNavSnapshot();
   return (
     <NavigationContainer
@@ -257,7 +257,7 @@ export default function Navigation() {
     >
       {/* Bureau : barre latérale + contenu centré, largeur lisible. Téléphone / tablette : rendu historique inchangé. */}
       <View style={{ flex: 1, flexDirection: isDesktop ? 'row' : 'column' }}>
-      {isDesktop ? <DesktopSidebar items={TAB_ITEMS} activeName={tab} onSelect={goToTab} onOpenSessions={() => openSessionHistoryGuarded(() => { if (navigationRef.isReady()) (navigationRef.navigate as any)('SessionHistory'); })} /> : null}
+      {isDesktop ? <DesktopSidebar compact={isCompactDesktop} items={TAB_ITEMS} activeName={tab} onSelect={goToTab} onOpenSessions={() => openSessionHistoryGuarded(() => { if (navigationRef.isReady()) (navigationRef.navigate as any)('SessionHistory'); })} /> : null}
       <View style={isDesktop ? { flex: 1, alignItems: 'center' } : { flex: 1 }}>
       <View style={isDesktop ? { flex: 1, width: '100%', maxWidth: DESKTOP_CONTENT_MAX_WIDTH } : { flex: 1 }}>
       <RootStack.Navigator initialRouteName="Main" screenOptions={{ headerShown: false }}>
