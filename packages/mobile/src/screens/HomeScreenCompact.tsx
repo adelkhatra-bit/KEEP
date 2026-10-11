@@ -679,10 +679,10 @@ export default function HomeScreenCompact({ navigation }: any) {
               style={s.idleLearnMore}
               onPress={toggleHomeAbout}
               accessibilityRole="button"
-              accessibilityLabel="En savoir plus sur Loki Music"
+              accessibilityLabel="Afficher les détails de Loki Music"
               accessibilityState={{ expanded: homeAboutOpen }}
             >
-              <Text style={s.idleLearnMoreText}>{homeAboutOpen ? 'Réduire' : 'En savoir plus'}</Text>
+              <Text style={s.idleLearnMoreText}>{homeAboutOpen ? 'Réduire' : 'Plus'}</Text>
             </TouchableOpacity>
             <View style={s.idleLearnMoreSlot}>
               {homeAboutOpen ? (
@@ -716,10 +716,8 @@ export default function HomeScreenCompact({ navigation }: any) {
             ) : user && listenEconomyStatus ? (
               <View style={s.demoRow}>
                 <Text style={s.demo}>
-                  {listenEconomyStatus.includedRemaining} RESTANTES · {listenEconomyStatus.used}/{listenEconomyStatus.limit} {listenEconomyStatus.periodMode === 'WEEK' ? 'SEMAINE' : listenEconomyStatus.periodMode === 'MONTH' ? 'MOIS' : listenEconomyStatus.periodMode === 'NEVER' ? 'CRÉDIT' : 'JOUR'}
-                  {listenEconomyStatus.overQuota ? ` · +${listenEconomyStatus.overQuotaFreeCost} FREE / MORCEAU` : ''}
-                </Text>
-                <TouchableOpacity style={s.demoHelp} onPress={explainListenEconomy} accessibilityRole="button" accessibilityLabel="Comprendre le quota d’écoutes et les FREE">
+                  Mon quota d'écoutes</Text>
+                <TouchableOpacity style={s.demoHelp} onPress={explainListenEconomy} accessibilityRole="button" accessibilityLabel="Ouvrir le détail des quotas et des FREE">
                   <Text style={s.demoHelpText}>?</Text>
                 </TouchableOpacity>
               </View>
