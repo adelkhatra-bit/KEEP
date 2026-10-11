@@ -769,6 +769,11 @@
     "minNetworkPollIntervalMs": 5000,
     "fastIntervalAllowlist": [
       {
+        "file": "packages/mobile/src/components/WebCompanionCountdown.tsx",
+        "snippet": "setInterval(() => { if (alive) setNow(Date.now()); }, 1000)",
+        "reason": "Affichage local du compte à rebours 24 heures; le seul appel réseau du composant utilise un minuteur séparé de 30000 ms"
+      },
+      {
         "file": "packages/mobile/src/components/WebCompanionSessionsPanel.tsx",
         "snippet": "setInterval(() => setNow(Date.now()), 1000)",
         "reason": "Compte à rebours PC purement local; aucun appel réseau dans cet intervalle"
