@@ -1,5 +1,14 @@
 [
   {
+    "commit": "d678e5602dc290c16cf072a2938f7a3993c05b96",
+    "web": "d678e5602dc290c16cf072a2938f7a3993c05b96",
+    "testflight": "iOS #227 success (release a1d7ac3)",
+    "ota": "OTA #1018 success (release a1d7ac3)",
+    "date": "2026-10-11 19:06",
+    "tests": "pass",
+    "changes": "fix(desktop): accueil et Stories cadrés, sans contrôles superposés (#111)"
+  },
+  {
     "commit": "a1d7ac3f199ac6b45f601cee77e0ec3a12dd6e26",
     "web": "a1d7ac3f199ac6b45f601cee77e0ec3a12dd6e26",
     "testflight": "iOS #227 in_progress (release a1d7ac3)",
