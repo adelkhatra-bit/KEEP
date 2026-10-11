@@ -1,4 +1,5 @@
 import ProfileStoryBar from '../components/ProfileStoryBar';
+import WebCompanionSessionsPanel from '../components/WebCompanionSessionsPanel';
 import { loadStoryAccess } from '../services/storyAccessService';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useIsFocused } from '@react-navigation/native';
@@ -104,6 +105,7 @@ const MENU_GROUPS: ProfileMenuGroup[] = [
     title: 'PROFIL',
     items: [
       { key: 'profile', icon: '👤', label: 'Réglages du profil', hint: 'Photo · pseudo · bio · ville · pays' },
+      { key: 'pcConnect', icon: '💻', label: 'Connecter mon ordinateur', hint: 'QR sur PC · sessions · partager un écran' },
       { key: 'identityShare', icon: '▦', label: 'Carte', hint: 'QR · lien · partage' },
       { key: 'musicTaste', icon: '♫', label: 'Mes goûts musicaux', hint: 'Styles · langues · pays · Loki Pulse' },
       { key: 'ear', icon: '🏆', label: 'Défi Loki · Ma progression', hint: 'Découvrir · garder · publier des stories · faire grandir sa communauté' },
@@ -1871,6 +1873,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
       <Text style={s.shareTitle}>Réglages du profil</Text>
       <Text style={s.shareSubtitle}>@{user.username} · modifie ta photo, ta bio, ton pseudo et tes informations de profil.</Text>
       <MotionActionButton variant="primary" size="medium" onPress={() => openFromMenu('ProfileSettings')} accessibilityLabel="Settings"><Text style={s.shareActionPrimaryText}>OUVRIR LES REGLAGES</Text></MotionActionButton>
+    </>;
+
+    if (key === 'pcConnect') return <>
+      <Text style={s.shareTitle}>Loki Connect · Ordinateur</Text>
+      <Text style={s.shareSubtitle}>Ouvre adelkhatra-bit.github.io/KEEP sur ton PC : le QR temporaire s'affiche sur l'ordinateur. Scanne-le avec l'appareil photo de ton iPhone, puis confirme dans Loki Music. Ne partage jamais un QR de connexion personnel.</Text>
+      <WebCompanionSessionsPanel />
     </>;
 
     if (key === 'identityShare') return <>
