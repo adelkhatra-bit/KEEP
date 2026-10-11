@@ -32,7 +32,7 @@ export default function KidsModal({
     <KeepModal
       visible={visible}
       transparent
-      animationType="slide"
+      animationType="fade"
       onRequestClose={onClose}
     >
       <SafeAreaView style={styles.safeArea}>
@@ -74,7 +74,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
   },
   backdrop: {
     position: 'absolute',
@@ -86,8 +88,10 @@ const styles = StyleSheet.create({
   },
   container: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    width: '100%',
+    maxWidth: 440,
+    maxHeight: '85%',
+    borderRadius: 24,
     paddingHorizontal: 20,
     paddingVertical: 24,
     paddingBottom: 32,
