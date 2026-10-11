@@ -24,6 +24,12 @@ export default function WebCompanionSessionsPanel() {
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [sendingId, setSendingId] = React.useState<string | null>(null);
   const [loadError, setLoadError] = React.useState(false);
+  const [now, setNow] = React.useState(() => Date.now());
+  React.useEffect(() => {
+    if (Platform.OS === 'web') return undefined;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const refresh = React.useCallback(async () => {
     if (Platform.OS === 'web') return;
@@ -44,8 +50,14 @@ export default function WebCompanionSessionsPanel() {
 
   if (Platform.OS === 'web') return null;
 
-  const active = sessions.filter((s) => !s.revoked_at && pcShareHoursLeft(s.created_at) > 0);
+  const active = sessions.filter((s) => !s.revoked_at && pcShareHoursLeft(s.created_at, now) > 0);
 
+  const timeLeft = (createdAt: string) => {
+    const seconds = Math.max(0, Math.ceil((new Date(createdAt).getTime() + 24 * 3600000 - now) / 1000));
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+  };
   const sendScreen = async (session: WebCompanionSession, screen: PcTargetScreen) => {
     if (sendingId) return;
     setSendingId(session.id);
@@ -65,7 +77,7 @@ export default function WebCompanionSessionsPanel() {
       const fresh = await listWebCompanionSessions();
       setSessions(fresh);
       setLoadError(false);
-      const online = fresh.filter((s) => !s.revoked_at && pcShareHoursLeft(s.created_at) > 0
+      const online = fresh.filter((s) => !s.revoked_at && pcShareHoursLeft(s.created_at, now) > 0
         && Date.now() - new Date(s.last_seen_at).getTime() < 60000);
       if (online.length === 1) {
         const route = navigationRef.isReady() ? navigationRef.getCurrentRoute()?.name : null;
@@ -120,7 +132,7 @@ export default function WebCompanionSessionsPanel() {
         <View style={s.row}>
           <View style={s.info}>
             <Text style={s.device}>{label(session)}</Text>
-            <Text style={s.muted}>Dernière activité : {new Date(session.last_seen_at).toLocaleString('fr-FR')} · déconnexion auto dans {pcShareHoursLeft(session.created_at)} h</Text>
+            <Text style={s.muted}>Dernière activité : {new Date(session.last_seen_at).toLocaleString('fr-FR')} · déconnexion auto dans {timeLeft(session.created_at)}</Text>
           </View>
           <TouchableOpacity
             style={s.disconnect}
