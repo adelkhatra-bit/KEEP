@@ -123,6 +123,15 @@ export async function loadProfileEventTeaser(profileId: string): Promise<Profile
   };
 }
 
+/** Un événement sans heure de fin explicite dure six heures par défaut.
+ * Le propriétaire conserve toujours son historique dans « Mes soirées ». */
+export function eventNotFinished(event: Pick<CreatorEvent, 'startsAt' | 'endsAt'>, now = Date.now()): boolean {
+  const start = Date.parse(event.startsAt);
+  const rawEnd = event.endsAt ? Date.parse(event.endsAt) : NaN;
+  const end = Number.isFinite(rawEnd) ? rawEnd : start + 6 * 3600000;
+  return Number.isFinite(start) && end > now;
+}
+
 export async function loadUpcomingEvents(viewerId?: string): Promise<CreatorEvent[]> {
   if (!supabase) return [];
 
@@ -137,7 +146,7 @@ export async function loadUpcomingEvents(viewerId?: string): Promise<CreatorEven
   if (!viewerId) {
     const { data, error } = await publicQuery;
     if (error) throw error;
-    return (data ?? []).map(mapEventRow);
+    return (data ?? []).map(mapEventRow).filter((event) => eventNotFinished(event));
   }
 
   const ownQuery = supabase
@@ -153,7 +162,10 @@ export async function loadUpcomingEvents(viewerId?: string): Promise<CreatorEven
   if (ownError) throw ownError;
 
   const unique = new Map<string, CreatorEvent>();
-  for (const row of publicRows ?? []) unique.set(String((row as any).id), mapEventRow(row));
+  for (const row of publicRows ?? []) {
+    const event = mapEventRow(row);
+    if (eventNotFinished(event)) unique.set(event.id, event);
+  }
   for (const row of ownRows ?? []) unique.set(String((row as any).id), mapEventRow(row));
 
   const now = Date.now();
