@@ -143,6 +143,7 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
+| `dbd1012` | `dbd1012` | iOS #226 success (release bcd5711) | OTA #1017 success (release bcd5711) | 2026-10-11 12:43 | pass | fix(release): garde-fou navigateur sur vrais profils d'appareil + exécuté sur chaque PR ; registre de versions ; règle « terminé = publié et vérifié » |
 | `bcd5711` | `bcd5711` | iOS #226 (réussi) | #1017 (réussie) | 2026-10-11 12:34 | pass | PR 87 à 100 sur iPhone et site ; alerte RELEASE BLOQUÉE |
 <!-- AUTO:RELEASE-REGISTER:END -->
 

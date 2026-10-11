@@ -1,5 +1,14 @@
 [
   {
+    "commit": "dbd1012b2921109f8ab22320dd429161451253bb",
+    "web": "dbd1012b2921109f8ab22320dd429161451253bb",
+    "testflight": "iOS #226 success (release bcd5711)",
+    "ota": "OTA #1017 success (release bcd5711)",
+    "date": "2026-10-11 12:43",
+    "tests": "pass",
+    "changes": "fix(release): garde-fou navigateur sur vrais profils d'appareil + exécuté sur chaque PR ; registre de versions ; règle « terminé = publié et vérifié »"
+  },
+  {
     "commit": "bcd5711",
     "web": "bcd5711",
     "testflight": "iOS #226 (réussi)",
