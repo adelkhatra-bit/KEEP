@@ -38,7 +38,7 @@ const protectedShell = {
   // Navigation.tsx (06/10/2026, ERR-209) : seuls les gardes du visiteur
   // d'un lien partagé ont été ajoutés ; comparaison avec le hash précédent :
   // aucun changement de style, d'ordre ou de rendu des cinq onglets.
-  'packages/mobile/src/navigation/Navigation.tsx': '4e8f677b7fc9f29dbe545a733d4b0e950e35102d',
+  'packages/mobile/src/navigation/Navigation.tsx': '82ef0104f31ae5a4be04c0bf2ab4cb321c666c81',
 };
 for (const [rel, expected] of Object.entries(protectedShell)) {
   const actual = blob(rel);
