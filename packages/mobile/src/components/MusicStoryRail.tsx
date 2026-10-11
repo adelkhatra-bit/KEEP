@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../theme/colors';
 import { isDormantMember, orderStoriesForBar, type MusicStory } from '../services/musicStoriesService';
 import { rankBadgeFor } from '../services/storyActivity';
+import type { EventStoryCard } from '../services/eventStoryService';
 
 /**
  * Bulles de stories à côté de la photo du profil (Adel, 05/10/2026, inspiré
@@ -15,6 +16,8 @@ import { rankBadgeFor } from '../services/storyActivity';
 type OwnBubble = { story: MusicStory | null; username: string; avatarUrl?: string | null };
 type Props = {
   stories: MusicStory[];
+  eventStories?: EventStoryCard[];
+  onOpenEventStory?: (story: EventStoryCard) => void;
   seen: Record<string, string>;
   onOpen: (story: MusicStory) => void;
   /** Ta photo + ta story (musiques partagées en public + en vente). */
@@ -78,7 +81,7 @@ function Avatar({ uri, name, ring = RING }: { uri?: string | null; name: string;
   return <View style={[box, s.avatarFallback]}><Text style={s.avatarInitial}>{(name || '?').slice(0, 1).toUpperCase()}</Text></View>;
 }
 
-export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, size = RING, online, leading, onFollow, followBusyId, activityKnown = false, ranking }: Props) {
+export default function MusicStoryRail({ stories, eventStories = [], onOpenEventStory, seen, onOpen, own, onOpenOwn, size = RING, online, leading, onFollow, followBusyId, activityKnown = false, ranking }: Props) {
   const ITEM = size + 2;
   // Adel (05/10/2026) — EXACTEMENT comme Instagram : une seule rangée, toute d'une pièce (photo + « + » comprise), qui défile sur le côté.
   //  1. stories non vues, la plus récente d'abord (mes abonnements, puis les membres liés) ;
@@ -101,7 +104,7 @@ export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, 
   const seenStories = orderStoriesForBar(stories.filter((story) => hasStory(story) && !isUnseen(story)), seen);
   // Adel (05/10/2026) : « on met toujours les plus récents en visibilité » -- toute bulle AVEC story du jour (vue ou non) passe avant les membres sans story ni les suggestions.
   const row = [...unseenFollowed, ...unseenOthers, ...seenStories, ...friendsNoStory, ...linkedSuggestions, ...styleSuggestions];
-  const empty = !row.length && !own && !leading;
+  const empty = !row.length && !own && !leading && eventStories.length === 0;
 
   // Les bulles glissent (comme Instagram) quand l'ordre change : la story qu'on vient de voir part au bout, la suivante avance.
   const orderKey = row.map((story) => `${story.profileId}:${isUnseen(story) ? 1 : 0}:${story.followed ? 1 : 0}`).join('|');
@@ -168,6 +171,17 @@ export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, 
         testID="story-rail-scroll"
       >
         {leading ?? null}
+        {eventStories.map((event) => (
+          <TouchableOpacity key={`event-story-${event.eventId}`} style={[s.item, { width: ITEM + 8 }]} onPress={() => onOpenEventStory?.(event)}
+            accessibilityRole="button" accessibilityLabel={`Story événement ${event.name} de ${event.username}`} testID={`story-event-${event.eventId}`}>
+            <StoryRing size={size} unseen>
+              {event.imageUrl ? <Image source={{ uri: event.imageUrl }} style={{ width: size - 16, height: size - 16, borderRadius: (size - 16) / 2 }} />
+                : <View style={[s.avatarFallback, { width: size - 16, height: size - 16, borderRadius: (size - 16) / 2, alignItems: 'center', justifyContent: 'center' }]}><Text style={{ color: colors.primaryLight, fontSize: 22 }}>♫</Text></View>}
+            </StoryRing>
+            <Text style={s.name} numberOfLines={1}>Soirée · {event.username}</Text>
+            <Text style={s.eventScore} numberOfLines={1}>PULSE {event.pulseScore} pts</Text>
+          </TouchableOpacity>
+        ))}
         {own ? (
           <TouchableOpacity
             style={[s.item, { width: ITEM }]}
@@ -206,6 +220,7 @@ const s = StyleSheet.create({
   avatarFallback: { backgroundColor: colors.backgroundCard, alignItems: 'center', justifyContent: 'center' },
   avatarInitial: { color: colors.white, fontSize: 18, fontWeight: '900' },
   name: { marginTop: 4, maxWidth: 84, color: colors.white, fontSize: 11, fontWeight: '800' },
+  eventScore: { marginTop: 2, maxWidth: 85, fontSize: 11, fontWeight: '900', color: colors.keep },
   nameSeen: { opacity: 0.75 },
   seenBadge: { position: 'absolute', right: 2, top: RING - 16, width: 18, height: 18, borderRadius: 9, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#0B0A12' },
   rankBadge: { position: 'absolute', left: -2, top: -2, minWidth: 24, height: 24, borderRadius: 12, backgroundColor: '#3A2A00', borderWidth: 2, borderColor: '#FFD166', alignItems: 'center', justifyContent: 'center', zIndex: 3, shadowColor: '#FFD166', shadowOpacity: 0.9, shadowRadius: 8, shadowOffset: { width: 0, height: 0 }, elevation: 8 },
