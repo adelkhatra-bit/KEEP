@@ -146,7 +146,12 @@ export default function WebPairingLifecycle() {
     const check = async () => {
       if (!active) return;
       const sessionId = currentWebCompanionSessionId();
-      if (!sessionId) return;
+      if (!sessionId) {
+        // QR approval can finish before registerCurrentWebCompanionSession persists
+        // the PC session ID. Keep watching without creating overlapping requests.
+        timer = setTimeout(() => { void check(); }, 10000);
+        return;
+      }
       try {
         const status = await getWebCompanionSessionStatus(sessionId);
         if (!active) return;
