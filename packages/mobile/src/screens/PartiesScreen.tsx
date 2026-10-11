@@ -145,7 +145,8 @@ function LivePulseBadge() {
 
 export default function PartiesScreen({ navigation, route }: any) {
   const { isDesktop: desktopParties, width: partyViewportWidth, height: partyViewportHeight } = useLayoutMode();
-  const desktopBattleWide = desktopParties && partyViewportWidth >= 1480 && partyViewportHeight >= 720;
+  // Les panneaux latéraux remplissent le bureau dès qu'ils peuvent entourer sans chevauchement le jeu iPhone de 430 px.
+  const desktopBattleWide = desktopParties && partyViewportWidth >= 1024 && partyViewportHeight >= 550;
   const user = useUserStore((s) => s.user);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
@@ -1351,8 +1352,8 @@ export default function PartiesScreen({ navigation, route }: any) {
   if (battleOpen) {
     return <SafeAreaView style={styles.container}><PersonalThemeBackdrop />
       <View style={[styles.battleFullscreen, desktopParties && styles.desktopBattleFullscreen]} testID="desktop-battle-stage">
+        {desktopParties ? <LinearGradient pointerEvents="none" colors={['#201434','#352052','#201434']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFillObject} /> : null}
         {desktopBattleWide ? <>
-          <LinearGradient pointerEvents="none" colors={['#19112B','#2A1E45','#19112B']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFillObject} />
           <View pointerEvents="none" style={[styles.desktopBattleSide, styles.desktopBattleLeft]}><Text style={styles.desktopBattleKicker}>LOKI MUSIC</Text><Text style={styles.desktopBattleSideTitle}>BATTLE</Text><Text style={styles.desktopBattleSideCopy}>Défie des joueurs et retrouve tes manches.</Text></View>
           <View pointerEvents="none" style={[styles.desktopBattleSide, styles.desktopBattleRight]}><Text style={styles.desktopBattleKicker}>À TOI DE JOUER</Text><Text style={styles.desktopBattleSideTitle}>SOLO · EN LIGNE</Text><Text style={styles.desktopBattleSideCopy}>Même règle et mêmes commandes que sur téléphone.</Text></View>
         </> : null}
@@ -1444,7 +1445,7 @@ export default function PartiesScreen({ navigation, route }: any) {
     : false;
 
   return <SafeAreaView style={styles.container}><PersonalThemeBackdrop />
-    <ScrollView contentContainerStyle={[styles.content, desktopParties && styles.desktopContent]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" testID="parties-content-scroll">
+    <ScrollView contentContainerStyle={[styles.content, desktopParties && styles.desktopContent, desktopParties && { minHeight: Math.max(500, partyViewportHeight - 16) }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" testID="parties-content-scroll">
       <View style={styles.headerRow}>
         {/* Adel (08/09/2026) : "ça a rien à voir avec l'évènement ... il
             faut expliquer à quoi ça va servir ... ça peut être une soirée,
@@ -2001,10 +2002,10 @@ export default function PartiesScreen({ navigation, route }: any) {
 }
 
 const styles=StyleSheet.create({
-desktopContent:{flexGrow:1,width:'100%',maxWidth:'100%',alignSelf:'stretch',paddingHorizontal:20,paddingTop:14,backgroundColor:'rgba(26,18,46,.25)'},
-desktopPartyHome:{flexDirection:'row',flexWrap:'wrap',alignItems:'stretch',gap:12},
-desktopPartyHomeChoice:{flexGrow:1,flexBasis:235,minWidth:210},
-desktopBattleFullscreen:{flex:1,width:'100%',minHeight:0,overflow:'hidden',borderRadius:0,borderWidth:0,margin:0,padding:0,backgroundColor:'#1A122E',alignItems:'center',justifyContent:'center'},
+desktopContent:{flexGrow:1,width:'100%',maxWidth:'100%',alignSelf:'stretch',paddingHorizontal:24,paddingTop:14,paddingBottom:24,backgroundColor:'rgba(32,20,52,.84)'},
+desktopPartyHome:{flexDirection:'row',flexWrap:'wrap',justifyContent:'center',alignItems:'stretch',flexGrow:1,paddingVertical:14,gap:14},
+desktopPartyHomeChoice:{flexGrow:1,flexBasis:208,minWidth:190,minHeight:174,flexDirection:'column',alignItems:'flex-start',justifyContent:'space-between',paddingHorizontal:22,paddingVertical:20},
+desktopBattleFullscreen:{flex:1,width:'100%',minHeight:0,overflow:'hidden',borderRadius:0,borderWidth:0,margin:0,padding:0,backgroundColor:'#251736',alignItems:'center',justifyContent:'center'},
 desktopBattleSide:{position:'absolute',top:52,width:'18%',maxWidth:250,borderRadius:18,borderWidth:1,borderColor:'rgba(167,139,250,.35)',backgroundColor:'rgba(20,13,36,.82)',padding:12,gap:8},
 desktopBattleLeft:{left:14},
 desktopBattleRight:{right:14},
