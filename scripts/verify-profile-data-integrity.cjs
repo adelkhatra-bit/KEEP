@@ -41,12 +41,23 @@ const protectedShell = {
     // Navigation.tsx (11/10/2026) : modification explicitement demandée par Adel (« aucun changement de design sur ordinateur ») : mode bureau
   // (>= 1024 px, souris) = barre latérale DesktopSidebar + contenu centré, barre du bas masquée sur ce mode uniquement ; libellés d'onglets 11 px ;
   // erreur « navigation object hasn't been initialized » corrigée (onReady/onStateChange). Téléphone et tablette : rendu inchangé, mêmes 5 onglets.
-  'packages/mobile/src/navigation/Navigation.tsx': 'd6c43d69f2977977017c12ce08097a0f35db3be3',
+  // 11/10/2026 PC Soirées/Battle : largeur de contenu 1760 px au lieu de
+  // DESKTOP_CONTENT_MAX_WIDTH uniquement lorsque l'onglet Parties est actif.
+  // Le shell, les cinq onglets, le parcours mobile et le garde de sortie Battle
+  // restent inchangés. Guard + tests navigateur 1024/1440/1920.
+  'packages/mobile/src/navigation/Navigation.tsx': '86ddb200ccbf09673078e5e402e23162bec38857',
 };
 for (const [rel, expected] of Object.entries(protectedShell)) {
   const actual = blob(rel);
   if (actual !== expected) failures.push(`PROTECTED MOBILE SHELL CHANGED: ${rel} (${actual})`);
 }
+
+// Invariant visuel: la nouvelle largeur autorisée ne doit toucher QUE le bureau
+// et QUE Soirées/Battle. Le wrapper mobile d'origine reste inchangé.
+const navigationShell = read('packages/mobile/src/navigation/Navigation.tsx');
+if (!navigationShell.includes("maxWidth: tab === 'Parties' ? 1760 : DESKTOP_CONTENT_MAX_WIDTH")) failures.push('PARTIES DESKTOP WIDTH CONTRACT MISSING');
+if (!navigationShell.includes("isDesktop ? { flex: 1, width: '100%', maxWidth:")) failures.push('DESKTOP ONLY WIDTH GUARD MISSING');
+if (!navigationShell.includes(": { flex: 1 }} testID=\"desktop-content-frame\"")) failures.push('UNCHANGED MOBILE FRAME MISSING');
 
 const profile = read('packages/mobile/src/screens/ProfilePublicScreen.tsx');
 for (const marker of ['loadOwnProfileKeeps', 'loadOwnProfileSnapshot', 'publicKeptTracks.map', 'ownSnapshot?.totalKeeps', 'ENTRER EN MODE DÉMO']) {
