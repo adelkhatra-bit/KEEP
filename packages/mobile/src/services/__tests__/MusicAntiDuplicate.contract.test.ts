@@ -20,6 +20,7 @@ describe('Loki anti-doublon music contract', () => {
     expect(duplicateCheck).toBeGreaterThan(-1);
     expect(creditCheck).toBeGreaterThan(duplicateCheck);
     expect(keepAction).toContain('alreadyKept: true');
+    expect(keepAction).toContain("if (existing === null) throw new Error('KEEP_DUPLICATE_CHECK_UNAVAILABLE')");
   });
 
   it('blocks marketplace payment when equivalent music is already owned', () => {
