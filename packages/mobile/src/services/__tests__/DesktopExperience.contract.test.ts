@@ -18,7 +18,7 @@ describe('Expérience desktop et mobile isolées', () => {
 
   it('propose un QR en deux régions uniquement sur les vrais écrans desktop', () => {
     const pairing = read('packages/mobile/src/components/WebCompanionPairingScreen.tsx');
-    expect(pairing).toContain('const { isDesktop: isDesktopLayout } = useLayoutMode();');
+    expect(pairing).toContain('const { isWideDesktop: isDesktopLayout } = useLayoutMode();');
     expect(pairing).toContain('s.desktopIntro');
     expect(pairing).toContain('s.qrColumn');
     expect(pairing).toContain('claimDesktopPairing');

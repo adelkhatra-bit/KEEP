@@ -15,6 +15,9 @@
  */
 export const PHONE_MAX_WIDTH = 900;
 export const DESKTOP_MIN_WIDTH = 1024;
+/** Un ordinateur (web + souris) reste un ordinateur dès 640 px : barre latérale COMPACTE entre 640 et 1023 px (Adel, 11/10/2026 : « quand je rétrécis la fenêtre j'ai l'impression de passer sur le mobile »). */
+export const DESKTOP_COMPACT_MIN_WIDTH = 640;
+export const DESKTOP_COMPACT_SIDEBAR_WIDTH = 72;
 export const DESKTOP_SIDEBAR_WIDTH = 232;
 export const DESKTOP_CONTENT_MAX_WIDTH = 960;
 /** Taille de texte minimale lisible (px) imposée sur tablette et bureau. */
@@ -22,9 +25,15 @@ export const MIN_READABLE_FONT_SIZE = 11;
 
 export type LayoutMode = 'phone' | 'tablet' | 'desktop';
 
+/** Barre latérale compacte (icônes + infobulles) : bureau entre 640 et 1023 px. */
+export function isCompactDesktopWidth(width: number): boolean {
+  return width < DESKTOP_MIN_WIDTH;
+}
+
 export function layoutModeFor(width: number, finePointer: boolean, isWeb: boolean = true): LayoutMode {
+  // Web + pointeur fin (souris / trackpad) : bureau dès 640 px, quelle que soit la largeur de la fenêtre.
+  if (isWeb && finePointer && width >= DESKTOP_COMPACT_MIN_WIDTH) return 'desktop';
   if (!(width >= PHONE_MAX_WIDTH)) return 'phone';
-  if (isWeb && finePointer && width >= DESKTOP_MIN_WIDTH) return 'desktop';
   return 'tablet';
 }
 

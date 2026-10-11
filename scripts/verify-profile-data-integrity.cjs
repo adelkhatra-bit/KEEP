@@ -41,7 +41,7 @@ const protectedShell = {
     // Navigation.tsx (11/10/2026) : modification explicitement demandée par Adel (« aucun changement de design sur ordinateur ») : mode bureau
   // (>= 1024 px, souris) = barre latérale DesktopSidebar + contenu centré, barre du bas masquée sur ce mode uniquement ; libellés d'onglets 11 px ;
   // erreur « navigation object hasn't been initialized » corrigée (onReady/onStateChange). Téléphone et tablette : rendu inchangé, mêmes 5 onglets.
-  'packages/mobile/src/navigation/Navigation.tsx': 'd6c43d69f2977977017c12ce08097a0f35db3be3',
+  'packages/mobile/src/navigation/Navigation.tsx': '183c0b7dc024f60517003b0244c8cf2b5221b62e',
 };
 for (const [rel, expected] of Object.entries(protectedShell)) {
   const actual = blob(rel);
