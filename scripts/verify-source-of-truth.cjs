@@ -44,7 +44,20 @@ try {
   // repository + branch guards above.
 }
 
-if (process.env.GITHUB_REF_NAME && process.env.GITHUB_REF_NAME !== expectedBranch && process.env.GITHUB_REF_NAME !== verifiedAgentBranch && process.env.GITHUB_REF_NAME !== verifiedAgentPullRef) {
+// Tâches PLANIFIÉES (11/10/2026) : le cron GitHub s'exécute toujours sur la branche par défaut (GITHUB_REF_NAME = main), ce qui rendait
+// « Mobile + Desktop Guardian » et « Human Guardian » rouges à chaque planification (fausses alertes). Un workflow planifié DOIT faire
+// `actions/checkout` avec `ref: reconcile/claude-main-20260825` (test de contrat ScheduledWorkflowsRef) ; on accepte alors ce mode seulement si
+// le dépôt local est exactement la branche canonique à son dernier commit distant.
+let scheduledOnCanonical = false;
+if (process.env.GITHUB_EVENT_NAME === 'schedule') {
+  try {
+    const local = execFileSync('git', ['branch', '--show-current'], { cwd: root, encoding: 'utf8' }).trim();
+    const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+    const tip = execFileSync('git', ['rev-parse', `refs/remotes/origin/${expectedBranch}`], { cwd: root, encoding: 'utf8' }).trim();
+    scheduledOnCanonical = local === expectedBranch && head === tip;
+  } catch { scheduledOnCanonical = false; }
+}
+if (process.env.GITHUB_REF_NAME && !scheduledOnCanonical && process.env.GITHUB_REF_NAME !== expectedBranch && process.env.GITHUB_REF_NAME !== verifiedAgentBranch && process.env.GITHUB_REF_NAME !== verifiedAgentPullRef) {
   failures.push(`WRONG BRANCH: ${process.env.GITHUB_REF_NAME}`);
 }
 if ((verifiedAgentBranch || verifiedAgentPullRef) && process.env.GITHUB_BASE_REF && process.env.GITHUB_BASE_REF !== expectedBranch) {
