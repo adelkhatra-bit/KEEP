@@ -713,14 +713,6 @@ export default function HomeScreenCompact({ navigation }: any) {
                   <Text style={s.demoHelpText}>?</Text>
                 </TouchableOpacity>
               </View>
-            ) : user && listenEconomyStatus ? (
-              <View style={s.demoRow}>
-                <Text style={s.demo}>
-                  Mon quota d'écoutes</Text>
-                <TouchableOpacity style={s.demoHelp} onPress={explainListenEconomy} accessibilityRole="button" accessibilityLabel="Ouvrir le détail des quotas et des FREE">
-                  <Text style={s.demoHelpText}>?</Text>
-                </TouchableOpacity>
-              </View>
             ) : null}
             {!desktopHome && user && !isDemoMode ? (
               <View style={s.pcTransferRow} testID="home-pc-transfer-row">
