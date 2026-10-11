@@ -143,6 +143,7 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
+| `d13e0f1` | `d13e0f1` | iOS #226 success (release bcd5711) | OTA #1017 success (release bcd5711) | 2026-10-11 18:17 | pass | release: Loki web/iOS sync, PC countdown, stories and atomic FREE dedup (#110) |
 | `d8b1fa9` | `d8b1fa9` | iOS #226 success (release bcd5711) | OTA #1017 success (release bcd5711) | 2026-10-11 13:07 | pass | fix(ci): garde-fou navigateur sur PR servi avec repli SPA (comme GitHub Pages) — reload sans 404 |
 | `dbd1012` | `dbd1012` | iOS #226 success (release bcd5711) | OTA #1017 success (release bcd5711) | 2026-10-11 12:43 | pass | fix(release): garde-fou navigateur sur vrais profils d'appareil + exécuté sur chaque PR ; registre de versions ; règle « terminé = publié et vérifié » |
 | `bcd5711` | `bcd5711` | iOS #226 (réussi) | #1017 (réussie) | 2026-10-11 12:34 | pass | PR 87 à 100 sur iPhone et site ; alerte RELEASE BLOQUÉE |

@@ -1,5 +1,14 @@
 [
   {
+    "commit": "d13e0f18c6a429d39bb0a21604abe9c0e5009296",
+    "web": "d13e0f18c6a429d39bb0a21604abe9c0e5009296",
+    "testflight": "iOS #226 success (release bcd5711)",
+    "ota": "OTA #1017 success (release bcd5711)",
+    "date": "2026-10-11 18:17",
+    "tests": "pass",
+    "changes": "release: Loki web/iOS sync, PC countdown, stories and atomic FREE dedup (#110)"
+  },
+  {
     "commit": "d8b1fa9f96cdc4539f660c3747296003ad221561",
     "web": "d8b1fa9f96cdc4539f660c3747296003ad221561",
     "testflight": "iOS #226 success (release bcd5711)",
