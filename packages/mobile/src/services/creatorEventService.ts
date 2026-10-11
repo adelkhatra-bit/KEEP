@@ -146,7 +146,7 @@ export async function loadUpcomingEvents(viewerId?: string): Promise<CreatorEven
   if (!viewerId) {
     const { data, error } = await publicQuery;
     if (error) throw error;
-    return (data ?? []).map(mapEventRow).filter((event) => eventNotFinished(event));
+    return (data ?? []).map(mapEventRow).filter((event: CreatorEvent) => eventNotFinished(event));
   }
 
   const ownQuery = supabase
