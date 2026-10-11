@@ -54,6 +54,13 @@ export default function WebCompanionPairingScreen() {
   // Affichage seulement : l'adresse ne pilote AUCUNE action de sécurité. Elle est lue une fois, puis nettoyée sans condition.
   const linkErrorRef = React.useRef<string | null>(readLinkMessage(currentHash()));
   React.useEffect(() => {
+    // Supabase delivers the approved PC session in the URL hash. Removing it before
+    // AuthEmailLinkLifecycle consumes it silently breaks QR login after approval.
+    // Only remove hashes that do NOT contain a Supabase auth callback.
+    const hash = String(window.location.hash || '');
+    const params = new URLSearchParams(hash.replace(/^#/, ''));
+    const isAuthCallback = ['access_token', 'refresh_token', 'code', 'token_hash', 'type'].some((key) => params.has(key));
+    if (isAuthCallback) return;
     try { window.history.replaceState(null, '', window.location.pathname + window.location.search); } catch { /* sans effet */ }
   }, []);
 
