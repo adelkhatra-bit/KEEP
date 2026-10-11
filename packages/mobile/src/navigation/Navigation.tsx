@@ -259,7 +259,7 @@ export default function Navigation() {
       <View style={{ flex: 1, flexDirection: isDesktop ? 'row' : 'column' }}>
       {isDesktop ? <DesktopSidebar items={TAB_ITEMS} activeName={tab} onSelect={goToTab} onOpenSessions={() => openSessionHistoryGuarded(() => { if (navigationRef.isReady()) (navigationRef.navigate as any)('SessionHistory'); })} /> : null}
       <View style={isDesktop ? { flex: 1, alignItems: 'center' } : { flex: 1 }}>
-      <View style={isDesktop ? { flex: 1, width: '100%', maxWidth: DESKTOP_CONTENT_MAX_WIDTH } : { flex: 1 }}>
+      <View style={isDesktop ? { flex: 1, width: '100%', maxWidth: tab === 'Parties' ? 1760 : DESKTOP_CONTENT_MAX_WIDTH } : { flex: 1 }} testID="desktop-content-frame">
       <RootStack.Navigator initialRouteName="Main" screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="Main" component={MainTabs} />
         <RootStack.Screen name="SessionRecap" component={SessionRecapScreen} />
