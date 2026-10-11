@@ -3,7 +3,7 @@ import path from 'path';
 
 // Product contract: "Plus" is the one-word disclosure label on mobile, desktop, and Super Admin.
 const read = (relative: string) =>
-  fs.readFileSync(path.resolve(__dirname, '../../../../', relative), 'utf8').replace(/\r\n/g, '\n');
+  fs.readFileSync(path.resolve(__dirname, '../../../../../', relative), 'utf8').replace(/\r\n/g, '\n');
 
 const displays = [
   'packages/mobile/src/components/ClampedText.tsx',
