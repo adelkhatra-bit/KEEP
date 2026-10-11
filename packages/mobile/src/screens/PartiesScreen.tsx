@@ -7,6 +7,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Alert } from '../utils/keepAlert';
 import { createCreatorEvent, loadMyRsvps, loadUpcomingEvents, loadMyEventInvitationIds, loadPendingEventInvitePreviews, setEventRsvp, CreatorEvent, EventAudienceMode, EventRsvpStatus, loadMyPendingEventReviews, submitEventReview, loadEventReviewSummary, PendingEventReview, EventReviewSummary, loadEventRsvpCounts, EventRsvpCounts, updateCreatorEvent, disableCreatorEvent, loadEventParticipants, EventParticipant, pickAndUploadEventImage, loadMyEventTicket, EventTicket, checkinEventTicketByCode, toggleEventCheckin, buildGoogleCalendarUrl, buildEventIcs, loadMyEventOrganizerContact, EVENT_TICKET_PRESET_PRICES_CENTS, setEventTicketPrice, requestEventTicketPurchase, EventTicketPurchaseRequest, markEventTicketPaid, loadMyEventTicketSales, EventTicketTransaction, loadEventPlaylist, EventTrack } from '../services/creatorEventService';
 import { shareEvent } from '../services/sharingService';
+import { publishEventStory } from '../services/eventStoryService';
+import { eventNotFinished } from '../services/creatorEventService';
 import { getCommercialRules, getEventCreationAccess, getGrowthRewardStatus, QuotaAccess } from '../services/growthAccessService';
 import { useUserStore } from '../store/useUserStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
@@ -473,6 +475,7 @@ export default function PartiesScreen({ navigation, route }: any) {
   const [createBusy, setCreateBusy] = useState(false);
   const [name, setName] = useState('');
   const [startsAt, setStartsAt] = useState('');
+  const [eventDurationHours, setEventDurationHours] = useState(6);
   // Adel (08/09/2026) : "mets un systeme de roulette pour la date et
   // l'heure ... je veux pouvoir selectionner une heure et 45 minutes, 2h14,
   // etc." -- startsAt reste la source de verite envoyee au serveur, mais
@@ -898,7 +901,7 @@ export default function PartiesScreen({ navigation, route }: any) {
 
   const resetEventForm = () => {
     setCreateOpen(false); setEditingEventId(null);
-    setName(''); setStartsAt(''); setVenueName(''); setVenueCoords(null); setVenueSuggestions([]);
+    setName(''); setStartsAt(''); setEventDurationHours(6); setVenueName(''); setVenueCoords(null); setVenueSuggestions([]);
     setDescription(''); setIncludeRsvpButtons(true); setAudienceMode('GENERAL');
     setEventImageUrls([]); setRequireQrCode(false); setTicketPriceCents(null);
     setOrganizerPhone(''); setShowOrganizerPhone(false);
@@ -917,6 +920,7 @@ export default function PartiesScreen({ navigation, route }: any) {
     // directement depuis la vraie date de l'evenement, sans dependre de
     // l'effet de la roulette pour la valeur initiale.
     setStartsAt(toLocalInputValue(eventDate));
+    setEventDurationHours(event.endsAt ? Math.max(1, Math.min(24, Math.ceil((Date.parse(event.endsAt) - eventDate.getTime()) / 3600000))) : 6);
     setVenueName(event.venueName || '');
     setVenueCoords(null);
     setCountryCode(event.countryCode || 'FR');
@@ -1053,7 +1057,7 @@ export default function PartiesScreen({ navigation, route }: any) {
     if (!iso) return Alert.alert('Événement', 'Indique la date au format AAAA-MM-JJTHH:MM.');
     setCreateBusy(true);
     try {
-      const payload = { name: name.trim(), description: description.trim(), venueName: venueName.trim(), startsAt: iso, countryCode: countryCode.trim().toUpperCase().slice(0,2), imageUrls: eventImageUrls, requireQrCode, audienceMode, organizerPhone: organizerPhone.trim() || undefined, showOrganizerPhone, lat: venueCoords?.lat, lng: venueCoords?.lng };
+      const payload = { name: name.trim(), description: description.trim(), venueName: venueName.trim(), startsAt: iso, endsAt: new Date(Date.parse(iso) + eventDurationHours * 3600000).toISOString(), countryCode: countryCode.trim().toUpperCase().slice(0,2), imageUrls: eventImageUrls, requireQrCode, audienceMode, organizerPhone: organizerPhone.trim() || undefined, showOrganizerPhone, lat: venueCoords?.lat, lng: venueCoords?.lng };
       if (editingEventId) {
         await updateCreatorEvent(editingEventId, payload);
         await setEventTicketPrice(editingEventId, ticketPriceCents).catch(() => {});
@@ -1074,7 +1078,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           description: payload.description || null,
           venueName: payload.venueName || null,
           startsAt: payload.startsAt,
-          endsAt: null,
+          endsAt: payload.endsAt,
           countryCode: payload.countryCode || null,
           externalTicketUrl: null,
           djArtistNames: user?.username ? [user.username] : [],
@@ -1645,6 +1649,9 @@ export default function PartiesScreen({ navigation, route }: any) {
                 {!isPendingPreview && currentEvent.ticketPriceCents ? <Text style={styles.rsvpCountsText}>🎟 Entrée : {(currentEvent.ticketPriceCents / 100).toFixed(2)}€</Text> : null}
                 {!isPendingPreview && currentEventReviewSummary && currentEventReviewSummary.reviewCount > 0 ? <Text style={styles.reviewSummary}>⭐ {currentEventReviewSummary.averageRating.toFixed(1)} · {currentEventReviewSummary.reviewCount} avis</Text> : null}
                 {user?.id === currentEvent.creatorId && rsvpCounts && (rsvpCounts.going + rsvpCounts.maybe + rsvpCounts.notGoing) > 0 ? <Text style={styles.rsvpCountsText}>✓ {rsvpCounts.going} participent · {rsvpCounts.maybe} peut-être · {rsvpCounts.notGoing} ne viennent pas</Text> : null}
+                {!isPendingPreview && currentEvent.moderationStatus === 'APPROVED' && rsvpCounts ? (
+                  <Text style={styles.rsvpCountsText}>LOKI PULSE · {rsvpCounts.going * 5 + rsvpCounts.maybe} pts de participation</Text>
+                ) : null}
                 {user?.id === currentEvent.creatorId && ticketSales.filter((s) => s.status === 'PENDING').length > 0 ? (
                   <View style={{ marginTop: 10 }}>
                     <Text style={styles.rsvpToggleLabel}>💳 Billets à confirmer</Text>
@@ -1702,6 +1709,15 @@ export default function PartiesScreen({ navigation, route }: any) {
               c'est verrouille cote serveur (event_locked_after_approval). */}
           {user?.id === currentEvent.creatorId ? <View style={styles.secondaryRow}>
             {currentEvent.moderationStatus !== 'APPROVED' ? <TouchableOpacity style={styles.secondary} onPress={()=>openEdit(currentEvent)}><Text style={styles.secondaryText}>✎ Modifier</Text></TouchableOpacity> : null}
+            {currentEvent.moderationStatus === 'APPROVED' && eventNotFinished(currentEvent) ? (
+              <TouchableOpacity style={styles.secondary} testID="event-publish-to-story" accessibilityRole="button"
+                accessibilityLabel="Publier cet événement dans ma Story pendant 24 heures"
+                onPress={() => { void publishEventStory(currentEvent.id)
+                  .then(() => Alert.alert('Story événement publiée', 'Ta soirée est visible 24 h dans les Stories, avec le score Loki Pulse et les réponses Je participe, Peut-être et Je passe.'))
+                  .catch(() => Alert.alert('Story', 'Publication impossible. Vérifie que la soirée est approuvée et non terminée.')); }}>
+                <Text style={styles.secondaryText}>+ Story 24 h</Text>
+              </TouchableOpacity>
+            ) : null}
             <TouchableOpacity style={styles.secondary} onPress={()=>void openParticipants(currentEvent)}><Text style={styles.secondaryText}>👥 Participants</Text></TouchableOpacity>
             <TouchableOpacity style={[styles.secondary,styles.secondaryDanger]} disabled={eventBusyAction==='delete'} onPress={()=>deleteEvent(currentEvent)}>{eventBusyAction==='delete'?<ActivityIndicator color={colors.pass}/>:<Text style={[styles.secondaryText,styles.secondaryDangerText]}>Supprimer</Text>}</TouchableOpacity>
           </View> : null}
@@ -1763,7 +1779,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           l'heure ... je veux pouvoir selectionner une heure et 45 minutes,
           2h14, etc." -- trois roulettes (date / heure / minute), aucune
           valeur n'est imposee au clic, tout se choisit en faisant defiler. */}
-      <Text style={styles.wheelSectionLabel}>Date et heure</Text>
+      <Text style={styles.wheelSectionLabel}>Date et heure de début</Text>
       <View style={styles.wheelRow}>
         <WheelPicker items={dateWheelItems.map((d) => d.label)} selectedIndex={dateIdx} onChange={setDateIdx} width={158} />
         <WheelPicker items={HOUR_WHEEL_ITEMS} selectedIndex={hourIdx} onChange={setHourIdx} width={52} />
@@ -1771,6 +1787,14 @@ export default function PartiesScreen({ navigation, route }: any) {
         <WheelPicker items={MINUTE_WHEEL_ITEMS} selectedIndex={minuteIdx} onChange={setMinuteIdx} width={52} />
       </View>
       {startsAt ? <Text style={styles.wheelSummary}>📅 {new Date(`${startsAt}:00`).toLocaleString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</Text> : null}
+      <Text style={styles.wheelSectionLabel}>Durée · l'événement disparaît du public à la fin</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginVertical: 8 }}>
+        {[2,4,6,8,12,24].map((hours) => (
+          <TouchableOpacity key={hours} style={[styles.eventPriceChip, eventDurationHours === hours && styles.eventPriceChipOn]} onPress={() => setEventDurationHours(hours)} accessibilityRole="radio" accessibilityState={{ selected: eventDurationHours === hours }}>
+            <Text style={[styles.eventPriceChipText, eventDurationHours === hours && styles.eventPriceChipTextOn]}>{hours} h</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
       {/* Adel (08/09/2026) : "un numero de telephone ... je souhaite montrer
           mon numero de telephone ou pas" -- optionnel, masque par defaut. */}
       <TextInput style={styles.input} value={organizerPhone} onChangeText={setOrganizerPhone} placeholder="Ton téléphone (optionnel)" placeholderTextColor={colors.textMuted} keyboardType="phone-pad"/>
