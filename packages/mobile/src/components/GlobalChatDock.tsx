@@ -188,6 +188,8 @@ export default function GlobalChatDock() {
   const safeAreaInsets = useContext(SafeAreaInsetsContext);
   const insets = safeAreaInsets ?? initialWindowMetrics?.insets ?? { top: 0, right: 0, bottom: 0, left: 0 };
   const { height, width } = useWindowDimensions();
+  // Le tiroir est complètement visible sur ordinateur, jamais coupé à droite.
+  const desktopDock = Platform.OS === 'web' && width >= 1200;
   // Adel (02/10/2026) : toucher le robot ouvre une MINI-fenêtre, la page
   // reste visible derrière ; ⤢ passe en plein écran. Remis en mini à chaque
   // fermeture.
@@ -1073,10 +1075,11 @@ export default function GlobalChatDock() {
           style={[
             styles.fabWrap,
             side === 'left' ? styles.fabLeft : styles.fabRight,
+            desktopDock && side === 'right' ? { right: 18 } : null,
             {
               bottom: dockBottom,
               transform: [
-                { translateX: side === 'left'
+                { translateX: desktopDock ? 0 : side === 'left'
                   ? drawerPeek.interpolate({ inputRange: [0, 1], outputRange: [-50, 0] })
                   : drawerPeek.interpolate({ inputRange: [0, 1], outputRange: [50, 0] }) },
                 { translateX: drag.x },
@@ -1088,26 +1091,26 @@ export default function GlobalChatDock() {
         >
           <TouchableOpacity
             testID="loki-global-chat-drawer"
-            style={styles.fab}
+            style={[styles.fab, desktopDock && styles.fabDesktop]}
             hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
             onPress={() => { void toggle(); }}
             accessibilityRole="button"
             accessibilityLabel={previewOnly && !visualTestPreview ? 'Se connecter pour ouvrir le Tchat' : chatEnabled ? 'Ouvrir le Tchat' : 'Activer et ouvrir le Tchat'}
           >
-            <View style={[styles.halo, !chatEnabled && styles.haloOff]} />
+            <View style={[styles.halo, desktopDock && styles.haloDesktop, !chatEnabled && styles.haloOff]} />
             {unreadCount > 0 ? <Animated.View pointerEvents="none" testID="loki-chat-unread-glow" style={[styles.unreadGlow, side === 'left' ? styles.unreadGlowLeft : styles.unreadGlowRight, { opacity: glow }]} /> : null}
-            <View style={styles.fabDepthBack} />
-            <View style={styles.fabDepthMid} />
-            <View style={[styles.fabFace, side === 'left' ? styles.fabFaceLeft : styles.fabFaceRight]}>
+            <View style={[styles.fabDepthBack, desktopDock && styles.fabDepthDesktop]} />
+            <View style={[styles.fabDepthMid, desktopDock && styles.fabDepthDesktop]} />
+            <View style={[styles.fabFace, side === 'left' ? styles.fabFaceLeft : styles.fabFaceRight, desktopDock && styles.fabFaceDesktop]}>
               <View style={styles.drawerGrip}><View style={styles.drawerGripLine}/><View style={styles.drawerGripLine}/><View style={styles.drawerGripLine}/></View>
               <View style={[styles.robotHead, { transform: [{ scale: designProfile.botScale }] }]}>
                 <View style={styles.robotAntenna} />
                 <View style={styles.robotEyes}><View style={styles.robotEye}/><View style={styles.robotEye}/></View>
                 <View style={styles.robotMouth}/>
               </View>
-              <View style={styles.drawerCopy}>
-                <Text style={styles.drawerLabel}>TCHAT</Text>
-                <Text style={styles.drawerSub} numberOfLines={1}>{previewOnly ? 'CONNEXION' : unreadCount > 0 && latestChatSender ? `@${latestChatSender}` : 'LOKI'}</Text>
+              <View style={[styles.drawerCopy, desktopDock && styles.drawerCopyDesktop]}>
+                <Text style={[styles.drawerLabel, desktopDock && styles.drawerLabelDesktop]}>TCHAT</Text>
+                <Text style={[styles.drawerSub, desktopDock && styles.drawerSubDesktop]} numberOfLines={1}>{previewOnly ? 'CONNEXION' : unreadCount > 0 && latestChatSender ? `@${latestChatSender}` : 'LOKI'}</Text>
               </View>
               <Text style={styles.drawerChevron}>{side === 'left' ? '›' : '‹'}</Text>
               <View style={[styles.presenceDot, chatEnabled ? styles.presenceOn : styles.presenceOff]} />
@@ -1179,6 +1182,13 @@ const styles = StyleSheet.create({
   halo:{position:'absolute',left:-4,top:-4,width:80,height:66,borderRadius:20,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.04)',opacity:.62},
   haloOff:{borderColor:colors.primaryLight,backgroundColor:'rgba(124,92,252,.05)',opacity:.5},
   fab:{width:76,height:58,position:'relative'},
+  fabDesktop:{width:154},
+  haloDesktop:{width:158},
+  fabDepthDesktop:{width:148},
+  fabFaceDesktop:{width:148,borderRadius:18},
+  drawerCopyDesktop:{minWidth:54,maxWidth:65},
+  drawerLabelDesktop:{fontSize:11},
+  drawerSubDesktop:{fontSize:9},
   fabDepthBack:{position:'absolute',left:6,top:7,width:70,height:52,borderRadius:17,backgroundColor:'rgba(90,61,196,.30)'},
   fabDepthMid:{position:'absolute',left:3,top:3,width:70,height:52,borderRadius:17,backgroundColor:'rgba(41,194,255,.20)'},
   fabFace:{width:70,height:52,flexDirection:'row',alignItems:'center',gap:6,paddingHorizontal:8,borderWidth:1.5,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.98)',shadowColor:'#000',shadowOpacity:.42,shadowRadius:12,shadowOffset:{width:0,height:8},elevation:18},
