@@ -1,3 +1,4 @@
+import { hasFinePointer } from '../layout/layoutMode';
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, AppState, BackHandler, Keyboard, PanResponder, Platform, StyleSheet, Switch, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { SafeAreaInsetsContext, initialWindowMetrics } from 'react-native-safe-area-context';
@@ -189,7 +190,9 @@ export default function GlobalChatDock() {
   const insets = safeAreaInsets ?? initialWindowMetrics?.insets ?? { top: 0, right: 0, bottom: 0, left: 0 };
   const { height, width } = useWindowDimensions();
   // Le tiroir est complètement visible sur ordinateur, jamais coupé à droite.
-  const desktopDock = Platform.OS === 'web' && width >= 1200;
+  // Le bureau commence à 1024 CSS px : à 1098 px (Windows zoomé), le bot
+  // ne doit plus rester découpé sur la bordure droite.
+  const desktopDock = Platform.OS === 'web' && width >= 1024 && hasFinePointer();
   // Adel (02/10/2026) : toucher le robot ouvre une MINI-fenêtre, la page
   // reste visible derrière ; ⤢ passe en plein écran. Remis en mini à chaque
   // fermeture.

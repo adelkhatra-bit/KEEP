@@ -976,7 +976,8 @@ export default function MusicSwipeDeckModal({
   // La présentation des stories est indépendante du mobile : un lecteur 9:16
   // centré et un panneau éditorial occupant la largeur utile du desktop.
   const desktopStoryLayout = Platform.OS === 'web' && windowWidth >= DESKTOP_MIN_WIDTH && Boolean(trackAddedAt);
-  const compactDeck = windowHeight < 640;
+  // Fenêtre PC réduite : la Story doit conserver les actions accessibles.
+  const compactDeck = windowHeight < 640 || (desktopStoryLayout && windowHeight < 780);
   const swipeHint = currentAlreadyKept && !previewOnly
     ? '↑ suivant · ← passer'
     : `↑ suivant · ← passer · → garder${keepDebitAmount && keepDebitAmount > 0 ? ` · ${keepDebitAmount} FREE` : ''}`;
@@ -1093,9 +1094,9 @@ export default function MusicSwipeDeckModal({
     : emptyTitle;
 
   return <KeepModal visible={visible} animationType="slide" onRequestClose={() => { void close(); }} presentationStyle="fullScreen">
-    <View style={[s.outer, desktopStoryLayout && s.desktopOuter]}>
-    <SafeAreaView style={[s.container, desktopStoryLayout && s.desktopPlayer]}>
-      <View style={s.header}>
+    <View style={[s.outer, desktopStoryLayout && s.desktopOuter]} testID="story-viewport">
+    <SafeAreaView style={[s.container, desktopStoryLayout && s.desktopPlayer, desktopStoryLayout && { height: Math.max(360, windowHeight - 24) }]} testID="story-player">
+      <View style={[s.header, desktopStoryLayout && compactDeck && s.desktopHeaderCompact]}>
         <View style={s.headerText}>
           <Text style={s.eyebrow}>Loki Music SWIPE</Text>
           <View style={s.titleRow}>{onTitlePress ? <TouchableOpacity onPress={onTitlePress} accessibilityRole="button" accessibilityLabel={`Voir la fiche : ${title}`} testID="deck-title-profile" style={{ flexShrink: 1 }}><Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title} ›</Text></TouchableOpacity> : <Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title}</Text>}{titleBadge ? <View style={s.titleBadge}>{titleBadge}</View> : null}</View>
@@ -1282,9 +1283,12 @@ export default function MusicSwipeDeckModal({
 }
 
 const s = StyleSheet.create({
-  outer:{flex:1,backgroundColor:'#090610',alignItems:'center'},
-  desktopOuter:{flexDirection:'column',justifyContent:'center',alignItems:'center',paddingHorizontal:16,gap:0},
-  desktopPlayer:{flexGrow:0,flexShrink:1,maxWidth:570,borderLeftWidth:1,borderRightWidth:1,borderColor:'#312348'},
+  outer:{flex:1,minHeight:0,width:'100%',backgroundColor:'#090610',alignItems:'center'},
+  desktopOuter:{flexDirection:'column',justifyContent:'center',alignItems:'center',paddingHorizontal:16,paddingVertical:12,gap:0},
+  // RN Web: `flex:1` + `flexGrow:0` without a fixed height collapses the
+  // modal child to zero, leaving the Story header halfway down the viewport.
+  desktopPlayer:{flex:0,flexBasis:'auto',flexGrow:0,flexShrink:0,width:'100%',maxWidth:520,minHeight:0,overflow:'hidden',borderLeftWidth:1,borderRightWidth:1,borderColor:'#312348'},
+  desktopHeaderCompact:{minHeight:68,paddingVertical:8},
   desktopStoryAside:{width:310,maxWidth:'30%',alignSelf:'center',backgroundColor:'#171020',borderWidth:1,borderColor:'#403052',borderRadius:24,padding:24,gap:12},
   desktopAsideKicker:{color:'#B79CFF',fontSize:12,fontWeight:'900',letterSpacing:1.6},
   desktopAsideTitle:{color:'#FFFFFF',fontSize:24,lineHeight:30,fontWeight:'900'},
@@ -1325,7 +1329,8 @@ const s = StyleSheet.create({
   askArrow:{position:'absolute',top:-5,right:56,width:10,height:10,backgroundColor:'#FFE08A',transform:[{rotate:'45deg'}]},
   askText:{color:'#2B1D00',fontSize:16,fontWeight:'900'},
   headerLikeRow:{position:'relative',zIndex:30,flexDirection:'row',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',gap:8,paddingHorizontal:18,paddingTop:8,paddingBottom:10,borderBottomWidth:1,borderBottomColor:'#241A32'},likeRight:{marginLeft:'auto'},
-  headerExtraCompact:{maxHeight:24,overflow:'hidden'},
+  // Ne coupe jamais la pastille des spectateurs (36 px mini), même en fenêtre basse.
+  headerExtraCompact:{maxHeight:48,overflow:'visible'},
   cardCompact:{minHeight:120},
   gradientCompact:{paddingTop:12,paddingBottom:12},
   fullTrackLocked:{color:'#FFFFFF',fontSize:13,lineHeight:18,fontWeight:'800',textAlign:'center',marginHorizontal:4,marginBottom:12,paddingVertical:6},
