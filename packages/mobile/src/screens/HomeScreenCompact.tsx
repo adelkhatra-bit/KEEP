@@ -21,6 +21,7 @@ import ListenEnergyAura from '../components/ListenEnergyAura';
 import MicPermissionPrimerScreen from '../components/MicPermissionPrimerScreen';
 import CoachMarks from '../components/CoachMarks';
 import WebCompanionCountdown from '../components/WebCompanionCountdown';
+import WebCompanionSessionsPanel from '../components/WebCompanionSessionsPanel';
 import { useLayoutMode } from '../layout/layoutMode';
 import MotionActionButton from '../components/MotionActionButton';
 import { loadSessionScreenCopy, loadCurrentPlanCode, loadDemoListenLimit } from '../services/planService';
@@ -722,6 +723,11 @@ export default function HomeScreenCompact({ navigation }: any) {
                 </TouchableOpacity>
               </View>
             ) : null}
+            {!desktopHome && user && !isDemoMode ? (
+              <View style={s.pcTransferRow} testID="home-pc-transfer-row">
+                <WebCompanionSessionsPanel buttonOnly />
+              </View>
+            ) : null}
             </View>
           </View>
           {Platform.OS === 'web' && !musicEngine.isDemoMode ? (
@@ -790,7 +796,7 @@ export default function HomeScreenCompact({ navigation }: any) {
               <View style={s.stats}>
                 <MiniStat value={elapsed} label="Durée" />
                 <MiniStat value={String(detected)} label="Détectés" />
-                <MiniStat value={String(kept)} label="Gardés" highlight />
+                <MiniStat value={listenEconomyStatus ? String(listenEconomyStatus.includedRemaining) : "—"} label="Restantes" highlight />
               </View>
             </Animated.View>
           </ListenEnergyAura>
@@ -1232,6 +1238,7 @@ const s = StyleSheet.create({
   mobileIdleActions: { width: '100%', alignItems: 'center' },
   desktopIdleIdentity: { flex: 0.42, minWidth: 220, alignItems: 'center', justifyContent: 'center' },
   desktopIdleActions: { flex: 0.58, minWidth: 270, alignItems: 'center', justifyContent: 'center' },
+  pcTransferRow: { width: '100%', alignItems: 'center', marginTop: 13, marginBottom: 5 },
   desktopIdleHero: { maxWidth: 930, minHeight: 275, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 26, paddingHorizontal: 30, paddingVertical: 22, borderRadius: 28, borderWidth: 1, borderColor: 'rgba(167,139,250,0.38)', backgroundColor: 'rgba(16,12,32,0.88)' },
   // Réserve à droite le couloir du bot TCHAT PC : aucun chevauchement du CTA
   // et du texte de reconnaissance sur les fenêtres Windows à 1024–1098 px.
