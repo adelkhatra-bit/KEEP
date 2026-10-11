@@ -136,7 +136,7 @@ jobs:
             if (await tryFree.isVisible().catch(()=>false)) {
               await tryFree.click({force:true,timeout:1500}).catch(()=>{});
             }
-            for (const tab of tabs) await page.getByText(tab,{exact:true}).last().waitFor({state:'visible',timeout:15000});
+            for (const tab of tabs) await page.getByText(tab,{exact:true}).filter({visible:true}).first().waitFor({state:'visible',timeout:15000});
           }
 
           async function openEdit(page) {
