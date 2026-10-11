@@ -233,7 +233,7 @@ function createFakeSupabase(options = {}) {
             }
           ]);
         }
-        case 'keep_listen_status': return json(200, {
+        case 'keep_listen_status': if (!opts.eventStories) return json(200, null); return json(200, {
           ok:true,planCode:'PREMIUM',isAnonymous:false,featureKey:'LISTEN_DAILY',
           periodKey:'W:'+new Date().toISOString().slice(0,10),periodMode:'WEEK',nextResetAt:new Date(Date.now()+6*86400000).toISOString(),
           used:3,limit:10,includedRemaining:7,overQuota:false,overQuotaFreeCost:1,
