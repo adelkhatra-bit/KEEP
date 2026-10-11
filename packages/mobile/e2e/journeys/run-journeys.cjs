@@ -852,7 +852,65 @@ const pcConnectionCountdownJourney = {
   },
 };
 
+// Régression visuelle signalée depuis un PC HP, navigateur peu haut :
+ // l'accueil coupait la reconnaissance et le lecteur Story était décalé vers le bas.
+const desktopHomeStoryJourney = {
+  id: 'design-accueil-story-centres',
+  titre: 'Accueil et Story centrés, boutons visibles sans défilement',
+  devices: [
+    ['PC compact 1098x620', { width: 1098, height: 620 }],
+    ['PC 1366x650', { width: 1366, height: 650 }],
+    ['Mobile 390x844', { width: 390, height: 844 }],
+  ],
+  mobileFlags: true,
+  fakeOptions: { pcSession: true, ownStory: true },
+  async run({ page, viewport, shot }) {
+    const checks = [];
+    const desktop = viewport.width >= 1024;
+    const inViewport = (rect) => Boolean(rect && rect.y >= -3 && rect.y + rect.height <= viewport.height + 3);
+    await page.goto(`${BASE}/Main/Listen/`, { waitUntil: 'load' });
+    await page.getByText('Passer', { exact: true }).first().click({ timeout: 12000 }).catch(() => {});
+    const homeHero = page.locator('[data-testid="home-idle-hero"]');
+    await homeHero.waitFor({ state: 'visible', timeout: 35000 });
+    const action = page.getByRole('button', { name: /Trouver le morceau qui joue/i }).first();
+    await action.waitFor({ state: 'visible', timeout: 20000 });
+    const homeRect = await homeHero.boundingBox();
+    const buttonRect = await action.boundingBox();
+    checks.push(['bouton Trouver le morceau entièrement visible', inViewport(buttonRect)]);
+    checks.push(['accueil entièrement visible', inViewport(homeRect)]);
+    checks.push(['menu sessions non redondant PC / conservé mobile',
+      (await page.locator('[data-testid="home-sessions-menu"]').count()) === (desktop ? 0 : 1)]);
+    if (desktop) {
+      checks.push(['deux colonnes desktop réellement disposées côte à côte', !!homeRect && homeRect.width >= 560]);
+      checks.push(['compteur de connexion PC toujours visible', await page.locator('[data-testid="pc-connected-countdown"]').isVisible()]);
+    }
+    await shot('accueil-cadre');
+    await page.goto(`${BASE}/Main/Profile/`, { waitUntil: 'load' });
+    const ownStory = page.locator('[data-testid="home-story-own"]');
+    await ownStory.waitFor({ state: 'visible', timeout: 35000 });
+    await page.getByRole('button', { name: 'Ouvrir ta story' }).first().waitFor({ state: 'visible', timeout: 35000 });
+    await ownStory.click();
+    const player = page.locator('[data-testid="story-player"]');
+    await player.waitFor({ state: 'visible', timeout: 20000 });
+    await page.waitForTimeout(500);
+    const storyRect = await player.boundingBox();
+    const header = page.getByText('Ta story', { exact: true }).last();
+    const headerRect = await header.boundingBox();
+    checks.push(['lecteur Story entièrement contenu dans le viewport', inViewport(storyRect)]);
+    checks.push(['titre Story accessible en haut', !!headerRect && headerRect.y >= 0 && headerRect.y <= viewport.height * 0.35]);
+    if (desktop) checks.push(['Story centrée horizontalement en fenêtre de téléphone',
+      !!storyRect && storyRect.width <= 525 && Math.abs(storyRect.x + storyRect.width / 2 - viewport.width / 2) < 15]);
+    await shot('story-cadree');
+    return {
+      details: { homeRect, buttonRect, storyRect, headerRect },
+      failures: failed(checks),
+      ok: 'Accueil et Story dans la fenêtre, sans bouton coupé ni double hamburger PC',
+    };
+  },
+};
+
 const JOURNEYS = [
+  desktopHomeStoryJourney,
   pcConnectionCountdownJourney,
   crossDeviceReadJourney,
   popupJourney('FREE'),
