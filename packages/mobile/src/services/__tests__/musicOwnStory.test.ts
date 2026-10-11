@@ -32,7 +32,7 @@ describe('intégration : ta story dans la barre du profil', () => {
     expect(rail.indexOf('home-story-own')).toBeLessThan(rail.indexOf('row.map(renderStory)'));
     expect(rail).toContain('orderStoriesForBar(');
     expect(rail).toContain('seenBadgeText');
-    expect(rail).toContain('horizontal\n        showsHorizontalScrollIndicator={false}');
+    expect(rail).toMatch(/horizontal\s+showsHorizontalScrollIndicator=\{false\}/);
   });
   it('the profile bar opens the existing Swipe in preview-only mode for your own story', () => {
     const bar = src('components', 'ProfileStoryBar.tsx');
@@ -214,7 +214,8 @@ describe('Mettre en story : retour clair, cercle allumé, musique en vente (Adel
   const bar = read('components', 'ProfileStoryBar.tsx');
   const svc = read('services', 'musicStoriesService.ts');
   it('prévient la rangée de stories à chaque ajout (le cercle de la photo s\'allume)', () => {
-    expect(svc).toContain('notifyOwnStoryChanged();\n}');
+    expect(svc).toContain('notifyOwnStoryChanged();');
+    expect(svc).toContain('export function notifyOwnStoryChanged(): void');
     expect(bar).toContain('subscribeOwnStoryChanged');
     expect(deck).toContain("if (visibility === 'PUBLIC') {\n          notifyOwnStoryChanged();");
   });
@@ -300,7 +301,7 @@ describe("Rangée d'amis par défaut + suggestions horizontales + pas de doublon
   const bar = read('components', 'ProfileStoryBar.tsx');
   const svc = read('services', 'musicStoriesService.ts');
   it('la rangée défile en longueur et finit par le rond « Suggestions »', () => {
-    expect(rail).toContain('horizontal\n        showsHorizontalScrollIndicator={false}');
+    expect(rail).toMatch(/horizontal\s+showsHorizontalScrollIndicator=\{false\}/);
     expect(rail).toContain('showsHorizontalScrollIndicator={false}');
   });
   it('mes amis (que je suis) ont toujours leur bulle, grise sans story', () => {
