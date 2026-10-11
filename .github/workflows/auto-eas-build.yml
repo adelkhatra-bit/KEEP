@@ -337,3 +337,14 @@ jobs:
         run: |
           echo "❌ Build failed. Check the logs above for details."
           exit 1
+
+  release-blocked-alert:
+    name: Alerte RELEASE BLOQUÉE
+    needs: [build-ios]
+    if: ${{ failure() && github.event_name != 'pull_request' }}
+    permissions:
+      contents: read
+      issues: write
+    uses: ./.github/workflows/release-blocked-alert.yml
+    with:
+      workflow_label: 'Auto EAS Build iOS'

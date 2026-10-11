@@ -21,22 +21,10 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/mobile-ci.yml'
+  # Chaque PR vers reconcile exécute les MÊMES contrôles que l'OTA, sans filtre
+  # de chemins : un test cassé ne doit plus jamais bloquer une release (11/10/2026).
   pull_request:
     branches: ['reconcile/claude-main-20260825']
-    paths:
-      - 'packages/mobile/**'
-      - 'packages/music/**'
-      - 'supabase/migrations/**'
-      - 'scripts/verify-profile-data-integrity.cjs'
-      - 'scripts/verify-source-of-truth.cjs'
-      - 'scripts/verify-mobile-text-contrast.cjs'
-      - 'scripts/verify-ui-layout-baseline.cjs'
-      - 'config/keep-ui-baseline.json'
-      - 'docs/KEEP_CAHIER_DES_CHARGES_UI.md'
-      - 'docs/KEEP_MASTER_SPEC.md'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/mobile-ci.yml'
   workflow_dispatch:
 
 concurrency:
@@ -108,3 +96,14 @@ jobs:
 
       - name: Verify iOS export
         run: test -d packages/mobile/dist-ios && test "$(find packages/mobile/dist-ios -type f | wc -l)" -gt 0
+
+  release-blocked-alert:
+    name: Alerte RELEASE BLOQUÉE
+    needs: [verify-mobile]
+    if: ${{ failure() && github.event_name != 'pull_request' }}
+    permissions:
+      contents: read
+      issues: write
+    uses: ./.github/workflows/release-blocked-alert.yml
+    with:
+      workflow_label: 'Mobile CI'

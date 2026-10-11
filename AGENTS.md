@@ -197,3 +197,13 @@ Règle produit verrouillée (04/10/2026) :
 Le contrat machine est `config/keep-product-contract.json > uxInteractionRules` et la CI refuse toute suppression de ces invariants.
 
 - Reliability and learning rules: read docs/LOKI_RELIABILITY_LEARNING_CONTRACT.md before modifying Loki. Continue using STATE.md and docs/ERROR_LEDGER.md as the existing execution log.
+
+## 🚨 RELEASE BLOQUÉE — règle pour toutes les IA (incident 11/10/2026)
+
+Le 10/10, l'OTA #1016 a échoué sur un test (`DesktopZoom.contract.test.ts`) sans que personne ne soit prévenu : les PR 87 à 100 ne sont jamais arrivées sur iPhone alors que le site GitHub Pages était à jour.
+
+- Tout échec d'un workflow de release (**OTA Production Update**, **Auto EAS Build iOS**, **Web public**, **Mobile CI**) ouvre automatiquement UNE issue GitHub `RELEASE BLOQUÉE — <workflow>` (label `release-blocked`, lien des logs) via `.github/workflows/release-blocked-alert.yml`. Un nouvel échec commente l'issue existante : pas de doublon.
+- **Avant de dire « publié sur iPhone »** : vérifier qu'aucune issue `release-blocked` n'est ouverte et que le SHA de dernière release (`git log -1 -- packages/mobile/.eas-build-trigger`) a un build iOS ET une OTA verts.
+- Chaque PR vers `reconcile/claude-main-20260825` exécute `Mobile CI` **sans filtre de chemins** (mêmes contrôles que l'OTA : scripts verify, typecheck, jest mobile + music). Ne pas fusionner une PR rouge.
+- Une issue `release-blocked` se ferme seulement après correction racine + ligne de release dans `packages/mobile/.eas-build-trigger` + OTA verte. Ne jamais désactiver ni affaiblir un test pour débloquer.
+- Ne pas recréer un second mécanisme d'alerte : étendre le workflow réutilisable existant.

@@ -390,3 +390,14 @@ jobs:
 
       # Publication terminée ici après validation HTTP + SHA live.
       # Les tests navigateurs lourds restent dans les Guardians dédiés.
+
+  release-blocked-alert:
+    name: Alerte RELEASE BLOQUÉE
+    needs: [deploy]
+    if: ${{ failure() && github.event_name != 'pull_request' }}
+    permissions:
+      contents: read
+      issues: write
+    uses: ./.github/workflows/release-blocked-alert.yml
+    with:
+      workflow_label: 'Web public'

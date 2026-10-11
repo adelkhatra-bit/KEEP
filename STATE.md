@@ -83,3 +83,4 @@ Rapport d'audit externe : `docs/AUDIT_EXTERNE_2026-10-06.md`. Notifications : `d
 2026-10-10 · claude/release-trigger-20261010 · (ce commit) · ERR-133 cause prouvée : demo_discovery_locked=true (01/10) vs test obsolète ; décision d'Adel attendue · preuve run 38061684027
 
 2026-10-10 · reconcile/claude-main-20260825 · PC QR : session Windows active contrôlée côté Supabase (heartbeat), bouton Partager ne transmettait aucun onglet ; transfert sécurisé des cinq onglets codé sans toucher App.tsx/Navigation.tsx, migration 20261010200738 appliquée ; CI et appareil réel à vérifier (voir ERR-PC-SCREEN-HANDOFF-134).
+2026-10-11 · reconcile/claude-main-20260825 · (ce commit) · déblocage iPhone + alerte issue « RELEASE BLOQUÉE » (release-blocked-alert.yml) + Mobile CI sans filtre sur PR + règle AGENTS.md · preuve : verify/typecheck/jest 302+5 suites verts en local, runs CI à citer
