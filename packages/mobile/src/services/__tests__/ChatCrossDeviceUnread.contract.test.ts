@@ -58,5 +58,7 @@ describe('PC/mobile chat read receipts', () => {
     expect(dock).toContain('if (!unreadNow?.some((row) => row.id === item.id)) return;');
     expect(dock).toContain('if (!unreadNow?.length || useGlobalChatStore.getState().isOpen) return;');
     expect(dock).not.toContain('useGlobalChatStore.getState().addUnread(unreadKey, item.id)');
+    expect(dock).toContain('chatNotificationsEnabled && chatSoundEnabled');
+    expect(dock).toContain('chatVoiceEnabled && !chatState.isOpen');
   });
 });
