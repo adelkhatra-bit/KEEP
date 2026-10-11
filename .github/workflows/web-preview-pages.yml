@@ -401,3 +401,53 @@ jobs:
     uses: ./.github/workflows/release-blocked-alert.yml
     with:
       workflow_label: 'Web public'
+
+  # Registre de versions (Adel, 11/10/2026) : écrit UNIQUEMENT après vérification du SHA réellement servi par le site
+  # (/KEEP/version.json == commit publié). Ne bloque jamais une publication (continue-on-error).
+  release-register:
+    name: Registre de versions
+    needs: [deploy]
+    if: ${{ success() && github.event_name == 'push' }}
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Enregistrer la release vérifiée
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: reconcile/claude-main-20260825
+        run: |
+          set -euo pipefail
+          base='https://adelkhatra-bit.github.io/KEEP'
+          live="$(curl --retry 10 --retry-delay 3 -fsSL -H 'Cache-Control: no-cache' "$base/version.json?sha=$GITHUB_SHA" | python3 -c 'import sys,json;print(json.load(sys.stdin).get("sha",""))')"
+          if [ "$live" != "$GITHUB_SHA" ]; then
+            echo "SHA servi ($live) différent du commit ($GITHUB_SHA) : rien enregistré."
+            exit 0
+          fi
+          release_sha="$(git log -1 --format=%H "origin/$BRANCH" -- packages/mobile/.eas-build-trigger)"
+          runs="repos/$GITHUB_REPOSITORY/actions/workflows"
+          ios="$(gh api "$runs/auto-eas-build.yml/runs?head_sha=$release_sha&per_page=1" --jq '.workflow_runs[0] | "iOS #\(.run_number) \(.conclusion // .status)"' 2>/dev/null || true)"
+          ota="$(gh api "$runs/eas-update-production.yml/runs?head_sha=$release_sha&per_page=1" --jq '.workflow_runs[0] | "OTA #\(.run_number) \(.conclusion // .status)"' 2>/dev/null || true)"
+          changes="$(git log -1 --format=%s "$GITHUB_SHA")"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          for attempt in 1 2 3 4; do
+            git fetch origin "$BRANCH"
+            git checkout -B registre-tmp "origin/$BRANCH"
+            node scripts/release-register.cjs add --commit "$GITHUB_SHA" --web "$live" \
+              --testflight "${ios:-n/a} (release ${release_sha:0:7})" --ota "${ota:-n/a} (release ${release_sha:0:7})" \
+              --tests pass --changes "$changes"
+            git add docs/RELEASE_REGISTER.json PROJECT_STATE.md
+            git commit -m "chore(registre): release ${GITHUB_SHA:0:7} vérifiée en ligne [skip ci]" || exit 0
+            if git push origin "HEAD:$BRANCH"; then exit 0; fi
+            sleep $((attempt * 3))
+          done
+          echo "Registre non poussé (conflit répété) : sans gravité, la release est déjà publiée."

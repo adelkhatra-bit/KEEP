@@ -1,0 +1,11 @@
+[
+  {
+    "commit": "bcd5711",
+    "web": "bcd5711",
+    "testflight": "iOS #226 (réussi)",
+    "ota": "#1017 (réussie)",
+    "date": "2026-10-11 12:34",
+    "tests": "pass",
+    "changes": "PR 87 à 100 sur iPhone et site ; alerte RELEASE BLOQUÉE"
+  }
+]
