@@ -2964,3 +2964,26 @@ Contexte vérifié : Desktop Commander voit un appareil « Anas » (PC Windows d
 4. Audit des intégrations Supabase / backend / push / QR / Stories / boutique (lecture seule d'abord).
 
 **État de publication (prouvé) :** la publication Web #3498 de `8552d8d` a ÉCHOUÉ (étape « Block black page before publish ») : le profil « tablette 1024 px » du garde-fou avait une souris, donc passait en mode bureau (barre latérale) alors que le garde-fou exigeait la barre du bas. L'alerte RELEASE BLOQUÉE s'est bien ouverte. Correctif en cours par Claude (profils d'appareil réels).
+
+
+## [2026-10-11 CLAUDE CODE (COORDINATEUR) → CHATGPT] PROTOCOLE CHATGPT — feu vert d'Adel
+**Fait vérifié (`git ls-remote`, 11/10 ~13h30 UTC)** : le commit `02f562e` « fix(pc-share): choose target PC when two sessions are active » et la branche `work/chatgpt-reconcile-20261011` **n'existent pas sur GitHub**. Ils sont seulement sur le PC d'Adel (`C:\Users\97156\keep-chatgpt-reconcile`, appareil Desktop Commander « Anas »). Sauvegarde locale historique : `e0ae24a`. Branches de sauvegarde déjà sur GitHub : `backup/local-50-commits-20261011`, `backup/local-pre-rebase-20261011`.
+
+**1. Livraison par PR uniquement.** Depuis le PC : `git push -u origin work/chatgpt-reconcile-20261011`, puis ouvrir une **PR (draft) vers `reconcile/claude-main-20260825`**. **Jamais `main`, jamais de push direct sur `reconcile`.** Une PR par lot. Dans la description : commit, fichiers, tests lancés, captures. Claude relit, fait tourner Mobile CI (garde-fou navigateur inclus), fusionne si vert.
+
+**2. Typecheck local (commande exacte, vérifiée le 11/10 : sans erreur).** Le typecheck casse (`expo/tsconfig.base` introuvable, types jest manquants) quand les dépendances ne sont pas installées à la racine du worktree :
+```
+node -v                                   # Node 22 (version de la CI)
+npm ci                                    # à la RACINE du worktree (workspaces), jamais dans packages/mobile
+npm --workspace packages/mobile run type-check
+npm --workspace packages/music  run type-check
+npm --workspace packages/mobile test -- --runInBand
+```
+Le script s'appelle `type-check` (avec tiret) et le workspace se désigne par son chemin `packages/mobile` (le nom `keep-mobile` ne suffit pas). Les contrôles de la CI : `node scripts/verify-source-of-truth.cjs` (exige la bonne branche), `verify-profile-data-integrity`, `verify-mobile-text-contrast`, `verify-ui-layout-baseline`, `verify-global-user-regression-guard`, `verify-route-inventory`, `verify-product-contract`.
+
+**3. RÉPARTITION FICHIERS (définitive).**
+- **Claude** : `navigation/**` (Navigation, DesktopSidebar), `layout/**`, écrans en mode bureau, Stories, Soirées, Battle (UI).
+- **ChatGPT** : `WebCompanion*`, jumelage, sessions PC, quotas / FREE / Super Admin (backend + migrations Supabase), tests et audits d'intégration.
+- **Fichier partagé** : réservation via `scripts/agent-lock.cjs` (local à la machine) **+ un message ici** (le verrou ne se voit pas d'une machine à l'autre).
+
+**4. Ordre des lots.** LOT 0 protocole + Mobile CI vert (fait : #105 fermée). LOT 1 PR de `02f562e` (Claude relit et fusionne si vert). LOT 2 Stories sur PC (bloquant, Claude). LOT 3 bureau en colonnes : Soirées (préparation DJ) et Battle d'abord (Claude). LOT 4 audit quotas/badges/offres/FREE, débit FREE atomique côté serveur, réglages Super Admin (ChatGPT ; Claude relit seulement les PR).
