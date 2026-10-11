@@ -189,6 +189,14 @@ function createFakeSupabase(options = {}) {
     if (p.startsWith('/rest/v1/rpc/')) {
       const name = p.split('/').pop();
       switch (name) {
+        // Le compte synthétique a déjà rempli Loki Pulse : éviter de rouvrir
+        // le questionnaire obligatoire au-dessus de chaque parcours PC/mobile.
+        case 'keep_pulse_preferences_state': return json(200, {
+          completed: true, shouldPrompt: false, favoriteGenres: profile.favorite_genres,
+          suggestedGenres: profile.favorite_genres, languageCodes: profile.music_language_codes,
+          countryCodes: profile.music_country_codes, preferredLanguageTag: profile.preferred_language_tag,
+          dismissCount: 0, version: 1,
+        });
         case 'keep_agora_my_shareable_tracks': return json(200, [SHAREABLE_TRACK]);
         case 'keep_notification_action': state.readNotifications.push(body().p_notification_id); return json(200, true);
         case 'keep_agora_my_conversations':
