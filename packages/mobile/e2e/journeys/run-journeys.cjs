@@ -750,7 +750,69 @@ const soloRechargeJourney = {
   },
 };
 
+// Deux navigateurs authentifiés sur le même compte synthétique : le téléphone
+// marque la notification lue ; le PC doit effacer badge et rappel même si
+// le canal Realtime est coupé (le faux backend bloque /realtime/).
+const crossDeviceReadJourney = {
+  id: 'tchat-lecture-telephone-vers-ordinateur',
+  titre: 'Tchat — lu sur téléphone = plus de non-lu sur PC sans actualiser',
+  devices: [PC],
+  mobileFlags: false,
+  fakeOptions: { unreadChat: true, groupMessages: true },
+  async run({ page, sb, shot }) {
+    const r = {};
+    await page.goto(`${BASE}/`, { waitUntil: 'load' });
+    await page.getByText('Passer', { exact: true }).first().click({ timeout: 25000 }).catch(() => {});
+    const unreadGlow = page.locator('[data-testid="loki-chat-unread-glow"]');
+    await unreadGlow.waitFor({ state: 'visible', timeout: 25000 });
+    r.pc_non_lu_avant = await unreadGlow.count();
+    await shot('pc-avant-lecture');
+
+    const browser = page.context().browser();
+    if (!browser) throw new Error('Navigateur Playwright absent');
+    const mobileContext = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    try {
+      await mobileContext.addInitScript(([k, v]) => {
+        try { localStorage.setItem(k, v); localStorage.setItem('keep_has_seen_onboarding_guide', 'true'); } catch {}
+      }, [fake.AUTH_STORAGE_KEY, JSON.stringify(sb.session)]);
+      const mobile = await mobileContext.newPage();
+      await mobile.route((url) => !url.href.startsWith(ORIGIN), (route) => {
+        const url = route.request().url();
+        if (/supabase\.co/.test(new URL(url).hostname)) return sb.respond(route);
+        if (url.startsWith('data:') || url.startsWith('blob:')) return route.continue();
+        return route.abort();
+      });
+      await mobile.goto(`${BASE}/notifications`, { waitUntil: 'load' });
+      await mobile.getByText('Centre de notifications').first().waitFor({ timeout: 25000 });
+      const deadline = Date.now() + 16000;
+      while (!sb.state.readNotifications.includes('n-d1') && Date.now() < deadline) {
+        await mobile.waitForTimeout(250);
+      }
+      r.lu_sur_telephone = ['n-g1', 'n-g2', 'n-d1'].every((id) => sb.state.readNotifications.includes(id));
+      await mobile.screenshot({ path: require('path').join(process.env.JOURNEYS_OUT || 'artifacts/journeys', 'captures', 'crossdevice-mobile-lu.png') }).catch(() => {});
+      const start = Date.now();
+      let cleared = false;
+      while (Date.now() - start < 38000) {
+        if (await unreadGlow.count() === 0) { cleared = true; break; }
+        await page.waitForTimeout(400);
+      }
+      r.pc_non_lu_apres = await unreadGlow.count();
+      r.temps_sync_ms = Date.now() - start;
+      await shot('pc-apres-lecture');
+      const checks = [
+        ['badge non lu affiché au départ sur PC', r.pc_non_lu_avant === 1],
+        ['téléphone authentifié : les messages sont lus en base', r.lu_sur_telephone],
+        ['badge PC supprimé sans recharger, malgré Realtime indisponible', cleared && r.pc_non_lu_apres === 0],
+      ];
+      return { details: r, failures: failed(checks), ok: `badge effacé sur PC en ${Math.ceil(r.temps_sync_ms / 1000)} s après lecture mobile` };
+    } finally {
+      await mobileContext.close();
+    }
+  },
+};
+
 const JOURNEYS = [
+  crossDeviceReadJourney,
   popupJourney('FREE'),
   popupJourney('MONEY'),
   boutiqueJourney,
