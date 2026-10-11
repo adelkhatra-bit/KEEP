@@ -885,6 +885,7 @@ const desktopHomeStoryJourney = {
       checks.push(['compteur de connexion PC toujours visible', await page.locator('[data-testid="pc-connected-countdown"]').isVisible()]);
       const chatLauncher = await page.locator('[data-testid="loki-global-chat-drawer"]').boundingBox();
       checks.push(['bouton Tchat complètement visible sur bureau, même à 1098 px', !!chatLauncher && chatLauncher.x >= -2 && chatLauncher.x + chatLauncher.width <= viewport.width + 2]);
+      checks.push(['robot Tchat ne masque pas le texte du panneau principal', !!chatLauncher && !!homeRect && homeRect.x + homeRect.width <= chatLauncher.x + 2]);
     }
     await shot('accueil-cadre');
     await page.goto(`${BASE}/Main/Profile/`, { waitUntil: 'load' });
