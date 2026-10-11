@@ -4,21 +4,7 @@ import { colors } from '../theme/colors';
 import { useUserStore } from '../store/useUserStore';
 import { currentWebCompanionSessionId, listWebCompanionSessions } from '../services/webPairingService';
 
-const SESSION_LENGTH_MS = 24 * 60 * 60 * 1000;
-
-export function webCompanionRemainingMs(createdAt: string, now: number): number {
-  const created = Date.parse(createdAt);
-  if (!Number.isFinite(created)) return 0;
-  return Math.max(0, created + SESSION_LENGTH_MS - now);
-}
-
-export function formatWebCompanionRemaining(ms: number): string {
-  const seconds = Math.max(0, Math.ceil(ms / 1000));
-  const hh = Math.floor(seconds / 3600);
-  const mm = Math.floor((seconds % 3600) / 60);
-  const ss = seconds % 60;
-  return [hh, mm, ss].map((v) => String(v).padStart(2, '0')).join(':');
-}
+import { formatWebCompanionRemaining, webCompanionRemainingMs } from '../services/webCompanionCountdown';
 
 /**
  * Visible sur l'accueil ordinateur et à côté du ☰ de la session.
@@ -67,7 +53,7 @@ export default function WebCompanionCountdown() {
 
     void refresh();
     // Un nouveau QR peut être approuvé après le rendu initial.
-    const refreshTimer = setInterval(() => { void refresh(); }, 15000);
+    const refreshTimer = setInterval(() => { void refresh(); }, 30000);
     const clockTimer = setInterval(() => { if (alive) setNow(Date.now()); }, 1000);
     const onFocus = () => { void refresh(); };
     window.addEventListener('focus', onFocus);
