@@ -33,6 +33,8 @@ import { recordProfileSwipeListen } from '../services/profileSwipeListenService'
 import { colors } from '../theme/colors';
 import { minTouchTarget } from '../theme/spacing';
 import KeepModal from './KeepModal';
+import { acquireProtectedStoryPlayback } from '../services/storyPlaybackProtection';
+import { useSessionStore } from '../store/useSessionStore';
 
 function shuffle<T>(input: T[]): T[] {
   const next = [...input];
@@ -1068,6 +1070,18 @@ export default function MusicSwipeDeckModal({
     useRobotMessageStore.getState().setQuiet(true);
     return () => useRobotMessageStore.getState().setQuiet(false);
   }, [visible]);
+  useEffect(() => {
+    if (!visible || !trackAddedAt) return undefined;
+    return acquireProtectedStoryPlayback(
+      () => {
+        const session = useSessionStore.getState();
+        if (!session.isActive || session.micPaused) return false;
+        session.pauseListening();
+        return true;
+      },
+      () => useSessionStore.getState().resumeListening(),
+    );
+  }, [visible, trackAddedAt]);
   const storyAgeLine = useStoryCountdown(current && trackAddedAt ? trackAddedAt[current.id] : null, visible);
   const resolvedSubtitle = prefilterRemovedCount > 0
     ? `${subtitle ? `${subtitle} · ` : ''}${prefilterRemovedCount} déjà dans ta collection ignoré${prefilterRemovedCount > 1 ? 's' : ''}.`
