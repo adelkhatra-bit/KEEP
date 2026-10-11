@@ -18,7 +18,7 @@ function label(session: WebCompanionSession) {
   return session.device_label || 'Ordinateur Loki';
 }
 
-export default function WebCompanionSessionsPanel() {
+export default function WebCompanionSessionsPanel({ buttonOnly = false }: { buttonOnly?: boolean } = {}) {
   const [sessions, setSessions] = React.useState<WebCompanionSession[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [busyId, setBusyId] = React.useState<string | null>(null);
@@ -26,13 +26,13 @@ export default function WebCompanionSessionsPanel() {
   const [loadError, setLoadError] = React.useState(false);
   const [now, setNow] = React.useState(() => Date.now());
   React.useEffect(() => {
-    if (Platform.OS === 'web') return undefined;
+    if (Platform.OS === 'web' || buttonOnly) return undefined;
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [buttonOnly]);
 
   const refresh = React.useCallback(async () => {
-    if (Platform.OS === 'web') return;
+    if (Platform.OS === 'web' || buttonOnly) return;
     setLoading(true);
     try {
       setSessions(await listWebCompanionSessions());
@@ -42,10 +42,10 @@ export default function WebCompanionSessionsPanel() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [buttonOnly]);
 
   React.useEffect(() => {
-    if (Platform.OS === 'web') return;
+    if (Platform.OS === 'web' || buttonOnly) return;
     void refresh();
     // Les sessions PC peuvent être approuvées ou révoquées sur un autre appareil.
     // Les actualiser aussi au retour de l'application évite un état périmé.
@@ -57,9 +57,16 @@ export default function WebCompanionSessionsPanel() {
       clearInterval(interval);
       listener.remove();
     };
-  }, [refresh]);
+  }, [refresh, buttonOnly]);
 
   if (Platform.OS === 'web') return null;
+
+  if (buttonOnly) return (
+    <TouchableOpacity style={s.quickShare} onPress={() => { void explainShare(); }} accessibilityRole="button"
+      accessibilityLabel="Transférer l'écran Loki sur mon ordinateur connecté" testID="home-transfer-to-pc">
+      <Text style={s.quickShareText}>PC ↗ Transférer sur mon ordinateur</Text>
+    </TouchableOpacity>
+  );
 
   const active = sessions.filter((s) => !s.revoked_at && pcShareHoursLeft(s.created_at, now) > 0);
 
@@ -189,6 +196,8 @@ const s = StyleSheet.create({
   device: { color: colors.textPrimary, fontSize: 13, fontWeight: '800' },
   disconnect: { minHeight: 48, paddingHorizontal: 12, borderRadius: 19, borderWidth: 1, borderColor: colors.danger, alignItems: 'center', justifyContent: 'center' },
   disconnectText: { color: colors.danger, fontSize: 11, fontWeight: '900' },
+  quickShare: { alignSelf: 'center', minHeight: 44, maxWidth: '100%', paddingHorizontal: 16, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(124,92,252,.18)', borderWidth: 1, borderColor: colors.primary },
+  quickShareText: { color: colors.textPrimary, fontSize: 12, fontWeight: '900', textAlign: 'center' },
   share: { minHeight: 48, marginBottom: 12, borderRadius: 23, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
   shareText: { color: colors.textPrimary, fontSize: 14, fontWeight: '900' },
   refresh: { minHeight: 48, marginTop: 10, alignItems: 'center', justifyContent: 'center' },
