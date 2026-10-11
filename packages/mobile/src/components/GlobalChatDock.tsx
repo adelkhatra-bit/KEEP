@@ -5,7 +5,7 @@ import MusicAgoraPanel from './MusicAgoraPanel';
 import { colors } from '../theme/colors';
 import { useUserStore } from '../store/useUserStore';
 import { loadMusicAgoraSettings, loadMusicAgoraShareableTracks, saveMusicAgoraPosition, saveMusicAgoraSettings, saveMusicAgoraVoiceAnnouncements, MusicAgoraSurface, subscribeMusicAgoraTyping } from '../services/musicAgoraService';
-import { KeepNotification, loadNotificationPreferences, loadNotifications, subscribeToNotifications } from '../services/notificationService';
+import { KeepNotification, loadNotificationPreferences, loadNotifications, subscribeToNotificationChanges, subscribeToNotifications } from '../services/notificationService';
 import { speakLokiText } from '../services/lokiSpeechService';
 import { playNotificationCue, primeNotificationAudio } from '../services/notificationSoundService';
 import { navigateToSharedProfile, navigationRef } from '../navigation/navigationRef';
@@ -111,6 +111,8 @@ export default function GlobalChatDock() {
   const [latestChatSender, setLatestChatSender] = useState('');
   // Début du dernier message reçu, affiché quelques secondes dans la languette.
   const [latestChatPreview, setLatestChatPreview] = useState('');
+  // Le serveur reste la source de vérité : plusieurs appareils partagent read_at.
+  const refreshUnreadRef = useRef<(() => Promise<KeepNotification[] | null>) | null>(null);
   const [webVisualViewport, setWebVisualViewport] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
   // undefined = auth Supabase pas encore lue ; null = aucune session réelle.
   // Le chat ne doit jamais se fermer entre les deux simplement parce que le
@@ -333,9 +335,8 @@ export default function GlobalChatDock() {
         side: 'right' as const,
         bottomOffset: 88,
       })),
-      loadNotifications(effectiveProfileId, { dedupe: false, unreadOnly: true }).catch(() => []),
       loadNotificationPreferences(effectiveProfileId).catch(() => null),
-    ]).then(([settings, notifications, notificationPrefs]) => {
+    ]).then(([settings, notificationPrefs]) => {
       if (!live) return;
       setChatEnabled(Boolean(settings.homeEnabled));
       setChatNotificationsEnabled(Boolean(settings.notificationsEnabled));
@@ -351,17 +352,75 @@ export default function GlobalChatDock() {
       if (legacyBottom) {
         void saveMusicAgoraPosition(settings.side, migratedBottom).catch(() => {});
       }
-      const unreadChat = notifications.filter((item) => !item.readAt && isChatNotification(item));
-      useGlobalChatStore.getState().setUnreadByTarget(buildChatUnreadMap(unreadChat));
-      const latest = unreadChat[0];
-      setLatestChatSender(latest ? chatNotificationSender(latest) : '');
-      setLatestChatPreview(latest ? chatNotificationPreview(latest) : '');
-      if (latest) useGlobalChatStore.getState().prime(chatNotificationTarget(latest));
       setChatSettingsReady(true);
     });
 
     return () => { live = false; };
   }, [accountReady, authResolved, effectiveProfileId, previewOnly, closeChat, setBottomOffset, setSide]);
+
+  // Le compteur du tchat vient du read_at serveur, partagé par iPhone et PC.
+  // INSERT seul ne suffit pas : une lecture sur l'autre appareil est un UPDATE.
+  useEffect(() => {
+    if (!accountReady || !effectiveProfileId) {
+      refreshUnreadRef.current = null;
+      return undefined;
+    }
+    let alive = true;
+    let revision = 0;
+    const refresh = async (): Promise<KeepNotification[] | null> => {
+      const currentRevision = ++revision;
+      try {
+        const rows = await loadNotifications(effectiveProfileId, { dedupe: false, unreadOnly: true });
+        if (!alive || currentRevision !== revision) return null;
+        const unreadChat = rows.filter((item) => !item.readAt && isChatNotification(item));
+        const store = useGlobalChatStore.getState();
+        store.setUnreadByTarget(buildChatUnreadMap(unreadChat));
+        const latest = unreadChat[0];
+        setLatestChatSender(latest ? chatNotificationSender(latest) : '');
+        setLatestChatPreview(latest ? chatNotificationPreview(latest) : '');
+        if (latest && !store.isOpen) store.prime(chatNotificationTarget(latest));
+        return unreadChat;
+      } catch {
+        // Perte de réseau : conserver le compteur affiché sans inventer une lecture.
+        return null;
+      }
+    };
+    refreshUnreadRef.current = refresh;
+    void refresh();
+
+    const unsubscribe = subscribeToNotificationChanges(effectiveProfileId, () => { void refresh(); });
+    const appState = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void refresh();
+    });
+    // Reconnexion/reprise navigateur : corrige les UPDATE Realtime manqués.
+    const onFocus = () => { void refresh(); };
+    const onVisibility = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') void refresh();
+    };
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.addEventListener('focus', onFocus);
+      document.addEventListener('visibilitychange', onVisibility);
+    }
+    // Fallback léger seulement tant qu'il reste des conversations non lues.
+    // Un message lu sur mobile disparaît ainsi du PC même si Realtime se coupe.
+    const interval = setInterval(() => {
+      if (AppState.currentState !== 'active') return;
+      if (Platform.OS === 'web' && typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      if (Object.keys(useGlobalChatStore.getState().unreadByTarget).length > 0) void refresh();
+    }, 30000);
+    return () => {
+      alive = false;
+      revision += 1;
+      if (refreshUnreadRef.current === refresh) refreshUnreadRef.current = null;
+      clearInterval(interval);
+      appState.remove();
+      unsubscribe();
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        window.removeEventListener('focus', onFocus);
+        document.removeEventListener('visibilitychange', onVisibility);
+      }
+    };
+  }, [accountReady, effectiveProfileId]);
 
   // « @x est en train d'écrire » : signal éphémère, effacé après 6 s sans
   // nouveau signal (Adel 02/10/2026).
@@ -390,37 +449,45 @@ export default function GlobalChatDock() {
     if (!accountReady || !effectiveProfileId) return;
     return subscribeToNotifications(effectiveProfileId, (item) => {
       if (!isChatNotification(item)) return;
-      const sender = chatNotificationSender(item);
-      const unreadKey = chatUnreadKey(item);
-      if (unreadKey) useGlobalChatStore.getState().addUnread(unreadKey, item.id);
-      flashEdge();
-      setLatestChatSender(sender);
-      setLatestChatPreview(chatNotificationPreview(item));
-      const chatState = useGlobalChatStore.getState();
-      if (!chatState.isOpen) chatState.prime(chatNotificationTarget(item));
-      if (chatEnabled && chatNotificationsEnabled && chatSoundEnabled) {
-        // Un seul bip court pour le destinataire. Les messages émis par
-        // l'utilisateur courant ne créent pas de notification pour lui-même.
-        void playNotificationCue('DEFAULT').catch(() => {});
-      }
-      if (chatEnabled && chatNotificationsEnabled && chatVoiceEnabled && !chatState.isOpen) {
-        void speakLokiText(`Message de ${sender}`, {
-          language: 'fr-FR',
-          rate: 0.95,
-          pitch: 1,
-        }).catch(() => {
-          // Optional voice capability: never block the messenger or an OTA.
-        });
-      }
+      // Une INSERT peut être reçue après la lecture du message sur un autre
+      // appareil. Ne jamais annoncer un non-lu sans le confirmer en base.
+      void (async () => {
+        const unreadNow = await refreshUnreadRef.current?.();
+        if (!unreadNow?.some((row) => row.id === item.id)) return;
+        const unreadKey = chatUnreadKey(item);
+        if (!unreadKey) return;
+        const sender = chatNotificationSender(item);
+        const chatState = useGlobalChatStore.getState();
+        if (chatState.isOpen) return;
+        flashEdge();
+        if (!chatState.isOpen) chatState.prime(chatNotificationTarget(item));
+        if (chatEnabled && chatNotificationsEnabled && chatSoundEnabled) {
+          void playNotificationCue('DEFAULT').catch(() => {});
+        }
+        if (chatEnabled && chatNotificationsEnabled && chatVoiceEnabled) {
+          void speakLokiText(`Message de ${sender}`, {
+            language: 'fr-FR',
+            rate: 0.95,
+            pitch: 1,
+          }).catch(() => {});
+        }
+      })();
     });
   }, [accountReady, effectiveProfileId, chatEnabled, chatNotificationsEnabled, chatSoundEnabled, chatVoiceEnabled]);
 
   useEffect(() => {
     if (!accountReady || open || unreadCount <= 0 || !chatEnabled || !chatNotificationsEnabled || !chatVoiceEnabled) return undefined;
-    const remind = () => {
-      const detail = latestChatSender
-        ? `Tu as un message non lu de ${latestChatSender}`
-        : `Tu as ${unreadCount} message${unreadCount > 1 ? 's' : ''} non lu${unreadCount > 1 ? 's' : ''}`;
+    const remind = async () => {
+      // L'iPhone peut avoir déjà marqué ces notifications lues : le compteur
+      // local ne suffit jamais pour déclencher une annonce vocale.
+      const unreadNow = await refreshUnreadRef.current?.();
+      if (!unreadNow?.length || useGlobalChatStore.getState().isOpen) return;
+      const count = Object.keys(buildChatUnreadMap(unreadNow)).length;
+      if (!count) return;
+      const sender = chatNotificationSender(unreadNow[0]);
+      const detail = count === 1
+        ? `Tu as un message non lu de ${sender}`
+        : `Tu as ${count} conversations non lues`;
       void speakLokiText(detail, { language: 'fr-FR', rate: 0.94, pitch: 1 }).catch(() => {});
     };
     // Rappel volontairement espacé : assez régulier pour ne pas oublier le
