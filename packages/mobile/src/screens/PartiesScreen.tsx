@@ -1352,10 +1352,10 @@ export default function PartiesScreen({ navigation, route }: any) {
   if (battleOpen) {
     return <SafeAreaView style={styles.container}><PersonalThemeBackdrop />
       <View style={[styles.battleFullscreen, desktopParties && styles.desktopBattleFullscreen]} testID="desktop-battle-stage">
-        {desktopParties ? <LinearGradient pointerEvents="none" colors={['#201434','#352052','#201434']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFillObject} /> : null}
+        {desktopParties ? <LinearGradient testID="desktop-battle-atmosphere" pointerEvents="none" colors={['#201434','#352052','#201434']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFillObject} /> : null}
         {desktopBattleWide ? <>
-          <View pointerEvents="none" style={[styles.desktopBattleSide, styles.desktopBattleLeft]}><Text style={styles.desktopBattleKicker}>LOKI MUSIC</Text><Text style={styles.desktopBattleSideTitle}>BATTLE</Text><Text style={styles.desktopBattleSideCopy}>Défie des joueurs et retrouve tes manches.</Text></View>
-          <View pointerEvents="none" style={[styles.desktopBattleSide, styles.desktopBattleRight]}><Text style={styles.desktopBattleKicker}>À TOI DE JOUER</Text><Text style={styles.desktopBattleSideTitle}>SOLO · EN LIGNE</Text><Text style={styles.desktopBattleSideCopy}>Même règle et mêmes commandes que sur téléphone.</Text></View>
+          <View testID="desktop-battle-left" pointerEvents="none" style={[styles.desktopBattleSide, styles.desktopBattleLeft]}><Text style={styles.desktopBattleKicker}>LOKI MUSIC</Text><Text style={styles.desktopBattleSideTitle}>BATTLE</Text><Text style={styles.desktopBattleSideCopy}>Défie des joueurs et retrouve tes manches.</Text></View>
+          <View testID="desktop-battle-right" pointerEvents="none" style={[styles.desktopBattleSide, styles.desktopBattleRight]}><Text style={styles.desktopBattleKicker}>À TOI DE JOUER</Text><Text style={styles.desktopBattleSideTitle}>SOLO · EN LIGNE</Text><Text style={styles.desktopBattleSideCopy}>Même règle et mêmes commandes que sur téléphone.</Text></View>
         </> : null}
         <KeepBattleArenaPanel
           enabled={Boolean(user && !isLocalGuest && !isDemoMode)}
