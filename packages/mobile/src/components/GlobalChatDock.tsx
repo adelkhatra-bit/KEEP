@@ -5,7 +5,7 @@ import MusicAgoraPanel from './MusicAgoraPanel';
 import { colors } from '../theme/colors';
 import { useUserStore } from '../store/useUserStore';
 import { loadMusicAgoraSettings, loadMusicAgoraShareableTracks, saveMusicAgoraPosition, saveMusicAgoraSettings, saveMusicAgoraVoiceAnnouncements, MusicAgoraSurface, subscribeMusicAgoraTyping } from '../services/musicAgoraService';
-import { KeepNotification, loadNotificationPreferences, loadNotifications, subscribeToNotifications } from '../services/notificationService';
+import { KeepNotification, loadNotificationPreferences, loadNotifications, subscribeToNotificationChanges, subscribeToNotifications } from '../services/notificationService';
 import { speakLokiText } from '../services/lokiSpeechService';
 import { playNotificationCue, primeNotificationAudio } from '../services/notificationSoundService';
 import { navigateToSharedProfile, navigationRef } from '../navigation/navigationRef';
@@ -111,6 +111,8 @@ export default function GlobalChatDock() {
   const [latestChatSender, setLatestChatSender] = useState('');
   // Début du dernier message reçu, affiché quelques secondes dans la languette.
   const [latestChatPreview, setLatestChatPreview] = useState('');
+  // Le serveur reste la source de vérité : plusieurs appareils partagent read_at.
+  const refreshUnreadRef = useRef<(() => Promise<KeepNotification[] | null>) | null>(null);
   const [webVisualViewport, setWebVisualViewport] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
   // undefined = auth Supabase pas encore lue ; null = aucune session réelle.
   // Le chat ne doit jamais se fermer entre les deux simplement parce que le
@@ -186,6 +188,8 @@ export default function GlobalChatDock() {
   const safeAreaInsets = useContext(SafeAreaInsetsContext);
   const insets = safeAreaInsets ?? initialWindowMetrics?.insets ?? { top: 0, right: 0, bottom: 0, left: 0 };
   const { height, width } = useWindowDimensions();
+  // Le tiroir est complètement visible sur ordinateur, jamais coupé à droite.
+  const desktopDock = Platform.OS === 'web' && width >= 1200;
   // Adel (02/10/2026) : toucher le robot ouvre une MINI-fenêtre, la page
   // reste visible derrière ; ⤢ passe en plein écran. Remis en mini à chaque
   // fermeture.
@@ -333,9 +337,8 @@ export default function GlobalChatDock() {
         side: 'right' as const,
         bottomOffset: 88,
       })),
-      loadNotifications(effectiveProfileId, { dedupe: false, unreadOnly: true }).catch(() => []),
       loadNotificationPreferences(effectiveProfileId).catch(() => null),
-    ]).then(([settings, notifications, notificationPrefs]) => {
+    ]).then(([settings, notificationPrefs]) => {
       if (!live) return;
       setChatEnabled(Boolean(settings.homeEnabled));
       setChatNotificationsEnabled(Boolean(settings.notificationsEnabled));
@@ -351,17 +354,75 @@ export default function GlobalChatDock() {
       if (legacyBottom) {
         void saveMusicAgoraPosition(settings.side, migratedBottom).catch(() => {});
       }
-      const unreadChat = notifications.filter((item) => !item.readAt && isChatNotification(item));
-      useGlobalChatStore.getState().setUnreadByTarget(buildChatUnreadMap(unreadChat));
-      const latest = unreadChat[0];
-      setLatestChatSender(latest ? chatNotificationSender(latest) : '');
-      setLatestChatPreview(latest ? chatNotificationPreview(latest) : '');
-      if (latest) useGlobalChatStore.getState().prime(chatNotificationTarget(latest));
       setChatSettingsReady(true);
     });
 
     return () => { live = false; };
   }, [accountReady, authResolved, effectiveProfileId, previewOnly, closeChat, setBottomOffset, setSide]);
+
+  // Le compteur du tchat vient du read_at serveur, partagé par iPhone et PC.
+  // INSERT seul ne suffit pas : une lecture sur l'autre appareil est un UPDATE.
+  useEffect(() => {
+    if (!accountReady || !effectiveProfileId) {
+      refreshUnreadRef.current = null;
+      return undefined;
+    }
+    let alive = true;
+    let revision = 0;
+    const refresh = async (): Promise<KeepNotification[] | null> => {
+      const currentRevision = ++revision;
+      try {
+        const rows = await loadNotifications(effectiveProfileId, { dedupe: false, unreadOnly: true });
+        if (!alive || currentRevision !== revision) return null;
+        const unreadChat = rows.filter((item) => !item.readAt && isChatNotification(item));
+        const store = useGlobalChatStore.getState();
+        store.setUnreadByTarget(buildChatUnreadMap(unreadChat));
+        const latest = unreadChat[0];
+        setLatestChatSender(latest ? chatNotificationSender(latest) : '');
+        setLatestChatPreview(latest ? chatNotificationPreview(latest) : '');
+        if (latest && !store.isOpen) store.prime(chatNotificationTarget(latest));
+        return unreadChat;
+      } catch {
+        // Perte de réseau : conserver le compteur affiché sans inventer une lecture.
+        return null;
+      }
+    };
+    refreshUnreadRef.current = refresh;
+    void refresh();
+
+    const unsubscribe = subscribeToNotificationChanges(effectiveProfileId, () => { void refresh(); });
+    const appState = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void refresh();
+    });
+    // Reconnexion/reprise navigateur : corrige les UPDATE Realtime manqués.
+    const onFocus = () => { void refresh(); };
+    const onVisibility = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') void refresh();
+    };
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.addEventListener('focus', onFocus);
+      document.addEventListener('visibilitychange', onVisibility);
+    }
+    // Fallback léger seulement tant qu'il reste des conversations non lues.
+    // Un message lu sur mobile disparaît ainsi du PC même si Realtime se coupe.
+    const interval = setInterval(() => {
+      if (Platform.OS !== 'web' && AppState.currentState !== 'active') return;
+      if (Platform.OS === 'web' && typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      if (Object.keys(useGlobalChatStore.getState().unreadByTarget).length > 0) void refresh();
+    }, 30000);
+    return () => {
+      alive = false;
+      revision += 1;
+      if (refreshUnreadRef.current === refresh) refreshUnreadRef.current = null;
+      clearInterval(interval);
+      appState.remove();
+      unsubscribe();
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        window.removeEventListener('focus', onFocus);
+        document.removeEventListener('visibilitychange', onVisibility);
+      }
+    };
+  }, [accountReady, effectiveProfileId]);
 
   // « @x est en train d'écrire » : signal éphémère, effacé après 6 s sans
   // nouveau signal (Adel 02/10/2026).
@@ -390,37 +451,44 @@ export default function GlobalChatDock() {
     if (!accountReady || !effectiveProfileId) return;
     return subscribeToNotifications(effectiveProfileId, (item) => {
       if (!isChatNotification(item)) return;
-      const sender = chatNotificationSender(item);
-      const unreadKey = chatUnreadKey(item);
-      if (unreadKey) useGlobalChatStore.getState().addUnread(unreadKey, item.id);
-      flashEdge();
-      setLatestChatSender(sender);
-      setLatestChatPreview(chatNotificationPreview(item));
-      const chatState = useGlobalChatStore.getState();
-      if (!chatState.isOpen) chatState.prime(chatNotificationTarget(item));
-      if (chatEnabled && chatNotificationsEnabled && chatSoundEnabled) {
-        // Un seul bip court pour le destinataire. Les messages émis par
-        // l'utilisateur courant ne créent pas de notification pour lui-même.
-        void playNotificationCue('DEFAULT').catch(() => {});
-      }
-      if (chatEnabled && chatNotificationsEnabled && chatVoiceEnabled && !chatState.isOpen) {
-        void speakLokiText(`Message de ${sender}`, {
-          language: 'fr-FR',
-          rate: 0.95,
-          pitch: 1,
-        }).catch(() => {
-          // Optional voice capability: never block the messenger or an OTA.
-        });
-      }
+      // Une INSERT peut être reçue après la lecture du message sur un autre
+      // appareil. Ne jamais annoncer un non-lu sans le confirmer en base.
+      void (async () => {
+        const unreadNow = await refreshUnreadRef.current?.();
+        if (!unreadNow?.some((row) => row.id === item.id)) return;
+        const unreadKey = chatUnreadKey(item);
+        if (!unreadKey) return;
+        const sender = chatNotificationSender(item);
+        const chatState = useGlobalChatStore.getState();
+        flashEdge();
+        if (!chatState.isOpen) chatState.prime(chatNotificationTarget(item));
+        if (chatEnabled && chatNotificationsEnabled && chatSoundEnabled) {
+          void playNotificationCue('DEFAULT').catch(() => {});
+        }
+        if (chatEnabled && chatNotificationsEnabled && chatVoiceEnabled && !chatState.isOpen) {
+          void speakLokiText(`Message de ${sender}`, {
+            language: 'fr-FR',
+            rate: 0.95,
+            pitch: 1,
+          }).catch(() => {});
+        }
+      })();
     });
   }, [accountReady, effectiveProfileId, chatEnabled, chatNotificationsEnabled, chatSoundEnabled, chatVoiceEnabled]);
 
   useEffect(() => {
     if (!accountReady || open || unreadCount <= 0 || !chatEnabled || !chatNotificationsEnabled || !chatVoiceEnabled) return undefined;
-    const remind = () => {
-      const detail = latestChatSender
-        ? `Tu as un message non lu de ${latestChatSender}`
-        : `Tu as ${unreadCount} message${unreadCount > 1 ? 's' : ''} non lu${unreadCount > 1 ? 's' : ''}`;
+    const remind = async () => {
+      // L'iPhone peut avoir déjà marqué ces notifications lues : le compteur
+      // local ne suffit jamais pour déclencher une annonce vocale.
+      const unreadNow = await refreshUnreadRef.current?.();
+      if (!unreadNow?.length || useGlobalChatStore.getState().isOpen) return;
+      const count = Object.keys(buildChatUnreadMap(unreadNow)).length;
+      if (!count) return;
+      const sender = chatNotificationSender(unreadNow[0]);
+      const detail = count === 1
+        ? `Tu as un message non lu de ${sender}`
+        : `Tu as ${count} conversations non lues`;
       void speakLokiText(detail, { language: 'fr-FR', rate: 0.94, pitch: 1 }).catch(() => {});
     };
     // Rappel volontairement espacé : assez régulier pour ne pas oublier le
@@ -1007,10 +1075,11 @@ export default function GlobalChatDock() {
           style={[
             styles.fabWrap,
             side === 'left' ? styles.fabLeft : styles.fabRight,
+            desktopDock && side === 'right' ? { right: 18 } : null,
             {
               bottom: dockBottom,
               transform: [
-                { translateX: side === 'left'
+                { translateX: desktopDock ? 0 : side === 'left'
                   ? drawerPeek.interpolate({ inputRange: [0, 1], outputRange: [-50, 0] })
                   : drawerPeek.interpolate({ inputRange: [0, 1], outputRange: [50, 0] }) },
                 { translateX: drag.x },
@@ -1022,26 +1091,26 @@ export default function GlobalChatDock() {
         >
           <TouchableOpacity
             testID="loki-global-chat-drawer"
-            style={styles.fab}
+            style={[styles.fab, desktopDock && styles.fabDesktop]}
             hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
             onPress={() => { void toggle(); }}
             accessibilityRole="button"
             accessibilityLabel={previewOnly && !visualTestPreview ? 'Se connecter pour ouvrir le Tchat' : chatEnabled ? 'Ouvrir le Tchat' : 'Activer et ouvrir le Tchat'}
           >
-            <View style={[styles.halo, !chatEnabled && styles.haloOff]} />
+            <View style={[styles.halo, desktopDock && styles.haloDesktop, !chatEnabled && styles.haloOff]} />
             {unreadCount > 0 ? <Animated.View pointerEvents="none" testID="loki-chat-unread-glow" style={[styles.unreadGlow, side === 'left' ? styles.unreadGlowLeft : styles.unreadGlowRight, { opacity: glow }]} /> : null}
-            <View style={styles.fabDepthBack} />
-            <View style={styles.fabDepthMid} />
-            <View style={[styles.fabFace, side === 'left' ? styles.fabFaceLeft : styles.fabFaceRight]}>
+            <View style={[styles.fabDepthBack, desktopDock && styles.fabDepthDesktop]} />
+            <View style={[styles.fabDepthMid, desktopDock && styles.fabDepthDesktop]} />
+            <View style={[styles.fabFace, side === 'left' ? styles.fabFaceLeft : styles.fabFaceRight, desktopDock && styles.fabFaceDesktop]}>
               <View style={styles.drawerGrip}><View style={styles.drawerGripLine}/><View style={styles.drawerGripLine}/><View style={styles.drawerGripLine}/></View>
               <View style={[styles.robotHead, { transform: [{ scale: designProfile.botScale }] }]}>
                 <View style={styles.robotAntenna} />
                 <View style={styles.robotEyes}><View style={styles.robotEye}/><View style={styles.robotEye}/></View>
                 <View style={styles.robotMouth}/>
               </View>
-              <View style={styles.drawerCopy}>
-                <Text style={styles.drawerLabel}>TCHAT</Text>
-                <Text style={styles.drawerSub} numberOfLines={1}>{previewOnly ? 'CONNEXION' : unreadCount > 0 && latestChatSender ? `@${latestChatSender}` : 'LOKI'}</Text>
+              <View style={[styles.drawerCopy, desktopDock && styles.drawerCopyDesktop]}>
+                <Text style={[styles.drawerLabel, desktopDock && styles.drawerLabelDesktop]}>TCHAT</Text>
+                <Text style={[styles.drawerSub, desktopDock && styles.drawerSubDesktop]} numberOfLines={1}>{previewOnly ? 'CONNEXION' : unreadCount > 0 && latestChatSender ? `@${latestChatSender}` : 'LOKI'}</Text>
               </View>
               <Text style={styles.drawerChevron}>{side === 'left' ? '›' : '‹'}</Text>
               <View style={[styles.presenceDot, chatEnabled ? styles.presenceOn : styles.presenceOff]} />
@@ -1113,6 +1182,13 @@ const styles = StyleSheet.create({
   halo:{position:'absolute',left:-4,top:-4,width:80,height:66,borderRadius:20,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.04)',opacity:.62},
   haloOff:{borderColor:colors.primaryLight,backgroundColor:'rgba(124,92,252,.05)',opacity:.5},
   fab:{width:76,height:58,position:'relative'},
+  fabDesktop:{width:154},
+  haloDesktop:{width:158},
+  fabDepthDesktop:{width:148},
+  fabFaceDesktop:{width:148,borderRadius:18},
+  drawerCopyDesktop:{minWidth:54,maxWidth:65},
+  drawerLabelDesktop:{fontSize:11},
+  drawerSubDesktop:{fontSize:9},
   fabDepthBack:{position:'absolute',left:6,top:7,width:70,height:52,borderRadius:17,backgroundColor:'rgba(90,61,196,.30)'},
   fabDepthMid:{position:'absolute',left:3,top:3,width:70,height:52,borderRadius:17,backgroundColor:'rgba(41,194,255,.20)'},
   fabFace:{width:70,height:52,flexDirection:'row',alignItems:'center',gap:6,paddingHorizontal:8,borderWidth:1.5,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.98)',shadowColor:'#000',shadowOpacity:.42,shadowRadius:12,shadowOffset:{width:0,height:8},elevation:18},

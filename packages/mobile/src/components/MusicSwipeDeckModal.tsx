@@ -33,6 +33,8 @@ import { recordProfileSwipeListen } from '../services/profileSwipeListenService'
 import { colors } from '../theme/colors';
 import { minTouchTarget } from '../theme/spacing';
 import KeepModal from './KeepModal';
+import { acquireProtectedStoryPlayback } from '../services/storyPlaybackProtection';
+import { useSessionStore } from '../store/useSessionStore';
 
 function shuffle<T>(input: T[]): T[] {
   const next = [...input];
@@ -1068,6 +1070,18 @@ export default function MusicSwipeDeckModal({
     useRobotMessageStore.getState().setQuiet(true);
     return () => useRobotMessageStore.getState().setQuiet(false);
   }, [visible]);
+  useEffect(() => {
+    if (!visible || !trackAddedAt) return undefined;
+    return acquireProtectedStoryPlayback(
+      () => {
+        const session = useSessionStore.getState();
+        if (!session.isActive || session.micPaused) return false;
+        session.pauseListening();
+        return true;
+      },
+      () => useSessionStore.getState().resumeListening(),
+    );
+  }, [visible, trackAddedAt]);
   const storyAgeLine = useStoryCountdown(current && trackAddedAt ? trackAddedAt[current.id] : null, visible);
   const resolvedSubtitle = prefilterRemovedCount > 0
     ? `${subtitle ? `${subtitle} · ` : ''}${prefilterRemovedCount} déjà dans ta collection ignoré${prefilterRemovedCount > 1 ? 's' : ''}.`
@@ -1251,7 +1265,7 @@ export default function MusicSwipeDeckModal({
       ) : null}
       {overlay ? <View style={{ position: 'absolute', zIndex: 100, elevation: 100, top: 0, left: 0, right: 0, bottom: 0 }}>{overlay}</View> : null}
     </SafeAreaView>
-    {desktopStoryLayout ? <View style={s.desktopStoryAside} testID="loki-desktop-story-aside">
+    {false && desktopStoryLayout ? <View style={s.desktopStoryAside} testID="loki-desktop-story-aside">
       <Text style={s.desktopAsideKicker}>LOKI MUSIC · STORIES</Text>
       <Text style={s.desktopAsideTitle}>Les découvertes de ta communauté.</Text>
       <Text style={s.desktopAsideBody}>Chaque story dure 24 heures. Écoute les trouvailles, découvre leur auteur et partage à ton tour les morceaux qui te plaisent.</Text>
@@ -1269,7 +1283,7 @@ export default function MusicSwipeDeckModal({
 
 const s = StyleSheet.create({
   outer:{flex:1,backgroundColor:'#090610',alignItems:'center'},
-  desktopOuter:{flexDirection:'row',justifyContent:'center',alignItems:'center',paddingHorizontal:32,gap:28},
+  desktopOuter:{flexDirection:'column',justifyContent:'center',alignItems:'center',paddingHorizontal:16,gap:0},
   desktopPlayer:{flexGrow:0,flexShrink:1,maxWidth:570,borderLeftWidth:1,borderRightWidth:1,borderColor:'#312348'},
   desktopStoryAside:{width:310,maxWidth:'30%',alignSelf:'center',backgroundColor:'#171020',borderWidth:1,borderColor:'#403052',borderRadius:24,padding:24,gap:12},
   desktopAsideKicker:{color:'#B79CFF',fontSize:12,fontWeight:'900',letterSpacing:1.6},

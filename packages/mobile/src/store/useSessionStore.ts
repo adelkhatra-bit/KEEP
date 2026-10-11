@@ -16,6 +16,7 @@ import { useAccountGateStore } from './useAccountGateStore';
 import { useUserStore } from './useUserStore';
 import { advanceMusicPresenceGate, classifyMusicPresence, createMusicPresenceGateState, type MusicPresenceVerdict } from '../services/musicPresence';
 import { listenQuotaMessage, loadListenEconomyStatus, recordListenSuccess, type ListenEconomyStatus } from '../services/listenEconomyService';
+import { isProtectedStoryPlaybackActive } from '../services/storyPlaybackProtection';
 
 const RECOGNITION_TICK_MS = 700;
 // Le serveur autorise 12 fingerprints/minute par identité. Un départ toutes les
@@ -477,6 +478,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   },
 
   startSession: () => {
+    if (isProtectedStoryPlaybackActive()) return;
     clearTimers();
     // Nettoyer l'ancienne capture AVANT de préparer le nouvel AudioContext.
     // Sur web, l'ancien ordre faisait exactement l'inverse : on débloquait
@@ -520,7 +522,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     });
 
     const tick = async () => {
-      if (!get().isActive || get().recognizing || get().micPaused) return;
+      if (!get().isActive || get().recognizing || get().micPaused || isProtectedStoryPlaybackActive()) return;
       const listenEconomy = get().listenEconomyStatus;
       if (listenEconomy?.overQuota && !listenFreeAuthorizedForNextSuccess) {
         set({
@@ -560,10 +562,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
             if (silencePromptGraceHandle) { clearTimeout(silencePromptGraceHandle); silencePromptGraceHandle = null; }
           }
         }
-        // La classification locale ne connaît pas le titre, mais elle sait
-        // distinguer un silence/une conversation. Dans ces deux cas, aucun
-        // fournisseur de reconnaissance (donc aucun appel payant) ne doit partir.
-        if (presence.verdict === 'speech' || presence.verdict === 'silence') {
+        // L'enveloppe audio ne distingue pas fiablement la parole d'un rap ou
+        // d'un morceau avec pauses : seul le silence bloque le fingerprint.
+        if (presence.verdict === 'silence' && !musicEngine.isDemoMode) {
           consecutiveNoMatches = Math.min(5, consecutiveNoMatches + 1);
           consecutiveWeakSamples = presence.verdict === 'silence' ? consecutiveWeakSamples + 1 : 0;
           set({ recognizing: false, micLevel: 0, error: null, signalHint: null });

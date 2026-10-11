@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Image, LayoutAnimation, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { colors } from '../theme/colors';
 import { Alert } from '../utils/keepAlert';
-import { KeepNotification, NotificationPreferences, deleteNotification, loadNotificationPreferences, loadNotifications, markNotificationRead, saveNotificationPreferences, subscribeToNotifications } from '../services/notificationService';
+import { KeepNotification, NotificationPreferences, deleteNotification, loadNotificationPreferences, loadNotifications, markNotificationRead, saveNotificationPreferences, subscribeToNotificationChanges, subscribeToNotifications } from '../services/notificationService';
 import { acceptMarketplacePaymentTerms, loadMusicAgoraSettings, saveMusicAgoraPosition, saveMusicAgoraSettings, saveMusicAgoraVoiceAnnouncements, type MusicAgoraSurface } from '../services/musicAgoraService';
 import { useGlobalChatStore, type GlobalChatTarget } from '../store/useGlobalChatStore';
 import { useUserStore } from '../store/useUserStore';
@@ -305,12 +305,20 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
     void refresh();
     void loadChatSettings();
     Animated.spring(slide, { toValue: 0, useNativeDriver: true, speed: 22, bounciness: 2 }).start();
+    let alive = true;
     const unsub = isDemoMode
       ? () => {}
       : subscribeToNotifications(profileId, (notification) => {
-          setItems((prev) => [notification, ...prev.filter((row) => row.id !== notification.id)].slice(0, 100));
+          if (alive) setItems((prev) => [notification, ...prev.filter((row) => row.id !== notification.id)].slice(0, 100));
         });
-    return () => unsub();
+    const unsubChanges = isDemoMode
+      ? () => {}
+      : subscribeToNotificationChanges(profileId, () => {
+          void loadNotifications(profileId)
+            .then((rows) => { if (alive) setItems(rows); })
+            .catch(() => {});
+        });
+    return () => { alive = false; unsub(); unsubChanges(); };
   }, [visible, profileId, isDemoMode]);
 
   const close = () => {

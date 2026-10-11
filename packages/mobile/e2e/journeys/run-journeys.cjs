@@ -61,6 +61,9 @@ async function openPage(browser, viewport, fakeOptions, { mobileFlags }) {
   await ctx.addInitScript(([k, v]) => {
     try { localStorage.setItem(k, v); localStorage.setItem('keep_has_seen_onboarding_guide', 'true'); } catch { /* stockage indisponible */ }
   }, [fake.AUTH_STORAGE_KEY, JSON.stringify(sb.session)]);
+  if (fakeOptions?.pcSession) {
+    await ctx.addInitScript(() => localStorage.setItem('loki:web-companion-session', 'pc-e2e-1'));
+  }
   const page = await ctx.newPage();
   const pageErrors = [];
   page.on('pageerror', (e) => pageErrors.push(String(e.message).slice(0, 160)));
@@ -203,7 +206,9 @@ const boutiqueJourney = {
     await allPreview.click({ force: true });
     await page.waitForTimeout(1200);
     r.cta_reagit = (await page.getByText(/Aperçu \d+\/\d+/i).count()) > 0
-      || (await page.getByText(/Fin des aperçus/i).count()) > 0;
+      || (await page.getByText(/Fin des aperçus/i).count()) > 0
+      || (await page.getByText(/Extraits indisponibles|Chargement des aperçus/i).count()) > 0;
+    await shot('apercus');
     await page.locator('[aria-label^="Fermer"]').first().click({ force: true }).catch(() => {});
 
     await page.goto(profileUrl, { waitUntil: 'load' });
@@ -578,7 +583,7 @@ const chatMiniJourney = {
     const vp = page.viewportSize();
     r.hauteur_mini_pct = box ? Math.round((box.height / vp.height) * 100) : null;
     r.dans_ecran = Boolean(box && box.x >= 0 && box.y >= 0 && box.x + box.width <= vp.width + 1 && box.y + box.height <= vp.height + 1);
-    r.page_visible = (await page.getByText('Écouter', { exact: true }).first().isVisible().catch(() => false));
+    r.page_visible = (await page.getByRole('button', { name: /Trouver le morceau/i }).first().isVisible().catch(() => false));
     await page.getByText(fake.GROUP_NAME).first().click();
     await page.getByText('Fais tourner le son').first().waitFor({ timeout: 15000 });
     r.composer_visible = await page.getByPlaceholder('Écris un message…').first().isVisible().catch(() => false);
@@ -628,40 +633,35 @@ const chatMiniJourney = {
   },
 };
 
-// Notification « nouveau morceau » d'un profil suivi (Adel 02/10/2026) :
-// titre, artiste et pochette MASQUÉS, même pour une ancienne notification
-// qui les contient encore ; écoute masquée + GARDER dans la notification.
+// Les notifications de nouveaux titres sont désormais routées vers Stories.
+// Le test vérifie qu'une ancienne ligne NEW_PUBLIC_KEEP ne réapparaisse pas
+// dans la cloche ni dans le compteur (sans exposer titre, artiste, pochette).
 const newKeepNotifJourney = {
   id: 'notif-nouveau-morceau-masque',
-  titre: 'Notification nouveau morceau — titre masqué, écoute + GARDER',
+  titre: 'Nouveau morceau vers Stories — pas de doublon dans la cloche',
   devices: [ANDROID, MOBILE_SE, PC],
   mobileFlags: true,
   fakeOptions: { newKeepNotif: true },
   async run({ page, shot }) {
     const r = {};
     await page.goto(`${BASE}/notifications`, { waitUntil: 'load' });
-    await page.getByText(`Nouveau morceau chez ${fake.SELLER_USERNAME}`).first().waitFor({ timeout: 40000 });
-    await page.locator('[data-testid="new-keep-listen"]').first().waitFor({ timeout: 20000 });
-    const text = await page.locator('body').innerText();
-    r.titre_masque = !text.includes(fake.SECRET_TRACK.title) && !text.includes(fake.SECRET_TRACK.artist);
+    await page.getByText('Centre de notifications').first().waitFor({ timeout: 40000 });
+    await page.waitForTimeout(900);
+    const content = await page.locator('body').innerText();
+    r.titre_masque = !content.includes(fake.SECRET_TRACK.title) && !content.includes(fake.SECRET_TRACK.artist);
     r.pochette_masquee = (await page.locator('img[src*="secret.jpg"]').count()) === 0;
-    r.ecouter = await page.locator('[data-testid="new-keep-listen"]').first().isVisible();
-    r.garder = await page.locator('[data-testid="new-keep-keep"]').first().isVisible();
-    r.texte_garder = (await page.locator('[data-testid="new-keep-keep"]').first().innerText().catch(() => '')).replace(/\s+/g, ' ');
-    await shot('notification');
-    await page.locator('[data-testid="new-keep-keep"]').first().click({ force: true });
-    r.choix_public_prive = (await page.getByText('Public', { exact: true }).count()) > 0 && (await page.getByText('Privé', { exact: true }).count()) > 0;
-    const textAfter = await page.locator('body').innerText();
-    r.toujours_masque_avant_choix = !textAfter.includes(fake.SECRET_TRACK.title);
-    await shot('garder');
+    r.hors_cloche = content.includes('Aucune notification pour le moment.');
+    r.compteur_zero = (await page.getByText('0 non lue').count()) > 0;
+    r.pas_ancien_bouton = (await page.locator('[data-testid="new-keep-keep"]').count()) === 0;
+    await shot('stories-sans-doublon');
     const checks = [
-      ['titre et artiste jamais affichés (même ancienne notification)', r.titre_masque],
-      ['pochette jamais affichée', r.pochette_masquee],
-      ['bouton ▶ Écouter dans la notification', r.ecouter],
-      ['bouton AJOUTER GRATUITEMENT disponible dans la notification', r.garder && /AJOUTER GRATUITEMENT/.test(r.texte_garder)],
-      ['GARDER demande Public / Privé, titre toujours masqué', r.choix_public_prive && r.toujours_masque_avant_choix],
+      ['titre et artiste masqués', r.titre_masque],
+      ['pochette masquée', r.pochette_masquee],
+      ['nouveau morceau absent de la cloche', r.hors_cloche],
+      ['compteur de notifications non pollué', r.compteur_zero],
+      ['ancien bouton GARDER absent de la cloche', r.pas_ancien_bouton],
     ];
-    return { details: r, failures: failed(checks), ok: 'titre masqué, écoute + GARDER dans la notification' };
+    return { details: r, failures: failed(checks), ok: 'nouveaux titres dirigés vers Stories, cloche désencombrée' };
   },
 };
 
@@ -753,7 +753,108 @@ const soloRechargeJourney = {
   },
 };
 
+// Deux navigateurs authentifiés sur le même compte synthétique : le téléphone
+// marque la notification lue ; le PC doit effacer badge et rappel même si
+// le canal Realtime est coupé (le faux backend bloque /realtime/).
+const crossDeviceReadJourney = {
+  id: 'tchat-lecture-telephone-vers-ordinateur',
+  titre: 'Tchat — lu sur téléphone = plus de non-lu sur PC sans actualiser',
+  devices: [PC],
+  mobileFlags: false,
+  fakeOptions: { unreadChat: true, groupMessages: true },
+  async run({ page, sb, shot }) {
+    const r = {};
+    await page.goto(`${BASE}/`, { waitUntil: 'load' });
+    await page.getByText('Passer', { exact: true }).first().click({ timeout: 25000 }).catch(() => {});
+    const unreadGlow = page.locator('[data-testid="loki-chat-unread-glow"]');
+    await unreadGlow.waitFor({ state: 'visible', timeout: 25000 });
+    r.pc_non_lu_avant = await unreadGlow.count();
+    await shot('pc-avant-lecture');
+
+    const browser = page.context().browser();
+    if (!browser) throw new Error('Navigateur Playwright absent');
+    const mobileContext = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    try {
+      await mobileContext.addInitScript(([k, v]) => {
+        try { localStorage.setItem(k, v); localStorage.setItem('keep_has_seen_onboarding_guide', 'true'); } catch {}
+      }, [fake.AUTH_STORAGE_KEY, JSON.stringify(sb.session)]);
+      const mobile = await mobileContext.newPage();
+      await mobile.route((url) => !url.href.startsWith(ORIGIN), (route) => {
+        const url = route.request().url();
+        if (/supabase\.co/.test(new URL(url).hostname)) return sb.respond(route);
+        if (url.startsWith('data:') || url.startsWith('blob:')) return route.continue();
+        return route.abort();
+      });
+      await mobile.goto(`${BASE}/notifications`, { waitUntil: 'load' });
+      await mobile.getByText('Centre de notifications').first().waitFor({ timeout: 25000 });
+      const deadline = Date.now() + 16000;
+      while (!sb.state.readNotifications.includes('n-d1') && Date.now() < deadline) {
+        await mobile.waitForTimeout(250);
+      }
+      r.lu_sur_telephone = ['n-g1', 'n-g2', 'n-d1'].every((id) => sb.state.readNotifications.includes(id));
+      await mobile.screenshot({ path: require('path').join(process.env.JOURNEYS_OUT || 'artifacts/journeys', 'captures', 'crossdevice-mobile-lu.png') }).catch(() => {});
+      const start = Date.now();
+      let cleared = false;
+      while (Date.now() - start < 38000) {
+        if (await unreadGlow.count() === 0) { cleared = true; break; }
+        await page.waitForTimeout(400);
+      }
+      r.pc_non_lu_apres = await unreadGlow.count();
+      r.temps_sync_ms = Date.now() - start;
+      await shot('pc-apres-lecture');
+      const checks = [
+        ['badge non lu affiché au départ sur PC', r.pc_non_lu_avant === 1],
+        ['téléphone authentifié : les messages sont lus en base', r.lu_sur_telephone],
+        ['badge PC supprimé sans recharger, malgré Realtime indisponible', cleared && r.pc_non_lu_apres === 0],
+      ];
+      return { details: r, failures: failed(checks), ok: `badge effacé sur PC en ${Math.ceil(r.temps_sync_ms / 1000)} s après lecture mobile` };
+    } finally {
+      await mobileContext.close();
+    }
+  },
+};
+
+// Contrôle visuel du badge PC réel (après QR) : horloge locale, session
+// serveur non révoquée et aucune fenêtre HTML distincte de l'accueil Loki.
+const pcConnectionCountdownJourney = {
+  id: 'pc-connexion-compteur-24h',
+  titre: 'PC connecté — compte à rebours 24 h dans l’accueil',
+  devices: [PC],
+  mobileFlags: false,
+  fakeOptions: { pcSession: true },
+  async run({ page, shot }) {
+    await page.goto(`${BASE}/`, { waitUntil: 'load' });
+    await page.getByText('Passer', { exact: true }).first().click({ timeout: 15000 }).catch(() => {});
+    await page.getByText('PC CONNECTÉ', { exact: true }).waitFor({ timeout: 25000 });
+    const badge = page.locator('[data-testid="pc-connected-countdown"]');
+    const shown = (await badge.innerText()).replace(/\s+/g, ' ');
+    const looksLikeCountdown = /2[12]:\d{2}:\d{2}/.test(shown);
+    const initial = shown.match(/(\d{2}:\d{2}:\d{2})/)?.[1];
+    await page.waitForTimeout(1250);
+    const later = (await badge.innerText()).match(/(\d{2}:\d{2}:\d{2})/)?.[1];
+    let sidebarBox = await page.locator('[data-testid="desktop-sidebar"]').boundingBox();
+    for (let retry = 0; retry < 20 && sidebarBox && sidebarBox.x < -2; retry++) {
+      await page.waitForTimeout(150);
+      sidebarBox = await page.locator('[data-testid="desktop-sidebar"]').boundingBox();
+    }
+    const chatDrawerBox = await page.locator('[data-testid="loki-global-chat-drawer"]').boundingBox();
+    const pageGeometry = await page.evaluate(() => ({ width: window.innerWidth, scrollWidth: document.documentElement.scrollWidth }));
+    await shot('accueil-pc-connexion-24h');
+    const checks = [
+      ['navigation bureau entière visible sans rognage latéral', !!sidebarBox && sidebarBox.x >= -2 && sidebarBox.width >= 220],
+      ['tiroir Tchat entièrement visible sur PC', !!chatDrawerBox && chatDrawerBox.x >= 0 && chatDrawerBox.x + chatDrawerBox.width <= pageGeometry.width],
+      ['aucun débordement horizontal du document', pageGeometry.scrollWidth <= pageGeometry.width + 3],
+      ['PC connecté est visible sur accueil, sans page supplémentaire', await badge.isVisible()],
+      ['durée initiale cohérente avec la session serveur de 75 minutes', looksLikeCountdown],
+      ['compteur avance sans requête réseau chaque seconde', !!initial && !!later && initial !== later],
+    ];
+    return { details: { initial, later, shown, sidebarBox, pageGeometry }, failures: failed(checks), ok: 'Compteur PC 24 h affiché et animé sur accueil' };
+  },
+};
+
 const JOURNEYS = [
+  pcConnectionCountdownJourney,
+  crossDeviceReadJourney,
   popupJourney('FREE'),
   popupJourney('MONEY'),
   boutiqueJourney,

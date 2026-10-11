@@ -20,6 +20,19 @@ describe('Loki anti-doublon music contract', () => {
     expect(duplicateCheck).toBeGreaterThan(-1);
     expect(creditCheck).toBeGreaterThan(duplicateCheck);
     expect(keepAction).toContain('alreadyKept: true');
+    expect(keepAction).toContain("if (existing === null) throw new Error('KEEP_DUPLICATE_CHECK_UNAVAILABLE')");
+  });
+
+  it('prevents 3 FREE debit for an equivalent track from another provider', () => {
+    const atomic = read('..', '..', '..', '..', '..', 'supabase', 'migrations', '20261011185000_keep_atomic_cross_provider_dedup.sql');
+    const lock = atomic.indexOf('pg_advisory_xact_lock');
+    const match = atomic.indexOf('keep_tracks_same_content(kd.track_id,p_track_id)');
+    const debit = atomic.indexOf('keep_consume_download_credit_for_source');
+    expect(lock).toBeGreaterThan(-1);
+    expect(match).toBeGreaterThan(lock);
+    expect(debit).toBeGreaterThan(match);
+    expect(atomic).toContain("'charged',0");
+    expect(atomic).toContain("'trackId',v_existing.track_id");
   });
 
   it('blocks marketplace payment when equivalent music is already owned', () => {

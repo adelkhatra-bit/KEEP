@@ -17,32 +17,32 @@ export type CoachStep = {
 };
 
 // Contenu par defaut : couvre les fonctions cles reperees a l'audit UX
-// (GARDER 1 clic, PASSER, Decouverte/vente, Soirees/Battle, credits Free).
+// (reconnaissance musicale, playlists, boutique, Solo/Battle, crédits FREE).
 export const DEFAULT_COACH_STEPS: CoachStep[] = [
   {
-    emoji: '👋',
+    emoji: '🎵',
     title: 'Bienvenue sur Loki Music',
-    body: "« Compris en 2 clics » : on te montre l'essentiel. Tu peux passer quand tu veux.",
+    body: "Découvre la musique autour de toi. Tu peux passer cette visite à tout moment.",
   },
   {
-    emoji: '♡',
-    title: 'Garder un morceau = 1 clic',
-    body: "Un titre te plaît ? Appuie sur GARDER (menthe) : il est enregistré en public direct. Appui long ou ⚙︎ pour choisir public ou privé.",
+    emoji: '🔎',
+    title: 'Trouver le morceau',
+    body: "Identifie le titre autour de toi. Retrouve ton quota de recherches et tes FREE dans ton compte.",
   },
   {
-    emoji: '✕',
-    title: 'Passer, c’est le corail',
-    body: "Pas pour toi ? PASSER (corail). Tu peux aussi glisser la carte : ← passer, garder →.",
+    emoji: '🎧',
+    title: 'Explore et écoute',
+    body: "Découvre des titres et des profils. Passe facilement au morceau suivant.",
   },
   {
-    emoji: '🏷️',
-    title: 'Découvre et vends',
-    body: "Découverte : d'autres profils près de toi. Ta Musique : garde, range, et mets tes playlists en vente (badge « En vente »).",
+    emoji: '🛍️',
+    title: 'Ta musique et la boutique',
+    body: "Retrouve tes morceaux, organise tes playlists et explore les titres proposés dans les boutiques.",
   },
   {
-    emoji: '⚔️',
-    title: 'Soirées & Battle',
-    body: "Crée ou rejoins une soirée, partage sa playlist, défie les autres en Battle. Tes crédits Free servent partout.",
+    emoji: '🎤',
+    title: 'Solo, Battle et soirées',
+    body: "Joue en Solo, participe aux Battles et prépare tes soirées. Tes droits et recharges dépendent de ta formule.",
   },
 ];
 

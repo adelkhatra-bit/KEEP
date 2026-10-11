@@ -16,6 +16,7 @@ import {
   markNotificationRead,
   saveNotificationPreferences,
   subscribeToNotifications,
+  subscribeToNotificationChanges,
 } from '../services/notificationService';
 import { spacing, radius, typography } from '../theme/spacing';
 import { colors } from '../theme/colors';
@@ -301,10 +302,17 @@ export default function NotificationsScreen({ navigation, route }: any) {
       setItems((current) => dedupeNotifications([notification, ...current.filter((item) => item.id !== notification.id)]));
     });
 
+    // Les lectures ou suppressions depuis un autre appareil actualisent le centre.
+    const unsubscribeChanges = subscribeToNotificationChanges(user.id, () => {
+      void loadNotifications(user.id)
+        .then((rows) => { if (!cancelled) setItems(rows); })
+        .catch(() => {});
+    });
     return () => {
       cancelled = true;
       unsubscribeFocus?.();
       unsubscribeRealtime();
+      unsubscribeChanges();
     };
   }, [navigation, user?.id]);
 

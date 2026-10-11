@@ -70,7 +70,9 @@ export async function commitKeep(
   // fournisseur, aucune nouvelle ligne de profil.
   if (!userState.isDemoMode && !userState.isLocalGuest) {
     const existing = await checkOwnKeepLibrary(track).catch(() => null);
-    if (existing?.exists && existing.match) {
+    // Ne jamais risquer de débiter des FREE si le contrôle anti-doublon échoue.
+    if (existing === null) throw new Error('KEEP_DUPLICATE_CHECK_UNAVAILABLE');
+    if (existing.exists && existing.match) {
       // Adel (05/10/2026) : « il l'a gardé en public pour sa story mais rien ne s'est passé » -- un morceau déjà gardé en PRIVÉ restait
       // privé même quand on choisissait Public (donc jamais en story). Le choix explicite Public rend la décision existante publique, sans débit.
       if (existing.match.trackId) keptTrackIdByInputId.set(track.id, existing.match.trackId);

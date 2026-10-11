@@ -185,12 +185,40 @@ function createFakeSupabase(options = {}) {
     if (p.startsWith('/realtime/')) return route.abort();
     if (p === '/auth/v1/user') return json(200, user);
     if (p === '/auth/v1/token') return json(200, session);
+    if (opts.pcSession && p.includes('/functions/v1/keep-web-pairing')) {
+      const action = body().action;
+      const createdAt = new Date(Date.now() - 75 * 60 * 1000).toISOString();
+      if (action === 'list') return json(200, { ok: true, sessions: [{
+        id: 'pc-e2e-1', device_label: 'PC Chromium test',
+        created_at: createdAt, last_seen_at: new Date().toISOString(), revoked_at: null,
+      }] });
+      if (action === 'status') return json(200, { ok: true, revoked: false });
+      return json(200, { ok: true });
+    }
     if (p.startsWith('/auth/') || p.startsWith('/functions/')) return json(200, {});
     if (p.startsWith('/rest/v1/rpc/')) {
       const name = p.split('/').pop();
       switch (name) {
+        // Le compte synthétique a déjà rempli Loki Pulse : éviter de rouvrir
+        // le questionnaire obligatoire au-dessus de chaque parcours PC/mobile.
+        case 'keep_pulse_preferences_state': return json(200, {
+          completed: true, shouldPrompt: false, favoriteGenres: profile.favorite_genres,
+          suggestedGenres: profile.favorite_genres, languageCodes: profile.music_language_codes,
+          countryCodes: profile.music_country_codes, preferredLanguageTag: profile.preferred_language_tag,
+          dismissCount: 0, version: 1,
+        });
         case 'keep_agora_my_shareable_tracks': return json(200, [SHAREABLE_TRACK]);
-        case 'keep_notification_action': state.readNotifications.push(body().p_notification_id); return json(200, true);
+        case 'keep_notification_action': {
+          const action = body().p_action;
+          if (action === 'read_all') {
+            for (const n of unreadNotifications) {
+              if (!state.readNotifications.includes(n.id)) state.readNotifications.push(n.id);
+            }
+          } else if (body().p_notification_id && !state.readNotifications.includes(body().p_notification_id)) {
+            state.readNotifications.push(body().p_notification_id);
+          }
+          return json(200, 1);
+        }
         case 'keep_agora_my_conversations':
           if (!opts.unreadChat) return json(200, []);
           return json(200, [{ other_profile_id: SELLER, other_username: SELLER_USERNAME, other_avatar_url: null, last_message_id: 61, last_room_slug: 'place', last_body: 'Salut', last_created_at: recent(20000), last_shared_track_id: null, last_sale_offer_id: null }]);
