@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AppState, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { colors } from '../theme/colors';
 import { navigationRef } from '../navigation/navigationRef';
@@ -45,7 +45,18 @@ export default function WebCompanionSessionsPanel() {
   }, []);
 
   React.useEffect(() => {
+    if (Platform.OS === 'web') return;
     void refresh();
+    // Les sessions PC peuvent être approuvées ou révoquées sur un autre appareil.
+    // Les actualiser aussi au retour de l'application évite un état périmé.
+    const interval = setInterval(() => { void refresh(); }, 30000);
+    const listener = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void refresh();
+    });
+    return () => {
+      clearInterval(interval);
+      listener.remove();
+    };
   }, [refresh]);
 
   if (Platform.OS === 'web') return null;
@@ -132,7 +143,8 @@ export default function WebCompanionSessionsPanel() {
         <View style={s.row}>
           <View style={s.info}>
             <Text style={s.device}>{label(session)}</Text>
-            <Text style={s.muted}>Dernière activité : {new Date(session.last_seen_at).toLocaleString('fr-FR')} · déconnexion auto dans {timeLeft(session.created_at)}</Text>
+            <Text style={s.muted}>{now - new Date(session.last_seen_at).getTime() < 60000 ? 'En ligne' : 'Hors ligne'} · Dernière activité : {new Date(session.last_seen_at).toLocaleString('fr-FR')}</Text>
+            <Text style={s.muted}>Déconnexion automatique dans {timeLeft(session.created_at)}</Text>
           </View>
           <TouchableOpacity
             style={s.disconnect}
@@ -170,15 +182,15 @@ const s = StyleSheet.create({
   muted: { color: colors.textMuted, fontSize: 11, marginTop: 7 },
   error: { color: colors.danger, fontSize: 12, marginTop: 7 },
   targets: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 7 },
-  target: { minHeight: 38, paddingHorizontal: 11, borderRadius: 19, borderWidth: 1, borderColor: colors.primary, justifyContent: 'center' },
+  target: { minHeight: 48, paddingHorizontal: 11, borderRadius: 19, borderWidth: 1, borderColor: colors.primary, justifyContent: 'center' },
   targetText: { color: colors.textPrimary, fontSize: 11, fontWeight: '800' },
   row: { marginTop: 10, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard, flexDirection: 'row', alignItems: 'center', gap: 10 },
   info: { flex: 1 },
   device: { color: colors.textPrimary, fontSize: 13, fontWeight: '800' },
-  disconnect: { minHeight: 38, paddingHorizontal: 12, borderRadius: 19, borderWidth: 1, borderColor: colors.danger, alignItems: 'center', justifyContent: 'center' },
+  disconnect: { minHeight: 48, paddingHorizontal: 12, borderRadius: 19, borderWidth: 1, borderColor: colors.danger, alignItems: 'center', justifyContent: 'center' },
   disconnectText: { color: colors.danger, fontSize: 11, fontWeight: '900' },
-  share: { minHeight: 46, marginBottom: 12, borderRadius: 23, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+  share: { minHeight: 48, marginBottom: 12, borderRadius: 23, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
   shareText: { color: colors.textPrimary, fontSize: 14, fontWeight: '900' },
-  refresh: { minHeight: 38, marginTop: 10, alignItems: 'center', justifyContent: 'center' },
+  refresh: { minHeight: 48, marginTop: 10, alignItems: 'center', justifyContent: 'center' },
   refreshText: { color: colors.primaryLight, fontSize: 12, fontWeight: '800' },
 });
