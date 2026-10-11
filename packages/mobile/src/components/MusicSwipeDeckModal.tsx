@@ -1078,6 +1078,35 @@ export default function MusicSwipeDeckModal({
       : 'Tu as terminé toutes les nouvelles musiques de ce profil.'
     : emptyTitle;
 
+  // Clavier (ordinateur, 11/10/2026, LOT 2 : « on reste bloqué à l'ouverture d'une story ») : ↑ ↓ → = morceau suivant, comme le glissé vers le haut.
+  // Échap ferme explicitement (la fenêtre web ne le fait pas de façon fiable après une navigation clavier). ← (passer) et → pour garder ne sont JAMAIS au clavier : actions qui engagent l'utilisateur / débitent des FREE.
+  const keyboardNextRef = useRef<() => void>(() => {});
+  const keyboardCloseRef = useRef<() => void>(() => {});
+  keyboardCloseRef.current = () => { void close(); };
+  keyboardNextRef.current = () => {
+    if (controlsLocked || actionInFlight.current) return;
+    actionInFlight.current = true;
+    void advance().finally(() => { actionInFlight.current = false; });
+  };
+  useEffect(() => {
+    if (!visible || Platform.OS !== 'web' || typeof window === 'undefined') return undefined;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
+      const tag = String((event.target as HTMLElement | null)?.tagName ?? '').toUpperCase();
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        keyboardCloseRef.current();
+        return;
+      }
+      if (event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'ArrowRight' || event.key === 'PageDown') {
+        event.preventDefault();
+        keyboardNextRef.current();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [visible]);
   return <KeepModal visible={visible} animationType="slide" onRequestClose={() => { void close(); }} presentationStyle="fullScreen">
     <View style={[s.outer, desktopStoryLayout && s.desktopOuter]}>
     <SafeAreaView style={[s.container, desktopStoryLayout && s.desktopPlayer]}>
@@ -1260,6 +1289,8 @@ export default function MusicSwipeDeckModal({
       <Text style={s.desktopAsideHint}>01   Écouter l'extrait</Text>
       <Text style={s.desktopAsideHint}>02   Passer ou garder une découverte</Text>
       <Text style={s.desktopAsideHint}>03   Mettre un morceau dans ta story</Text>
+      <Text style={s.desktopAsideKeys} testID="loki-desktop-story-keys">↑ ↓ → morceau suivant · Échap pour fermer</Text>
+      <TouchableOpacity style={s.desktopAsideNext} onPress={() => keyboardNextRef.current()} accessibilityRole="button" accessibilityLabel="Morceau suivant" testID="loki-desktop-story-next"><Text style={s.desktopAsideNextText}>Morceau suivant ›</Text></TouchableOpacity>
       <Text style={s.desktopAsideFoot}>Les morceaux proposés à l'achat conservent leurs protections. Aucune publication ou transaction ne se fait automatiquement.</Text>
     </View> : null}
     </View>
@@ -1270,13 +1301,17 @@ export default function MusicSwipeDeckModal({
 const s = StyleSheet.create({
   outer:{flex:1,backgroundColor:'#090610',alignItems:'center'},
   desktopOuter:{flexDirection:'row',justifyContent:'center',alignItems:'center',paddingHorizontal:32,gap:28},
-  desktopPlayer:{flexGrow:0,flexShrink:1,maxWidth:570,borderLeftWidth:1,borderRightWidth:1,borderColor:'#312348'},
+  // Largeur EXPLICITE + pleine hauteur (alignSelf stretch) : sans cela le lecteur s'écrasait à ~0 px de large dans la rangée flex et le bouton fermer sortait de la fenêtre (y = -240 à 1098 px, 11/10/2026).
+  desktopPlayer:{flexGrow:0,flexShrink:1,flexBasis:480,width:480,maxWidth:520,minWidth:360,alignSelf:'stretch',borderLeftWidth:1,borderRightWidth:1,borderColor:'#312348'},
   desktopStoryAside:{width:310,maxWidth:'30%',alignSelf:'center',backgroundColor:'#171020',borderWidth:1,borderColor:'#403052',borderRadius:24,padding:24,gap:12},
   desktopAsideKicker:{color:'#B79CFF',fontSize:12,fontWeight:'900',letterSpacing:1.6},
   desktopAsideTitle:{color:'#FFFFFF',fontSize:24,lineHeight:30,fontWeight:'900'},
   desktopAsideBody:{color:'#E5DFED',fontSize:14,lineHeight:22},
   desktopAsideDivider:{height:1,backgroundColor:'#403052',marginVertical:5},
   desktopAsideSection:{color:'#B79CFF',fontSize:12,fontWeight:'900',letterSpacing:1},
+  desktopAsideKeys:{color:'#B79CFF',fontSize:12,lineHeight:18,fontWeight:'800',marginTop:6},
+  desktopAsideNext:{minHeight:44,borderRadius:14,backgroundColor:'#7C5CFF',alignItems:'center',justifyContent:'center',marginTop:8},
+  desktopAsideNextText:{color:'#FFFFFF',fontSize:14,fontWeight:'900'},
   desktopAsideHint:{color:'#FFFFFF',fontSize:14,lineHeight:22},
   desktopAsideFoot:{color:colors.textSecondary,fontSize:12,lineHeight:18,marginTop:9},
   container:{flex:1,width:'100%',maxWidth:520,backgroundColor:'#090610'},
