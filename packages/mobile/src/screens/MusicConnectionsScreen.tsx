@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import ClampedText from '../components/ClampedText';
+import { withActionTimeout, isActionTimeout } from '../services/actionTimeout';
 import { Linking, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import MusicServiceIcon, { MUSIC_SERVICE_BRAND_COLORS } from '../components/MusicServiceIcon';
@@ -157,7 +159,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
         showMessage('Connexion fournisseur', `${name} n’est pas encore configuré dans le Super Admin Loki Music.`);
         return;
       }
-      await startProviderConnection(provider);
+      await withActionTimeout(startProviderConnection(provider), 120000, 'oauth');
     } catch (error: any) {
       const message = String(error?.message || 'Connexion impossible.');
       showMessage('Connexion fournisseur', message.includes('AUTH_REQUIRED') ? 'Connecte d’abord ton compte Loki Music.' : message);
@@ -171,7 +173,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
     if (isLocalGuest || isDemoMode) return requireRealAccount();
     setProviderBusy(provider);
     try {
-      const result = await importProviderFavorites(provider);
+      const result = await withActionTimeout(importProviderFavorites(provider), 60000, 'import');
       showMessage('Bibliothèque Loki Music', `${result.imported} favori${result.imported > 1 ? 's' : ''} ${name} synchronisé${result.imported > 1 ? 's' : ''}. Ils restent privés par défaut tant que tu ne choisis pas de les partager.`);
       await refresh();
     } catch (error: any) {
@@ -200,7 +202,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
     if (activatingService || busy) return false;
     setActivatingService(service);
     try {
-      const result = await claimMusicService(service);
+      const result = await withActionTimeout(claimMusicService(service), 20000, 'claim');
       const nextSelection = { services: result.services, used: result.used, limit: result.limit, plan: result.plan };
       setSelection(nextSelection);
       if (!result.ok && result.error === 'SERVICE_LIMIT_REACHED') {
@@ -209,7 +211,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
       }
       if (!result.ok) throw new Error(result.error || 'ACTIVATION_FAILED');
 
-      const verified = await loadMusicServiceSelections();
+      const verified = await withActionTimeout(loadMusicServiceSelections(), 20000, 'verify');
       setSelection(verified);
       if (!verified.services.includes(service)) throw new Error('ACTIVATION_NOT_PERSISTED');
 
@@ -217,7 +219,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
         const state = providerConnections[service];
         if (state.configured && !state.connected) {
           try {
-            await startProviderConnection(service);
+            await withActionTimeout(startProviderConnection(service), 120000, 'oauth');
           } catch (oauthError: any) {
             showMessage('Service Loki Music activé', `${name} est bien réservé dans Loki Music. La connexion du compte fournisseur n’a pas pu démarrer : ${String(oauthError?.message || 'réessaie plus tard')}`);
           }
@@ -234,7 +236,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
     } catch (e: any) {
       const text = e?.message?.includes('AUTH_REQUIRED')
         ? 'Connecte ton compte Loki Music pour choisir tes services musicaux.'
-        : 'Impossible d’activer ce service pour le moment.';
+        : isActionTimeout(e) ? 'Trop long · réessaie.' : 'Impossible d’activer ce service pour le moment.';
       Alert.alert('Loki Music', text);
       return false;
     } finally {
@@ -310,7 +312,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
           <Text style={styles.back}>‹ Retour</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Services musicaux</Text>
-        <Text style={styles.subtitle}>Loki Music range ta musique. Choisis ensuite les services que tu utilises vraiment.</Text>
+        <ClampedText style={styles.subtitle} text="Loki Music range ta musique. Choisis ensuite les services que tu utilises vraiment." />
       </View>
 
       <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
@@ -321,7 +323,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
             ); })()}
             <Text style={styles.keylessTitle}>{selectionLoading ? 'Chargement…' : `${selection.used} / ${selection.limit} service${selection.limit > 1 ? 's' : ''} choisi${selection.used > 1 ? 's' : ''}`}</Text>
           </View>
-          <Text style={styles.keylessText}>Tes choix restent attachés à ton compte. Plus ta formule évolue, plus Loki Music te laisse utiliser de services en parallèle.</Text>
+          <ClampedText style={styles.keylessText} text="Tes choix restent attachés à ton compte. Plus ta formule évolue, plus Loki Music te laisse utiliser de services en parallèle." />
         </View>
 
         {queue?.tracks.length ? (
@@ -348,14 +350,14 @@ export default function MusicConnectionsScreen({ navigation }: any) {
                 </TouchableOpacity>
               </View>
             ) : (
-              <Text style={styles.exportHint}>Choisis un de tes services actifs. Loki Music gardera la file prête pendant que tu passes dans l’autre application.</Text>
+              <ClampedText style={styles.exportHint} text="Choisis un de tes services actifs. Loki Music gardera la file prête pendant que tu passes dans l’autre application." />
             )}
           </View>
         ) : null}
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{queue?.tracks.length && !selectedService ? 'Choisir la destination' : 'Tes services'}</Text>
-          <Text style={styles.sectionHint}>ACTIF = réservé par ta formule · CONNECTÉ = compte fournisseur OAuth réellement relié.</Text>
+          <ClampedText style={styles.sectionHint} text="ACTIF = réservé par ta formule · CONNECTÉ = compte fournisseur OAuth réellement relié." />
         </View>
 
         {KEYLESS_MUSIC_SERVICES.map((provider) => {
@@ -370,13 +372,6 @@ export default function MusicConnectionsScreen({ navigation }: any) {
           const providerState = syncProvider ? providerConnections[syncProvider] : null;
           const connected = Boolean(providerState?.connected);
           const providerActionBusy = syncProvider === providerBusy;
-          const activeDescription = connected
-            ? (queue?.tracks.length ? `${provider.name} connecté · sélectionne-le comme destination.` : `${provider.name} connecté · touche pour importer ou actualiser tes favoris dans Loki Music.`)
-            : syncProvider && providerState?.configured
-              ? `${provider.shortDescription} · touche pour connecter ton compte ${provider.name}.`
-              : syncProvider
-                ? `${provider.shortDescription} · configuration fournisseur requise dans le Super Admin.`
-                : provider.shortDescription;
           const actionLabel = activating || providerActionBusy
             ? 'PATIENTER…'
             : active
@@ -403,7 +398,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
                   {connected ? <View style={styles.connectedBadge}><Text style={styles.connectedBadgeText}>CONNECTÉ</Text></View> : null}
                   {reserved ? <View style={styles.lockBadge}><Text style={styles.lockBadgeText}>🔒 RÉSERVÉ</Text></View> : null}
                 </View>
-                <Text style={styles.description}>{active ? activeDescription : reserved ? 'Ce choix est conservé. Réactive-le en retrouvant une formule compatible.' : slotFull ? `🔒 ${nextPlanLabel(selection.plan)}` : 'Choisis ce service pour l’associer à ton compte Loki Music.'}</Text>
+                <Text style={styles.description} numberOfLines={1}>{active ? (connected ? 'Relié ✓' : syncProvider ? 'À connecter' : 'Prêt') : reserved ? '🔒 Réservé' : slotFull ? `🔒 ${nextPlanLabel(selection.plan)}` : 'Non choisi'}</Text>
               </View>
               <View style={[styles.openPill, (slotFull || reserved) && styles.lockPill, (activating || providerActionBusy) && styles.activatingPill]}><Text style={styles.openPillText}>{actionLabel}</Text></View>
             </TouchableOpacity>
@@ -412,7 +407,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
 
         <View style={styles.ruleCard}>
           <Text style={styles.ruleTitle}>Loki Music range pour toi</Text>
-          <Text style={styles.ruleText}>Styles, Vibes, artistes et albums restent organisés dans Loki Music. Spotify et Deezer peuvent importer les favoris en métadonnées privées. YouTube Music et SoundCloud utilisent la passerelle sécurisée sans transmettre ton mot de passe à Loki Music.</Text>
+          <ClampedText style={styles.ruleText} text="Styles, Vibes, artistes et albums restent organisés dans Loki Music. Spotify et Deezer peuvent importer les favoris en métadonnées privées. YouTube Music et SoundCloud utilisent la passerelle sécurisée sans transmettre ton mot de passe à Loki Music." />
         </View>
 
         <View style={styles.limitCard}>
@@ -437,59 +432,59 @@ export default function MusicConnectionsScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  header: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.md },
-  backButton: { alignSelf: 'flex-start', minHeight: 32, paddingHorizontal: 10, borderRadius: 16, backgroundColor: '#5B3F8C', borderWidth: 1, borderColor: '#A884FA', alignItems: 'center', justifyContent: 'center' },
-  back: { color: '#FFFFFF', fontWeight: '900', fontSize: 12 },
+  header: { paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.md, borderBottomWidth:1, borderBottomColor:colors.border },
+  backButton: { alignSelf: 'flex-start', minHeight: 44, paddingHorizontal: 14, borderRadius: 22, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  back: { color: colors.textPrimary, fontWeight: '900', fontSize: 13 },
   title: { ...typography.h1, color: colors.textPrimary, marginTop: spacing.md },
-  subtitle: { color: '#E9E3F0', fontSize: 12, lineHeight: 18, marginTop: spacing.sm },
-  list: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl, gap: spacing.md },
-  keylessCard: { backgroundColor: '#171020', borderWidth: 1, borderColor: '#6E4BA5', borderRadius: radius.lg, padding: spacing.md },
+  subtitle: { color: colors.textMutedGrey, fontSize: 12, lineHeight: 18, marginTop: spacing.sm },
+  list: { paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.xxxl, gap: spacing.md },
+  keylessCard: { backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.primary, borderRadius: 18, padding: spacing.md },
   keylessTop: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  keylessBadge: { paddingHorizontal: 8, minHeight: 22, borderRadius: 11, backgroundColor: '#123D2C', borderWidth: 1, borderColor: '#38D990', alignItems: 'center', justifyContent: 'center' },
-  keylessBadgeText: { color: '#8AF3BF', fontSize: 8, fontWeight: '900' },
-  keylessTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '900' },
-  keylessText: { color: '#E2DAEA', fontSize: 11, lineHeight: 16, marginTop: 8 },
-  exportCard: { backgroundColor: '#151020', borderRadius: radius.lg, borderWidth: 1, borderColor: '#8B5CF6', padding: spacing.md },
-  exportEyebrow: { color: '#BFA9FF', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
-  exportTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '900', marginTop: 3 },
-  exportCount: { color:'#FFFFFF', fontSize: 10, marginTop: 2 },
-  exportHint: { color: '#E2DAEA', fontSize: 11, lineHeight: 16, marginTop: 9 },
-  currentTrackCard: { marginTop: 12, padding: 12, borderRadius: 14, backgroundColor: '#0E0A14', borderWidth: 1, borderColor: '#3F3154' },
+  keylessBadge: { paddingHorizontal: 8, minHeight: 24, borderRadius: 12, backgroundColor: 'rgba(45,225,194,0.10)', borderWidth: 1, borderColor: colors.keep, alignItems: 'center', justifyContent: 'center' },
+  keylessBadgeText: { color: colors.keep, fontSize: 8, fontWeight: '900' },
+  keylessTitle: { color: colors.textPrimary, fontSize: 14, fontWeight: '900' },
+  keylessText: { color: colors.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 8 },
+  exportCard: { backgroundColor: colors.backgroundElevated, borderRadius: 18, borderWidth: 1, borderColor: colors.primary, padding: spacing.md },
+  exportEyebrow: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+  exportTitle: { color: colors.textPrimary, fontSize: 18, fontWeight: '900', marginTop: 3 },
+  exportCount: { color:colors.textSecondary, fontSize: 10, marginTop: 2 },
+  exportHint: { color: colors.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 9 },
+  currentTrackCard: { marginTop: 12, padding: 12, borderRadius: 14, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
   exportProgressRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  exportProgress: { color: '#8AF3BF', fontSize: 9, fontWeight: '900' },
-  destination: { color: '#BFA9FF', fontSize: 9, fontWeight: '900' },
-  currentTrackTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '900', marginTop: 9 },
-  currentTrackArtist: { color:'#FFFFFF', fontSize: 12, marginTop: 3 },
-  openTrackButton: { marginTop: 12, minHeight: 44, borderRadius: 22, backgroundColor: '#5B3F8C', borderWidth: 1, borderColor: '#A884FA', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
-  openTrackButtonText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900', textAlign: 'center' },
-  nextButton: { marginTop: 8, minHeight: 40, borderRadius: 20, backgroundColor: '#123D2C', borderWidth: 1, borderColor: '#38D990', alignItems: 'center', justifyContent: 'center' },
-  nextButtonText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
-  changeButton: { minHeight: 34, alignItems: 'center', justifyContent: 'center', marginTop: 3 },
-  changeButtonText: { color: '#BFA9FF', fontSize: 9, fontWeight: '800' },
+  exportProgress: { color: colors.keep, fontSize: 9, fontWeight: '900' },
+  destination: { color: colors.primaryLight, fontSize: 9, fontWeight: '900' },
+  currentTrackTitle: { color: colors.textPrimary, fontSize: 14, fontWeight: '900', marginTop: 9 },
+  currentTrackArtist: { color:colors.textSecondary, fontSize: 12, marginTop: 3 },
+  openTrackButton: { marginTop: 12, minHeight: 48, borderRadius: 24, backgroundColor: colors.primary, borderWidth: 1, borderColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  openTrackButtonText: { color: colors.white, fontSize: 12, fontWeight: '900', textAlign: 'center' },
+  nextButton: { marginTop: 8, minHeight: 48, borderRadius: 24, backgroundColor: 'rgba(45,225,194,0.10)', borderWidth: 1, borderColor: colors.keep, alignItems: 'center', justifyContent: 'center' },
+  nextButtonText: { color: colors.keep, fontSize: 12, fontWeight: '900' },
+  changeButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: 3 },
+  changeButtonText: { color: colors.primaryLight, fontSize: 10, fontWeight: '800' },
   sectionHeader: { marginTop: 2 },
-  sectionTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '900' },
-  sectionHint: { color:'#FFFFFF', fontSize: 10, lineHeight: 14, marginTop: 2 },
-  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.backgroundCard, borderWidth: 1, borderRadius: radius.lg, padding: spacing.md, gap: spacing.md },
-  cardSelected: { backgroundColor: '#1B1326' },
-  logo: { width: 46, height: 46, borderRadius: 14, backgroundColor: '#0E0A14', alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  sectionTitle: { color: colors.textPrimary, fontSize: 14, fontWeight: '900' },
+  sectionHint: { color:colors.textMutedGrey, fontSize: 10, lineHeight: 14, marginTop: 2 },
+  card: { minHeight:76, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.backgroundElevated, borderWidth: 1, borderRadius: 18, padding: spacing.md, gap: spacing.md },
+  cardSelected: { backgroundColor: colors.backgroundCard },
+  logo: { width: 48, height: 48, borderRadius: 14, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   info: { flex: 1, minWidth: 0 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
-  name: { color: '#FFFFFF', fontSize: 14, fontWeight: '900' },
-  activeBadge: { minHeight: 18, paddingHorizontal: 6, borderRadius: 9, backgroundColor: '#123D2C', borderWidth: 1, borderColor: '#38D990', alignItems: 'center', justifyContent: 'center' },
-  activeBadgeText: { color: '#8AF3BF', fontSize: 7, fontWeight: '900' },
-  connectedBadge: { minHeight: 18, paddingHorizontal: 6, borderRadius: 9, backgroundColor: '#172A45', borderWidth: 1, borderColor: '#75B7FF', alignItems: 'center', justifyContent: 'center' },
-  connectedBadgeText: { color: '#FFFFFF', fontSize: 7, fontWeight: '900' },
+  name: { color: colors.textPrimary, fontSize: 14, fontWeight: '900' },
+  activeBadge: { minHeight: 20, paddingHorizontal: 6, borderRadius: 10, backgroundColor: 'rgba(45,225,194,0.10)', borderWidth: 1, borderColor: colors.keep, alignItems: 'center', justifyContent: 'center' },
+  activeBadgeText: { color: colors.keep, fontSize: 8, fontWeight: '900' },
+  connectedBadge: { minHeight: 20, paddingHorizontal: 6, borderRadius: 10, backgroundColor: 'rgba(92,168,252,0.10)', borderWidth: 1, borderColor: colors.info, alignItems: 'center', justifyContent: 'center' },
+  connectedBadgeText: { color: colors.info, fontSize: 8, fontWeight: '900' },
   lockBadge: { minHeight: 18, paddingHorizontal: 6, borderRadius: 9, backgroundColor: '#2B2038', borderWidth: 1, borderColor: '#6E4BA5', alignItems: 'center', justifyContent: 'center' },
   lockBadgeText: { color: '#D9C7FF', fontSize: 7, fontWeight: '900' },
-  description: { color:'#FFFFFF', fontSize: 10, lineHeight: 14, marginTop: 3 },
-  openPill: { minHeight: 34, paddingHorizontal: 10, borderRadius: 17, backgroundColor: '#5B3F8C', borderWidth: 1, borderColor: '#A884FA', alignItems: 'center', justifyContent: 'center' },
+  description: { color:colors.textSecondary, fontSize: 10, lineHeight: 14, marginTop: 3 },
+  openPill: { minHeight: 44, paddingHorizontal: 10, borderRadius: 22, backgroundColor: colors.primary, borderWidth: 1, borderColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
   lockPill: { backgroundColor: '#21182F', borderColor: '#6E4BA5' },
-  activatingPill: { backgroundColor: '#123D2C', borderColor: '#38D990' },
-  openPillText: { color: '#FFFFFF', fontSize: 8, fontWeight: '900' },
-  ruleCard: { backgroundColor: '#10251B', borderRadius: radius.lg, borderWidth: 1, borderColor: '#38D990', padding: spacing.lg, marginTop: spacing.sm },
-  ruleTitle: { color: '#8AF3BF', fontSize: 13, fontWeight: '900' },
-  ruleText: { color: '#FFFFFF', fontSize: 11, lineHeight: 17, marginTop: spacing.sm },
-  limitCard: { backgroundColor: '#171020', borderRadius: radius.lg, borderWidth: 1, borderColor: '#493369', padding: spacing.lg },
-  limitTitle: { color: '#BFA9FF', fontSize: 12, fontWeight: '900' },
-  limitText: { color: '#E2DAEA', fontSize: 10, lineHeight: 16, marginTop: 6 },
+  activatingPill: { backgroundColor: 'rgba(45,225,194,0.10)', borderColor: colors.keep },
+  openPillText: { color: colors.white, fontSize: 9, fontWeight: '900' },
+  ruleCard: { backgroundColor: 'rgba(45,225,194,0.08)', borderRadius: 18, borderWidth: 1, borderColor: colors.keep, padding: spacing.lg, marginTop: spacing.sm },
+  ruleTitle: { color: colors.keep, fontSize: 13, fontWeight: '900' },
+  ruleText: { color: colors.textPrimary, fontSize: 11, lineHeight: 17, marginTop: spacing.sm },
+  limitCard: { backgroundColor: colors.backgroundElevated, borderRadius: 18, borderWidth: 1, borderColor: colors.border, padding: spacing.lg },
+  limitTitle: { color: colors.primaryLight, fontSize: 12, fontWeight: '900' },
+  limitText: { color: colors.textSecondary, fontSize: 10, lineHeight: 16, marginTop: 6 },
 });

@@ -1,13 +1,15 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking, Modal, Platform } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Linking, Platform } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { CanonicalTrack } from '@keep/music';
 import { colors } from '../theme/colors';
-import { radius } from '../theme/spacing';
-import { playTrackPreviewSegment, stopTrackPreview } from '../services/audioPreviewService';
+import { minTouchTarget, radius } from '../theme/spacing';
+import { playTrackPreviewSegment, stopTrackPreview, stopTrackPreviewFast, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { cancelAudioCapture } from '../services/micCapture';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { useSessionStore } from '../store/useSessionStore';
+import { resolveTrackExternalDestination } from '../services/trackExternalLinkService';
+import KeepModal from './KeepModal';
 
 interface Props {
   track: CanonicalTrack;
@@ -19,14 +21,16 @@ interface Props {
   // d'un extrait ne doit jamais valoir decision PASSER/GARDER, seulement
   // avancer la consultation.
   onPreviewFinished?: () => void;
+  /** Lecture automatique uniquement dans une vue focalisée (ex. Écouter/Loki Pulse). */
+  autoPlay?: boolean;
 }
 
 /**
- * Extrait 0/10/20s + ouverture du morceau, partagé entre la carte "vient
- * d'être détecté" (HomeScreenCompact) et les lignes d'historique (TrackRow) --
- * les deux endroits doivent proposer exactement la même expérience d'écoute.
+ * Durées d'écoute 10/20/25/30s + ouverture du morceau, partagées entre la carte
+ * « vient d'être détecté » (HomeScreenCompact) et les lignes d'historique
+ * (TrackRow). Chaque bouton représente une vraie DURÉE, jamais un offset.
  */
-export default function TrackListenControls({ track, previewKey, onPreviewFinished }: Props) {
+export default function TrackListenControls({ track, previewKey, onPreviewFinished, autoPlay = false }: Props) {
   const [previewBusy, setPreviewBusy] = useState(false);
   const [embeddedPlayerOpen, setEmbeddedPlayerOpen] = useState(false);
   // BUG RÉEL (Adel, 01/09/2026 : "j'écoute la musique elle ne part pas, elle
@@ -36,12 +40,10 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
   // fonctionnel dans TrackPreviewButton.tsx/MusicSwipeDeckModal.tsx.
   const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState(track.previewUrl ?? null);
   const [resolvingPreview, setResolvingPreview] = useState(false);
+  const autoStartedKey = useRef<string | null>(null);
 
-  const externalPlayUrl = track.externalUrls?.appleMusic
-    || track.externalUrls?.spotify
-    || track.externalUrls?.deezer
-    || track.externalUrls?.universal
-    || track.externalUrls?.youtubeSearch;
+  const externalDestination = resolveTrackExternalDestination(track);
+  const externalPlayUrl = externalDestination?.url;
   // Lecteur officiel intégré (widget Spotify/Deezer, ou IFrame Player API
   // YouTube) : reste dans Loki au lieu d'ouvrir la plateforme dans un nouvel
   // onglet. Web uniquement pour l'instant -- une iframe n'a pas d'équivalent
@@ -60,7 +62,11 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
 
   useEffect(() => {
     setResolvedPreviewUrl(track.previewUrl ?? null);
-    if (track.previewUrl || embedUrl || externalPlayUrl) return;
+    // Un simple lien de recherche YouTube/TikTok ne constitue pas un extrait
+    // jouable dans Loki Music. C'était le bug du mode démo : TrackResolver
+    // fournit toujours ces liens de découverte, ce qui empêchait auparavant
+    // le repli iTunes de chercher un vrai previewUrl.
+    if (track.previewUrl || embedUrl) return;
     let live = true;
     setResolvingPreview(true);
     resolveTrackPreviewUrl(track)
@@ -68,11 +74,65 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
       .finally(() => { if (live) setResolvingPreview(false); });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [track.title, track.artist, track.previewUrl, embedUrl, externalPlayUrl]);
+  }, [track.title, track.artist, track.previewUrl, embedUrl]);
 
   useEffect(() => () => {
-    void stopTrackPreview(previewKey);
+    // PASSER / changement de carte : couper instantanément l'ancien extrait.
+    // Le nettoyage natif se termine en arrière-plan pour que le prochain son
+    // puisse démarrer sans attente perceptible sur iPhone/TestFlight.
+    stopTrackPreviewFast(previewKey);
   }, [previewKey]);
+
+  useEffect(() => {
+    autoStartedKey.current = null;
+  }, [previewKey]);
+
+  useEffect(() => {
+    if (!autoPlay || !resolvedPreviewUrl || resolvingPreview) return undefined;
+    const autoKey = `${previewKey}:${resolvedPreviewUrl}`;
+    if (autoStartedKey.current === autoKey) return undefined;
+    autoStartedKey.current = autoKey;
+    let live = true;
+
+    const run = async () => {
+      // Vue focalisée seulement : pause temporaire du micro d'écoute, puis
+      // reprise automatique quand l'extrait se termine.
+      const session = useSessionStore.getState();
+      if (session.isActive && !session.micPaused) session.pauseListening();
+
+      for (let attempt = 0; attempt < 3 && live; attempt += 1) {
+        try {
+          setPreviewBusy(true);
+          await playTrackPreviewSegment(
+            previewKey,
+            resolvedPreviewUrl,
+            0,
+            10000,
+            resumeListeningOnStop,
+            onPreviewFinished,
+            true,
+          );
+          return;
+        } catch {
+          await new Promise((resolve) => setTimeout(resolve, 220 + attempt * 260));
+        } finally {
+          if (live) setPreviewBusy(false);
+        }
+      }
+      // En autoplay natif on ne montre jamais un popup qui volerait le tap
+      // utilisateur. Les boutons manuels restent disponibles en repli.
+      const latest = useSessionStore.getState();
+      if (latest.isActive && latest.micPaused) {
+        Alert.alert('Reprendre la détection musicale ?', 'La lecture de cet extrait a échoué. Le micro reste en pause.', [
+          { text: 'Rester en pause', style: 'cancel' },
+          { text: 'Reprendre', onPress: () => useSessionStore.getState().resumeListening() },
+        ]);
+      }
+    };
+
+    void run();
+    return () => { live = false; };
+  }, [autoPlay, onPreviewFinished, previewKey, resolvedPreviewUrl, resolvingPreview]);
 
   const stopKeepListening = async () => {
     const session = useSessionStore.getState();
@@ -91,14 +151,19 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
   const resumeListeningOnStop = (isPlaying: boolean) => {
     if (isPlaying) return;
     const session = useSessionStore.getState();
-    if (session.micPaused) session.resumeListening();
+    if (session.micPaused) {
+      Alert.alert('Reprendre la détection musicale ?', 'Le micro est en pause après cet extrait.', [
+        { text: 'Rester en pause', style: 'cancel' },
+        { text: 'Reprendre', onPress: () => useSessionStore.getState().resumeListening() },
+      ]);
+    }
   };
 
-  const playSnippetNow = async (positionMillis: number) => {
+  const playSnippetNow = async (durationMillis: number) => {
     if (!resolvedPreviewUrl || previewBusy) return;
     setPreviewBusy(true);
     try {
-      await playTrackPreviewSegment(previewKey, resolvedPreviewUrl, positionMillis, 7000, resumeListeningOnStop, onPreviewFinished);
+      await playTrackPreviewSegment(previewKey, resolvedPreviewUrl, 0, durationMillis, resumeListeningOnStop, onPreviewFinished, true);
     } catch {
       Alert.alert('Extrait indisponible', 'Impossible de lire cet extrait pour le moment.');
     } finally {
@@ -106,18 +171,18 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
     }
   };
 
-  const playSnippet = (positionMillis: number) => {
+  const playSnippet = (durationMillis: number) => {
     if (!resolvedPreviewUrl || previewBusy) return;
+    unlockWebAudioForGesture();
     const session = useSessionStore.getState();
     if (session.isActive) session.pauseListening();
-    void playSnippetNow(positionMillis);
+    void playSnippetNow(durationMillis);
   };
 
-  const openExternalNow = async () => {
+  const openExternalNow = () => {
     if (Platform.OS === 'web' && embedUrl) { setEmbeddedPlayerOpen(true); return; }
     if (!externalPlayUrl) return;
-    try { await Linking.openURL(externalPlayUrl); }
-    catch { Alert.alert('Lecture indisponible', 'Impossible d’ouvrir ce morceau pour le moment.'); }
+    void Linking.openURL(externalPlayUrl).catch(() => Alert.alert('Lecture indisponible', 'Impossible d’ouvrir ce morceau pour le moment.'));
   };
 
   const openExternal = () => {
@@ -145,15 +210,16 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
     <>
       <View style={styles.previewRow}>
         {resolvedPreviewUrl ? <>
-          <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(0)} disabled={previewBusy}><Text style={styles.previewText}>{previewBusy ? '…' : '▶ 0s'}</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(10000)} disabled={previewBusy}><Text style={styles.previewText}>▶ 10s</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(20000)} disabled={previewBusy}><Text style={styles.previewText}>▶ 20s</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(10000)} disabled={previewBusy} accessibilityLabel="Écouter 10 secondes"><Text style={styles.previewText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{previewBusy ? '…' : '▶ 10s'}</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(20000)} disabled={previewBusy} accessibilityLabel="Écouter 20 secondes"><Text style={styles.previewText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>▶ 20s</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(25000)} disabled={previewBusy} accessibilityLabel="Écouter 25 secondes"><Text style={styles.previewText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>▶ 25s</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(30000)} disabled={previewBusy} accessibilityLabel="Écouter 30 secondes"><Text style={styles.previewText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>▶ 30s</Text></TouchableOpacity>
         </> : null}
-        {(embedUrl || externalPlayUrl) ? <TouchableOpacity style={styles.youtubePill} onPress={openExternal}><Text style={styles.youtubeText}>{embedUrl ? '▶ Écouter ici' : resolvedPreviewUrl ? 'Ouvrir' : '▶ Écouter'}</Text></TouchableOpacity> : null}
+        {(embedUrl || externalPlayUrl) ? <TouchableOpacity style={styles.youtubePill} onPress={openExternal}><Text style={styles.youtubeText}>{embedUrl ? '▶ Écouter ici' : externalDestination?.exact ? '↗ Écouter sur la plateforme' : '↗ Ouvrir la recherche'}</Text></TouchableOpacity> : null}
       </View>
 
       {Platform.OS === 'web' && embedUrl ? (
-        <Modal visible={embeddedPlayerOpen} transparent animationType="fade" onRequestClose={() => setEmbeddedPlayerOpen(false)}>
+        <KeepModal visible={embeddedPlayerOpen} transparent animationType="fade" onRequestClose={() => setEmbeddedPlayerOpen(false)}>
           <View style={styles.embedOverlay}>
             <View style={styles.embedCard}>
               <View style={styles.embedHead}>
@@ -173,17 +239,18 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
               <Text style={styles.embedHint}>Lecteur officiel {embedProviderLabel} intégré -- reste sur Loki Music.</Text>
             </View>
           </View>
-        </Modal>
+        </KeepModal>
       ) : null}
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  previewRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 5 },
-  previewPill: { minHeight: 24, paddingHorizontal: 7, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard, alignItems: 'center', justifyContent: 'center' },
-  previewText: { color: colors.textSecondary, fontSize: 9, fontWeight: '800' },
-  youtubePill: { minHeight: 24, paddingHorizontal: 8, borderRadius: radius.pill, backgroundColor: '#211018', borderWidth: 1, borderColor: '#7A2035', alignItems: 'center', justifyContent: 'center' },
+  // Les 4 durées (10 / 20 / 25 / 30 s) tiennent toujours sur UNE ligne, de même taille, alignées (Adel, 06/10/2026) : plus de pastille seule à la ligne.
+  previewRow: { flexDirection: 'row', flexWrap: 'nowrap', gap: 6, marginTop: 6, alignSelf: 'stretch' },
+  previewPill: { flex: 1, minHeight: minTouchTarget, minWidth: 0, paddingHorizontal: 2, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard, alignItems: 'center', justifyContent: 'center' },
+  previewText: { color: colors.textSecondary, fontSize: 12, fontWeight: '800', textAlign: 'center' },
+  youtubePill: { minHeight: minTouchTarget, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: '#211018', borderWidth: 1, borderColor: '#7A2035', alignItems: 'center', justifyContent: 'center' },
   youtubeText: { color: '#FF6B86', fontSize: 9, fontWeight: '900' },
   audioUnavailable: { color: colors.textMuted, fontSize: 9, marginTop: 5 },
   embedOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,.78)', alignItems: 'center', justifyContent: 'center', padding: 22 },

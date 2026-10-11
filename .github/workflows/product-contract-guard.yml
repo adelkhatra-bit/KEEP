@@ -1,0 +1,37 @@
+name: KEEP — Product Contract Guard
+
+on:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - 'config/keep-product-contract.json'
+      - 'config/keep-ui-baseline.json'
+      - 'docs/KEEP_MASTER_SPEC.md'
+      - 'scripts/verify-product-contract.cjs'
+      - 'scripts/verify-source-of-truth.cjs'
+      - 'scripts/verify-ui-layout-baseline.cjs'
+      - 'packages/mobile/src/screens/ProfilePublicScreen.tsx'
+      - 'packages/mobile/src/navigation/Navigation.tsx'
+      - 'packages/mobile/index.js'
+      - 'AGENTS.md'
+      - 'CLAUDE.md'
+      - '.github/copilot-instructions.md'
+      - '.rtk/AGENTS_RULES.md'
+      - '.github/workflows/product-contract-guard.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  product-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout canonical KEEP source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Verify immutable product contract
+        run: node scripts/verify-product-contract.cjs
+      - name: Verify UI baseline
+        run: node scripts/verify-ui-layout-baseline.cjs

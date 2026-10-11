@@ -1,0 +1,213 @@
+name: Loki Final App Store Submission
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/app-store-submit-trigger'
+
+concurrency:
+  group: loki-final-app-store-submission
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Validate, attach latest build, and submit
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        run: |
+          node <<'NODE'
+          const crypto=require('node:crypto');
+          const required=['ASC_API_KEY_P8_BASE64','ASC_KEY_ID','ASC_ISSUER_ID','ASC_APP_ID'];
+          const missing=required.filter(k=>!process.env[k]?.trim());
+          if(missing.length) throw new Error('Missing App Store Connect secrets: '+missing.join(', '));
+
+          const key=Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(),'base64');
+          const enc=x=>Buffer.from(JSON.stringify(x)).toString('base64url');
+          const now=Math.floor(Date.now()/1000);
+          const unsigned=enc({alg:'ES256',kid:process.env.ASC_KEY_ID.trim(),typ:'JWT'})+'.'+
+            enc({iss:process.env.ASC_ISSUER_ID.trim(),iat:now-30,exp:now+900,aud:'appstoreconnect-v1'});
+          const token=unsigned+'.'+crypto.sign('sha256',Buffer.from(unsigned),{key,dsaEncoding:'ieee-p1363'}).toString('base64url');
+
+          async function api(p,{method='GET',body,allow404=false,allow409=false}={}){
+            const res=await fetch('https://api.appstoreconnect.apple.com'+p,{
+              method,
+              headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+              body:body?JSON.stringify(body):undefined
+            });
+            const txt=await res.text();
+            if(allow404&&res.status===404)return null;
+            if(allow409&&res.status===409)return {conflict:true,status:409,body:txt};
+            if(!res.ok)throw new Error(method+' '+p+' HTTP '+res.status+' '+txt.slice(0,3000));
+            return txt?JSON.parse(txt):null;
+          }
+
+          async function addReviewItem(submissionId, relationship, type, id){
+            const result=await api('/v1/reviewSubmissionItems',{
+              method:'POST',allow409:true,
+              body:{data:{
+                type:'reviewSubmissionItems',
+                relationships:{
+                  reviewSubmission:{data:{type:'reviewSubmissions',id:submissionId}},
+                  [relationship]:{data:{type,id}}
+                }
+              }}
+            });
+            if(result?.conflict){
+              console.log('Review item already present:',relationship,id);
+              return;
+            }
+            console.log('Added review item:',relationship,id);
+          }
+
+          (async()=>{
+            const appId=process.env.ASC_APP_ID.trim();
+
+            const app=await api('/v1/apps/'+appId+'?fields[apps]=name,bundleId,contentRightsDeclaration');
+            if(app.data.attributes?.contentRightsDeclaration!=='USES_THIRD_PARTY_CONTENT'){
+              throw new Error('BLOCKER_CONTENT_RIGHTS');
+            }
+
+            const versions=await api('/v1/apps/'+appId+
+              '/appStoreVersions?filter[platform]=IOS&fields[appStoreVersions]=versionString,appVersionState,createdDate,build&limit=50');
+            const version=(versions.data||[]).find(v=>v.attributes?.versionString==='1.0.0' &&
+              ['PREPARE_FOR_SUBMISSION','READY_FOR_REVIEW'].includes(v.attributes?.appVersionState));
+            if(!version) throw new Error('No editable Loki Music 1.0.0 version found');
+
+            const review=await api('/v1/appStoreVersions/'+version.id+
+              '/appStoreReviewDetail?fields[appStoreReviewDetails]=contactFirstName,contactLastName,contactPhone,contactEmail,notes',
+              {allow404:true});
+            const ra=review?.data?.attributes||{};
+            if(!(ra.contactFirstName?.trim()&&ra.contactLastName?.trim()&&ra.contactPhone?.trim()&&ra.contactEmail?.trim())){
+              throw new Error('BLOCKER_REVIEW_CONTACT');
+            }
+
+            const gc=await api('/v1/appStoreVersions/'+version.id+
+              '/gameCenterAppVersion?fields[gameCenterAppVersions]=enabled',{allow404:true});
+            if(gc?.data?.attributes?.enabled===true) throw new Error('BLOCKER_GAME_CENTER');
+
+            const locs=await api('/v1/appStoreVersions/'+version.id+
+              '/appStoreVersionLocalizations?fields[appStoreVersionLocalizations]=locale&limit=50');
+            const fr=(locs.data||[]).find(x=>x.attributes?.locale==='fr-FR')||(locs.data||[])[0];
+            if(!fr) throw new Error('BLOCKER_LOCALIZATION');
+            const sets=await api('/v1/appStoreVersionLocalizations/'+fr.id+
+              '/appScreenshotSets?fields[appScreenshotSets]=screenshotDisplayType&limit=50');
+            const set=(sets.data||[]).find(x=>x.attributes?.screenshotDisplayType==='APP_IPHONE_65');
+            if(!set) throw new Error('BLOCKER_IPHONE_65_SCREENSHOT_SET');
+            const shots=await api('/v1/appScreenshotSets/'+set.id+
+              '/appScreenshots?fields[appScreenshots]=fileName,assetDeliveryState&limit=200');
+            const completeShots=(shots.data||[]).filter(x=>['COMPLETE','UPLOAD_COMPLETE'].includes(x.attributes?.assetDeliveryState?.state));
+            if(completeShots.length<1) throw new Error('BLOCKER_IPHONE_65_SCREENSHOT');
+
+            const price=await api('/v1/apps/'+appId+'/appPriceSchedule?fields[appPriceSchedules]=baseTerritory,manualPrices',{allow404:true});
+            if(!price?.data) throw new Error('BLOCKER_APP_PRICE');
+
+            const builds=await api('/v1/apps/'+appId+
+              '/builds?include=preReleaseVersion&fields[builds]=version,processingState,uploadedDate,expired,preReleaseVersion&fields[preReleaseVersions]=version,platform&sort=-uploadedDate&limit=50');
+            const preById=new Map((builds.included||[]).filter(x=>x.type==='preReleaseVersions').map(x=>[x.id,x]));
+            const candidates=(builds.data||[]).filter(b=>{
+              const pre=preById.get(b.relationships?.preReleaseVersion?.data?.id);
+              return b.attributes?.processingState==='VALID' && !b.attributes?.expired &&
+                pre?.attributes?.platform==='IOS' && pre?.attributes?.version==='1.0.0';
+            });
+            if(!candidates.length) throw new Error('BLOCKER_NO_VALID_BUILD_1_0_0');
+            const latest=candidates[0];
+            console.log('Latest valid build:',latest.attributes?.version,latest.attributes?.uploadedDate,latest.id);
+
+            await api('/v1/appStoreVersions/'+version.id+'/relationships/build',{
+              method:'PATCH',
+              body:{data:{type:'builds',id:latest.id}}
+            });
+            const attached=await api('/v1/appStoreVersions/'+version.id+'/build?fields[builds]=version,processingState,uploadedDate');
+            if(attached?.data?.id!==latest.id) throw new Error('BUILD_ATTACH_VERIFICATION_FAILED');
+            console.log('Attached build:',attached.data.attributes?.version);
+
+            const groups=await api('/v1/apps/'+appId+
+              '/subscriptionGroups?include=subscriptions&fields[subscriptionGroups]=referenceName,subscriptions&fields[subscriptions]=productId,state,versions&limit=200&limit[subscriptions]=50');
+            const expected=new Set([
+              'com.adelkhatra.keep.premium.monthly',
+              'com.adelkhatra.keep.creatorpro.monthly',
+              'com.adelkhatra.keep.venuepro.monthly'
+            ]);
+            const parents=(groups.included||[]).filter(x=>x.type==='subscriptions'&&expected.has(x.attributes?.productId));
+            if(parents.length!==3) throw new Error('BLOCKER_SUBSCRIPTIONS_NOT_FOUND');
+
+            const subscriptionVersions=[];
+            for(const parent of parents){
+              const shot=await api('/v1/subscriptions/'+parent.id+
+                '/appStoreReviewScreenshot?fields[subscriptionAppStoreReviewScreenshots]=fileName,assetDeliveryState',{allow404:true});
+              if(!shot?.data || !['COMPLETE','UPLOAD_COMPLETE'].includes(shot.data.attributes?.assetDeliveryState?.state)){
+                throw new Error('BLOCKER_SUBSCRIPTION_REVIEW_SCREENSHOT '+parent.attributes?.productId);
+              }
+              const detail=await api('/v1/subscriptions/'+parent.id+
+                '?fields[subscriptions]=productId,state,reviewNote');
+              if(!detail.data.attributes?.reviewNote?.trim()){
+                throw new Error('BLOCKER_SUBSCRIPTION_REVIEW_NOTE '+parent.attributes?.productId);
+              }
+              const sv=await api('/v1/subscriptions/'+parent.id+
+                '/versions?fields[subscriptionVersions]=version,state&sort=-version&limit=20');
+              const draft=(sv.data||[]).find(x=>['PREPARE_FOR_SUBMISSION','READY_FOR_REVIEW'].includes(x.attributes?.state));
+              if(!draft) throw new Error('BLOCKER_NO_REVIEWABLE_SUBSCRIPTION_VERSION '+parent.attributes?.productId);
+              subscriptionVersions.push({productId:parent.attributes.productId,id:draft.id,state:draft.attributes.state});
+            }
+            console.log('Reviewable subscriptions:',subscriptionVersions);
+
+            const submissions=await api('/v1/apps/'+appId+
+              '/reviewSubmissions?filter[platform]=IOS&fields[reviewSubmissions]=platform,state,submittedDate&limit=50');
+            let submission=(submissions.data||[]).find(x=>x.attributes?.state==='READY_FOR_REVIEW');
+            if(!submission){
+              const created=await api('/v1/reviewSubmissions',{
+                method:'POST',
+                body:{data:{
+                  type:'reviewSubmissions',
+                  attributes:{platform:'IOS'},
+                  relationships:{app:{data:{type:'apps',id:appId}}}
+                }}
+              });
+              submission=created.data;
+              console.log('Created review submission:',submission.id);
+            }else{
+              console.log('Using existing READY_FOR_REVIEW submission:',submission.id);
+            }
+
+            await addReviewItem(submission.id,'appStoreVersion','appStoreVersions',version.id);
+            for(const sub of subscriptionVersions){
+              await addReviewItem(submission.id,'subscriptionVersion','subscriptionVersions',sub.id);
+            }
+
+            const beforeSubmit=await api('/v1/reviewSubmissions/'+submission.id+
+              '?fields[reviewSubmissions]=platform,state,submittedDate&include=items&limit[items]=50');
+            console.log('Submission before submit:',beforeSubmit.data.attributes?.state,'items:',beforeSubmit.included?.length||0);
+
+            await api('/v1/reviewSubmissions/'+submission.id,{
+              method:'PATCH',
+              body:{data:{
+                type:'reviewSubmissions',
+                id:submission.id,
+                attributes:{submitted:true}
+              }}
+            });
+
+            const after=await api('/v1/reviewSubmissions/'+submission.id+
+              '?fields[reviewSubmissions]=platform,state,submittedDate');
+            console.log('FINAL_REVIEW_SUBMISSION',JSON.stringify({
+              id:submission.id,
+              state:after.data.attributes?.state,
+              submittedDate:after.data.attributes?.submittedDate||null,
+              buildNumber:latest.attributes?.version,
+              screenshotCount:completeShots.length,
+              subscriptions:subscriptionVersions.map(x=>x.productId)
+            }));
+          })().catch(e=>{console.error(e.stack||e);process.exit(1);});
+          NODE

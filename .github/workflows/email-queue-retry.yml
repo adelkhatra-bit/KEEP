@@ -1,32 +1,38 @@
-name: Email Queue Retry
+name: Email Queue Worker Health
 
 on:
   schedule:
-    # Rejouer les emails toutes les heures
-    - cron: "0 * * * *"
-  workflow_dispatch: # Permettre un déclenchement manuel
+    # Le traitement réel est assuré toutes les 5 min par pg_cron dans Supabase.
+    # GitHub ne duplique plus le secret worker ni le traitement : un contrôle
+    # quotidien suffit pour détecter une fonction absente ou rendue publique.
+    - cron: "17 6 * * *"
+  workflow_dispatch:
 
 jobs:
-  retry-email-queue:
+  verify-email-worker:
     runs-on: ubuntu-latest
     steps:
-      - name: Retry email queue
+      - name: Verify deployed worker is reachable and protected
+        shell: bash
         run: |
-          # Appeler la fonction keep-email-retry-queue
-          RESPONSE=$(curl -s -X POST \
-            "https://rrhqsqzcplvmwxizqnla.supabase.co/functions/v1/keep-email-retry-queue" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
-            -H "Content-Type: application/json")
+          set -euo pipefail
+          BODY_FILE="$(mktemp)"
+          HTTP_CODE="$(curl --silent --show-error             --output "$BODY_FILE"             --write-out "%{http_code}"             --request POST             "https://rrhqsqzcplvmwxizqnla.supabase.co/functions/v1/keep-email-retry-queue"             --header "Content-Type: application/json"             --data '{}')"
 
-          echo "Email queue retry response: $RESPONSE"
+          echo "HTTP $HTTP_CODE"
+          cat "$BODY_FILE"
 
-          # Extraire processed et failed
-          PROCESSED=$(echo "$RESPONSE" | jq -r '.processed // 0')
-          FAILED=$(echo "$RESPONSE" | jq -r '.failed // 0')
-
-          echo "Processed: $PROCESSED, Failed: $FAILED"
-
-          # Optionnel: notifier Adel si beaucoup d'échecs
-          if [ "$FAILED" -gt 5 ]; then
-            echo "⚠️ Warning: $FAILED emails failed to send. Check email_queue table."
+          # Sans x-keep-worker-key, une fonction correctement déployée doit
+          # exister ET refuser l'appel. 404 = worker absent ; 200 = worker
+          # exposé sans authentification ; tout autre code est également anormal.
+          if [ "$HTTP_CODE" != "401" ]; then
+            echo "::error::Email retry worker health check failed (expected 401, got $HTTP_CODE)."
+            exit 1
           fi
+
+          if ! grep -q '"UNAUTHORIZED"' "$BODY_FILE"; then
+            echo "::error::Email retry worker did not return the expected protected-worker response."
+            exit 1
+          fi
+
+          echo "PASS: email retry worker is deployed and protected. Queue processing is owned by Supabase pg_cron."

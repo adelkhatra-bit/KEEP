@@ -39,6 +39,7 @@ interface SessionHistoryStore {
   // dans une session reconstruite, SANS toucher au Keep lui-même (toujours
   // intact côté serveur, toujours visible sur le profil/Mes Morceaux).
   dismissedKeepDecisionIds: string[];
+  dismissedSessionIds: string[];
   addSession: (session: KeepSession) => void;
   upsertSession: (session: KeepSession) => void;
   deleteSession: (sessionId: string) => void;
@@ -307,11 +308,21 @@ export function mergePersistedKeeps(sessions: KeepSession[], remoteKeeps: Persis
   });
 }
 
+// Mode démo = vitrine vierge : il ne lit jamais l'historique réel de l'appareil
+// et n'y écrit jamais (rien n'est détruit, le stockage réel reste intact).
+let demoIsolation = false;
+const isolatedStorage = createJSONStorage(() => ({
+  getItem: (name: string) => (demoIsolation ? Promise.resolve(null) : AsyncStorage.getItem(name)),
+  setItem: (name: string, value: string) => (demoIsolation ? Promise.resolve() : AsyncStorage.setItem(name, value)),
+  removeItem: (name: string) => (demoIsolation ? Promise.resolve() : AsyncStorage.removeItem(name)),
+}));
+
 export const useSessionHistoryStore = create<SessionHistoryStore>()(
   persist(
     (set, get) => ({
       sessions: [],
       dismissedKeepDecisionIds: [],
+      dismissedSessionIds: [],
 
       addSession: (session) => set((s) => ({ sessions: [session, ...s.sessions] })),
       upsertSession: (session) => set((s) => {
@@ -324,6 +335,7 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
         return {
           sessions: s.sessions.filter((session) => session.id !== sessionId),
           dismissedKeepDecisionIds: decisionIds.length ? Array.from(new Set([...s.dismissedKeepDecisionIds, ...decisionIds])) : s.dismissedKeepDecisionIds,
+          dismissedSessionIds: Array.from(new Set([...s.dismissedSessionIds, sessionId])),
         };
       }),
       clearSessions: () => set({ sessions: [] }),
@@ -426,7 +438,7 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
           // `dismissedKeepDecisionIds` empêche uniquement la RECONSTRUCTION
           // d'une session que l'utilisateur a explicitement effacée -- les
           // Keep eux-mêmes restent inchangés côté serveur.
-          set((state) => ({ sessions: mergePersistedKeeps(state.sessions, remoteKeeps, state.dismissedKeepDecisionIds) }));
+          set((state) => ({ sessions: mergePersistedKeeps(state.sessions, remoteKeeps, state.dismissedKeepDecisionIds).filter((session) => !state.dismissedSessionIds.includes(session.id)) }));
         } catch {
           // Offline / serveur indisponible : conserver exactement les données locales.
         }
@@ -494,6 +506,17 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
 
       getSession: (sessionId) => get().sessions.find((s) => s.id === sessionId),
     }),
-    { name: 'keep-session-history', storage: createJSONStorage(() => AsyncStorage) }
+    { name: 'keep-session-history', storage: isolatedStorage }
   )
 );
+
+/** Active/désactive l'isolation démo. À la sortie, l'historique réel est relu depuis le stockage. */
+export function setSessionHistoryDemoIsolation(active: boolean): void {
+  if (demoIsolation === active) return;
+  demoIsolation = active;
+  if (active) {
+    useSessionHistoryStore.setState({ sessions: [], dismissedKeepDecisionIds: [], dismissedSessionIds: [] });
+  } else {
+    void useSessionHistoryStore.persist.rehydrate();
+  }
+}

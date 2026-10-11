@@ -13,6 +13,7 @@ import TrackRow from '../components/TrackRow';
 import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
+import { getDownloadCreditStatus } from '../services/creditService';
 
 export default function SessionRecapScreen({ route, navigation }: any) {
   const { t } = useTranslation();
@@ -37,12 +38,17 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   const [swipeOpen, setSwipeOpen] = useState(false);
   const [swipeTracks, setSwipeTracks] = useState<CanonicalTrack[]>([]);
   const [firstShareOffered, setFirstShareOffered] = useState(false);
+  const [keepCostPerKeep, setKeepCostPerKeep] = useState(3);
 
   useEffect(() => {
-    void refreshCreditLocks().catch(() => {});
-    const unsubscribe = navigation?.addListener?.('focus', () => {
+    const refreshCredits = () => {
       void refreshCreditLocks().catch(() => {});
-    });
+      void getDownloadCreditStatus().then((status) => {
+        setKeepCostPerKeep(Math.max(0, Number(status.costPerKeep || 3)));
+      }).catch(() => setKeepCostPerKeep(3));
+    };
+    refreshCredits();
+    const unsubscribe = navigation?.addListener?.('focus', refreshCredits);
     return () => unsubscribe?.();
   }, [navigation, refreshCreditLocks]);
 
@@ -68,7 +74,9 @@ export default function SessionRecapScreen({ route, navigation }: any) {
 
   const pendingSwipeTracks = useMemo<CanonicalTrack[]>(() => {
     if (!session) return [];
-    return session.tracks.filter((entry) => entry.status === 'pending').map((entry) => entry.track);
+    return session.tracks.filter((entry) => entry.status === 'pending').slice()
+      .sort((a, b) => new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime())
+      .map((entry) => entry.track);
   }, [session]);
 
   // Adel (02/09/2026) : "dans la session, quand j'efface des choses, pourquoi
@@ -79,12 +87,11 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   // (compteurs, historique), seul l'affichage l'exclut.
   const sortedTracks = useMemo(() => {
     if (!session) return [];
-    const rank = (status: string) => status === 'pending' ? 0 : 1;
-    return session.tracks.filter((entry) => entry.status !== 'passed').sort((a, b) => {
-      const statusDiff = rank(a.status) - rank(b.status);
-      if (statusDiff) return statusDiff;
-      return new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime();
-    });
+    // Règle d'Adel (05/10/2026), valable dans tout le système : la musique la
+    // plus récente est TOUJOURS en haut, quel que soit son statut.
+    return session.tracks.filter((entry) => entry.status !== 'passed').sort((a, b) => (
+      new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime()
+    ));
   }, [session]);
 
   // Adel (20/09/2026) : "swiper ne doit plus supprimer tout de suite -- ça
@@ -221,6 +228,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     if (!entry) return true;
     await refreshCreditLocks().catch(() => {});
     await keepTrackInSession(sessionId, entry.id, undefined, visibility);
+    await refreshCreditLocks().catch(() => {});
     const refreshed = useSessionHistoryStore.getState().sessions.find((item) => item.id === sessionId)?.tracks.find((item) => item.id === entry.id);
     if (refreshed?.creditLocked) {
       setSwipeOpen(false);
@@ -231,6 +239,9 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     return true;
   };
 
+  // Adel (06/10/2026) : « quand je mets PASSER, pourquoi ils ne s'effacent pas ? » — il révise sa règle du 02/10 (cas @samedi).
+  // PASSER retire donc la musique de la liste « à swiper » ; elle n'est JAMAIS détruite : elle va dans « RETIRÉS · récupérables » (bas de la session)
+  // et se remet en attente d'un appui. Rien n'est supprimé de l'historique.
   const handleSwipePass = async (track: CanonicalTrack) => {
     const entry = findPendingEntry(track);
     if (entry) passTrackInSession(sessionId, entry.id);
@@ -245,11 +256,11 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))} hitSlop={8}>
+        <TouchableOpacity style={styles.backButton} onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))} hitSlop={8} accessibilityRole="button" accessibilityLabel="Retour">
           <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>{t('session.recapTitle')}</Text>
-        <TouchableOpacity onPress={handleShare} hitSlop={8} style={styles.shareBtn}>
+        <View style={styles.headerCopy}><Text style={styles.headerEyebrow}>SESSION</Text><Text style={styles.title}>{t('session.recapTitle')}</Text></View>
+        <TouchableOpacity onPress={handleShare} hitSlop={8} style={styles.shareBtn} accessibilityRole="button" accessibilityLabel="Partager la session">
           <Text style={styles.shareBtnText}>🔗</Text>
         </TouchableOpacity>
       </View>
@@ -310,9 +321,9 @@ export default function SessionRecapScreen({ route, navigation }: any) {
               style={styles.passedHeader}
               onPress={() => setShowPassed((v) => !v)}
               accessibilityRole="button"
-              accessibilityLabel={`${showPassed ? 'Masquer' : 'Afficher'} les ${passedTracks.length} morceaux passés`}
+              accessibilityLabel={`${showPassed ? 'Masquer' : 'Afficher'} les ${passedTracks.length} morceaux retirés`}
             >
-              <Text style={styles.passedHeaderText}>{showPassed ? '▾' : '▸'} PASSÉS · {passedTracks.length}</Text>
+              <Text style={styles.passedHeaderText}>{showPassed ? '▾' : '▸'} RETIRÉS · {passedTracks.length} · récupérables</Text>
             </TouchableOpacity>
             {showPassed ? passedTracks.map((entry) => (
               <TrackRow
@@ -359,10 +370,12 @@ export default function SessionRecapScreen({ route, navigation }: any) {
         visible={swipeOpen}
         tracks={swipeTracks}
         title="Swiper cette session"
-        subtitle={`${swipeTracks.length} musique${swipeTracks.length > 1 ? 's' : ''} à valider · PASSER ou GARDER enchaîne automatiquement la suivante.`}
+        subtitle={`${swipeTracks.length} musique${swipeTracks.length > 1 ? 's' : ''} · PASSER = la retire de la liste (récupérable dans RETIRÉS) · GARDER l’ajoute à ta collection.`}
         emptyTitle="Swipe terminé. Toutes les musiques ont été validées."
         loop={false}
         askVisibilityOnKeep
+        keepCostNotice={`GARDER ce morceau débitera ${keepCostPerKeep} FREE après ton choix Public ou Privé. PASSER reste gratuit.`}
+        keepDebitAmount={keepCostPerKeep}
         onClose={closeSwipe}
         onKeep={handleSwipeKeep}
         onPass={handleSwipePass}
@@ -377,15 +390,18 @@ const styles = StyleSheet.create({
   emptyText: { color: colors.textSecondary, fontSize: 15, marginBottom: spacing.lg },
   backLink: { paddingVertical: spacing.sm },
   backLinkText: { color: colors.primaryLight, fontWeight: '700' },
-  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.sm },
-  backArrow: { color: colors.textPrimary, fontSize: 22 },
-  title: { ...typography.h2, color: colors.textPrimary, flex: 1 },
-  shareBtn: { padding: spacing.xs },
-  shareBtnText: { fontSize: 20 },
+  header: { minHeight:68, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderBottomWidth:1, borderBottomColor:colors.border },
+  backButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},
+  backArrow: { color: colors.textPrimary, fontSize: 24, lineHeight:26, fontWeight:'800' },
+  headerCopy:{flex:1,minWidth:0},
+  headerEyebrow:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1},
+  title: { ...typography.h2, color: colors.textPrimary, marginTop:1 },
+  shareBtn: { width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border },
+  shareBtnText: { fontSize: 18 },
   nameLabel: { marginHorizontal: spacing.xl, marginTop: spacing.xs, color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: .8 },
   titleEditRow: { marginHorizontal: spacing.xl, marginTop: spacing.xs, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  titleInput: { flex: 1, minHeight: 44, color: colors.textPrimary, fontSize: 15, fontWeight: '600', borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: spacing.sm },
-  validateTitleButton: { minHeight: 38, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  titleInput: { flex: 1, minHeight: 48, color: colors.textPrimary, fontSize: 15, fontWeight: '700', borderWidth: 1, borderColor: colors.border, backgroundColor:colors.backgroundElevated, borderRadius:14, paddingHorizontal:12, paddingVertical: spacing.sm },
+  validateTitleButton: { minHeight: 48, paddingHorizontal: 14, borderRadius: 24, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   validateTitleText: { color: colors.white, fontSize: 11, fontWeight: '900', letterSpacing: .4 },
   titleHint: { marginHorizontal: spacing.xl, marginTop: 4, color: colors.textMuted, fontSize: 9 },
   titleSaved: { marginHorizontal: spacing.xl, marginTop: 4, color: colors.keep, fontSize: 9, fontWeight: '800' },
@@ -394,24 +410,24 @@ const styles = StyleSheet.create({
   statsText: { color: colors.textSecondary, fontSize: 14, fontWeight: '600' },
   statsKept: { color: colors.keep },
   statsDot: { color: colors.textMuted },
-  pendingPill: { minHeight: 30, paddingHorizontal: 10, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.keep, borderWidth: 1, borderColor: colors.keep },
+  pendingPill: { minHeight: 44, paddingHorizontal: 12, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.keep, borderWidth: 1, borderColor: colors.keep },
   pendingPillText: { color: colors.black, fontSize: 9, fontWeight: '900', letterSpacing: .35 },
-  lockedBanner: { marginHorizontal: spacing.xl, marginTop: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: '#1A1225', borderWidth: 1, borderColor: colors.primaryLight },
+  lockedBanner: { marginHorizontal: spacing.xl, marginTop: spacing.md, minHeight:64, padding: spacing.md, borderRadius: 18, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.primaryLight, justifyContent:'center' },
   lockedBannerTitle: { color: colors.primaryLight, fontSize: 12, fontWeight: '900' },
   lockedBannerText: { color: colors.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 4 },
   visibilityHint: { color: colors.textMuted, fontSize: 11, lineHeight: 16, textAlign: 'center', marginTop: spacing.md, paddingHorizontal: spacing.xl },
   list: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.sm },
   passedSection: { marginTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.sm },
-  passedHeader: { paddingVertical: 8 },
+  passedHeader: { minHeight:44, justifyContent:'center', paddingVertical: 8 },
   passedHeaderText: { color: colors.textMuted, fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
   sessionActionsRow: { flexDirection: 'row', alignItems: 'stretch', gap: 7, marginHorizontal: spacing.xl, marginBottom: spacing.md },
-  compactAction: { flex: 1, minHeight: 40, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 7 },
+  compactAction: { flex: 1, minHeight: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
   swipeAction: { backgroundColor: colors.keep, borderWidth: 1, borderColor: colors.keep },
   swipeActionText: { color: colors.black, fontSize: 11, fontWeight: '900' },
   keepAllButton: { backgroundColor: colors.keep, borderWidth: 1, borderColor: colors.keep },
-  keepAllButtonLocked: { backgroundColor: '#27222E', borderColor: '#5C5468' },
+  keepAllButtonLocked: { backgroundColor: colors.backgroundElevated, borderColor: colors.border },
   keepAllButtonText: { color: colors.black, fontWeight: '900', fontSize: 11, textAlign: 'center' },
-  keepAllButtonTextLocked: { color: '#FFFFFF' },
+  keepAllButtonTextLocked: { color: colors.textPrimary },
   deleteSessionButton: { borderWidth: 1, borderColor: colors.danger, backgroundColor: colors.backgroundCard },
   deleteSessionText: { color: colors.danger, fontSize: 11, fontWeight: '900' },
   demoBadge: { marginHorizontal: spacing.xl, marginBottom: spacing.md, backgroundColor: colors.demoBadgeBg, borderWidth: 1, borderColor: colors.demoBadgeBorder, borderRadius: radius.md, paddingVertical: spacing.sm, alignItems: 'center' },

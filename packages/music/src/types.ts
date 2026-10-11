@@ -40,6 +40,10 @@ export interface RecognitionResult {
   title: string;
   artist: string;
   album?: string;
+  /** Durée catalogue, en secondes, quand le fournisseur/catalogue la connaît. */
+  durationSec?: number;
+  /** Position estimée dans le morceau au moment du match, en secondes. */
+  recognizedOffsetSec?: number;
   isrc?: string;
   artworkUrl?: string;
   previewUrl?: string;

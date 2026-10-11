@@ -17,9 +17,18 @@ jobs:
       - name: Checkout with history
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
+
+      - name: Self-test data guard
+        run: node scripts/verify-data-preservation.cjs --self-test
 
       - name: Protect existing user data
         env:
           GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: node scripts/verify-data-preservation.cjs
+
+      - name: Verify Public API developer tool
+        run: |
+          node --check scripts/public-api-search.mjs
+          node scripts/public-api-search.mjs --help

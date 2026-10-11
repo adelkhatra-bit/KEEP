@@ -15,15 +15,19 @@ import Animated, {
 import { colors } from '../theme/colors';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-const SIZE = 176;
-const CENTER = SIZE / 2;
+const DEFAULT_SIZE = 176;
 /**
  * Animation centrale de "session en cours" — remplace l'ancienne grosse
  * pochette statique. Ondes concentriques + petit spectre au centre,
  * pour montrer que Loki analyse réellement l'environnement plutôt que de
  * jouer un morceau (cf. corrections concept du 21/08/2026).
+ * `size` permet de dimensionner la waveform (spec refonte accueil 22/09/2026 :
+ * ~120px sur l'écran d'accueil) ; défaut 176 = comportement historique.
  */
-export default function SessionPulse({ active = true }: { active?: boolean }) {
+export default function SessionPulse({ active = true, size = DEFAULT_SIZE }: { active?: boolean; size?: number }) {
+  const CENTER = size / 2;
+  const scale = size / DEFAULT_SIZE;
+  const base = 30 * scale;
   const ring1 = useSharedValue(0);
   const ring2 = useSharedValue(0);
   const ring3 = useSharedValue(0);
@@ -59,22 +63,22 @@ export default function SessionPulse({ active = true }: { active?: boolean }) {
   }, [active]);
 
   const ring1Props = useAnimatedProps(() => ({
-    r: 30 + ring1.value * (CENTER - 8),
+    r: base + ring1.value * ((CENTER - 8) * scale),
     opacity: 1 - ring1.value,
   }));
   const ring2Props = useAnimatedProps(() => ({
-    r: 30 + ring2.value * (CENTER - 8),
+    r: base + ring2.value * ((CENTER - 8) * scale),
     opacity: 1 - ring2.value,
   }));
   const ring3Props = useAnimatedProps(() => ({
-    r: 30 + ring3.value * (CENTER - 8),
+    r: base + ring3.value * ((CENTER - 8) * scale),
     opacity: 1 - ring3.value,
   }));
 
   return (
-    <View style={styles.container}>
-      <Svg width={SIZE} height={SIZE} style={StyleSheet.absoluteFill}>
-        <Circle cx={CENTER} cy={CENTER} r={30} fill={colors.backgroundCard} stroke={colors.primary} strokeWidth={1.5} opacity={0.6} />
+    <View style={[styles.container, { width: size, height: size }]}>
+      <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
+        <Circle cx={CENTER} cy={CENTER} r={base} fill={colors.backgroundCard} stroke={colors.primary} strokeWidth={1.5} opacity={0.6} />
         <AnimatedCircle cx={CENTER} cy={CENTER} fill="none" stroke={colors.primaryLight} strokeWidth={2} animatedProps={ring3Props} />
         <AnimatedCircle cx={CENTER} cy={CENTER} fill="none" stroke={colors.primaryLight} strokeWidth={2} animatedProps={ring2Props} />
         <AnimatedCircle cx={CENTER} cy={CENTER} fill="none" stroke={colors.primary} strokeWidth={2} animatedProps={ring1Props} />
@@ -98,8 +102,6 @@ function Bar({ progress }: { progress: SharedValue<number> }) {
 
 const styles = StyleSheet.create({
   container: {
-    width: SIZE,
-    height: SIZE,
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',

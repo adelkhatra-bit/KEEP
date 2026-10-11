@@ -6,7 +6,7 @@ const POSITIVE_CACHE_MS = 6 * 60 * 60 * 1000;
 const NEGATIVE_CACHE_MS = 60 * 1000;
 const STOREFRONTS = ['FR', 'US', 'GB', 'CA'];
 
-function normalize(value: string | undefined | null): string {
+export function normalizeTrackText(value: string | undefined | null): string {
   return String(value ?? '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -15,11 +15,11 @@ function normalize(value: string | undefined | null): string {
     .trim();
 }
 
-function scoreResult(track: CanonicalTrack, result: any): number {
-  const wantedTitle = normalize(track.title);
-  const wantedArtist = normalize(track.artist);
-  const resultTitle = normalize(result?.trackName);
-  const resultArtist = normalize(result?.artistName);
+export function scoreTrackSearchResult(track: CanonicalTrack, result: any): number {
+  const wantedTitle = normalizeTrackText(track.title);
+  const wantedArtist = normalizeTrackText(track.artist);
+  const resultTitle = normalizeTrackText(result?.trackName);
+  const resultArtist = normalizeTrackText(result?.artistName);
 
   let score = 0;
   if (wantedTitle && resultTitle === wantedTitle) score += 8;
@@ -41,7 +41,7 @@ async function searchStorefront(track: CanonicalTrack, country: string): Promise
   const results = Array.isArray(payload?.results) ? payload.results : [];
   const best = results
     .filter((item: any) => typeof item?.previewUrl === 'string' && item.previewUrl.length > 0)
-    .map((item: any) => ({ item, score: scoreResult(track, item) }))
+    .map((item: any) => ({ item, score: scoreTrackSearchResult(track, item) }))
     .sort((a: any, b: any) => b.score - a.score)[0];
 
   return best?.score >= 7 ? String(best.item.previewUrl) : null;
@@ -60,7 +60,7 @@ export async function resolveTrackPreviewUrl(
   const existing = track.previewUrl?.trim();
   if (existing && !options.forceRefresh) return existing;
 
-  const cacheKey = `${normalize(track.artist)}::${normalize(track.title)}`;
+  const cacheKey = `${normalizeTrackText(track.artist)}::${normalizeTrackText(track.title)}`;
   const cached = previewCache.get(cacheKey);
   if (!options.forceRefresh && cached && cached.expiresAt > Date.now()) return cached.url;
   if (options.forceRefresh) previewCache.delete(cacheKey);
@@ -84,5 +84,48 @@ export async function resolveTrackPreviewUrl(
 }
 
 export function invalidateTrackPreviewCache(track: Pick<CanonicalTrack, 'title' | 'artist'>): void {
-  previewCache.delete(`${normalize(track.artist)}::${normalize(track.title)}`);
+  previewCache.delete(`${normalizeTrackText(track.artist)}::${normalizeTrackText(track.title)}`);
+}
+
+const artworkCache = new Map<string, { url: string | null; expiresAt: number }>();
+
+function upscaleItunesArtwork(url: string): string {
+  return url.replace(/\/\d+x\d+(bb|cc|sr)?\.(jpg|png)/i, '/600x600bb.$2');
+}
+
+async function searchArtwork(track: CanonicalTrack, country: string): Promise<string | null> {
+  const term = encodeURIComponent(`${track.artist} ${track.title}`.trim());
+  const response = await fetch(`https://itunes.apple.com/search?term=${term}&entity=song&limit=12&country=${country}`);
+  if (!response.ok) return null;
+  const payload = await response.json();
+  const results = Array.isArray(payload?.results) ? payload.results : [];
+  const best = results
+    .filter((item: any) => typeof item?.artworkUrl100 === 'string' && item.artworkUrl100.length > 0)
+    .map((item: any) => ({ item, score: scoreTrackSearchResult(track, item) }))
+    .sort((a: any, b: any) => b.score - a.score)[0];
+  // Même seuil que l'extrait : titre ET artiste doivent correspondre, jamais une pochette au hasard.
+  return best?.score >= 7 ? upscaleItunesArtwork(String(best.item.artworkUrl100)) : null;
+}
+
+/**
+ * Adel (10/10/2026) : « on ne voit même pas la jaquette quand le morceau est trouvé ». Quand la reconnaissance ne fournit
+ * aucune image, on la cherche par titre + artiste (recherche iTunes publique). Un échec n'est jamais mis en cache longtemps.
+ */
+export async function resolveTrackArtworkUrl(track: Pick<CanonicalTrack, 'title' | 'artist' | 'artworkUrl'>): Promise<string | null> {
+  const existing = track.artworkUrl?.trim();
+  if (existing) return existing;
+  const key = `${normalizeTrackText(track.artist)}::${normalizeTrackText(track.title)}`;
+  const cached = artworkCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.url;
+  let artwork: string | null = null;
+  for (const country of STOREFRONTS) {
+    try {
+      artwork = await searchArtwork(track as CanonicalTrack, country);
+      if (artwork) break;
+    } catch {
+      // storefront suivant
+    }
+  }
+  artworkCache.set(key, { url: artwork, expiresAt: Date.now() + (artwork ? POSITIVE_CACHE_MS : NEGATIVE_CACHE_MS) });
+  return artwork;
 }

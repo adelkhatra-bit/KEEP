@@ -1,0 +1,62 @@
+import fs from 'fs';
+import path from 'path';
+
+// Audit ventes : le profil visiteur reste compact à grande échelle : 3 Drops
+// d'abord, puis VOIR PLUS. FREE et PayPal gardent la même structure visuelle
+// mais une tonalité distincte et un prix lisible.
+const read = (f: string) => fs.readFileSync(path.resolve(__dirname, '..', f), 'utf8');
+
+describe('ventes : collections compactes, prix juste', () => {
+  it('reste compact à grande échelle : Drop 3 max, étagère 10, boutique complète', () => {
+    // 02/10/2026 : boutique vendeur validée par Adel (SellerBoutique : Drop du moment 3 max + étagère + boutique).
+    const v = read('PublicUserProfileScreen.tsx');
+    const b = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'SellerBoutique.tsx'), 'utf8');
+    expect(v).toContain('<SellerBoutique');
+    expect(v).not.toContain('{saleOffers.slice(0, 3).map(');
+    expect(b).toContain('export const DROP_FEATURED_MAX = 3;');
+    expect(b).toContain('export const SHELF_MAX = 10;');
+    expect(b).toContain('.slice(0, SHELF_MAX)');
+    expect(b).toContain('Tout voir · {visibleOffers.length} ›');
+  });
+
+  it('la gestion Pépites sépare publiées et retirées (plus de faux « PUBLIÉE »)', () => {
+    const panel = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'PlaylistSalePanel.tsx'), 'utf8');
+    expect(panel).toContain('splitSaleOffersByStatus(offers, focusOfferId)');
+    expect(panel).toContain('data={filteredPublished}');
+    expect(panel).toContain("offerFilter === 'FREE'");
+    expect(panel).toContain("['MONEY', '€ EUROS', moneyPublished.length]");
+    expect(panel).toContain('RETIRÉES ({retired.length})');
+    expect(panel).toContain('Non visibles sur ton profil ni par les visiteurs.');
+    expect(panel).toContain('route?.params?.manageSaleOfferId');
+  });
+
+  it('sépare les ventes privées du chat des Drops publics sur le profil propriétaire', () => {
+    const owner = read('ProfilePublicScreen.tsx');
+    expect(owner).toContain("!offer.playlistId.startsWith('keep-chat:')");
+    expect(owner).toContain("offer.playlistId.startsWith('keep-chat:')");
+    expect(owner).toContain('VENTES PRIVÉES DU CHAT');
+    expect(owner).toContain("setPlaylistSaleOffers(rows)");
+  });
+
+  it('le profil visité ne recommande jamais son propre vendeur une deuxième fois', () => {
+    const visitor = read('PublicUserProfileScreen.tsx');
+    expect(visitor).toContain("rows.filter((row) => row.sellerId !== profile?.id)");
+  });
+
+  it('le vendeur ouvre sa propre Pépite directement, sans popup achat', () => {
+    const owner = read('ProfilePublicScreen.tsx');
+    expect(owner).toContain('loadOwnPlaylistSaleOfferTracks(offer.offerId)');
+    expect(owner).toContain("subtitle: 'Ta collection publiée · lecture directe.'");
+    expect(owner).not.toContain('ownerBoutiquePreviewOffer');
+    expect(owner).toContain("navigation.navigate('PlaylistSale')");
+  });
+
+  it('le gestionnaire affiche FREE ou un prix PayPal lisible sans doublonner EUR', () => {
+    const panel = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'PlaylistSalePanel.tsx'), 'utf8');
+    expect(panel).toContain("item.paymentMode === 'FREE'");
+    expect(panel).toContain("`${item.freePrice ?? 0} FREE`");
+    expect(panel).toContain("item.currencyCode === 'EUR'");
+    expect(panel).toContain("`${(item.priceCents / 100).toFixed(2).replace('.', ',')} €`");
+    expect(panel).toContain("'PAYPAL'");
+  });
+});

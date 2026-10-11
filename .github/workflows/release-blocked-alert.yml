@@ -1,0 +1,51 @@
+name: KEEP — Alerte RELEASE BLOQUÉE
+
+# Workflow réutilisable (workflow_call) appelé par les workflows de release
+# (OTA, iOS TestFlight, Web public, Mobile CI) quand leur job échoue.
+# Il ouvre UNE issue « RELEASE BLOQUÉE » (label release-blocked) avec le lien
+# des logs, ou commente l'issue déjà ouverte : jamais de doublon.
+# Raison (11/10/2026) : un test cassé a bloqué l'OTA #1016 sans alerte ; les
+# PR 87 à 100 ne sont jamais arrivées sur iPhone.
+on:
+  workflow_call:
+    inputs:
+      workflow_label:
+        description: 'Nom lisible du workflow en échec'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  open-issue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ouvrir ou mettre à jour l'issue RELEASE BLOQUÉE
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LABEL_NAME: ${{ inputs.workflow_label }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh label create release-blocked --repo "$REPO" --color B60205 \
+            --description "Une release (OTA, iOS, Web) est en échec" 2>/dev/null || true
+          title="RELEASE BLOQUÉE — ${LABEL_NAME}"
+          body="Le workflow **${LABEL_NAME}** a échoué.
+
+          - Commit : \`${SHA}\`
+          - Logs : ${RUN_URL}
+
+          Tant que cette issue est ouverte, **rien de nouveau n'arrive sur iPhone / le site** pour cette chaîne. Corriger la cause racine, republier (ligne de release dans \`packages/mobile/.eas-build-trigger\`), puis fermer l'issue."
+          existing="$(gh issue list --repo "$REPO" --label release-blocked --state open \
+            --search "\"$title\" in:title" --json number,title \
+            --jq "[.[] | select(.title == \"$title\")][0].number // empty")"
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$REPO" --body "Nouvel échec — commit \`${SHA}\` — logs : ${RUN_URL}"
+          else
+            gh issue create --repo "$REPO" --title "$title" --label release-blocked --body "$body"
+          fi

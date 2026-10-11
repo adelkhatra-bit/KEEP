@@ -76,15 +76,18 @@ jobs:
         run: |
           set -euo pipefail
           bad=0
-          while IFS= read -r use; do
+          while IFS= read -r row; do
+            file="${row%%:*}"
+            rest="${row#*:}"
+            use="${rest#*:}"
             action="${use%@*}"
             ref="${use##*@}"
             case "$action" in
               ./*) continue ;;
             esac
             if [[ ! "$ref" =~ ^[0-9a-f]{40}$ ]]; then
-              printf 'Unpinned external action: %s\n' "$use"
+              printf 'Unpinned external action in %s: %s\n' "$file" "$use"
               bad=1
             fi
-          done < <(sed -nE 's/^[[:space:]]*-?[[:space:]]*uses:[[:space:]]*([^[:space:]#]+).*/\1/p' .github/workflows/*.yml .github/workflows/*.yaml 2>/dev/null || true)
+          done < <(grep -HnE '^[[:space:]]*-?[[:space:]]*uses:[[:space:]]*[^[:space:]#]+' .github/workflows/*.yml .github/workflows/*.yaml 2>/dev/null | sed -E 's/^([^:]+):([0-9]+):[[:space:]]*-?[[:space:]]*uses:[[:space:]]*([^[:space:]#]+).*/\1:\2:\3/' || true)
           test "$bad" -eq 0

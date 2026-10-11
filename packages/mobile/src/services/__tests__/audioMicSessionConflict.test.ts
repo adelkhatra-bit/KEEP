@@ -35,8 +35,31 @@ describe('Conflit micro/audio -- audioPreviewService ne coupe plus une capture m
   });
 
   it('le mode interruption iOS est aligné avec micCapture.ts (MixWithOthers) pour ne jamais couper l\'autre flux audio', () => {
-    expect(preview).toContain("import { Audio, AVPlaybackStatus, InterruptionModeIOS } from 'expo-av';");
-    expect(preview).toContain('interruptionModeIOS: InterruptionModeIOS.MixWithOthers,');
+    expect(preview).toContain("type ExpoAVModule = typeof import('expo-av');");
+    expect(preview).toContain("const { Audio, InterruptionModeIOS } = getNativeExpoAV();");
+    expect(preview).toContain('interruptionModeIOS: recordingActive ? InterruptionModeIOS.MixWithOthers : InterruptionModeIOS.DoNotMix,');
     expect(mic).toContain('interruptionModeIOS: InterruptionModeIOS.MixWithOthers,');
   });
+  it('Battle Solo attend la libération réelle du micro avant toute preview TestFlight', () => {
+    const battle = readNormalized(__dirname, '..', '..', 'components', 'KeepBattleMobileGameV3.tsx');
+    expect(battle).toContain("import { cancelAudioCapture } from '../services/micCapture';");
+    const start = battle.indexOf('const start = async () => {');
+    const cancel = battle.indexOf('await cancelAudioCapture().catch(() => {});', start);
+    const play = battle.indexOf('const ok = await playVerified(', start);
+    expect(cancel).toBeGreaterThan(start);
+    expect(play).toBeGreaterThan(cancel);
+  });
+
+  it('TestFlight Profil (Adel, 05/10/2026) : ARRÊTER publie « plus d’enregistrement » avant tout await', () => {
+    // pauseListening() n'attend pas cancelAudioCapture() puis lance l'extrait :
+    // le drapeau doit donc être faux dès l'appel, sinon l'extrait configure iOS
+    // en allowsRecordingIOS:true (son dans l'écouteur, "Play ne démarre pas").
+    const start = mic.indexOf('export async function cancelAudioCapture(): Promise<void> {');
+    const flag = mic.indexOf("if (Platform.OS !== 'web') nativeRecordingModeDesired = false;", start);
+    const firstAwait = mic.indexOf('await ', start);
+    expect(start).toBeGreaterThan(-1);
+    expect(flag).toBeGreaterThan(start);
+    expect(flag).toBeLessThan(firstAwait);
+  });
+
 });

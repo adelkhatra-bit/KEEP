@@ -61,7 +61,7 @@ begin
      where p.id = actor_id;
 
     if tg_op = 'INSERT' then
-      notification_body := coalesce('@' || actor_username, 'Un utilisateur') || ' vient de s'abonner à ton profil KEEP.';
+      notification_body := coalesce('@' || actor_username, 'Un utilisateur') || ' vient de s''abonner à ton profil KEEP.';
     else
       notification_body := coalesce('@' || actor_username, 'Un utilisateur') || ' ne suit plus ton profil KEEP.';
     end if;

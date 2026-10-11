@@ -10,7 +10,7 @@ const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-keep-device-id, x-keep-platform",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-keep-device-id, x-keep-platform, x-keep-timezone, x-keep-use-free",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
@@ -76,18 +76,61 @@ async function sha256(value: string): Promise<string> {
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function allowRecognition(req: Request, userId: string | null) {
+async function paidRecognitionIdentity(req: Request, userId: string | null) {
   const device = (req.headers.get("x-keep-device-id") ?? "guest").slice(0, 160);
   const ip = (req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for") || "unknown")
     .split(",")[0].trim().slice(0, 80);
-  const identityHash = await sha256(`recognition-v2|${userId ?? "guest"}|${device}|${ip}`);
+  return sha256(`paid-recognition|${userId ?? "guest"}|${device}|${ip}`);
+}
+
+async function allowRecognition(identityHash: string) {
   const { data, error } = await admin.rpc("service_allow_recognition", {
     p_identity_hash: identityHash,
-    p_limit: 12,
-    p_window_seconds: 60,
+    p_limit: 1,
+    p_window_seconds: 20,
   });
   if (error) throw error;
   return Boolean(data);
+}
+
+function requestTimezone(req: Request) {
+  const value = (req.headers.get("x-keep-timezone") ?? "Europe/Paris").trim();
+  return value.slice(0, 80) || "Europe/Paris";
+}
+
+function allowFreeDebit(req: Request) { return req.headers.get("x-keep-use-free") === "1"; }
+
+function economyBlocked(reason: string | null | undefined) {
+  if (reason === "LISTEN_FREE_REQUIRED") return json(402, { error: "listen_free_required" });
+  if (reason === "INSUFFICIENT_FREE") return json(402, { error: "listen_free_insufficient" });
+  if (reason === "GUEST_LISTEN_LIMIT_REACHED") return json(402, { error: "guest_listen_limit_reached" });
+  return json(503, { error: "listen_economy_unavailable" });
+}
+
+async function precheckListenEconomy(req: Request, userId: string | null, identityHash: string) {
+  if (userId) {
+    const { data, error } = await admin.rpc("service_listen_precheck", {
+      p_profile_id: userId,p_timezone: requestTimezone(req),p_allow_free: allowFreeDebit(req),
+    });
+    if (error) throw error;
+    return data as any;
+  }
+  const { data, error } = await admin.rpc("service_guest_listen_precheck", { p_identity_hash: identityHash });
+  if (error) throw error;
+  return data as any;
+}
+
+async function recordListenEconomy(req: Request, userId: string | null, identityHash: string, sourceKey: string) {
+  if (userId) {
+    const { data, error } = await admin.rpc("service_record_listen_success", {
+      p_profile_id: userId,p_source_key: sourceKey,p_timezone: requestTimezone(req),p_allow_free: allowFreeDebit(req),
+    });
+    if (error) throw error;
+    return data as any;
+  }
+  const { data, error } = await admin.rpc("service_record_guest_listen_success", { p_identity_hash: identityHash,p_source_key: sourceKey });
+  if (error) throw error;
+  return data as any;
 }
 
 function normalizeText(value: unknown) {
@@ -141,6 +184,14 @@ async function freeDeezer(title: string, artist: string) {
   }
 }
 
+function parseTimecodeSeconds(value: unknown): number | undefined {
+  const raw = String(value ?? "").trim();
+  if (!raw) return undefined;
+  const parts = raw.split(":").map((part) => Number(part));
+  if (!parts.length || parts.some((part) => !Number.isFinite(part) || part < 0)) return undefined;
+  return parts.reduce((total, part) => total * 60 + part, 0);
+}
+
 async function normalizeResult(result: any) {
   if (!result?.title || !result?.artist) return null;
   const apple = result.apple_music ?? null;
@@ -154,6 +205,14 @@ async function normalizeResult(result: any) {
   const deezerId = deezer?.id ?? undefined;
   const artwork = apple?.artwork?.url || spotify?.album?.images?.[0]?.url || catalog?.artworkUrl100
     || deezer?.album?.cover_xl || deezer?.album?.cover_big || undefined;
+  const durationSec = Number(catalog?.trackTimeMillis) > 0
+    ? Number(catalog.trackTimeMillis) / 1000
+    : Number(deezer?.duration) > 0
+      ? Number(deezer.duration)
+      : Number(spotify?.duration_ms) > 0
+        ? Number(spotify.duration_ms) / 1000
+        : undefined;
+  const recognizedOffsetSec = parseTimecodeSeconds(result.timecode);
   const providerIds: Record<string, string> = {};
   if (appleId) providerIds.appleMusic = String(appleId);
   if (spotifyId) providerIds.spotify = String(spotifyId);
@@ -170,9 +229,13 @@ async function normalizeResult(result: any) {
     title: String(result.title),
     artist: String(result.artist),
     album: result.album ? String(result.album) : catalog?.collectionName ? String(catalog.collectionName) : deezer?.album?.title ? String(deezer.album.title) : undefined,
+    durationSec,
+    recognizedOffsetSec,
     isrc: result.isrc ? String(result.isrc) : apple?.isrc ? String(apple.isrc) : spotify?.external_ids?.isrc ? String(spotify.external_ids.isrc) : undefined,
     artworkUrl: artwork ? upscaleArtwork(String(artwork)) : undefined,
     previewUrl: catalog?.previewUrl ? String(catalog.previewUrl) : deezer?.preview ? String(deezer.preview) : undefined,
+    genres: catalog?.primaryGenreName ? [String(catalog.primaryGenreName)] : [],
+    releaseYear: /^\d{4}/.test(String(catalog?.releaseDate ?? '')) ? Number(String(catalog.releaseDate).slice(0, 4)) : undefined,
     availableOn: [spotifyId ? "Spotify" : null, (appleId || catalog?.trackViewUrl) ? "Apple Music" : null, deezerId ? "Deezer" : null].filter(Boolean),
     externalUrls,
     providerIds,
@@ -190,9 +253,13 @@ function isQuotaFailure(message: string, status: number) {
 
 async function recognize(req: Request) {
   const userId = await optionalUserId(req);
-  if (!(await allowRecognition(req, userId))) {
+  const identityHash = await paidRecognitionIdentity(req, userId);
+  const economy = await precheckListenEconomy(req, userId, identityHash);
+  if (!economy?.allowed) return economyBlocked(economy?.reason);
+  if (!(await allowRecognition(identityHash))) {
     return json(429, { error: "recognition_rate_limited", message: "Loki Music écoute toujours. Nouvelle analyse dans quelques secondes." });
   }
+  const listenSourceKey = `audd:${crypto.randomUUID()}`;
 
   const credential = await resolveAuddCredential();
   if (!credential) {
@@ -252,8 +319,14 @@ async function recognize(req: Request) {
 
   await setRuntimeStatus("ACTIVE");
   const recognition = await normalizeResult(payload?.result);
-  if (recognition) seedInBackground(admin, recognition as any);
-  return json(200, { ok: true, provider: "AudD", credentialSource: credential.source, recognition });
+  if (recognition) {
+    const listenRecord = await recordListenEconomy(req, userId, identityHash, listenSourceKey);
+    if (listenRecord?.recorded === false) return economyBlocked(listenRecord?.reason);
+    (recognition as any).__listenEconomyRecorded = true;
+    seedInBackground(admin, recognition as any);
+    return json(200, { ok: true, provider: "AudD", credentialSource: credential.source, recognition, listenEconomy: listenRecord });
+  }
+  return json(200, { ok: true, provider: "AudD", credentialSource: credential.source, recognition: null });
 }
 
 Deno.serve(async (req) => {

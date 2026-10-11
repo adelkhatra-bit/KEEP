@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { FlatList, NativeSyntheticEvent, NativeScrollEvent, StyleSheet, Text, View } from 'react-native';
+import { colors } from '../theme/colors';
 
 // Adel (08/09/2026) : "arrete d'utiliser [des boutons d'heures] ... mets un
 // systeme de roulette pour la date et l'heure ... je veux pouvoir
@@ -57,6 +58,6 @@ const styles = StyleSheet.create({
   container: { overflow: 'hidden' },
   highlight: { position: 'absolute', top: ITEM_HEIGHT * Math.floor(VISIBLE_COUNT / 2), left: 0, right: 0, height: ITEM_HEIGHT, borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#8B5CF6', backgroundColor: 'rgba(139,92,246,.12)', zIndex: 1 },
   item: { height: ITEM_HEIGHT, alignItems: 'center', justifyContent: 'center' },
-  itemText: { color: '#6B6478', fontSize: 14, fontWeight: '700' },
+  itemText: { color: colors.textMutedGrey, fontSize: 14, fontWeight: '700' },
   itemTextOn: { color: '#FFFFFF', fontSize: 17, fontWeight: '900' },
 });

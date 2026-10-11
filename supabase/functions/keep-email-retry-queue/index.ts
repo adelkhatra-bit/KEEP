@@ -1,162 +1,155 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { sendTransactionalEmail } from "../_shared/lokiEmailSend.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false, autoRefreshToken: false } });
 
-async function integrationSecret(key: string): Promise<string> {
-  const { data, error } = await admin.rpc("service_get_integration_secret", { p_key: key });
-  if (!error && typeof data === "string" && data.trim()) return data.trim();
-  return String(Deno.env.get(key) ?? "").trim();
+async function sha256(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+  return [...digest].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-function wait(ms: number) { return new Promise((resolve) => setTimeout(resolve, ms)); }
-
-async function sendBrevo(to: string, subject: string, html: string, text: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const apiKey = await integrationSecret("BREVO_API_KEY");
-  const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
-  const senderName = (await integrationSecret("BREVO_SENDER_NAME")) || "Loki Music";
-  if (!apiKey || !senderEmail) return { ok: false, error: "email_delivery_unavailable" };
-
-  const payloadBody = JSON.stringify({
-    sender: { email: senderEmail, name: senderName },
-    to: [{ email: to }],
-    subject,
-    htmlContent: html,
-    textContent: text,
-    tags: ["keep", "auth", "queue-retry"],
-  });
-
-  let lastStatus = 0;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    if (attempt > 0) await wait(300 * attempt);
-    try {
-      const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "api-key": apiKey, Accept: "application/json" },
-        body: payloadBody,
-      });
-      if (response.ok) return { ok: true };
-      lastStatus = response.status;
-      if (response.status !== 429 && response.status < 500) break;
-    } catch (e) {
-      lastStatus = 0;
-      continue;
-    }
-  }
-  return { ok: false, error: `brevo_${lastStatus}` };
+async function authorized(req: Request) {
+  const supplied = req.headers.get("x-keep-worker-key") || "";
+  if (!supplied) return false;
+  const { data, error } = await admin
+    .from("keep_internal_worker_secrets")
+    .select("secret_hash")
+    .eq("name", "email-retry-worker")
+    .maybeSingle();
+  if (error || !data?.secret_hash) return false;
+  return (await sha256(supplied)) === String(data.secret_hash);
 }
 
-async function sendMailjet(to: string, subject: string, html: string, text: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const apiKey = await integrationSecret("MAILJET_API_KEY");
-  const secretKey = await integrationSecret("MAILJET_SECRET_KEY");
-  const senderEmail = await integrationSecret("BREVO_SENDER_EMAIL");
-  const senderName = (await integrationSecret("BREVO_SENDER_NAME")) || "Loki Music";
-  if (!apiKey || !secretKey || !senderEmail) return { ok: false, error: "email_delivery_unavailable" };
-
-  const payloadBody = JSON.stringify({
-    Messages: [{
-      From: { Email: senderEmail, Name: senderName },
-      To: [{ Email: to }],
-      Subject: subject,
-      HTMLPart: html,
-      TextPart: text,
-    }],
-  });
-
-  let lastStatus = 0;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    if (attempt > 0) await wait(300 * attempt);
-    try {
-      const response = await fetch("https://api.mailjet.com/v3.1/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Basic ${btoa(`${apiKey}:${secretKey}`)}` },
-        body: payloadBody,
-      });
-      if (response.ok) return { ok: true };
-      lastStatus = response.status;
-      if (response.status !== 429 && response.status < 500) break;
-    } catch (e) {
-      lastStatus = 0;
-      continue;
-    }
-  }
-  return { ok: false, error: `mailjet_${lastStatus}` };
-}
-
-async function sendTransactionalEmail(to: string, subject: string, html: string, text: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const mjKey = await integrationSecret("MAILJET_API_KEY");
-  const mjSecret = await integrationSecret("MAILJET_SECRET_KEY");
-  if (mjKey && mjSecret) return sendMailjet(to, subject, html, text);
-  return sendBrevo(to, subject, html, text);
-}
-
-// Adel (12/09/2026) : Rejouer les emails en queue (pending ou retry)
-// Appelable via:
-// 1. Webhook Supabase toutes les heures
-// 2. Cron job externe (GitHub Actions, etc)
-// 3. Manuellement via super admin
 async function processEmailQueue() {
-  console.log("[keep-email-retry-queue] Starting email queue retry");
+  // A Brevo IP allowlist rejection is configuration, not a transient outage.
+  // Supabase Edge Functions use rotating egress addresses, so retrying the same
+  // blocked credential every five minutes only floods logs and can never heal
+  // by itself. Pause delivery until the integration secret is changed.
+  const [{ data: emailSecrets }, { data: runtime }] = await Promise.all([
+    admin.from("integration_secrets")
+      .select("key,updated_at")
+      .in("key", ["RESEND_API_KEY","EMAIL_SENDER_ADDRESS","MAILJET_API_KEY","MAILJET_SECRET_KEY","BREVO_API_KEY"]),
+    admin.from("integration_runtime_status").select("status,last_error,updated_at").eq("key", "BREVO_EMAIL_DELIVERY").maybeSingle(),
+  ]);
+  const secretMap = new Map((emailSecrets || []).map((row: any) => [String(row.key), row]));
+  const brevoSecret = secretMap.get("BREVO_API_KEY") as any;
+  const resendReady = secretMap.has("RESEND_API_KEY") && secretMap.has("EMAIL_SENDER_ADDRESS");
+  const mailjetReady = secretMap.has("MAILJET_API_KEY") && secretMap.has("MAILJET_SECRET_KEY");
+  const secretUpdatedAt = brevoSecret?.updated_at ? Date.parse(String(brevoSecret.updated_at)) : 0;
+  const runtimeUpdatedAt = runtime?.updated_at ? Date.parse(String(runtime.updated_at)) : 0;
+  if (
+    !resendReady
+    && !mailjetReady
+    && runtime?.status === "ERROR"
+    && /brevo_ip_allowlist_blocked/i.test(String(runtime?.last_error || ""))
+    && runtimeUpdatedAt >= secretUpdatedAt
+  ) {
+    const { count } = await admin.from("email_queue").select("id", { count: "exact", head: true }).eq("status", "pending");
+    return { processed: 0, failed: 0, blocked: Number(count || 0), exhausted: 0, providerPaused: true };
+  }
 
   const { data: pending, error: fetchError } = await admin
     .from("email_queue")
-    .select("*")
+    .select("id,recipient_email,subject,html_content,text_content,email_type,retry_count,max_retries")
     .eq("status", "pending")
-    .lt("retry_count", 5) // max_retries = 5
     .order("created_at", { ascending: true })
-    .limit(50);
+    .limit(25);
 
-  if (fetchError) {
-    console.error("[keep-email-retry-queue] fetch failed", fetchError);
-    return { processed: 0, failed: 0, error: String(fetchError) };
-  }
+  if (fetchError) throw fetchError;
 
   let processed = 0;
   let failed = 0;
+  let blocked = 0;
+  let exhausted = 0;
 
   for (const email of pending || []) {
+    const retryCount = Number(email.retry_count || 0);
+    const maxRetries = Math.max(1, Number(email.max_retries || 5));
+    if (retryCount >= maxRetries) {
+      await admin.from("email_queue").update({
+        status: "failed",
+        error_message: email.error_message || "max_retries_exhausted",
+      }).eq("id", email.id);
+      exhausted += 1;
+      continue;
+    }
+
     const sent = await sendTransactionalEmail(
-      email.recipient_email,
-      email.subject,
-      email.html_content,
-      email.text_content,
+      String(email.recipient_email || ""),
+      String(email.subject || "Loki Music"),
+      String(email.html_content || ""),
+      String(email.text_content || ""),
+      String(email.email_type || "transactional"),
+      "keep-email-retry-queue",
     );
 
     if (sent.ok) {
-      await admin
-        .from("email_queue")
-        .update({ status: "sent", sent_at: new Date().toISOString(), retry_count: email.retry_count + 1 })
-        .eq("id", email.id)
-        .catch((err) => console.error(`[keep-email-retry-queue] update failed for ${email.id}`, err));
-      processed++;
+      await admin.from("email_queue").update({
+        status: "sent",
+        sent_at: new Date().toISOString(),
+        retry_count: retryCount + 1,
+        error_message: null,
+      }).eq("id", email.id);
+      await admin.from("integration_runtime_status").upsert({
+        key: "BREVO_EMAIL_DELIVERY",
+        status: "ACTIVE",
+        last_checked_at: new Date().toISOString(),
+        last_error: null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "key" });
+      processed += 1;
     } else {
-      await admin
-        .from("email_queue")
-        .update({ status: "pending", retry_count: email.retry_count + 1, error_message: sent.error })
-        .eq("id", email.id)
-        .catch((err) => console.error(`[keep-email-retry-queue] update failed for ${email.id}`, err));
-      failed++;
+      const detail = sent.detail ? `${sent.error}:${sent.detail}` : sent.error;
+      const providerConfigBlocked = /unrecognised IP address|unauthorized|key not found|sender.*not.*verified/i.test(detail);
+      if (providerConfigBlocked) {
+        await admin.from("email_queue").update({
+          status: "pending",
+          retry_count: retryCount,
+          error_message: detail,
+        }).eq("id", email.id);
+        await admin.from("integration_runtime_status").upsert({
+          key: "BREVO_EMAIL_DELIVERY",
+          status: "ERROR",
+          last_checked_at: new Date().toISOString(),
+          last_error: /unrecognised IP address/i.test(detail)
+            ? "brevo_ip_allowlist_blocked: authorize Supabase egress or disable Brevo IP allowlist"
+            : `brevo_provider_blocked: ${detail.slice(0, 300)}`,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "key" });
+        blocked += 1;
+      } else {
+        const nextRetry = retryCount + 1;
+        await admin.from("email_queue").update({
+          status: nextRetry >= maxRetries ? "failed" : "pending",
+          retry_count: nextRetry,
+          error_message: detail,
+        }).eq("id", email.id);
+        failed += 1;
+      }
     }
 
-    // Avoid flooding
-    if (processed + failed >= 10) break;
+    if (processed + failed + blocked + exhausted >= 10) break;
   }
 
-  console.log("[keep-email-retry-queue] Processed:", processed, "Failed:", failed);
-  return { processed, failed };
+  return { processed, failed, blocked, exhausted };
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "GET" || req.method === "POST") {
-    try {
-      const result = await processEmailQueue();
-      return new Response(JSON.stringify(result), { status: 200, headers: { "Content-Type": "application/json" } });
-    } catch (error) {
-      console.error("[keep-email-retry-queue]", error);
-      return new Response(JSON.stringify({ error: String(error) }), { status: 500, headers: { "Content-Type": "application/json" } });
-    }
+Deno.serve(async (req: Request) => {
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "METHOD_NOT_ALLOWED" }), { status: 405, headers: { "content-type": "application/json" } });
   }
-  return new Response("Method not allowed", { status: 405 });
+  if (!(await authorized(req))) {
+    return new Response(JSON.stringify({ error: "UNAUTHORIZED" }), { status: 401, headers: { "content-type": "application/json" } });
+  }
+  try {
+    const result = await processEmailQueue();
+    return new Response(JSON.stringify({ ok: true, ...result, at: new Date().toISOString() }), { status: 200, headers: { "content-type": "application/json" } });
+  } catch (error) {
+    const message = String(error instanceof Error ? error.message : error).slice(0, 500);
+    return new Response(JSON.stringify({ ok: false, error: message }), { status: 500, headers: { "content-type": "application/json" } });
+  }
 });

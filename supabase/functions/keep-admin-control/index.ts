@@ -1,6 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import bcrypt from "npm:bcryptjs@2.4.3";
 import { lokiEmailCtaShell, lokiEmailShell } from "../_shared/lokiEmailShell.ts";
+import { sendTransactionalEmail } from "../_shared/lokiEmailSend.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -16,6 +18,8 @@ const corsHeaders = {
 };
 
 const CATALOG: Record<string, { category: string; label: string; secret?: boolean }> = {
+  RESEND_API_KEY: { category: "email", label: "Resend API key", secret: true },
+  EMAIL_SENDER_ADDRESS: { category: "email", label: "E-mail expéditeur Loki Music (domaine vérifié)" },
   BREVO_API_KEY: { category: "email", label: "Brevo API key", secret: true },
   BREVO_SMTP_KEY: { category: "email", label: "Brevo SMTP key", secret: true },
   BREVO_SMTP_LOGIN: { category: "email", label: "Brevo SMTP login" },
@@ -55,6 +59,7 @@ const CATALOG: Record<string, { category: string; label: string; secret?: boolea
   ACRCLOUD_ACCESS_KEY: { category: "recognition", label: "ACRCloud Access Key", secret: true },
   ACRCLOUD_ACCESS_SECRET: { category: "recognition", label: "ACRCloud Access Secret", secret: true },
   ACRCLOUD_HOST: { category: "recognition", label: "ACRCloud Host" },
+  GOOGLE_TRANSLATE_API_KEY: { category: "localization", label: "Google Cloud Translation API key", secret: true },
   APPLE_IAP_ISSUER_ID: { category: "payments", label: "Apple IAP Issuer ID" },
   APPLE_IAP_KEY_ID: { category: "payments", label: "Apple IAP Key ID" },
   APPLE_IAP_PRIVATE_KEY: { category: "payments", label: "Apple IAP Private Key", secret: true },
@@ -179,6 +184,112 @@ async function validateMusicApiClientId(value: string) {
   }
 }
 
+type GenericIntegrationValidation = { valid: boolean; status: "ACTIVE" | "EXHAUSTED" | "ERROR"; message: string };
+
+function validateStructuredIntegrationValue(key: string, value: string): GenericIntegrationValidation | null {
+  const clean = value.trim();
+
+  if (key === "EMAIL_SENDER_ADDRESS" || key === "BREVO_SENDER_EMAIL") {
+    return /^\S+@\S+\.\S+$/.test(clean)
+      ? { valid: true, status: "ACTIVE", message: "Adresse expéditeur valide." }
+      : { valid: false, status: "ERROR", message: "Adresse e-mail expéditeur invalide." };
+  }
+
+  if (key === "APPLE_MUSICKIT_TEAM_ID" || key === "APPLE_MUSICKIT_KEY_ID" || key === "APPLE_IAP_KEY_ID") {
+    return /^[A-Z0-9]{10}$/.test(clean)
+      ? { valid: true, status: "ACTIVE", message: "Identifiant Apple au format attendu." }
+      : { valid: false, status: "ERROR", message: "Identifiant Apple invalide : 10 caractères alphanumériques majuscules attendus." };
+  }
+
+  if (key === "APPLE_MUSICKIT_PRIVATE_KEY" || key === "APPLE_IAP_PRIVATE_KEY") {
+    const looksLikePem = /^-----BEGIN (?:EC |)PRIVATE KEY-----[\s\S]+-----END (?:EC |)PRIVATE KEY-----$/.test(clean);
+    return looksLikePem && clean.length > 120
+      ? { valid: true, status: "ACTIVE", message: "Clé privée Apple PEM reconnue." }
+      : { valid: false, status: "ERROR", message: "Clé privée Apple invalide : colle le fichier .p8 complet, BEGIN/END inclus." };
+  }
+
+  if (key === "GOOGLE_PLAY_PACKAGE_NAME") {
+    return /^[a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z][a-zA-Z0-9_]*)+$/.test(clean)
+      ? { valid: true, status: "ACTIVE", message: "Nom de package Android valide." }
+      : { valid: false, status: "ERROR", message: "Nom de package Google Play invalide (ex. com.adelkhatra.keep)." };
+  }
+
+  if (key === "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON") {
+    try {
+      const payload = JSON.parse(clean);
+      const valid = payload?.type === "service_account"
+        && typeof payload?.client_email === "string"
+        && payload.client_email.includes("@")
+        && typeof payload?.private_key === "string"
+        && payload.private_key.includes("PRIVATE KEY");
+      return valid
+        ? { valid: true, status: "ACTIVE", message: "JSON Service Account Google reconnu." }
+        : { valid: false, status: "ERROR", message: "JSON Google Play incomplet : service_account, client_email et private_key requis." };
+    } catch {
+      return { valid: false, status: "ERROR", message: "JSON Google Play invalide : colle le fichier JSON complet sans le modifier." };
+    }
+  }
+
+  if (key === "STRIPE_WEBHOOK_SECRET") {
+    return /^whsec_[A-Za-z0-9_\-]+$/.test(clean)
+      ? { valid: true, status: "ACTIVE", message: "Secret webhook Stripe au format attendu." }
+      : { valid: false, status: "ERROR", message: "Secret webhook Stripe invalide : il doit commencer par whsec_." };
+  }
+
+  return null;
+}
+
+async function validateBrevoApiKey(value: string): Promise<GenericIntegrationValidation> {
+  try {
+    const response = await fetch("https://api.brevo.com/v3/account", {
+      headers: { "api-key": value.trim(), accept: "application/json" },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (response.ok) return { valid: true, status: "ACTIVE", message: "Clé Brevo vérifiée par le fournisseur." };
+    if (response.status === 401 || response.status === 403) {
+      return { valid: false, status: "ERROR", message: "Brevo refuse cette clé API. Rien n'a été enregistré." };
+    }
+    return { valid: false, status: "ERROR", message: `Brevo n'a pas confirmé la clé (HTTP ${response.status}). Rien n'a été enregistré.` };
+  } catch {
+    return { valid: false, status: "ERROR", message: "Impossible de joindre Brevo pour vérifier la clé. Rien n'a été enregistré." };
+  }
+}
+
+async function validateYouTubeApiKey(value: string): Promise<GenericIntegrationValidation> {
+  try {
+    const url = "https://www.googleapis.com/youtube/v3/videos?part=id&id=dQw4w9WgXcQ&key=" + encodeURIComponent(value.trim());
+    const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    const payload = await response.json().catch(() => null);
+    if (response.ok) return { valid: true, status: "ACTIVE", message: "Clé YouTube Data API vérifiée." };
+    const reason = String(payload?.error?.errors?.[0]?.reason || "");
+    if (/quota|dailyLimit|rateLimit/i.test(reason)) {
+      return { valid: true, status: "EXHAUSTED", message: "Clé YouTube reconnue, mais quota fournisseur épuisé ou limité." };
+    }
+    if (/accessNotConfigured|serviceDisabled/i.test(reason)) {
+      return { valid: true, status: "ERROR", message: "Clé Google reconnue, mais YouTube Data API n'est pas activée sur ce projet." };
+    }
+    return { valid: false, status: "ERROR", message: `YouTube refuse cette clé (${reason || "HTTP " + response.status}). Rien n'a été enregistré.` };
+  } catch {
+    return { valid: false, status: "ERROR", message: "Impossible de joindre YouTube pour vérifier la clé. Rien n'a été enregistré." };
+  }
+}
+
+async function validateStripeSecretKey(value: string): Promise<GenericIntegrationValidation> {
+  try {
+    const response = await fetch("https://api.stripe.com/v1/account", {
+      headers: { Authorization: `Bearer ${value.trim()}` },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (response.ok) return { valid: true, status: "ACTIVE", message: "Clé serveur Stripe vérifiée." };
+    if (response.status === 401) return { valid: false, status: "ERROR", message: "Stripe refuse cette clé serveur. Rien n'a été enregistré." };
+    if (response.status === 429) return { valid: true, status: "EXHAUSTED", message: "Clé Stripe reconnue, mais limite temporaire atteinte." };
+    return { valid: false, status: "ERROR", message: `Stripe n'a pas confirmé la clé (HTTP ${response.status}). Rien n'a été enregistré.` };
+  } catch {
+    return { valid: false, status: "ERROR", message: "Impossible de joindre Stripe pour vérifier la clé. Rien n'a été enregistré." };
+  }
+}
+
+
 async function validatePipedreamCredentials(clientId: string, clientSecret: string, projectId: string) {
   try {
     const response = await fetch("https://api.pipedream.com/v1/oauth/token", {
@@ -193,7 +304,7 @@ async function validatePipedreamCredentials(clientId: string, clientSecret: stri
     const payload = await response.json().catch(() => ({}));
     if (!payload?.access_token) return { valid: false, status: "ERROR" as const, message: "Pipedream n'a pas renvoyé de jeton d'accès." };
     if (!/^proj_/i.test(projectId)) return { valid: false, status: "ERROR" as const, message: "Project ID Pipedream invalide." };
-    return { valid: true, status: "OK" as const, message: "Pipedream Connect vérifié et prêt pour les fenêtres d'autorisation." };
+    return { valid: true, status: "ACTIVE" as const, message: "Pipedream Connect vérifié et prêt pour les fenêtres d'autorisation." };
   } catch {
     return { valid: false, status: "ERROR" as const, message: "Impossible de joindre Pipedream pour vérifier les identifiants." };
   }
@@ -298,13 +409,14 @@ async function validateAcrCloudCredentials(hostValue: string, accessKey: string,
 
 async function setRecognitionRuntimeStatus(key: string, status: string, message: string | null) {
   const now = new Date().toISOString();
-  await admin.from("integration_runtime_status").upsert({
+  const { error } = await admin.from("integration_runtime_status").upsert({
     key,
     status,
     last_checked_at: now,
     last_error: status === "ACTIVE" ? null : message,
     updated_at: now,
   }, { onConflict: "key" });
+  if (error) throw error;
 }
 
 // Audit Adel (22/09/2026, Bloc 4 B1) : ce gabarit (EXACTEMENT le meme que
@@ -314,32 +426,18 @@ async function setRecognitionRuntimeStatus(key: string, status: string, message:
 // _shared/ trois lignes plus haut. escapeHtml/shellHtml deplaces vers
 // _shared/lokiEmailShell.ts (lokiEmailCtaShell), source unique desormais.
 
-async function sendViaConfiguredProvider(to: string, subject: string, html: string, text: string): Promise<{ ok: true; provider: "mailjet" | "brevo" } | { ok: false; status: number; error: string; details?: string }> {
-  const senderEmail = await getSecret("BREVO_SENDER_EMAIL");
-  const senderName = (await getSecret("BREVO_SENDER_NAME")) ?? "Loki Music";
-  if (!senderEmail) return { ok: false, status: 409, error: "sender_not_configured" };
-
-  const mjKey = await getSecret("MAILJET_API_KEY");
-  const mjSecret = await getSecret("MAILJET_SECRET_KEY");
-  if (mjKey && mjSecret) {
-    const response = await fetch("https://api.mailjet.com/v3.1/send", {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Basic ${btoa(`${mjKey}:${mjSecret}`)}` },
-      body: JSON.stringify({ Messages: [{ From: { Email: senderEmail, Name: senderName }, To: [{ Email: to }], Subject: subject, HTMLPart: html, TextPart: text }] }),
-    });
-    if (!response.ok) return { ok: false, status: response.status, error: "mailjet_send_failed", details: (await response.text()).slice(0, 500) };
-    return { ok: true, provider: "mailjet" };
-  }
-
-  const apiKey = await getSecret("BREVO_API_KEY");
-  if (!apiKey) return { ok: false, status: 409, error: "email_provider_not_configured" };
-  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    headers: { "content-type": "application/json", "api-key": apiKey, accept: "application/json" },
-    body: JSON.stringify({ sender: { email: senderEmail, name: senderName }, to: [{ email: to }], subject, htmlContent: html, textContent: text }),
-  });
-  if (!response.ok) return { ok: false, status: response.status, error: "brevo_send_failed", details: (await response.text()).slice(0, 500) };
-  return { ok: true, provider: "brevo" };
+async function sendViaConfiguredProvider(to: string, subject: string, html: string, text: string): Promise<{ ok: true; provider: "resend" | "mailjet" | "brevo" } | { ok: false; status: number; error: string; details?: string }> {
+  const sent = await sendTransactionalEmail(
+    to,
+    subject,
+    html,
+    text,
+    "admin-test",
+    "keep-admin-control",
+  );
+  return sent.ok
+    ? { ok: true, provider: sent.provider }
+    : { ok: false, status: 503, error: sent.error, details: sent.detail };
 }
 
 function generateTemporaryPassword() {
@@ -396,7 +494,8 @@ async function getSecret(key: string): Promise<string | null> {
 
 async function resetIntegrationRuntimeStatus(key: string, configured: boolean) {
   const runtimeKey = key.startsWith("ACRCLOUD_") ? "ACRCLOUD" : key;
-  if (runtimeKey !== "AUDD_API_KEY" && runtimeKey !== "ACRCLOUD") return;
+  const tracked = new Set(["AUDD_API_KEY", "ACRCLOUD", "BREVO_API_KEY", "YOUTUBE_API_KEY", "STRIPE_SECRET_KEY", "MUSICAPI_CLIENT_ID", "PIPEDREAM_CONNECT"]);
+  if (!tracked.has(runtimeKey)) return;
   const now = new Date().toISOString();
   await admin.from("integration_runtime_status").upsert({
     key: runtimeKey,
@@ -452,7 +551,7 @@ Deno.serve(async (req) => {
       assertRole(actor, ["SUPER_ADMIN", "ADMIN", "FINANCE"]);
       const { data, error } = await admin
         .from("plans")
-        .select("id,code,name,trial_days,plan_prices(id,currency_code,period,amount,is_active,free_bonus_per_month)")
+        .select("id,code,name,trial_days,plan_prices(id,currency_code,period,amount,is_active,free_bonus_per_month,stripe_price_id)")
         .order("code");
       if (error) throw error;
       return json(200, { data: data ?? [] });
@@ -470,7 +569,7 @@ Deno.serve(async (req) => {
       const { error: planError } = await admin.from("plans").update({ trial_days: trialDays }).eq("id", planId);
       if (planError) throw planError;
 
-      const updatedPrices: { id: string; amount: number; freeBonusPerMonth: number }[] = [];
+      const updatedPrices: { id: string; amount: number; freeBonusPerMonth: number; stripePriceId?: string | null }[] = [];
       for (const price of prices) {
         const id = String(price?.id ?? "").trim();
         const amount = Number(price?.amount);
@@ -479,13 +578,22 @@ Deno.serve(async (req) => {
         // annuel, le nombre de Free que je vais donner avec" -- réglable au
         // même endroit et dans le même geste que le prix lui-même.
         const freeBonusPerMonth = Math.max(0, Math.trunc(Number(price?.freeBonusPerMonth ?? 0)));
+        // Le checkout Stripe (keep-stripe-checkout) lit plan_prices.stripe_price_id
+        // pour créer la session. Vide = on remet à null (aucun checkout possible),
+        // sinon on valide le format price_xxx copié depuis le Stripe Dashboard.
+        const rawStripePriceId = typeof price?.stripePriceId === 'string' ? price.stripePriceId.trim() : undefined;
+        if (rawStripePriceId !== undefined && rawStripePriceId !== '' && !/^price_/.test(rawStripePriceId)) {
+          return json(400, { error: "invalid_stripe_price_id", message: "Un Stripe Price ID doit commencer par price_xxx. Copie-le depuis le Stripe Dashboard." });
+        }
+        const priceUpdate: Record<string, unknown> = { amount, free_bonus_per_month: freeBonusPerMonth };
+        if (rawStripePriceId !== undefined) priceUpdate.stripe_price_id = rawStripePriceId || null;
         const { error: priceError } = await admin
           .from("plan_prices")
-          .update({ amount, free_bonus_per_month: freeBonusPerMonth })
+          .update(priceUpdate)
           .eq("id", id)
           .eq("plan_id", planId);
         if (priceError) throw priceError;
-        updatedPrices.push({ id, amount, freeBonusPerMonth });
+        updatedPrices.push({ id, amount, freeBonusPerMonth, ...(rawStripePriceId !== undefined ? { stripePriceId: rawStripePriceId || null } : {}) });
       }
 
       await audit(actor.id, "plan.updated", "plan", planId, { trialDays, prices: updatedPrices });
@@ -527,19 +635,37 @@ Deno.serve(async (req) => {
       if (!meta) return json(400, { error: "integration_key_not_allowed" });
       if (!value) return json(400, { error: "value_required" });
       if (key === "STRIPE_SECRET_KEY" && !/^sk_(test_|live_)/.test(value)) {
-        return json(400, { error: "invalid_stripe_secret_key", message: "Stripe Secret Key doit commencer par sk_test_ ou sk_live_. Une clé pk_ est publique et va dans STRIPE_PUBLISHABLE_KEY." });
+        const message = "Stripe Secret Key doit commencer par sk_test_ ou sk_live_. Une clé pk_ est publique et va dans STRIPE_PUBLISHABLE_KEY.";
+        await setRecognitionRuntimeStatus(key, "ERROR", message);
+        return json(400, { error: "invalid_stripe_secret_key", message });
       }
       if (key === "STRIPE_PUBLISHABLE_KEY" && !/^pk_(test_|live_)/.test(value)) {
         return json(400, { error: "invalid_stripe_publishable_key", message: "Stripe Publishable Key doit commencer par pk_test_ ou pk_live_." });
       }
+
+      const structuredValidation = validateStructuredIntegrationValue(key, value);
+      if (structuredValidation && !structuredValidation.valid) {
+        return json(400, { error: "invalid_integration_value", message: structuredValidation.message, validation: structuredValidation });
+      }
+
+      const directProviderValidation =
+        key === "BREVO_API_KEY" ? await validateBrevoApiKey(value) :
+        key === "YOUTUBE_API_KEY" ? await validateYouTubeApiKey(value) :
+        key === "STRIPE_SECRET_KEY" ? await validateStripeSecretKey(value) :
+        null;
+      if (directProviderValidation && !directProviderValidation.valid) {
+        await setRecognitionRuntimeStatus(key, "ERROR", directProviderValidation.message);
+        return json(400, { error: "provider_rejected_key", message: directProviderValidation.message, validation: directProviderValidation });
+      }
+
       const providerValidation = key === "AUDD_API_KEY" ? await validateAuddToken(value) : null;
       if (providerValidation && !providerValidation.valid) {
-        await resetIntegrationRuntimeStatus(key, false);
+        await setRecognitionRuntimeStatus(key, "ERROR", providerValidation.message);
         return json(400, { error: "invalid_audd_token", message: providerValidation.message, validation: providerValidation });
       }
       const musicApiValidation = key === "MUSICAPI_CLIENT_ID" ? await validateMusicApiClientId(value) : null;
       if (musicApiValidation && !musicApiValidation.valid) {
-        await resetIntegrationRuntimeStatus(key, false);
+        await setRecognitionRuntimeStatus(key, "ERROR", musicApiValidation.message);
         return json(400, { error: "invalid_musicapi_client_id", message: musicApiValidation.message, validation: musicApiValidation });
       }
 
@@ -547,7 +673,14 @@ Deno.serve(async (req) => {
       let pipedreamBundleComplete = false;
       if (key.startsWith("PIPEDREAM_")) {
         if (key === "PIPEDREAM_ENVIRONMENT" && value !== "development" && value !== "production") {
-          return json(400, { error: "invalid_pipedream_environment", message: "Utilise development ou production." });
+          const message = "Valeur invalide. Pour Loki Music en production, utilise exactement : production";
+          await setRecognitionRuntimeStatus("PIPEDREAM_CONNECT", "ERROR", message);
+          return json(400, { error: "invalid_pipedream_environment", message });
+        }
+        if (key === "PIPEDREAM_PROJECT_ID" && !/^proj_[A-Za-z0-9_-]+$/.test(value)) {
+          const message = "Project ID Pipedream invalide : ouvre Projects > ton projet > Settings et copie l’identifiant qui commence par proj_.";
+          await setRecognitionRuntimeStatus("PIPEDREAM_CONNECT", "ERROR", message);
+          return json(400, { error: "invalid_pipedream_project_id", message });
         }
         const [savedClientId, savedClientSecret, savedProjectId] = await Promise.all([
           key === "PIPEDREAM_CLIENT_ID" ? Promise.resolve(value) : getSecret("PIPEDREAM_CLIENT_ID"),
@@ -589,6 +722,8 @@ Deno.serve(async (req) => {
       if (error) throw error;
       if (key === "AUDD_API_KEY" && providerValidation) {
         await setRecognitionRuntimeStatus("AUDD_API_KEY", providerValidation.status, providerValidation.message);
+      } else if (directProviderValidation) {
+        await setRecognitionRuntimeStatus(key, directProviderValidation.status, directProviderValidation.message);
       } else if (key.startsWith("ACRCLOUD_") && acrValidation) {
         await setRecognitionRuntimeStatus("ACRCLOUD", acrValidation.status, acrValidation.message);
       } else if (key.startsWith("ACRCLOUD_") && !acrBundleComplete) {
@@ -602,7 +737,7 @@ Deno.serve(async (req) => {
       } else {
         await resetIntegrationRuntimeStatus(key, true);
       }
-      const validation = providerValidation ?? acrValidation ?? musicApiValidation ?? pipedreamValidation;
+      const validation = providerValidation ?? acrValidation ?? musicApiValidation ?? pipedreamValidation ?? directProviderValidation ?? structuredValidation;
       await audit(actor.id, "integration_secret.updated", "integration_secret", key, { key, category: meta.category, hint: valueHint, validation });
       return json(200, { ok: true, key, configured: true, hint: valueHint, validation, recognitionReady: key.startsWith("ACRCLOUD_") ? Boolean(acrValidation?.valid) : undefined });
     }
@@ -627,9 +762,8 @@ Deno.serve(async (req) => {
       assertRole(actor, ["SUPER_ADMIN", "ADMIN", "TECH"]);
       const email = String(body?.email ?? "").trim();
       if (!/^\S+@\S+\.\S+$/.test(email)) return json(400, { error: "invalid_email" });
-      const senderEmail = await getSecret("BREVO_SENDER_EMAIL");
-      const senderName = (await getSecret("BREVO_SENDER_NAME")) ?? "Loki Music";
-      if (!senderEmail) return json(409, { error: "sender_not_configured", message: "Renseigne BREVO_SENDER_EMAIL (l'identité d'expéditeur Loki Music, partagée par tous les fournisseurs)." });
+      const senderEmail = (await getSecret("EMAIL_SENDER_ADDRESS")) ?? (await getSecret("BREVO_SENDER_EMAIL"));
+      if (!senderEmail) return json(409, { error: "sender_not_configured", message: "Renseigne EMAIL_SENDER_ADDRESS avec une adresse sur ton domaine vérifié." });
 
       const subject = "Loki Music — test e-mail réussi";
       const html = lokiEmailShell(
@@ -644,7 +778,7 @@ Deno.serve(async (req) => {
       // gratuit" -- Mailjet en alternative a Brevo (meme bascule automatique
       // que keep-auth-email : Mailjet en priorite s'il est configure).
       const sent = await sendViaConfiguredProvider(email, subject, html, text);
-      if (!sent.ok) return json(sent.status, { error: sent.error, message: sent.status === 409 ? "Renseigne MAILJET_API_KEY+MAILJET_SECRET_KEY, ou BREVO_API_KEY." : undefined, details: sent.details });
+      if (!sent.ok) return json(sent.status, { error: sent.error, message: sent.status === 409 ? "Renseigne RESEND_API_KEY + EMAIL_SENDER_ADDRESS, ou configure Mailjet/Brevo en secours." : undefined, details: sent.details });
       await audit(actor.id, "integration_email.tested", sent.provider, email, { ok: true });
       return json(200, { ok: true, provider: sent.provider });
     }
@@ -845,6 +979,44 @@ Deno.serve(async (req) => {
       return json(200, { ok: true, data, username: profile.username });
     }
 
+    if (action === "users.grants") {
+      assertRole(actor, ["SUPER_ADMIN", "ADMIN"]);
+      const identity = String(body?.identity ?? body?.email ?? "").trim();
+      if (!identity) return json(400, { error: "identity_required" });
+      const user = await findAuthUserByIdentity(identity);
+      if (!user) return json(404, { error: "user_not_found" });
+
+      const { data: rows, error } = await admin
+        .from("subscriptions")
+        .select("id,plan_id,status,current_period_start,current_period_end,grant_reason,created_at")
+        .eq("profile_id", user.id)
+        .eq("source", "admin_grant")
+        .in("status", ["ACTIVE", "TRIALING"])
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+
+      const planIds = Array.from(new Set((rows ?? []).map((row: any) => row.plan_id).filter(Boolean)));
+      let plansById = new Map<string, string>();
+      if (planIds.length) {
+        const { data: plans, error: plansError } = await admin.from("plans").select("id,code").in("id", planIds);
+        if (plansError) throw plansError;
+        plansById = new Map((plans ?? []).map((row: any) => [String(row.id), String(row.code)]));
+      }
+
+      return json(200, {
+        ok: true,
+        grants: (rows ?? []).map((row: any) => ({
+          id: row.id,
+          planCode: plansById.get(String(row.plan_id)) ?? "PREMIUM",
+          status: row.status,
+          startsAt: row.current_period_start,
+          endsAt: row.current_period_end,
+          reason: row.grant_reason,
+          createdAt: row.created_at,
+        })),
+      });
+    }
+
     if (action === "users.revoke_grant") {
       assertRole(actor, ["SUPER_ADMIN", "ADMIN"]);
       const identity = String(body?.identity ?? body?.email ?? "").trim();
@@ -900,6 +1072,33 @@ Deno.serve(async (req) => {
       if (insertError) throw insertError;
       await audit(actor.id, "notifications.broadcast", "profiles", usernames.length ? usernames.join(",") : "ALL", { title, body: message, recipientCount: targets.length });
       return json(200, { ok: true, recipientCount: targets.length });
+    }
+
+    if (action === "admins.issue_self_recovery") {
+      assertRole(actor, ["SUPER_ADMIN"]);
+      const { data: authData, error: authError } = await admin.auth.admin.getUserById(actor.id);
+      if (authError || !authData.user?.email) return json(409, { error: "super_admin_email_required" });
+
+      const recoveryCode = generateTemporaryPassword();
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      const passwordHash = bcrypt.hashSync(recoveryCode, 12);
+      const email = String(authData.user.email).trim().toLowerCase();
+
+      const { error: tokenError } = await admin.from("admin_bootstrap_tokens").upsert({
+        email,
+        password_hash: passwordHash,
+        expires_at: expiresAt,
+        used_at: null,
+        created_at: now.toISOString(),
+      }, { onConflict: "email" });
+      if (tokenError) throw tokenError;
+
+      await audit(actor.id, "admin.self_recovery_issued", "admin_user", actor.id, {
+        expiresAt,
+        emailHint: email.replace(/^(.{2}).*(@.*)$/, "$1•••$2"),
+      });
+      return json(200, { ok: true, recoveryCode, expiresAt });
     }
 
     if (action === "admins.list") {

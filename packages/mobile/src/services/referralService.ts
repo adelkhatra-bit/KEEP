@@ -19,7 +19,9 @@ export type ReferralStatus = ReferralRules & {
   totalFreeEarned: number;
 };
 
-const FALLBACK: ReferralRules = { freePerSignup: 2, bonus3: 3, bonus5: 5, bonus10: 10, monthlyCap: 40 };
+// Décision canonique 04/10/2026 : +2 FREE par filleul validé, sans anciens paliers, plafond 20/mois.
+// Le serveur reste la source de vérité ; ce fallback ne sert qu'en cas d'indisponibilité du RPC.
+const FALLBACK: ReferralRules = { freePerSignup: 2, bonus3: 0, bonus5: 0, bonus10: 0, monthlyCap: 20 };
 
 function parseRules(raw: any): ReferralRules {
   return {
@@ -100,15 +102,43 @@ export async function stageReferralFromUrl(url?: string | null): Promise<string>
 
 export async function claimPendingReferral(): Promise<boolean> {
   if (!supabase) return false;
-  const code = await AsyncStorage.getItem(PENDING_REFERRAL_KEY);
+  const { data: sessionData } = await supabase.auth.getSession();
+  const session = sessionData.session;
+  // Compte créé depuis la page de partage (navigateur) : l'appareil n'a pas le code, il est dans le compte lui-même.
+  const metadataCode = String((session?.user?.user_metadata as any)?.pending_referral_code || '').trim();
+  const code = (await AsyncStorage.getItem(PENDING_REFERRAL_KEY)) || metadataCode;
   if (!code) return false;
+  // Sur le web, un client peut momentanément avoir la clé publishable chargée
+  // sans bearer utilisateur (restauration de session en cours). Dans ce cas,
+  // appeler keep_claim_referral produit un 400 AUTH_REQUIRED dans la console.
+  // On attend une vraie session avant tout RPC de parrainage.
+  if (!session?.access_token || !session.user) return false;
+  const authUser = session.user;
+  const createdAt = new Date(authUser.created_at || 0).getTime();
+  const tooOld = Number.isFinite(createdAt) && createdAt > 0 && Date.now() - createdAt > 7 * 24 * 60 * 60 * 1000;
+  if ((authUser as any).is_anonymous || tooOld) {
+    await AsyncStorage.removeItem(PENDING_REFERRAL_KEY);
+    return false;
+  }
+
+  const metadataUsername = String((authUser.user_metadata as any)?.username || (authUser.user_metadata as any)?.user_name || '').trim().replace(/^@+/, '').toUpperCase();
+  let ownUsername = metadataUsername;
+  if (!ownUsername) {
+    const { data: ownProfile } = await supabase.from('profiles').select('username').eq('id', authUser.id).maybeSingle();
+    ownUsername = String((ownProfile as any)?.username || '').trim().replace(/^@+/, '').toUpperCase();
+  }
+  if (ownUsername && ownUsername === code.trim().replace(/^@+/, '').toUpperCase()) {
+    await AsyncStorage.removeItem(PENDING_REFERRAL_KEY);
+    return false;
+  }
+
   const { error } = await supabase.rpc('keep_claim_referral', { p_code: code });
   if (!error) {
     await AsyncStorage.removeItem(PENDING_REFERRAL_KEY);
     return true;
   }
   const message = String(error.message || error.code || '');
-  if (/SELF_FORBIDDEN|WINDOW_EXPIRED|CODE_INVALID|REAL_ACCOUNT_REQUIRED/i.test(message)) {
+  if (/SELF_FORBIDDEN|WINDOW_EXPIRED|CODE_INVALID|REAL_ACCOUNT_REQUIRED|PGRST|P0001|22P02/i.test(message)) {
     await AsyncStorage.removeItem(PENDING_REFERRAL_KEY);
   }
   return false;

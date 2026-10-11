@@ -1,0 +1,56 @@
+{
+  "version": "2026-10-01.5",
+  "repository": "adelkhatra-bit/KEEP",
+  "canonicalBranch": "reconcile/claude-main-20260825",
+  "profileOwner": {
+    "freePlacement": "immediately-after-Reprises-in-owner-metrics-bar",
+    "certificationMustAppearBesideUsername": true,
+    "profileKindLabels": [
+      "Fan",
+      "Créateur",
+      "DJ",
+      "Artiste",
+      "Producteur",
+      "Lieu"
+    ],
+    "metricsBarOrder": [
+      "PLUS",
+      "Abonnés",
+      "Reprises",
+      "FREE"
+    ],
+    "hamburgerAccountEntryAllowed": false,
+    "sessionControlsLocation": "ProfileSettingsMobileScreen",
+    "freeMustAppearBesideProfileKind": false,
+    "freeImmediatelyAfterReprises": true,
+    "freeMustAppearExactlyOnce": true,
+    "lokiPulseLocation": "between-social-networks-and-share-profile",
+    "shareProfileLocation": "immediately-after-Loki-Pulse"
+  },
+  "navigation": {
+    "bottomTabsImmutable": [
+      "Loki Music",
+      "Découvertes",
+      "Playlists",
+      "Soirées",
+      "Profil"
+    ],
+    "appTsxResponsiveRedesignAllowed": false,
+    "navigationTsxRedesignAllowed": false
+  },
+  "responsive": {
+    "requiredViewports": [
+      "390x844",
+      "430x932",
+      "768x700",
+      "900x700",
+      "1440x900"
+    ],
+    "desktopAndMobileMustUseSameProductSource": true,
+    "resizeMustNotBlankApplication": true
+  },
+  "accessibilityTouchTargets": {
+    "sharedMinimum": 48,
+    "visualMayBeSmallerIfHitTargetIsExpanded": true
+  }
+}

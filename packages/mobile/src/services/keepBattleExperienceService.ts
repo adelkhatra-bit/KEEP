@@ -9,6 +9,9 @@ export type KeepBattleArenaRules = {
   answerLockedOnTap: boolean;
   ranking: string;
   fullArenaNetPrize: number;
+  perfectScoreBonusFree: number;
+  /** @deprecated legacy alias kept for old clients */
+  perfectDuelBonusFree: number;
   ruleText?: string;
 };
 
@@ -46,7 +49,9 @@ const FALLBACK_RULES: KeepBattleArenaRules = {
   answerLockedOnTap: true,
   ranking: 'CORRECT_ANSWERS_THEN_SPEED',
   fullArenaNetPrize: 27,
-  ruleText: 'Bonnes réponses puis vitesse. Un seul gagnant.',
+  perfectScoreBonusFree: 3,
+  perfectDuelBonusFree: 3,
+  ruleText: 'Bonnes réponses puis vitesse. Un seul bonus sans-faute : s’il y a plusieurs joueurs parfaits, le plus rapide reçoit un bonus Loki égal à la mise.',
 };
 
 function client() {
@@ -70,6 +75,8 @@ export async function loadKeepBattleArenaRules(): Promise<KeepBattleArenaRules> 
       answerLockedOnTap: raw.answerLockedOnTap !== false,
       ranking: String(raw.ranking || FALLBACK_RULES.ranking),
       fullArenaNetPrize: Number(raw.fullArenaNetPrize ?? Math.max(0, maxPlayers - 1) * stakeFree),
+      perfectScoreBonusFree: Number(raw.perfectScoreBonusFree ?? raw.perfectDuelBonusFree ?? stakeFree),
+      perfectDuelBonusFree: Number(raw.perfectScoreBonusFree ?? raw.perfectDuelBonusFree ?? stakeFree),
       ruleText: raw.ruleText ? String(raw.ruleText) : FALLBACK_RULES.ruleText,
     };
   } catch {
@@ -103,7 +110,101 @@ function simplifyArtistCredit(raw: string): string {
 // etiquette generique des qu'il y a 2+ styles coches (voir KeepBattleMobileGameV3),
 // mais themeCodes porte la selection reelle pour que le serveur restreigne le
 // tirage a l'UNION exacte de ces styles au lieu de tout le catalogue.
+export type KeepBattleSoloDailyStatus = { plan: string; used: number; limit: number | null; remaining: number | null; unlimited: boolean; resetsAt: string | null; dailyIncluded: number | null; purchasedRemaining: number | null };
+
+function deviceTimeZone(): string {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris'; }
+  catch { return 'Europe/Paris'; }
+}
+
+export async function loadKeepBattleSoloDailyStatus(): Promise<KeepBattleSoloDailyStatus> {
+  const { data, error } = await client().rpc('keep_battle_solo_daily_status', { p_timezone: deviceTimeZone() });
+  if (error || !data || typeof data !== 'object') throw new Error(String(error?.message || 'BATTLE_SOLO_STATUS_UNAVAILABLE'));
+  const raw = data as any;
+  return {
+    plan: String(raw.plan || 'FREE').toUpperCase(),
+    used: Math.max(0, Number(raw.used || 0)),
+    limit: raw.limit == null ? null : Math.max(0, Number(raw.limit)),
+    remaining: raw.remaining == null ? null : Math.max(0, Number(raw.remaining)),
+    unlimited: raw.unlimited === true,
+    resetsAt: raw.resetsAt ? String(raw.resetsAt) : null,
+    dailyIncluded: raw.dailyIncluded == null ? null : Math.max(0, Number(raw.dailyIncluded)),
+    purchasedRemaining: raw.purchasedRemaining == null ? null : Math.max(0, Number(raw.purchasedRemaining)),
+  };
+}
+
+// Adel (02/10/2026) : packs de Solos vendus par la plateforme contre des
+// Free (réglables dans le Super Admin). Les Solos achetés s'ajoutent au jour
+// et ne se perdent pas. `null` = fonction serveur pas encore déployée.
+export type KeepBattleSoloPackOffer = { code: 'SMALL' | 'LARGE'; solos: number; free: number };
+export type KeepBattleSoloPacks = { packs: KeepBattleSoloPackOffer[]; bonusRemaining: number; balance: number };
+export async function loadKeepBattleSoloPacks(): Promise<KeepBattleSoloPacks | null> {
+  const { data, error } = await client().rpc('keep_battle_solo_packs');
+  if (error) {
+    if (String((error as any).code) === 'PGRST202') return null;
+    throw new Error(String(error.message || 'BATTLE_SOLO_PACKS_UNAVAILABLE'));
+  }
+  const raw = (data ?? {}) as any;
+  return {
+    packs: (Array.isArray(raw.packs) ? raw.packs : []).map((p: any) => ({
+      code: String(p.code) === 'LARGE' ? 'LARGE' : 'SMALL',
+      solos: Math.max(0, Number(p.solos || 0)),
+      free: Math.max(0, Number(p.free || 0)),
+    })),
+    bonusRemaining: Math.max(0, Number(raw.bonusRemaining || 0)),
+    balance: Math.max(0, Number(raw.balance || 0)),
+  };
+}
+export async function buyKeepBattleSoloPack(code: 'SMALL' | 'LARGE'): Promise<{ solosAdded: number; freeSpent: number; balance: number }> {
+  const { data, error } = await client().rpc('keep_battle_solo_buy_pack', { p_code: code });
+  if (error) throw new Error(String(error.message || 'BATTLE_SOLO_PACK_FAILED'));
+  const raw = (data ?? {}) as any;
+  return { solosAdded: Number(raw.solosAdded || 0), freeSpent: Number(raw.freeSpent || 0), balance: Number(raw.balance || 0) };
+}
+
+// Adel (29/09/2026) : « pourquoi y'a pas la date de rechargement des Free ».
+// Données brutes seulement (création du profil + bonus mensuel de la formule,
+// même source plan_prices que planService) ; le calcul de date est fait par
+// nextMonthlyFreeRecharge (battleHomeInfo), miroir du calcul serveur.
+export async function loadMyFreeRechargeInfo(profileId: string, planCode: string): Promise<{ profileCreatedAt: string | null; monthlyBonus: number }> {
+  const [{ data: profile }, { data: prices }] = await Promise.all([
+    client().from('profiles').select('created_at').eq('id', profileId).maybeSingle(),
+    client().from('plans').select('code,plan_prices!inner(period,is_active,effective_from,free_bonus_per_month)').eq('code', planCode.toUpperCase()).eq('plan_prices.is_active', true).eq('plan_prices.period', 'MONTHLY').maybeSingle(),
+  ]);
+  const rows = Array.isArray((prices as any)?.plan_prices) ? (prices as any).plan_prices : [];
+  const latest = rows.slice().sort((a: any, b: any) => String(b.effective_from).localeCompare(String(a.effective_from)))[0];
+  return { profileCreatedAt: (profile as any)?.created_at ? String((profile as any).created_at) : null, monthlyBonus: Math.max(0, Number(latest?.free_bonus_per_month || 0)) };
+}
+
+export async function consumeKeepBattleSoloDailyStart(sessionToken: string): Promise<KeepBattleSoloDailyStatus> {
+  const token = String(sessionToken || '').trim();
+  if (token.length < 8) throw new Error('BATTLE_SOLO_SESSION_TOKEN_INVALID');
+  const { data, error } = await client().rpc('keep_battle_solo_consume_daily_start', { p_session_token: token, p_timezone: deviceTimeZone() });
+  if (error) {
+    const raw = [error.message, error.details, error.hint, error.code].filter(Boolean).join(' ');
+    if (/BATTLE[_\s-]*SOLO[_\s-]*DAILY[_\s-]*LIMIT[_\s-]*REACHED/i.test(raw)) {
+      throw new Error('BATTLE_SOLO_DAILY_LIMIT_REACHED');
+    }
+    throw new Error('BATTLE_SOLO_UNAVAILABLE');
+  }
+  const raw = (data && typeof data === 'object' ? data : {}) as any;
+  return {
+    plan: String(raw.plan || 'FREE').toUpperCase(),
+    used: Math.max(0, Number(raw.used || 0)),
+    limit: raw.limit == null ? null : Math.max(0, Number(raw.limit)),
+    remaining: raw.remaining == null ? null : Math.max(0, Number(raw.remaining)),
+    unlimited: raw.unlimited === true,
+    resetsAt: raw.resetsAt ? String(raw.resetsAt) : null,
+    dailyIncluded: raw.dailyIncluded == null ? null : Math.max(0, Number(raw.dailyIncluded)),
+    purchasedRemaining: raw.purchasedRemaining == null ? null : Math.max(0, Number(raw.purchasedRemaining)),
+  };
+}
+
+// Préparer un pack ne consomme plus un Solo. Le débit est déclenché par
+// l'écran uniquement quand le premier extrait a réellement démarré.
 export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8, themeCodes?: string[]): Promise<KeepBattleSoloPack> {
+  // Build and validate the playable pack BEFORE consuming a daily start.
+  // A catalogue/network failure must never burn one of the user's Solo slots.
   const selectedThemes = Array.from(new Set((themeCodes || [])
     .map((code) => code.trim().toUpperCase())
     .filter((code) => code && code !== 'MIX'))).slice(0, 3);

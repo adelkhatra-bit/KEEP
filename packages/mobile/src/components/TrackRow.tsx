@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { ProviderPlaylist } from '@keep/music';
 import { KeepVisibility, SessionTrackEntry } from '../types';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
 import TrackListenControls from './TrackListenControls';
+import KeepVisibilityChoiceModal, { KeepSuccessModal } from './KeepVisibilityChoiceModal';
+import { getCommercialRules } from '../services/growthAccessService';
 
 const IMPORT_SOURCE_LABEL: Record<string, string> = {
   spotify: 'Depuis Spotify',
@@ -34,11 +36,15 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
   const [keepPromptOpen, setKeepPromptOpen] = useState(false);
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | undefined>(undefined);
   const [keepSubmitting, setKeepSubmitting] = useState(false);
+  const [keepCost, setKeepCost] = useState(3);
+  const [keepSuccessOpen, setKeepSuccessOpen] = useState(false);
+  const [keepSuccessVisibility, setKeepSuccessVisibility] = useState<KeepVisibility>('PRIVATE');
 
   const destinationOptions = useMemo(() => playlists ?? [], [playlists]);
 
   useEffect(() => {
     if (!keepPromptOpen) return;
+    void getCommercialRules().then((rules) => setKeepCost(Math.max(0, Number(rules.freeCostPerKeep || 3)))).catch(() => setKeepCost(3));
     setSelectedPlaylistId(
       entry.recommendations?.[0]?.playlistId
       || entry.keptPlaylistId
@@ -57,7 +63,9 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
     setKeepSubmitting(true);
     try {
       await Promise.resolve(onKeep(entry.id, selectedPlaylistId, nextVisibility));
+      setKeepSuccessVisibility(nextVisibility);
       setKeepPromptOpen(false);
+      setKeepSuccessOpen(true);
     } finally {
       setKeepSubmitting(false);
     }
@@ -86,7 +94,7 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
 
         {status === 'pending' && (onKeep || onPass) ? (
           <View style={styles.actions}>
-            {onPass && <TouchableOpacity style={styles.passBtn} onPress={() => onPass(entry.id)} hitSlop={8}><Text style={styles.passBtnText}>✕</Text></TouchableOpacity>}
+            {onPass && <TouchableOpacity style={styles.passBtn} onPress={() => onPass(entry.id)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Retirer ce morceau de la session (récupérable dans Retirés)"><Text style={styles.passBtnText}>✕</Text></TouchableOpacity>}
             {onKeep && <TouchableOpacity style={[styles.keepBtn, entry.creditLocked && styles.unlockBtn]} onPress={handleKeepPress} hitSlop={8} accessibilityLabel="Garder ce morceau"><Text style={[styles.keepBtnText, entry.creditLocked && styles.unlockBtnText]}>{entry.creditLocked ? '🔒' : '♡'}</Text></TouchableOpacity>}
           </View>
         ) : status === 'passed' && onRestore ? (
@@ -105,42 +113,27 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
         )}
       </View>
 
-      <Modal visible={keepPromptOpen} transparent animationType="fade" onRequestClose={() => !keepSubmitting && setKeepPromptOpen(false)}>
-        <View style={styles.keepOverlay}>
-          <View style={styles.keepPromptCard}>
-            <Text style={styles.keepPromptEyebrow}>TON MORCEAU · TA VISIBILITÉ</Text>
-            <Text style={styles.keepPromptTitle}>Garder ce morceau ?</Text>
-            <Text style={styles.keepPromptTrack} numberOfLines={2}>{track.title} · {track.artist}</Text>
-            <Text style={styles.keepPromptBody}>Même fonctionnement que dans SWIPER : choisis d’abord où ranger le morceau, puis s’il apparaît sur ton profil.</Text>
+      <KeepVisibilityChoiceModal
+        visible={keepPromptOpen}
+        title="Garder ce morceau"
+        trackLabel={`${track.title} · ${track.artist}`}
+        costFree={keepCost}
+        busy={keepSubmitting}
+        playlists={destinationOptions}
+        selectedPlaylistId={selectedPlaylistId}
+        onSelectPlaylist={setSelectedPlaylistId}
+        onPublic={() => { void confirmIndividualKeep('PUBLIC'); }}
+        onPrivate={() => { void confirmIndividualKeep('PRIVATE'); }}
+        onCancel={() => setKeepPromptOpen(false)}
+      />
 
-            {destinationOptions.length > 0 ? <View style={styles.destinationBlock}>
-              <Text style={styles.destinationLabel}>RANGER DANS</Text>
-              <View style={styles.destinationWrap}>
-                {destinationOptions.slice(0, 8).map((playlist) => {
-                  const selected = selectedPlaylistId === playlist.id;
-                  return <TouchableOpacity key={playlist.id} style={[styles.destinationPill, selected && styles.destinationPillOn]} onPress={() => setSelectedPlaylistId(playlist.id)} disabled={keepSubmitting}>
-                    <Text style={[styles.destinationText, selected && styles.destinationTextOn]} numberOfLines={1}>{playlist.name}</Text>
-                  </TouchableOpacity>;
-                })}
-              </View>
-            </View> : null}
-
-            <TouchableOpacity style={[styles.keepChoice, styles.keepChoicePublic]} onPress={() => { void confirmIndividualKeep('PUBLIC'); }} disabled={keepSubmitting} accessibilityLabel="Visible sur mon profil">
-              <Text style={styles.keepChoicePublicTitle}>{keepSubmitting ? 'ENREGISTREMENT…' : 'VISIBLE SUR MON PROFIL'}</Text>
-              <Text style={styles.keepChoiceText}>Le morceau sera rangé et visible dans ton univers Loki Music.</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={[styles.keepChoice, styles.keepChoicePrivate]} onPress={() => { void confirmIndividualKeep('PRIVATE'); }} disabled={keepSubmitting} accessibilityLabel="Garder en privé">
-              <Text style={styles.keepChoicePrivateTitle}>{keepSubmitting ? 'ENREGISTREMENT…' : 'GARDER EN PRIVÉ'}</Text>
-              <Text style={styles.keepChoiceText}>Le morceau reste dans ta bibliothèque sans apparaître sur ton profil.</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.keepCancel} onPress={() => setKeepPromptOpen(false)} disabled={keepSubmitting} accessibilityLabel="Annuler sans garder">
-              <Text style={styles.keepCancelText}>ANNULER — NE RIEN GARDER</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      <KeepSuccessModal
+        visible={keepSuccessOpen}
+        trackLabel={`${track.title} · ${track.artist}`}
+        costFree={keepCost}
+        visibility={keepSuccessVisibility}
+        onContinue={() => setKeepSuccessOpen(false)}
+      />
     </>
   );
 }
@@ -183,6 +176,15 @@ const styles = StyleSheet.create({
   keepPromptEyebrow: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 1.25 },
   keepPromptTitle: { color: '#F8F6FC', fontSize: 21, fontWeight: '900', marginTop: 4 },
   keepPromptTrack: { color:'#FFFFFF', fontSize: 12, fontWeight: '800', marginTop: 7 },
+  keepCostNotice:{marginTop:12,minHeight:58,borderRadius:16,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.10)',paddingHorizontal:13,paddingVertical:10,flexDirection:'row',alignItems:'center',gap:11},
+  keepCostNoticeValue:{minWidth:38,color:colors.keep,fontSize:26,fontWeight:'900',textAlign:'center'},
+  keepCostNoticeCopy:{flex:1,minWidth:0},keepCostNoticeTitle:{color:colors.keep,fontSize:10,fontWeight:'900',letterSpacing:.8},keepCostNoticeText:{color:colors.textSecondary,fontSize:10,lineHeight:14,marginTop:2},
+  keepSuccessCard:{width:'100%',maxWidth:390,borderRadius:24,borderWidth:1,borderColor:colors.keep,backgroundColor:colors.backgroundCard,padding:20,alignItems:'center',shadowColor:'#000',shadowOpacity:.35,shadowRadius:16,shadowOffset:{width:0,height:8},elevation:12},
+  keepSuccessOrb:{width:58,height:58,borderRadius:29,backgroundColor:'rgba(45,225,194,.14)',borderWidth:1,borderColor:colors.keep,alignItems:'center',justifyContent:'center',marginBottom:12},
+  keepSuccessOrbText:{color:colors.keep,fontSize:28,fontWeight:'900'},keepSuccessEyebrow:{color:colors.keep,fontSize:9,fontWeight:'900',letterSpacing:1.4},keepSuccessTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900',marginTop:4,textAlign:'center'},
+  keepSuccessTrack:{color:colors.textSecondary,fontSize:12,fontWeight:'800',marginTop:7,textAlign:'center'},keepSuccessDebit:{color:colors.keep,fontSize:15,fontWeight:'900',marginTop:12},
+  keepSuccessBody:{color:colors.textMuted,fontSize:11,lineHeight:16,textAlign:'center',marginTop:5},keepSuccessButton:{width:'100%',minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:16},
+  keepSuccessButtonText:{color:'#FFF',fontSize:12,fontWeight:'900',letterSpacing:.7},
   keepPromptBody: { color:'#FFFFFF', fontSize: 11, lineHeight: 16, marginTop: 8 },
   destinationBlock: { marginTop: 14 },
   destinationLabel: { color:'#FFFFFF', fontSize: 9, fontWeight: '900', letterSpacing: 1.1, marginBottom: 7 },

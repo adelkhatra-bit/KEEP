@@ -1,10 +1,22 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import Hint from '../components/Hint';
 import { supabase } from '../lib/supabaseClient';
 import { invokeAdminFunction } from '../lib/invokeFunction';
 
-type DirectoryUser = { id: string; username: string; display_name: string | null };
+// Super Admin zéro clavier (Adel, 07/10/2026) : messages prêts. Un choix remplit le titre ET le texte ; on peut encore retoucher.
+const MESSAGE_TEMPLATES: ReadonlyArray<{ key: string; label: string; title: string; body: string }> = [
+  { key: 'update', label: '🚀 Mise à jour', title: 'Nouvelle version de Loki Music', body: 'Une nouvelle version est disponible. Mets à jour l’app pour profiter des dernières nouveautés.' },
+  { key: 'free', label: '🎁 FREE offerts', title: 'Cadeau : des FREE pour toi', body: 'Loki Music t’offre des FREE. Ils sont déjà sur ton compte, profites-en !' },
+  { key: 'pulse', label: '🎧 Nouveautés Pulse', title: 'Nouvelles musiques dans Loki Pulse', body: 'De nouveaux titres dans tes styles t’attendent dans Loki Pulse.' },
+  { key: 'battle', label: '⚡ Battle', title: 'Une Battle t’attend', body: 'Défie tes amis sur Loki Music et gagne des FREE.' },
+  { key: 'story', label: '⭕ Story', title: 'Partage ta musique en story', body: 'Garde un morceau en public : il apparaît dans ta story pendant 24 h.' },
+  { key: 'maintenance', label: '🛠 Maintenance', title: 'Maintenance en cours', body: 'Loki Music est en maintenance quelques minutes. Merci pour ta patience.' },
+  { key: 'bug', label: '✅ Bug corrigé', title: 'Problème corrigé', body: 'Le problème que tu as signalé est corrigé. Merci de nous aider à améliorer Loki Music !' },
+];
 
+
+type DirectoryUser = { id: string; username: string; display_name: string | null };
 const invokeAdmin = (body: Record<string, unknown>) => invokeAdminFunction('keep-admin-control', body);
 
 export default function Messages() {
@@ -33,6 +45,7 @@ export default function Messages() {
       }
     })();
   }, []);
+
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -65,8 +78,7 @@ export default function Messages() {
 
   return (
     <AdminLayout>
-      <div className="page-title">Messages</div>
-      <div className="page-subtitle">Envoyer une notification Loki Music à tous les utilisateurs ou à une sélection — apparaît dans l'app et en push, comme n'importe quelle autre notification.</div>
+      <div className="page-title">Messages <Hint title="Messages" text={<>Envoyer une notification Loki Music à tous les utilisateurs ou à une sélection — apparaît dans l'app et en push, comme n'importe quelle autre notification.</>}/></div>
 
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
       {message && <div className="demo-banner" style={{ borderColor: '#2e7d32' }}>{message}</div>}
@@ -103,8 +115,21 @@ export default function Messages() {
         )}
       </div>
 
+      <div className="card" style={{ marginBottom: 16, borderColor: 'var(--primary)' }}>
+        <strong>Accès aux notifications</strong>
+        <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 5 }}>
+          Les cadenas et les formules sont gérés dans la rubrique dédiée « Accès notifications » du menu Super Admin.
+        </div>
+      </div>
+
       <div className="card">
         <h3 style={{ marginTop: 0 }}>Message</h3>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+          {MESSAGE_TEMPLATES.map((t) => (
+            <button key={t.key} type="button" className="btn" onClick={() => { setTitle(t.title); setBody(t.body); }}
+              aria-pressed={title === t.title} style={{ background: title === t.title ? 'var(--primary)' : undefined, color: title === t.title ? '#fff' : undefined }}>{t.label}</button>
+          ))}
+        </div>
         <input
           type="text"
           placeholder="Titre (ex: Mise à jour Loki Music)"

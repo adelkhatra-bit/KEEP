@@ -3,6 +3,8 @@ import { supabase } from './supabaseClient';
 import { APP_NAME } from '../config/brand';
 import type { ProfileCertificationTier } from './publicProfileStateService';
 
+export type EventAudienceMode = 'GENERAL' | 'ADULTS_18_PLUS' | 'FAMILY';
+
 export type CreatorEvent = {
   id: string;
   creatorId: string;
@@ -20,6 +22,7 @@ export type CreatorEvent = {
   // photos" -- jusqu'a 3 ; imageUrl reste la couverture (= premiere photo).
   imageUrls: string[];
   requireQrCode: boolean;
+  audienceMode: EventAudienceMode;
   // Adel (17-18/09/2026) : "construis tout ce qui manque ... entrée
   // payante" -- même modèle que le marketplace (lien de paiement
   // personnel, KEEP n'encaisse rien). null = évènement gratuit.
@@ -32,16 +35,43 @@ export type CreatorEvent = {
   // Adel (08/09/2026) : "il faut pas que les utilisateurs voient quoi que ce
   // soit tant que le super admin a pas approuve" -- statut global + detail
   // par champ, pour afficher a l'organisateur ce qui bloque precisement.
-  moderationStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
+  moderationStatus: 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED';
   photoStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
   photoNote?: string | null;
   textStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
   textNote?: string | null;
+  // Vrai uniquement pour l'aperçu PENDING destiné à l'audience potentielle :
+  // aucune coordonnée ni action ne doit être disponible avant validation.
+  pendingPreviewOnly?: boolean;
 };
 
 export type EventRsvpStatus = 'GOING' | 'MAYBE' | 'NOT_GOING';
 
-const EVENT_COLUMNS = 'id,creator_id,name,description,venue_name,starts_at,ends_at,country_code,dj_artist_names,external_ticket_url,youtube_url,image_url,image_urls,require_qr_code,ticket_price_cents,organizer_phone_public,moderation_status,photo_status,photo_note,text_status,text_note';
+export type ProfileEventSpotlight = {
+  approvedCount: number;
+  pendingCount: number;
+  nextApprovedEventId: string | null;
+  nextApprovedStartsAt: string | null;
+  status: 'APPROVED' | 'PENDING' | 'NONE';
+};
+
+export async function loadProfileEventSpotlight(profileId: string): Promise<ProfileEventSpotlight> {
+  if (!supabase || !profileId) return { approvedCount: 0, pendingCount: 0, nextApprovedEventId: null, nextApprovedStartsAt: null, status: 'NONE' };
+  const { data, error } = await supabase.rpc('keep_profile_event_spotlight', { p_profile_id: profileId });
+  if (error) throw error;
+  const row = (data ?? {}) as any;
+  return {
+    approvedCount: Number(row.approvedCount ?? row.approved_count ?? 0),
+    pendingCount: Number(row.pendingCount ?? row.pending_count ?? 0),
+    nextApprovedEventId: row.nextApprovedEventId ?? row.next_approved_event_id ?? null,
+    nextApprovedStartsAt: row.nextApprovedStartsAt ?? row.next_approved_starts_at ?? null,
+    status: (String(row.status ?? 'NONE').toUpperCase() as ProfileEventSpotlight['status']),
+  };
+}
+
+
+
+const EVENT_COLUMNS = 'id,creator_id,name,description,venue_name,starts_at,ends_at,country_code,dj_artist_names,external_ticket_url,youtube_url,image_url,image_urls,require_qr_code,audience_mode,ticket_price_cents,organizer_phone_public,moderation_status,photo_status,photo_note,text_status,text_note';
 
 function mapEventRow(row: any): CreatorEvent {
   return {
@@ -59,9 +89,10 @@ function mapEventRow(row: any): CreatorEvent {
     imageUrl: row.image_url,
     imageUrls: Array.isArray(row.image_urls) && row.image_urls.length ? row.image_urls : (row.image_url ? [row.image_url] : []),
     requireQrCode: Boolean(row.require_qr_code),
+    audienceMode: (['ADULTS_18_PLUS','FAMILY'].includes(String(row.audience_mode)) ? String(row.audience_mode) : 'GENERAL') as EventAudienceMode,
     ticketPriceCents: row.ticket_price_cents ?? null,
     organizerPhone: row.organizer_phone_public,
-    moderationStatus: (row.moderation_status as CreatorEvent['moderationStatus']) || 'PENDING',
+    moderationStatus: (row.moderation_status as CreatorEvent['moderationStatus']) ?? 'DRAFT',
     photoStatus: (row.photo_status as CreatorEvent['photoStatus']) || 'PENDING',
     photoNote: row.photo_note ?? null,
     textStatus: (row.text_status as CreatorEvent['textStatus']) || 'PENDING',
@@ -72,19 +103,68 @@ function mapEventRow(row: any): CreatorEvent {
 // Adel (08/09/2026) : les evenements PENDING/REJECTED restent invisibles au
 // public, mais l'organisateur doit continuer a voir SON PROPRE evenement
 // (avec son badge d'attente) tant qu'il n'a pas ete approuve.
+export type ProfileEventTeaser = {
+  approvedCount: number;
+  pendingCount: number;
+  approvedEventIds: string[];
+};
+
+export async function loadProfileEventTeaser(profileId: string): Promise<ProfileEventTeaser> {
+  if (!supabase || !profileId) return { approvedCount: 0, pendingCount: 0, approvedEventIds: [] };
+  const { data, error } = await supabase.rpc('keep_profile_event_teaser', { p_profile_id: profileId });
+  if (error) throw error;
+  const value = data && typeof data === 'object' ? data as any : {};
+  return {
+    approvedCount: Math.max(0, Number(value.approvedCount ?? value.approved_count ?? 0) || 0),
+    pendingCount: Math.max(0, Number(value.pendingCount ?? value.pending_count ?? 0) || 0),
+    approvedEventIds: Array.isArray(value.approvedEventIds ?? value.approved_event_ids)
+      ? (value.approvedEventIds ?? value.approved_event_ids).map(String).filter(Boolean)
+      : [],
+  };
+}
+
 export async function loadUpcomingEvents(viewerId?: string): Promise<CreatorEvent[]> {
   if (!supabase) return [];
-  let query = supabase
+
+  // Public : uniquement les événements approuvés encore pertinents.
+  // Créateur : garder aussi SES propres événements quel que soit leur statut
+  // (PENDING / REJECTED / APPROVED), même lorsque la date est passée.
+  // Avant ce correctif, le filtre starts_at >= now-12h s'appliquait aussi au
+  // créateur : une demande restait bien en base et visible au Super Admin,
+  // mais disparaissait de l'app utilisateur dès qu'elle vieillissait.
+  const publicQuery = supabase.rpc('keep_upcoming_events_for_me', { p_limit: 100 });
+
+  if (!viewerId) {
+    const { data, error } = await publicQuery;
+    if (error) throw error;
+    return (data ?? []).map(mapEventRow);
+  }
+
+  const ownQuery = supabase
     .from('events')
     .select(EVENT_COLUMNS)
+    .eq('creator_id', viewerId)
     .eq('is_disabled', false)
-    .gte('starts_at', new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString());
-  query = viewerId
-    ? query.or(`moderation_status.eq.APPROVED,creator_id.eq.${viewerId}`)
-    : query.eq('moderation_status', 'APPROVED');
-  const { data, error } = await query.order('starts_at', { ascending: true }).limit(100);
-  if (error) throw error;
-  return (data ?? []).map(mapEventRow);
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  const [{ data: publicRows, error: publicError }, { data: ownRows, error: ownError }] = await Promise.all([publicQuery, ownQuery]);
+  if (publicError) throw publicError;
+  if (ownError) throw ownError;
+
+  const unique = new Map<string, CreatorEvent>();
+  for (const row of publicRows ?? []) unique.set(String((row as any).id), mapEventRow(row));
+  for (const row of ownRows ?? []) unique.set(String((row as any).id), mapEventRow(row));
+
+  const now = Date.now();
+  return Array.from(unique.values()).sort((a, b) => {
+    const aTime = new Date(a.startsAt).getTime();
+    const bTime = new Date(b.startsAt).getTime();
+    const aFuture = Number.isFinite(aTime) && aTime >= now;
+    const bFuture = Number.isFinite(bTime) && bTime >= now;
+    if (aFuture !== bFuture) return aFuture ? -1 : 1;
+    return aFuture ? aTime - bTime : bTime - aTime;
+  });
 }
 
 // Adel (08/09/2026) : "il faut un bouton en savoir plus ... avoir quelques
@@ -97,6 +177,74 @@ export async function loadEventById(eventId: string): Promise<CreatorEvent | nul
   const { data, error } = await supabase.from('events').select(EVENT_COLUMNS).eq('id', eventId).maybeSingle();
   if (error || !data) return null;
   return mapEventRow(data);
+}
+
+// Morceau d'une playlist de soirée. Les morceaux en vente par l'organisateur
+// sont exclus côté serveur (RPC keep_event_playlist) : rien ne fuit du
+// marketplace via cet écran.
+export type EventTrack = {
+  id: string;
+  title: string;
+  artist: string;
+  album?: string | null;
+  artworkUrl?: string | null;
+  durationSec?: number | null;
+};
+
+// Charge la playlist rattachée à un événement (events.playlist_id →
+// playlist_tracks → tracks), triée par ordre d'ajout. Renvoie [] si
+// l'événement n'a pas de playlist ou si aucun morceau n'est visible.
+export async function loadEventPlaylist(eventId: string): Promise<EventTrack[]> {
+  if (!supabase || !eventId) return [];
+  const { data, error } = await supabase.rpc('keep_event_playlist', { p_event_id: eventId });
+  if (error) throw error;
+  const rows = Array.isArray(data) ? data : [];
+  return rows.map((row: any) => ({
+    id: String(row.id),
+    title: row.title ?? 'Titre inconnu',
+    artist: row.artist ?? 'Artiste inconnu',
+    album: row.album ?? null,
+    artworkUrl: row.artworkUrl ?? null,
+    durationSec: typeof row.durationSec === 'number' ? row.durationSec : null,
+  }));
+}
+
+export async function loadMyEventInvitationIds(): Promise<string[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('keep_my_event_invitation_ids');
+  if (error) throw error;
+  return (data ?? []).map((row: any) => String(row.event_id ?? row.eventId ?? '')).filter(Boolean);
+}
+
+export async function loadPendingEventInvitePreviews(): Promise<CreatorEvent[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('keep_pending_event_teasers_for_me', { p_limit: 50 });
+  if (error) throw error;
+  return (data ?? []).map((row: any) => ({
+    id: String(row.id),
+    creatorId: String(row.creator_id),
+    name: String(row.name || 'Événement'),
+    description: row.description_preview ?? null,
+    venueName: null,
+    startsAt: String(row.starts_at),
+    endsAt: null,
+    countryCode: null,
+    djArtistNames: [],
+    externalTicketUrl: null,
+    youtubeUrl: null,
+    imageUrl: row.image_url ?? null,
+    imageUrls: row.image_url ? [String(row.image_url)] : [],
+    requireQrCode: false,
+    audienceMode: (['ADULTS_18_PLUS','FAMILY'].includes(String(row.audience_mode)) ? String(row.audience_mode) : 'GENERAL') as EventAudienceMode,
+    ticketPriceCents: null,
+    organizerPhone: null,
+    moderationStatus: 'PENDING' as const,
+    photoStatus: 'PENDING' as const,
+    photoNote: null,
+    textStatus: 'PENDING' as const,
+    textNote: null,
+    pendingPreviewOnly: true,
+  }));
 }
 
 export async function loadMyRsvps(profileId: string): Promise<Record<string, EventRsvpStatus>> {
@@ -131,6 +279,7 @@ export type EventTicketPurchaseRequest = {
   currencyCode: string;
   sellerUsername: string;
   payoutLink: string;
+  payoutQrUrl: string;
 };
 
 export async function requestEventTicketPurchase(eventId: string): Promise<EventTicketPurchaseRequest> {
@@ -145,6 +294,7 @@ export async function requestEventTicketPurchase(eventId: string): Promise<Event
     currencyCode: String(row?.currencyCode ?? 'EUR'),
     sellerUsername: String(row?.sellerUsername ?? ''),
     payoutLink: String(row?.payoutLink ?? ''),
+    payoutQrUrl: String(row?.payoutQrUrl ?? row?.payout_qr_url ?? ''),
   };
 }
 
@@ -207,6 +357,7 @@ export async function createCreatorEvent(input: {
   imageUrl?: string;
   imageUrls?: string[];
   requireQrCode?: boolean;
+  audienceMode?: EventAudienceMode;
   organizerPhone?: string;
   showOrganizerPhone?: boolean;
   includeRsvpButtons?: boolean;
@@ -241,6 +392,7 @@ export async function updateCreatorEvent(eventId: string, input: {
   imageUrl?: string;
   imageUrls?: string[];
   requireQrCode?: boolean;
+  audienceMode?: EventAudienceMode;
   organizerPhone?: string;
   showOrganizerPhone?: boolean;
   lat?: number;

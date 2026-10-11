@@ -16,6 +16,10 @@ on:
       - '.github/workflows/app-store-native-preflight.yml'
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -93,8 +97,8 @@ jobs:
               raise SystemExit('FAIL: iPhone-only TARGETED_DEVICE_FAMILY=1 not found')
 
           has_extension_target = ('com.apple.product-type.app-extension' in pbx_text or '.appex' in pbx_text)
-          if not extension_info and not has_extension_target:
-              raise SystemExit('FAIL: expo-share-intent did not generate an iOS app-extension target')
+          if extension_info or has_extension_target:
+              raise SystemExit('FAIL: share extension must stay out of the first TestFlight build')
 
           podfile = ios / 'Podfile'
           podfile_text = podfile.read_text(encoding='utf-8', errors='ignore') if podfile.exists() else ''
@@ -166,6 +170,15 @@ jobs:
           cache: npm
       - name: Install exact workspace dependencies
         run: npm ci
+      - name: Verify Expo autolinking sees local iOS modules
+        working-directory: packages/mobile
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx expo-modules-autolinking resolve --platform apple > /tmp/keep-autolinking-apple.json
+          cat /tmp/keep-autolinking-apple.json
+          grep -q 'KeepShazam' /tmp/keep-autolinking-apple.json
+          grep -q 'KeepIAP' /tmp/keep-autolinking-apple.json
       - name: Generate iOS project
         working-directory: packages/mobile
         run: npx expo prebuild --platform ios --clean --no-install
@@ -207,7 +220,7 @@ jobs:
           echo "scheme=$scheme" >> "$GITHUB_OUTPUT"
           echo "Xcode workspace: $workspace"
           echo "Xcode scheme: $scheme"
-      - name: Compile iOS Simulator — ShazamKit + StoreKit + share extension
+      - name: Compile iOS Simulator — ShazamKit + StoreKit
         working-directory: packages/mobile
         shell: bash
         run: |
@@ -227,11 +240,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -E 'KeepShazam|KeepShazamModule' artifacts/ios-simulator-compile/xcodebuild.log >/dev/null
-          grep -E 'KeepIAP|KeepIAPModule' artifacts/ios-simulator-compile/xcodebuild.log >/dev/null
+          # Avec useFrameworks=static, Expo peut intégrer les modules locaux
+          # dans des frameworks agrégés : DerivedData n'expose pas forcément
+          # des dossiers nommés KeepShazam/KeepIAP. On exige donc les preuves
+          # stables : autolinking + Podfile.lock + compilation Xcode réussie.
+          grep -q 'KeepShazam' packages/mobile/ios/Podfile.lock
+          grep -q 'KeepIAP' packages/mobile/ios/Podfile.lock
+          grep -q '\*\* BUILD SUCCEEDED \*\*' artifacts/ios-simulator-compile/xcodebuild.log
       - name: Upload native compile log
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: keep-ios-simulator-compile
           path: artifacts/ios-simulator-compile/xcodebuild.log
+
+# ios-15.1-compat-preflight: 2026-10-04T14:03Z

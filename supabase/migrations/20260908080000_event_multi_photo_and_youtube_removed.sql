@@ -10,6 +10,10 @@ update public.events
 set image_urls = array[image_url]
 where image_url is not null and image_urls = '{}';
 
+-- Le retour ajoute image_urls : PostgreSQL exige de supprimer l'ancienne
+-- version avant de recréer une fonction TABLE avec une forme différente.
+drop function if exists public.admin_event_moderation_queue();
+
 create or replace function public.admin_event_moderation_queue()
 returns table(
   id uuid,

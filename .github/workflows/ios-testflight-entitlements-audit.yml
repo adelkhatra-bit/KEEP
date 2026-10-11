@@ -1,0 +1,84 @@
+# audit-run: 2026-10-04T11:55:00+02:00 diagnose-testflight-push-environment
+name: Loki TestFlight Entitlements Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/ios-testflight-entitlements-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+
+      - name: Install EAS CLI
+        run: npm install -g eas-cli@24.6.0
+
+      - name: Inspect latest iOS build provisioning profile
+        working-directory: packages/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          eas whoami
+          eas build:list --platform ios --limit 10 --json --non-interactive > "$RUNNER_TEMP/builds.json"
+          node <<'NODE'
+          const fs=require('fs');
+          const builds=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/builds.json','utf8'));
+          const candidates=builds.filter(b=>b.status==='FINISHED' && b.artifacts?.applicationArchiveUrl);
+          if(!candidates.length) throw new Error('NO_FINISHED_IOS_IPA');
+          const b=candidates[0];
+          fs.writeFileSync(process.env.RUNNER_TEMP+'/ipa-url.txt', b.artifacts.applicationArchiveUrl);
+          console.log('LATEST_IOS_BUILD='+JSON.stringify({
+            id:b.id,
+            status:b.status,
+            distribution:b.distribution,
+            buildProfile:b.buildProfile,
+            appVersion:b.appVersion,
+            appBuildVersion:b.appBuildVersion,
+            createdAt:b.createdAt,
+            completedAt:b.completedAt,
+            runtimeVersion:b.runtimeVersion,
+            channel:b.channel,
+          },null,2));
+          NODE
+          curl -fL "$(cat "$RUNNER_TEMP/ipa-url.txt")" -o "$RUNNER_TEMP/loki.ipa"
+          rm -rf "$RUNNER_TEMP/ipa"
+          mkdir -p "$RUNNER_TEMP/ipa"
+          unzip -q "$RUNNER_TEMP/loki.ipa" -d "$RUNNER_TEMP/ipa"
+          APP="$(find "$RUNNER_TEMP/ipa/Payload" -maxdepth 1 -type d -name '*.app' | head -1)"
+          test -n "$APP"
+          test -f "$APP/embedded.mobileprovision"
+          openssl smime -inform der -verify -noverify -in "$APP/embedded.mobileprovision" -out "$RUNNER_TEMP/profile.plist" >/dev/null 2>&1
+          python3 - <<'PY'
+          import plistlib, os, json
+          p=plistlib.load(open(os.environ['RUNNER_TEMP']+'/profile.plist','rb'))
+          e=p.get('Entitlements',{})
+          out={
+            'Name':p.get('Name'),
+            'TeamIdentifier':p.get('TeamIdentifier'),
+            'ExpirationDate':str(p.get('ExpirationDate')),
+            'application-identifier':e.get('application-identifier'),
+            'com.apple.developer.team-identifier':e.get('com.apple.developer.team-identifier'),
+            'aps-environment':e.get('aps-environment'),
+            'beta-reports-active':e.get('beta-reports-active'),
+            'get-task-allow':e.get('get-task-allow'),
+          }
+          print('LATEST_IPA_PROVISIONING='+json.dumps(out,indent=2,default=str))
+          if e.get('aps-environment')!='production':
+            raise SystemExit('LATEST_IPA_APS_NOT_PRODUCTION')
+          if not str(e.get('application-identifier','')).endswith('.com.adelkhatra.keep'):
+            raise SystemExit('LATEST_IPA_BUNDLE_MISMATCH')
+          PY

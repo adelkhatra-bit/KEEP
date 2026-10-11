@@ -17,7 +17,7 @@ import {
   SmartPlaylistRouter,
   TrackResolver,
 } from '@keep/music';
-import { getSupabaseAccessToken } from './supabaseClient';
+import { getSupabaseAccessToken, supabase } from './supabaseClient';
 import { APP_NAME } from '../config/brand';
 import { KeepMusicCoreRecognitionProvider, isSecureRecognitionConfigured } from './keepMusicCoreRecognition';
 import { NativeFirstRecognitionProvider } from './nativeFirstRecognitionProvider';
@@ -33,6 +33,23 @@ function isPlaceholder(value: string | undefined): boolean {
 }
 
 async function fetchAppleMusicDeveloperToken(apiUrl: string): Promise<string> {
+  // Premier choix : les clés MusicKit conservées dans Supabase Vault (Super Admin).
+  // Aucun PEM ni jeton long terme dans l'app. L'API backend historique reste un secours.
+  const session = await getSupabaseAccessToken();
+  if (!session) throw new Error('Connecte-toi à Loki Music pour activer Apple Music.');
+  let vaultError = '';
+  if (supabase) {
+    try {
+      const { data, error } = await supabase.functions.invoke('keep-apple-music-token', { body: {} });
+      if (!error && typeof data?.token === 'string' && data.token.length > 100) return data.token;
+      vaultError = String(error?.message || data?.error || 'jeton indisponible');
+    } catch (error) {
+      vaultError = error instanceof Error ? error.message : 'Supabase indisponible';
+    }
+  }
+  if (isPlaceholder(apiUrl)) {
+    throw new Error('Apple Music est temporairement indisponible côté serveur (' + (vaultError || 'MusicKit') + ').');
+  }
   const accessToken = await getSupabaseAccessToken();
   if (!accessToken) {
     throw new Error(
@@ -54,20 +71,13 @@ function createBackendDeveloperTokenProvider(apiUrl: string): DeveloperTokenProv
 }
 
 export async function getAppleMusicDeveloperToken(): Promise<string> {
-  if (isPlaceholder(API_URL)) {
-    throw new Error(`EXPO_PUBLIC_API_URL manquant -- impossible de joindre le backend ${APP_NAME}.`);
-  }
-  return fetchAppleMusicDeveloperToken(API_URL!);
+  return fetchAppleMusicDeveloperToken(API_URL ?? '');
 }
 
 function createRealMusicProvider(): MusicProviderAdapter {
-  if (isPlaceholder(API_URL)) {
-    throw new Error(
-      `${APP_NAME} est en Mode Réel mais EXPO_PUBLIC_API_URL est manquant. ` +
-        `Renseigne l’URL du backend ${APP_NAME} déployé.`
-    );
-  }
-  return new AppleMusicProvider(createBackendDeveloperTokenProvider(API_URL!));
+  // Fonctionne même si le backend Node est absent : les trois clés sont
+  // déjà dans le Vault de Supabase, jamais copiées vers EXPO_PUBLIC_*.
+  return new AppleMusicProvider(createBackendDeveloperTokenProvider(API_URL ?? ''));
 }
 
 class MusicEngine {

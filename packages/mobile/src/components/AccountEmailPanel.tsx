@@ -3,6 +3,8 @@ import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View 
 import { Alert } from '../utils/keepAlert';
 import { colors } from '../theme/colors';
 import { radius } from '../theme/spacing';
+import { supabase } from '../services/supabaseClient';
+import { createAuthService } from '../services/authService';
 import {
   confirmAccountEmailVerification,
   getAccountEmailStatus,
@@ -17,6 +19,10 @@ export default function AccountEmailPanel({ enabled, username }: { enabled: bool
   const [busy, setBusy] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [codeSent, setCodeSent] = React.useState(false);
+  const [password, setPassword] = React.useState('');
+  const [passwordConfirm, setPasswordConfirm] = React.useState('');
+  const [passwordBusy, setPasswordBusy] = React.useState(false);
+  const [emailTestBusy, setEmailTestBusy] = React.useState(false);
 
   const refresh = React.useCallback(async () => {
     if (!enabled) return;
@@ -46,6 +52,40 @@ export default function AccountEmailPanel({ enabled, username }: { enabled: bool
     } finally { setBusy(false); }
   };
 
+  const changePassword = async () => {
+    if (!supabase) return void Alert.alert('Mot de passe', 'Connexion Loki Music indisponible.');
+    if (password.length < 10) return void Alert.alert('Mot de passe', 'Choisis au moins 10 caractères.');
+    if (password !== passwordConfirm) return void Alert.alert('Mot de passe', 'Les deux mots de passe ne correspondent pas.');
+    setPasswordBusy(true);
+    try {
+      const result = await createAuthService(supabase).updatePassword(password);
+      if (result.error) throw new Error(result.error);
+      setPassword('');
+      setPasswordConfirm('');
+      Alert.alert('Mot de passe modifié', 'Ton nouveau mot de passe est actif immédiatement.');
+    } catch (e: any) {
+      Alert.alert('Mot de passe', e?.message === 'invalid_password' ? 'Choisis au moins 10 caractères.' : (e?.message || 'Impossible de modifier le mot de passe.'));
+    } finally {
+      setPasswordBusy(false);
+    }
+  };
+
+  const testRecoveryEmail = async () => {
+    if (!supabase || !status?.email || !status.emailVerified) {
+      return void Alert.alert('Test e-mail', 'Valide d’abord ton adresse e-mail.');
+    }
+    setEmailTestBusy(true);
+    try {
+      const result = await createAuthService(supabase).requestPasswordReset(status.email);
+      if (result.error) throw new Error(result.error);
+      Alert.alert('E-mail de test envoyé', `Le vrai e-mail « mot de passe oublié » vient d’être envoyé à ${status.email}. Aucun mot de passe ne change tant que tu n’utilises pas le lien reçu.`);
+    } catch (e: any) {
+      Alert.alert('Test e-mail', e?.message || 'Impossible d’envoyer l’e-mail de test.');
+    } finally {
+      setEmailTestBusy(false);
+    }
+  };
+
   const confirmCode = async () => {
     if (!/^\d{6}$/.test(code.trim())) return void Alert.alert('Code', 'Saisis le code à 6 chiffres reçu par e-mail.');
     setBusy(true);
@@ -63,7 +103,7 @@ export default function AccountEmailPanel({ enabled, username }: { enabled: bool
   if (!enabled) {
     return <View style={s.card}>
       <Text style={s.title}>Sécurité du compte</Text>
-      <Text style={s.help}>Crée ou connecte ton compte Loki Music pour ajouter une adresse e-mail de récupération facultative.</Text>
+      <Text style={s.help}>Crée ou connecte ton compte Loki Music pour gérer ton adresse e-mail, ton mot de passe et tester la réception des e-mails.</Text>
     </View>;
   }
 
@@ -72,7 +112,7 @@ export default function AccountEmailPanel({ enabled, username }: { enabled: bool
     <View style={s.headerRow}>
       <View style={{ flex: 1 }}>
         <Text style={s.title}>Sécurité du compte</Text>
-        <Text style={s.help}>Ton pseudo reste ton identité publique. L’e-mail est privé et facultatif : il sert à la connexion et à la récupération du compte.</Text>
+        <Text style={s.help}>Ton pseudo reste ton identité publique. L’e-mail est privé : il sert à la connexion, à la récupération du compte et peut être modifié ici avec confirmation.</Text>
       </View>
       {loading ? <ActivityIndicator color={colors.primaryLight} size="small" /> : null}
     </View>
@@ -80,7 +120,7 @@ export default function AccountEmailPanel({ enabled, username }: { enabled: bool
     {verified ? <View style={s.verifiedBox}>
       <Text style={s.verifiedTitle}>✓ Adresse e-mail validée</Text>
       <Text style={s.verifiedEmail}>{status?.email}</Text>
-      <Text style={s.help}>Connexion possible avec ${username} ou cette adresse e-mail, avec le même mot de passe.</Text>
+      <Text style={s.help}>Connexion possible avec @{username} ou cette adresse e-mail, avec le même mot de passe.</Text>
     </View> : null}
 
     <Text style={s.label}>{verified ? 'Changer l’adresse e-mail' : 'Adresse e-mail de récupération'}</Text>
@@ -99,6 +139,14 @@ export default function AccountEmailPanel({ enabled, username }: { enabled: bool
       <Text style={s.primaryText}>{busy ? 'Envoi…' : 'Envoyer l’e-mail de validation'}</Text>
     </TouchableOpacity>
 
+    {verified ? <View style={s.testArea}>
+      <Text style={s.labelCompact}>Tester les e-mails</Text>
+      <Text style={s.help}>Envoie le vrai e-mail « mot de passe oublié » à ton adresse actuelle pour vérifier la délivrabilité et le design.</Text>
+      <TouchableOpacity style={s.secondary} onPress={testRecoveryEmail} disabled={emailTestBusy || busy} accessibilityRole="button" accessibilityLabel="Tester l’e-mail mot de passe oublié">
+        <Text style={s.secondaryText}>{emailTestBusy ? 'Envoi du test…' : 'TESTER L’E-MAIL MOT DE PASSE OUBLIÉ'}</Text>
+      </TouchableOpacity>
+    </View> : null}
+
     {(codeSent || status?.pendingEmailHint) ? <View style={s.codeArea}>
       <Text style={s.pending}>Code envoyé{status?.pendingEmailHint ? ` à ${status.pendingEmailHint}` : ''}</Text>
       <TextInput
@@ -114,6 +162,38 @@ export default function AccountEmailPanel({ enabled, username }: { enabled: bool
         <Text style={s.secondaryText}>Valider le code</Text>
       </TouchableOpacity>
     </View> : null}
+
+    <View style={s.passwordArea}>
+      <Text style={s.labelCompact}>Changer le mot de passe</Text>
+      <Text style={s.help}>Au moins 10 caractères. Le nouveau mot de passe devient actif immédiatement.</Text>
+      <TextInput
+        style={s.input}
+        value={password}
+        onChangeText={setPassword}
+        placeholder="Nouveau mot de passe"
+        placeholderTextColor={colors.textMuted}
+        secureTextEntry
+        autoCapitalize="none"
+        autoCorrect={false}
+        textContentType="newPassword"
+        autoComplete="new-password"
+      />
+      <TextInput
+        style={[s.input, { marginTop: 8 }]}
+        value={passwordConfirm}
+        onChangeText={setPasswordConfirm}
+        placeholder="Confirmer le mot de passe"
+        placeholderTextColor={colors.textMuted}
+        secureTextEntry
+        autoCapitalize="none"
+        autoCorrect={false}
+        textContentType="newPassword"
+        autoComplete="new-password"
+      />
+      <TouchableOpacity style={s.primary} onPress={changePassword} disabled={passwordBusy || !password || !passwordConfirm} accessibilityRole="button" accessibilityLabel="Changer le mot de passe">
+        <Text style={s.primaryText}>{passwordBusy ? 'Modification…' : 'CHANGER LE MOT DE PASSE'}</Text>
+      </TouchableOpacity>
+    </View>
   </View>;
 }
 
@@ -126,6 +206,9 @@ const s = StyleSheet.create({
   verifiedTitle: { color: colors.primaryLight, fontSize: 14, fontWeight: '900' },
   verifiedEmail: { color: colors.textPrimary, fontSize: 14, fontWeight: '800', marginTop: 4, marginBottom: 3 },
   label: { color: colors.textPrimary, fontSize: 14, fontWeight: '900', marginTop: 13, marginBottom: 7 },
+  labelCompact: { color: colors.textPrimary, fontSize: 14, fontWeight: '900', marginBottom: 6 },
+  testArea: { marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border },
+  passwordArea: { marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border },
   input: { minHeight: 44, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: 12, color: colors.textPrimary, backgroundColor: colors.background },
   primary: { minHeight: 42, marginTop: 9, borderRadius: 21, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
   primaryText: { color: colors.white, fontSize: 14, fontWeight: '900' },

@@ -1,0 +1,53 @@
+name: KEEP — Design & Interaction Guardian
+
+on:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - 'packages/mobile/src/**'
+      - 'packages/admin/**'
+      - 'config/mobile-accessibility-contract.json'
+      - 'docs/UI_CONTRAST_RULE.md'
+      - 'scripts/verify-mobile-accessibility-contract.cjs'
+      - 'scripts/verify-mobile-text-contrast.cjs'
+      - 'scripts/verify-interaction-loop.cjs'
+      - 'scripts/verify-admin-interaction-loop.cjs'
+      - 'scripts/verify-ui-layout-baseline.cjs'
+      - '.github/workflows/design-interaction-guardian.yml'
+  pull_request:
+    paths:
+      - 'packages/mobile/src/**'
+      - 'packages/admin/**'
+      - 'config/mobile-accessibility-contract.json'
+      - 'docs/UI_CONTRAST_RULE.md'
+      - 'scripts/verify-mobile-accessibility-contract.cjs'
+      - 'scripts/verify-mobile-text-contrast.cjs'
+      - 'scripts/verify-ui-layout-baseline.cjs'
+      - '.github/workflows/design-interaction-guardian.yml'
+  workflow_dispatch:
+
+jobs:
+  design-guardian:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck Super Admin
+        run: npm --workspace packages/admin run type-check
+      - name: Enforce Loki interaction and readability contract
+        run: |
+          node scripts/verify-mobile-accessibility-contract.cjs
+          node scripts/verify-mobile-text-contrast.cjs
+          node scripts/verify-interaction-loop.cjs
+          node scripts/verify-admin-interaction-loop.cjs
+          node scripts/verify-admin-user-loop.cjs
+          node scripts/verify-admin-integrations-single-source.cjs
+          node scripts/verify-ui-layout-baseline.cjs
+      - name: Lock Listen home compact behavior
+        run: npm test --workspace=packages/mobile -- --runInBand HomeScreenCompact.branding.contract.test.ts HomeLokiPulse.contract.test.ts LokiPulseBubblesPlacement.contract.test.ts

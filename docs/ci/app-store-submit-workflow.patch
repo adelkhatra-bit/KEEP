@@ -1,0 +1,79 @@
+diff --git a/.github/workflows/app-store-submit.yml b/.github/workflows/app-store-submit.yml
+new file mode 100644
+index 00000000..d7a9fa83
+--- /dev/null
++++ b/.github/workflows/app-store-submit.yml
+@@ -0,0 +1,73 @@
++name: App Store — Soumettre la fiche + review (Loki Music)
++
++# Soumission 100% autonome de la fiche App Store et de la v1.0.0 (build 312,
++# deja sur TestFlight), via la cle API App Store Connect deja presente dans les
++# Secrets (ASC_API_KEY_P8_BASE64 + ASC_KEY_ID + ASC_ISSUER_ID).
++#
++# Declenchement MANUEL (bouton "Run workflow") ou par appel d'API. Aucun clic
++# supplementaire, aucun mot de passe d'app, aucune session interactive.
++#
++# Entree "lane" :
++#   listing -> remplit la fiche SANS soumettre (verification)
++#   submit  -> remplit la fiche ET soumet a la review Apple
++
++on:
++  workflow_dispatch:
++    inputs:
++      lane:
++        description: 'Lane fastlane (listing = fiche seule, submit = fiche + review)'
++        required: true
++        default: 'listing'
++        type: choice
++        options:
++          - listing
++          - submit
++
++concurrency:
++  group: app-store-submit
++  cancel-in-progress: false
++
++jobs:
++  submit:
++    runs-on: macos-14
++    timeout-minutes: 40
++    env:
++      ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
++      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
++      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
++      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
++      ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
++    steps:
++      - name: Checkout
++        uses: actions/checkout@v4
++
++      - name: Verifier la presence des secrets Apple
++        run: |
++          missing=0
++          for v in ASC_API_KEY_P8_BASE64 ASC_KEY_ID ASC_ISSUER_ID; do
++            if [ -z "${!v}" ]; then echo "❌ Secret manquant: $v"; missing=1; fi
++          done
++          [ "$missing" = "0" ] || { echo "Secrets Apple absents — soumission impossible."; exit 1; }
++          echo "✅ Cle API App Store Connect presente."
++
++      - name: Setup Ruby + fastlane
++        uses: ruby/setup-ruby@v1
++        with:
++          ruby-version: '3.2'
++          bundler-cache: false
++
++      - name: Installer fastlane
++        run: gem install fastlane --no-document
++
++      - name: Lancer fastlane (${{ github.event.inputs.lane }})
++        working-directory: packages/mobile
++        env:
++          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID || 'WTG9399DBK' }}
++          ASC_APP_ID: ${{ secrets.ASC_APP_ID || '6812393589' }}
++        run: fastlane ios ${{ github.event.inputs.lane }}
++
++      - name: Resume
++        if: always()
++        run: |
++          echo "Lane: ${{ github.event.inputs.lane }}"
++          echo "Fiche/soumission Loki Music v1.0.0 (build 312) traitee via cle API ASC."

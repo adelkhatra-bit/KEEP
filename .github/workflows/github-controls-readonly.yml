@@ -1,0 +1,62 @@
+name: KEEP — Actionlint et contrôles GitHub en lecture seule
+
+# Manual only: no workflow_run loop, deploy, artifact, client token or write API.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  actionlint:
+    if: github.repository == 'adelkhatra-bit/KEEP' && github.ref == 'refs/heads/reconcile/claude-main-20260825'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Installer actionlint 1.7.7 officiel avec SHA256 épinglé
+        run: node scripts/install-actionlint.cjs "$RUNNER_TEMP/actionlint"
+      - name: Tester les contrats avec actionlint réel
+        run: KEEP_ACTIONLINT_BIN="$RUNNER_TEMP/actionlint" node --test scripts/github-controls.test.cjs
+      - name: Contrôler tous les workflows sans masquer les erreurs héritées
+        run: '"$RUNNER_TEMP/actionlint" -color .github/workflows/*.yml'
+
+  controls:
+    if: github.repository == 'adelkhatra-bit/KEEP' && github.ref == 'refs/heads/reconcile/claude-main-20260825'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Lire les contrôles du HEAD canonique (échec 1, incomplet ou ignoré 2)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/github-controls-report.cjs
+
+  evidence:
+    if: github.repository == 'adelkhatra-bit/KEEP' && github.ref == 'refs/heads/reconcile/claude-main-20260825'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Dépendances verrouillées, sans scripts d'installation
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Contrats des preuves, compteurs et permissions
+        env:
+          KEEP_PROBLEM_REPORT_LOCAL_SQL: '1'
+        run: node --test scripts/admin-release-evidence.test.cjs scripts/problem-report-evidence.test.cjs

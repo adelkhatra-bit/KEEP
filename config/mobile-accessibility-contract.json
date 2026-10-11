@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "scope": "Loki Music shared mobile/web runtime",
+  "touchTargets": {
+    "sharedMinimum": 48,
+    "appleMinimum": 44,
+    "androidMinimum": 48,
+    "webWcagMinimum": 24,
+    "rule": "All primary touch actions use at least 48x48 logical units. Smaller visual icons must expand their hit area without changing the approved design."
+  },
+  "typography": {
+    "mobileBodyTarget": 17,
+    "minimumUsefulText": 11,
+    "dynamicTypeTargetPercent": 200,
+    "rule": "Primary mobile reading text should target 17pt. Useful text must not be introduced below 11pt. Layouts must remain usable with larger text."
+  },
+  "interactionLoop": {
+    "firstTapDirectAction": true,
+    "secondTapSensitiveConfirmationOnly": true,
+    "collapsibleHelpByDefault": true,
+    "optionalGesturesOnly": true,
+    "everyControlNeedsRealHandler": true,
+    "immediateVisualFeedback": true,
+    "rule": "Every interactive control must close the loop: intention -> action -> feedback -> result or return. One tap opens or executes the intended function; a second tap is reserved for sensitive confirmation. Help text is collapsed by default. In music listening flows, an upward swipe always means NEXT and remains optional because PASSER / GARDER / ARRÊTER stay available.",
+    "verticalSwipeNext": true,
+    "verticalSwipeOptional": true
+  },
+  "darkThemeReadability": {
+    "functionalText": "textPrimary",
+    "forbidMutedFunctionalText": true,
+    "normalTextContrastRatio": 4.5,
+    "rule": "On dark backgrounds, functional text must use white or very light theme tokens. Muted gray is restricted to non-essential explanatory copy."
+  },
+  "layoutStability": {
+    "expandableHelpMustReserveSpace": true,
+    "primaryActionsMustNotShiftOnHelpToggle": true,
+    "bottomDiscoveryRailStaysAnchored": true,
+    "rule": "Expanding contextual help must not push primary actions or bottom discovery controls. Reserve space or overlay help inside a bounded region so the rest of the screen stays visually stable."
+  }
+}

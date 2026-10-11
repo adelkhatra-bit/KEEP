@@ -21,7 +21,7 @@ describe('MyMusicScreen — popup Public/Masqué post-achat (Adel, 21/09/2026, m
   });
 
   it('shows the choice as a non-dismissable popup (onRequestClose is a no-op, no way to skip silently)', () => {
-    expect(source).toContain('<Modal visible={!!pendingVisibilityChoice} transparent animationType="fade" onRequestClose={() => {}}>');
+    expect(source).toContain('<KeepModal visible={!!pendingVisibilityChoice} transparent animationType="fade" onRequestClose={() => {}}>');
   });
 
   it('mentions the "1er Gardé" attribution badge so the buyer understands what they are choosing about', () => {

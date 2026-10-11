@@ -4,23 +4,24 @@ import path from 'path';
 
 const readNormalized = (...segments: string[]) => fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\r\n/g, '\n');
 
-describe('PublicUserProfileScreen "Morceaux publics" always visible (Adel, 21/09/2026 : "c\'est une aberration pour une plateforme musicale")', () => {
+describe('PublicUserProfileScreen — Styles first, detailed tracks preserved (Adel, design validé 24/09/2026)', () => {
   const source = readNormalized(__dirname, '..', 'PublicUserProfileScreen.tsx');
 
-  it('removes the collapse-by-default accordion entirely -- no musicListExpanded state left', () => {
+  it('keeps Styles as the primary collection view and the full track list as a secondary explicit action', () => {
+    expect(source).toContain("{ key: 'TRACKS', label: 'Styles' }");
+    expect(source).toContain('const [showAllTracks, setShowAllTracks] = useState(false);');
+    expect(source).toContain('VOIR TOUS LES MORCEAUX');
+    expect(source).toContain('onPress={() => setShowAllTracks((v) => !v)}');
+  });
+
+  it('does not reintroduce the obsolete musicListExpanded accordion state', () => {
     expect(source).not.toContain('musicListExpanded');
     expect(source).not.toContain('setMusicListExpanded');
   });
 
-  it('renders the track list unconditionally on the Musiques tab, no chevron gate', () => {
-    const tabBlock = source.indexOf("activeTab === 'TRACKS' ? (");
-    expect(tabBlock).toBeGreaterThan(-1);
-    const musicSection = source.slice(tabBlock, tabBlock + 1200);
-    expect(musicSection).toContain('{tracks.length > 0 ? (');
-    expect(musicSection).not.toMatch(/⌃|⌄/);
-  });
-
-  it('keeps the empty-state message for zero public tracks (zéro suppression)', () => {
+  it('keeps the complete detailed track list and its zero-track empty state behind the secondary action', () => {
+    expect(source).toContain('{showAllTracks ? <>');
+    expect(source).toContain('{tracks.length > 0 ? (');
     expect(source).toContain('Aucun morceau public sur ce profil.');
   });
 });

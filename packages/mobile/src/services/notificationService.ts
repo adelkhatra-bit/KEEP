@@ -17,56 +17,254 @@ export type NotificationPreferences = {
   socialEnabled: boolean;
   marketingEnabled: boolean;
   eventsEnabled: boolean;
+  moneyEnabled: boolean;
+  battleEnabled: boolean;
+  musicEnabled: boolean;
+  moneySound: 'MONEY' | 'DEFAULT' | 'SILENT';
+  socialSound: 'DEFAULT' | 'SILENT';
+  battleSound: 'DEFAULT' | 'SILENT';
+  musicSound: 'DEFAULT' | 'SILENT';
+  eventsSound: 'DEFAULT' | 'SILENT';
 };
 
-// Adel (03/09/2026) : "le Marketing devrait tout le temps rester activé,
-// hormis pour ceux qui payent au moins 9,99€" -- obligatoire par défaut pour
-// un nouveau profil (formule gratuite) ; NotificationsScreen le déverrouille
-// et laisse le choix uniquement à partir de Creator Pro/Venue Pro.
-// Adel (04/09/2026) : même mécanique pour "Événements" -- toujours activé et
-// verrouillé en formule gratuite, seule une formule payante (Creator Pro /
-// Venue Pro) peut réellement le désactiver.
+// Le contenu promotionnel est désactivé par défaut et nécessite un choix
+// explicite de l'utilisateur. Les plans payants débloquent d'autres fonctions,
+// jamais l'obligation de recevoir de la publicité.
 const DEFAULT_PREFS: NotificationPreferences = {
   systemEnabled: true,
   djEnabled: true,
   socialEnabled: true,
-  marketingEnabled: true,
+  marketingEnabled: false,
   eventsEnabled: true,
+  moneyEnabled: true,
+  battleEnabled: true,
+  musicEnabled: true,
+  moneySound: 'MONEY', socialSound: 'DEFAULT', battleSound: 'DEFAULT', musicSound: 'DEFAULT', eventsSound: 'DEFAULT',
 };
+
+function decodeVisibleEntities(value: string): string {
+  // Décode chaque entité visible en UNE seule passe. Les anciens cœurs
+  // doublement encodés (&amp;#10084;) sont reconnus comme une entité complète :
+  // on ne fabrique jamais une seconde entité qui serait ensuite redécodée.
+  return value.replace(
+    /&amp;#x([0-9a-f]+);|&amp;#([0-9]+);|&amp;(hearts?);|&#x([0-9a-f]+);|&#([0-9]+);|&(amp|quot|apos|lt|gt|hearts?);/gi,
+    (match, escapedHex, escapedDec, escapedNamed, hex, dec, named) => {
+      const hexValue = escapedHex ?? hex;
+      const decValue = escapedDec ?? dec;
+      if (hexValue !== undefined || decValue !== undefined) {
+        const code = Number.parseInt(String(hexValue ?? decValue), hexValue !== undefined ? 16 : 10);
+        return Number.isInteger(code) && code >= 0 && code <= 0x10ffff
+          ? String.fromCodePoint(code)
+          : match;
+      }
+
+      const entity = String(escapedNamed ?? named ?? '').toLowerCase();
+      if (entity === 'heart' || entity === 'hearts') return '♥';
+      if (entity === 'amp') return '&';
+      if (entity === 'quot') return '"';
+      if (entity === 'apos') return "'";
+      if (entity === 'lt') return '<';
+      if (entity === 'gt') return '>';
+      return match;
+    },
+  );
+}
+
+export function normalizeNotificationVisibleText(value: unknown): string {
+  return decodeVisibleEntities(String(value || ''))
+    .replace(/\bPAYPAL\s+(?:KEEP|LOKI)\s+PAYPAL\b/gi, 'PayPal')
+    .replace(/\bKEEP\s+MUSIC\b/gi, APP_NAME)
+    .replace(/\bKEEP\s+PAYPAL\b/gi, 'Loki PayPal')
+    .replace(/\bKEEP\b/gi, 'Loki');
+}
 
 function mapNotificationRow(row: any): KeepNotification {
   return {
     id: String(row.id),
     type: String(row.type || ''),
-    title: String(row.title || ''),
-    body: String(row.body || ''),
+    title: normalizeNotificationVisibleText(row.title),
+    body: normalizeNotificationVisibleText(row.body),
     data: row.data && typeof row.data === 'object' ? row.data : null,
     readAt: row.read_at ?? null,
     createdAt: String(row.created_at || new Date().toISOString()),
   };
 }
 
-export async function loadNotifications(profileId: string): Promise<KeepNotification[]> {
+const NOTIFICATION_DEDUPE_WINDOW_MS = 30 * 60 * 1000;
+
+function notificationDataValue(item: KeepNotification, keys: string[]): string {
+  for (const key of keys) {
+    const value = item.data?.[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  }
+  return '';
+}
+
+export function shouldSuppressNotificationPresentation(item: KeepNotification): boolean {
+  const type = String(item.type || '').trim().toUpperCase();
+  const data = item.data || {};
+  const event = String(data.event || '').trim().toUpperCase();
+  const source = String(data.source || '').trim().toUpperCase();
+  const sourceTable = String(data.sourceTable || data.source_table || '').trim().toLowerCase();
+  const sharedTrackId = String(data.sharedTrackId || data.shared_track_id || '').trim();
+
+  // Bruit produit/technique : ces événements restent en base pour l'audit,
+  // mais ne méritent pas une carte permanente dans le centre utilisateur.
+  if (type === 'SYSTEM_TEST' || type === 'LOKI_PULSE_NEW' || type === 'BATTLE_SOLO_RANK_CHANGED') return true;
+
+  // Un partage/offre de musique possède sa notification spécialisée avec
+  // écoute/GARDER/PASSER. Le message chat générique portant le même morceau
+  // ne doit pas produire une deuxième alerte.
+  if (type === 'AGORA_DIRECT' && sharedTrackId) return true;
+
+  // Un résultat gagnant d'arène contient déjà le gain de Free. Les triggers
+  // comptables génériques peuvent créer FREE_CREDITED + FREE_CREDIT_REWARD au
+  // même instant : ils restent en base pour la traçabilité, mais ne sont pas
+  // présentés/pushés une deuxième fois.
+  if (type === 'FREE_CREDITED' && (source === 'ARENA' || event === 'FREE_CREDITED' && source === 'ARENA')) return true;
+  if (type === 'FREE_CREDIT_REWARD' && sourceTable === 'keep_battle_arena_credit_events') return true;
+
+  // Même principe pour un don administrateur : ADMIN_CREDIT_GRANT est la
+  // notification explicite, le reward générique du ledger est redondant.
+  if (type === 'FREE_CREDIT_REWARD' && sourceTable === 'admin_credit_grants') return true;
+
+  return false;
+}
+
+export function notificationSemanticKey(item: KeepNotification): string {
+  const type = String(item.type || '').trim().toUpperCase();
+  const arenaId = notificationDataValue(item, ['arenaId','arena_id']);
+  const matchNo = notificationDataValue(item, ['matchNo','match_no']);
+  if (['BATTLE_ARENA_WIN','BATTLE_ARENA_LOSS','BATTLE_ARENA_RESULT'].includes(type) && arenaId) {
+    return `${type}|arena:${arenaId}|match:${matchNo}`;
+  }
+  if (['BATTLE_ARENA_REMATCH','BATTLE_REMATCH'].includes(type) && arenaId) return `${type}|arena:${arenaId}`;
+  if (type === 'BATTLE_PLAYER_AVAILABLE') {
+    const sourceProfileId = notificationDataValue(item, ['sourceProfileId','source_profile_id','actorId','actor_id']);
+    const themeCode = notificationDataValue(item, ['themeCode','theme_code']);
+    if (sourceProfileId) return `${type}|source:${sourceProfileId}|theme:${themeCode}`;
+  }
+
+  // Centre de notifications : les messages eux-mêmes vivent dans le chat.
+  // Ici on garde une entrée récente par conversation, comme les grandes apps,
+  // au lieu d'une carte par message.
+  if (type === 'AGORA_DIRECT') {
+    const senderId = notificationDataValue(item, ['senderId','sender_id','sourceProfileId','source_profile_id']);
+    const roomSlug = notificationDataValue(item, ['roomSlug','room_slug']);
+    if (senderId) return `AGORA_DIRECT|sender:${senderId}|room:${roomSlug}`;
+  }
+  if (type === 'AGORA_GROUP_MESSAGE') {
+    const groupId = notificationDataValue(item, ['groupId','group_id']);
+    if (groupId) return `AGORA_GROUP_MESSAGE|group:${groupId}`;
+  }
+  if (type.startsWith('AGORA')) {
+    const messageId = notificationDataValue(item, ['messageId','message_id']);
+    const groupId = notificationDataValue(item, ['groupId','group_id']);
+    if (messageId) return `${type}|message:${messageId}|group:${groupId}`;
+  }
+
+  const stableId = notificationDataValue(item, [
+    'paymentId','payment_id','challengeId','challenge_id','eventId','event_id','offerId','offer_id',
+  ]);
+  if (stableId) return `${type}|entity:${stableId}`;
+
+  if (type === 'NEW_PUBLIC_KEEP') {
+    const actorId = notificationDataValue(item, ['actorId','actor_id','profileId','profile_id','sourceProfileId','source_profile_id']);
+    if (actorId) return `${type}|actor:${actorId}`;
+  }
+
+  const trackId = notificationDataValue(item, ['trackId','track_id']);
+  if (trackId) {
+    const actorId = notificationDataValue(item, ['actorId','actor_id','profileId','profile_id','sellerId','seller_id','buyerId','buyer_id']);
+    return `${type}|track:${trackId}|actor:${actorId}`;
+  }
+
+  const normalized = (value: string) => value.trim().replace(/\s+/g, ' ').toLocaleLowerCase('fr-FR');
+  return `${type}|text:${normalized(item.title)}|${normalized(item.body)}`;
+}
+
+export function dedupeNotifications(items: KeepNotification[]): KeepNotification[] {
+  const seen = new Map<string, number>();
+  const out: KeepNotification[] = [];
+  for (const item of items) {
+    if (shouldSuppressNotificationPresentation(item)) continue;
+    const key = notificationSemanticKey(item);
+    const time = new Date(item.createdAt).getTime();
+    const previous = seen.get(key);
+    const type = String(item.type || '').toUpperCase();
+    const chatWindow = type === 'AGORA_DIRECT' || type === 'AGORA_GROUP_MESSAGE'
+      ? 6 * 60 * 60 * 1000
+      : NOTIFICATION_DEDUPE_WINDOW_MS;
+    if (previous != null && Number.isFinite(time) && Math.abs(previous - time) <= chatWindow) continue;
+    seen.set(key, Number.isFinite(time) ? time : Date.now());
+    out.push(item);
+  }
+  return out;
+}
+
+export async function deleteNotificationDuplicates(profileId: string, keep: KeepNotification): Promise<number> {
+  if (!supabase || !profileId || !keep.id) return 0;
+  const { data, error } = await supabase.rpc('keep_notification_remove_semantic_duplicates', { p_keep_id: keep.id });
+  if (error) throw error;
+  return Number(data ?? 0);
+}
+
+/**
+ * Les nouveaux morceaux publics des profils suivis passent par les STORIES de
+ * l'accueil (Adel, 05/10/2026 : « un système de story au lieu des notifications »,
+ * pour désencombrer la cloche). Les lignes restent en base ; seule la cloche et son
+ * compteur ne les affichent plus.
+ */
+const STORY_ROUTED_NOTIFICATION_TYPES = new Set(['NEW_PUBLIC_KEEP']);
+export function isStoryRoutedNotification(item: Pick<KeepNotification, 'type'>): boolean {
+  return STORY_ROUTED_NOTIFICATION_TYPES.has(String(item?.type ?? '').trim().toUpperCase());
+}
+
+export async function loadNotifications(
+  profileId: string,
+  options: { dedupe?: boolean; unreadOnly?: boolean } = {},
+): Promise<KeepNotification[]> {
   if (!supabase) return [];
-  const { data, error } = await supabase
+  let query = supabase
     .from('notifications')
     .select('id,type,title,body,data,read_at,created_at')
     .eq('profile_id', profileId)
     .order('created_at', { ascending: false })
     .limit(100);
+  if (options.unreadOnly) query = query.is('read_at', null);
+  const { data, error } = await query;
   if (error) throw error;
-  return (data ?? []).map(mapNotificationRow);
+  const visible = (data ?? []).map(mapNotificationRow).filter((item) => !shouldSuppressNotificationPresentation(item) && !isStoryRoutedNotification(item));
+  return options.dedupe === false ? visible : dedupeNotifications(visible);
 }
 
 export async function loadUnreadNotificationCount(profileId: string): Promise<number> {
   if (!supabase) return 0;
-  const { count, error } = await supabase
+  const { data, error } = await supabase
     .from('notifications')
-    .select('id', { count: 'exact', head: true })
+    .select('id,type,title,body,data,read_at,created_at')
     .eq('profile_id', profileId)
-    .is('read_at', null);
+    .is('read_at', null)
+    .order('created_at', { ascending: false })
+    .limit(200);
   if (error) throw error;
-  return count ?? 0;
+  return dedupeNotifications((data ?? []).map(mapNotificationRow).filter((item) => !isStoryRoutedNotification(item))).length;
+}
+
+export async function loadLatestUnreadPlanGift(profileId: string): Promise<KeepNotification | null> {
+  if (!supabase || !profileId) return null;
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('id,type,title,body,data,read_at,created_at')
+    .eq('profile_id', profileId)
+    .eq('type', 'PLAN_GIFTED')
+    .is('read_at', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? mapNotificationRow(data) : null;
 }
 
 /**
@@ -92,7 +290,10 @@ export function subscribeToNotifications(
         filter: `profile_id=eq.${profileId}`,
       },
       (payload) => {
-        if (payload?.new) onInsert(mapNotificationRow(payload.new));
+        if (!payload?.new) return;
+        const notification = mapNotificationRow(payload.new);
+        if (shouldSuppressNotificationPresentation(notification)) return;
+        onInsert(notification);
       },
     )
     .subscribe();
@@ -138,13 +339,14 @@ export async function requestSocialLink(targetProfileId: string, platform: strin
   if (error) throw error;
 }
 
-async function runNotificationAction(action: 'read' | 'read_all' | 'delete' | 'delete_all', notificationId?: string): Promise<void> {
-  if (!supabase) return;
-  const { error } = await supabase.rpc('keep_notification_action', {
+async function runNotificationAction(action: 'read' | 'read_all' | 'delete' | 'delete_all', notificationId?: string): Promise<number> {
+  if (!supabase) return 0;
+  const { data, error } = await supabase.rpc('keep_notification_action', {
     p_action: action,
     p_notification_id: notificationId ?? null,
   });
   if (error) throw error;
+  return Number(data ?? 0);
 }
 
 export async function markNotificationRead(_profileId: string, notificationId: string): Promise<void> {
@@ -157,33 +359,54 @@ export async function markAllNotificationsRead(_profileId: string): Promise<void
 
 export async function deleteNotification(profileId: string, notificationId: string): Promise<void> {
   if (!supabase) return;
-  // La suppression directe s'appuie sur la policy RLS notifications_delete_own.
-  // Elle est plus robuste côté client que de dépendre exclusivement du cache RPC
-  // PostgREST. En cas d'indisponibilité de cette route, on garde le RPC en secours.
-  const { error } = await supabase
+  // Ne jamais annoncer "supprimée" si le serveur n'a supprimé aucune ligne.
+  // Un auth.uid temporairement désynchronisé peut faire réussir le RPC avec 0.
+  try {
+    const deleted = await runNotificationAction('delete', notificationId);
+    if (deleted > 0) return;
+  } catch {}
+  const { data, error } = await supabase
     .from('notifications')
     .delete()
     .eq('profile_id', profileId)
-    .eq('id', notificationId);
-  if (!error) return;
-  await runNotificationAction('delete', notificationId);
+    .eq('id', notificationId)
+    .select('id');
+  if (error) throw error;
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('NOTIFICATION_DELETE_NOT_CONFIRMED');
+  }
 }
 
 export async function deleteAllNotifications(profileId: string): Promise<void> {
   if (!supabase) return;
+  try {
+    const deleted = await runNotificationAction('delete_all');
+    if (deleted > 0) return;
+  } catch {}
   const { error } = await supabase
     .from('notifications')
     .delete()
     .eq('profile_id', profileId);
-  if (!error) return;
-  await runNotificationAction('delete_all');
+  if (error) throw error;
+}
+
+export async function deleteNotifications(profileId: string, notificationIds: string[]): Promise<void> {
+  if (!supabase || !profileId || !notificationIds.length) return;
+  const uniqueIds = [...new Set(notificationIds.filter(Boolean))];
+  if (!uniqueIds.length) return;
+  const { error } = await supabase
+    .from('notifications')
+    .delete()
+    .eq('profile_id', profileId)
+    .in('id', uniqueIds);
+  if (error) throw error;
 }
 
 export async function loadNotificationPreferences(profileId: string): Promise<NotificationPreferences> {
   if (!supabase) return DEFAULT_PREFS;
   const { data, error } = await supabase
     .from('notification_preferences')
-    .select('system_enabled,dj_enabled,social_enabled,marketing_enabled,events_enabled')
+    .select('system_enabled,dj_enabled,social_enabled,marketing_enabled,events_enabled,money_enabled,battle_enabled,music_enabled,money_sound,social_sound,battle_sound,music_sound,events_sound')
     .eq('profile_id', profileId)
     .maybeSingle();
   if (error) throw error;
@@ -195,6 +418,8 @@ export async function loadNotificationPreferences(profileId: string): Promise<No
       social_enabled: DEFAULT_PREFS.socialEnabled,
       marketing_enabled: DEFAULT_PREFS.marketingEnabled,
       events_enabled: DEFAULT_PREFS.eventsEnabled,
+      money_enabled: DEFAULT_PREFS.moneyEnabled, battle_enabled: DEFAULT_PREFS.battleEnabled, music_enabled: DEFAULT_PREFS.musicEnabled,
+      money_sound: DEFAULT_PREFS.moneySound, social_sound: DEFAULT_PREFS.socialSound, battle_sound: DEFAULT_PREFS.battleSound, music_sound: DEFAULT_PREFS.musicSound, events_sound: DEFAULT_PREFS.eventsSound,
     });
     if (insertError) throw insertError;
     return DEFAULT_PREFS;
@@ -205,6 +430,8 @@ export async function loadNotificationPreferences(profileId: string): Promise<No
     socialEnabled: data.social_enabled,
     marketingEnabled: data.marketing_enabled,
     eventsEnabled: data.events_enabled ?? true,
+    moneyEnabled: data.money_enabled ?? true, battleEnabled: data.battle_enabled ?? true, musicEnabled: data.music_enabled ?? true,
+    moneySound: data.money_sound ?? 'MONEY', socialSound: data.social_sound ?? 'DEFAULT', battleSound: data.battle_sound ?? 'DEFAULT', musicSound: data.music_sound ?? 'DEFAULT', eventsSound: data.events_sound ?? 'DEFAULT',
   };
 }
 
@@ -217,6 +444,8 @@ export async function saveNotificationPreferences(profileId: string, prefs: Noti
     social_enabled: prefs.socialEnabled,
     marketing_enabled: prefs.marketingEnabled,
     events_enabled: prefs.eventsEnabled,
+    money_enabled: prefs.moneyEnabled, battle_enabled: prefs.battleEnabled, music_enabled: prefs.musicEnabled,
+    money_sound: prefs.moneySound, social_sound: prefs.socialSound, battle_sound: prefs.battleSound, music_sound: prefs.musicSound, events_sound: prefs.eventsSound,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'profile_id' });
   if (error) throw error;

@@ -36,9 +36,9 @@ check('Identifiant projet EAS présent', Boolean(app.extra?.eas?.projectId));
 check('Runtime version stable', app.runtimeVersion?.policy === 'appVersion');
 
 const sharePlugin = (app.plugins || []).find((entry) => Array.isArray(entry) && entry[0] === 'expo-share-intent');
-const shareConfig = Array.isArray(sharePlugin) ? (sharePlugin[1] || {}) : {};
-check('Extension de partage iOS a une cible native distincte', shareConfig.iosShareExtensionName === 'LokiShareExtension', String(shareConfig.iosShareExtensionName || 'absente'));
-check('Extension de partage accepte les URL web', Number(shareConfig.iosActivationRules?.NSExtensionActivationSupportsWebURLWithMaxCount || 0) >= 1);
+// Temporaire jusqu'après la première publication TestFlight : ne pas générer
+// LokiShareExtension, afin que la signature iOS ne dépende que du bundle principal.
+check('Extension de partage iOS temporairement hors build', !sharePlugin, 'expo-share-intent doit rester hors app.json pour ce build TestFlight');
 
 const shazamSwift = 'packages/mobile/modules/keep-shazam/ios/KeepShazamModule.swift';
 check('Module ShazamKit natif présent', exists(shazamSwift) && contains(shazamSwift, 'import ShazamKit'));
@@ -112,13 +112,13 @@ check('Build production non simulateur', eas.build?.production?.ios?.simulator !
 check('Image EAS production compatible Xcode 26', eas.build?.production?.ios?.image === 'sdk-54', String(eas.build?.production?.ios?.image || 'absente'));
 check('Aucun faux identifiant Apple dans eas.json', !read('packages/mobile/eas.json').includes('REMPLACER_'));
 
-const iosWorkflow = '.github/workflows/eas-build-ios.yml';
+const iosWorkflow = '.github/workflows/auto-eas-build.yml';
 check('Workflow iOS/TestFlight présent', exists(iosWorkflow));
 check('Workflow iOS gère EXPO_TOKEN', contains(iosWorkflow, 'EXPO_TOKEN'));
-check('Workflow build EAS iOS', contains(iosWorkflow, 'build --platform ios') && contains(iosWorkflow, 'eas "${args[@]}"'));
-check('Workflow auto-submit TestFlight protégé', contains(iosWorkflow, '--auto-submit-with-profile production') && contains(iosWorkflow, 'submit_ready'));
-check('Team ID injecté hors repo', contains(iosWorkflow, 'APPLE_TEAM_ID') && contains(iosWorkflow, 'eas.submit.production.ios.appleTeamId = process.env.APPLE_TEAM_ID'));
-check('ASC App ID injecté hors repo', contains(iosWorkflow, 'ASC_APP_ID') && contains(iosWorkflow, 'eas.submit.production.ios.ascAppId = process.env.ASC_APP_ID'));
+check('Workflow build EAS iOS', contains(iosWorkflow, 'eas build --local --platform ios'));
+check('Workflow build non-interactif', contains(iosWorkflow, '--non-interactive'));
+check('Workflow gère les credentials Apple', contains(iosWorkflow, 'ASC_API_KEY_P8_BASE64') && contains(iosWorkflow, 'ASC_KEY_ID') && contains(iosWorkflow, 'ASC_ISSUER_ID'));
+check('Workflow gère les profils de build', contains(iosWorkflow, 'BUILD_PROFILE') && contains(iosWorkflow, '--profile'));
 
 const iapService = 'packages/mobile/src/services/iapService.ts';
 const offers = 'packages/mobile/src/screens/OffersScreen.tsx';
@@ -131,6 +131,12 @@ check('Renouvellements StoreKit resynchronisés au démarrage', contains(iapServ
 check('Abonnement affiche renouvellement et liens légaux', contains(offers, 'renouvelé automatiquement') && contains(offers, '/KEEP/terms/') && contains(offers, '/KEEP/privacy/'));
 check('Vérification serveur exige le compte Loki lié', contains(iapVerifier, '!payload.appAccountToken') && contains(iapVerifier, 'account_mismatch'));
 check('Vérification serveur refuse abonnement expiré ou révoqué', contains(iapVerifier, 'expiresAtMs <= Date.now()') && contains(iapVerifier, 'subscription_expired') && contains(iapVerifier, 'subscription_revoked'));
+const androidIap = 'packages/mobile/modules/keep-iap/android/src/main/java/expo/modules/keepiap/KeepIAPModule.kt';
+const androidIapGradle = 'packages/mobile/modules/keep-iap/android/build.gradle';
+check('Google Play Billing natif présent', exists(androidIap) && contains(androidIap, 'BillingClient') && contains(androidIapGradle, 'com.android.billingclient:billing-ktx'));
+check('Google Play purchaseToken envoyé au serveur', contains(iapService, "platform: 'android'") && contains(iapService, 'purchaseToken'));
+check('Google Play vérifié via Android Publisher API', contains(iapVerifier, 'purchases/subscriptionsv2/tokens') && contains(iapVerifier, 'androidpublisher'));
+check('Google Play lie achat et compte Loki', contains(iapVerifier, 'obfuscatedExternalAccountId') && contains(iapVerifier, 'account_mismatch'));
 
 check('Dossier de soumission App Store préparé', exists('docs/APP_STORE_SUBMISSION_READY.md'));
 check('Préflight iOS natif sans credential présent', exists('.github/workflows/app-store-native-preflight.yml'));
@@ -139,7 +145,7 @@ external.push('GitHub Secret EXPO_TOKEN requis pour déclencher le build EAS iOS
 external.push('Dans Apple Developer > Identifiers > App Services, activer ShazamKit pour com.adelkhatra.keep. ShazamKit est un App Service côté App ID, pas un entitlement local à ajouter au projet.');
 external.push('APPLE_TEAM_ID et ASC_APP_ID numériques requis pour armer la soumission TestFlight automatique.');
 external.push('Clé App Store Connect : ASC_API_KEY_P8_BASE64 + ASC_KEY_ID + ASC_ISSUER_ID requise pour la soumission automatisée.');
-external.push('Validation physique iPhone/TestFlight requise pour microphone arrière-plan, share extension, notifications et comportement inter-apps.');
+external.push('Validation physique iPhone/TestFlight requise pour microphone arrière-plan et notifications. La share extension est temporairement retirée du build jusqu’après la première publication.');
 external.push('Validation physique Android requise pour confirmer le maintien microphone avec une autre app au premier plan malgré les politiques constructeur/batterie.');
 external.push('Produits StoreKit / achats intégrés réels à finaliser côté Apple avant activation commerciale.');
 external.push('App Privacy, Age Rating, Content Rights, DSA/trader et contact App Review doivent être validés dans App Store Connect par le compte Apple autorisé.');

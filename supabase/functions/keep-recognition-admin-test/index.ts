@@ -120,13 +120,13 @@ async function testAudd(): Promise<ProviderResult> {
 
     let result: ProviderResult;
     if (code === 900 || code === 901 || /invalid\s+(?:api\s*)?(?:key|token)|authorization|no api[_ -]?token/i.test(detail)) {
-      result = { provider: "AUDD", status: "ERROR", configured: true, message: "AudD refuse le token actuellement enregistré.", checkedAt, providerCode: code };
+      result = { provider: "AUDD", status: "ERROR", configured: true, message: `AudD #${code}: ${detail.slice(0, 160)}.`, checkedAt, providerCode: code };
     } else if (response.status === 402 || /quota|credit|balance|limit\s+(?:reached|exceeded)|payment|subscription|exhaust/i.test(detail)) {
-      result = { provider: "AUDD", status: "EXHAUSTED", configured: true, message: "Token AudD authentifié, mais quota/crédit fournisseur épuisé.", checkedAt, providerCode: code };
+      result = { provider: "AUDD", status: "EXHAUSTED", configured: true, message: `AudD ${code ? `#${code}` : `HTTP ${response.status}`}: ${detail.slice(0, 160)}. Quota/crédit fournisseur épuisé.`, checkedAt, providerCode: code };
     } else if (code === 700 || payload?.status === "success") {
       result = { provider: "AUDD", status: "ACTIVE", configured: true, message: "Token AudD vérifié en direct auprès du fournisseur.", checkedAt, providerCode: code };
     } else {
-      result = { provider: "AUDD", status: "ERROR", configured: true, message: `AudD n'a pas confirmé le token (${detail.slice(0, 140)}).`, checkedAt, providerCode: code };
+      result = { provider: "AUDD", status: "ERROR", configured: true, message: `AudD ${code ? `#${code}` : `HTTP ${response.status}`}: ${detail.slice(0, 160)}.`, checkedAt, providerCode: code };
     }
     await setRuntimeStatus("AUDD_API_KEY", result.status, result.message);
     return result;
@@ -249,8 +249,18 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
   try {
     const actor = await requireAdmin(req);
-    const [keyless, audd, acrcloud] = await Promise.all([testKeyless(), testAudd(), testAcrCloud()]);
+    const [keyless, auddRaw, acrcloud] = await Promise.all([testKeyless(), testAudd(), testAcrCloud()]);
+    const audd = auddRaw.status === "NOT_CONFIGURED" && acrcloud.status === "ACTIVE"
+      ? {
+          ...auddRaw,
+          message: "AudD n’est pas configuré sur ce projet. Ce n’est pas bloquant : ACRCloud est actif et utilisé comme moteur serveur principal.",
+        }
+      : auddRaw;
+    if (audd.message !== auddRaw.message) {
+      await setRuntimeStatus("AUDD_API_KEY", "NOT_CONFIGURED", audd.message);
+    }
     const providers = [keyless, audd, acrcloud];
+    const serverRecognitionReady = [audd, acrcloud].some((item) => item.status === "ACTIVE");
     await audit(actor.id, providers);
     return json(200, {
       ok: true,
@@ -258,6 +268,8 @@ Deno.serve(async (req) => {
       secretExposed: false,
       providers,
       recognitionReady: providers.some((item) => item.status === "ACTIVE"),
+      serverRecognitionReady,
+      primaryServerProvider: acrcloud.status === "ACTIVE" ? "ACRCLOUD" : audd.status === "ACTIVE" ? "AUDD" : null,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

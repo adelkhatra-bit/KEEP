@@ -1,0 +1,60 @@
+name: Loki Subscription Group Readiness
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/app-store-subscription-group-readiness.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Audit subscription group version
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        run: |
+          node <<'NODE'
+          const crypto=require('node:crypto');
+          const key=Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(),'base64');
+          const enc=x=>Buffer.from(JSON.stringify(x)).toString('base64url');
+          const now=Math.floor(Date.now()/1000);
+          const unsigned=enc({alg:'ES256',kid:process.env.ASC_KEY_ID.trim(),typ:'JWT'})+'.'+enc({iss:process.env.ASC_ISSUER_ID.trim(),iat:now-30,exp:now+600,aud:'appstoreconnect-v1'});
+          const token=unsigned+'.'+crypto.sign('sha256',Buffer.from(unsigned),{key,dsaEncoding:'ieee-p1363'}).toString('base64url');
+          async function api(p){
+            const res=await fetch('https://api.appstoreconnect.apple.com'+p,{headers:{Authorization:'Bearer '+token}});
+            const txt=await res.text();
+            if(!res.ok)throw new Error(p+' HTTP '+res.status+' '+txt.slice(0,1000));
+            return txt?JSON.parse(txt):null;
+          }
+          (async()=>{
+            const appId=process.env.ASC_APP_ID.trim();
+            const groups=await api('/v1/apps/'+appId+'/subscriptionGroups?fields[subscriptionGroups]=referenceName&limit=50');
+            const report=[];
+            for(const g of groups.data||[]){
+              const versions=await api('/v1/subscriptionGroups/'+g.id+'/versions?limit=50');
+              const rows=[];
+              for(const v of versions.data||[]){
+                const locs=await api('/v1/subscriptionGroupVersions/'+v.id+'/localizations?limit=50');
+                rows.push({
+                  id:v.id,
+                  attributes:v.attributes||{},
+                  localizations:(locs.data||[]).map(x=>({id:x.id,attributes:x.attributes||{}}))
+                });
+              }
+              report.push({id:g.id,referenceName:g.attributes?.referenceName||null,versions:rows});
+            }
+            console.log('=== LOKI SUBSCRIPTION GROUP READINESS ===');
+            console.log(JSON.stringify(report,null,2));
+            console.log('=== END LOKI SUBSCRIPTION GROUP READINESS ===');
+          })().catch(e=>{console.error(e.message||String(e));process.exit(1)});
+          NODE

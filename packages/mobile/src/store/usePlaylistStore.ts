@@ -25,10 +25,13 @@ export const usePlaylistStore = create<PlaylistStore>((set) => ({
     set({ isLoading: true });
     try {
       const session = await musicEngine.getSession();
-      const providerPlaylists = await musicEngine.musicProvider.getPlaylists(session).catch(() => [] as ProviderPlaylist[]);
+      const providerPlaylists = await musicEngine.musicProvider.getPlaylists(session);
       set({ playlists: providerPlaylists, isLoading: false });
     } catch {
-      set({ playlists: [], isLoading: false });
+      // Un timeout Apple/Spotify/Supabase ne signifie pas "0 playlist".
+      // Garder la dernière liste valide évite de faire croire à l'utilisateur
+      // que son contenu a été supprimé.
+      set({ isLoading: false });
     }
   },
 }));

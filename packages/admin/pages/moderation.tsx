@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import Hint from '../components/Hint';
 import { invokeAdminFunction } from '../lib/invokeFunction';
 
 type FieldStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -98,12 +99,11 @@ export default function Moderation() {
 
   return (
     <AdminLayout>
-      <div className="page-title">Approuver</div>
-      <div className="page-subtitle">Photo et texte de chaque évènement sont validés séparément avant d’être visibles aux utilisateurs. Un refus envoie une notification à l’organisateur avec ta note ; une fois les deux approuvés, l’invitation part automatiquement à sa communauté.</div>
+      <div className="page-title">Approuver <Hint title="Approuver" text={<>Photo et texte de chaque évènement sont validés séparément avant d’être visibles aux utilisateurs. Un refus envoie une notification à l’organisateur avec ta note ; une fois les deux approuvés, l’invitation part automatiquement à sa communauté.</>}/></div>
 
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
       {loading ? <p style={{ color: 'var(--text-muted)' }}>Chargement…</p> : null}
-      {!loading && !queue.length ? <div className="card"><p style={{ margin: 0, color: 'var(--text-muted)' }}>Aucun évènement en attente de validation.</p></div> : null}
+      {!loading && !queue.length ? <div className="card"><p style={{ margin: 0, color: 'var(--text-muted)' }}>Rien à approuver ✓</p></div> : null}
 
       <div style={{ display: 'grid', gap: 18 }}>
         {queue.map((item) => (
@@ -152,7 +152,7 @@ export default function Moderation() {
                     {item.description.length > 180 ? (
                       <button
                         onClick={() => setExpanded((e) => ({ ...e, [item.id]: !e[item.id] }))}
-                        style={{ marginTop: 4, background: 'transparent', border: 'none', color: 'var(--primary)', fontSize: 12, fontWeight: 800, cursor: 'pointer', padding: 0 }}
+                        style={{ marginTop: 4, background: 'transparent', border: 'none', color: 'var(--primary-light)', fontSize: 12, fontWeight: 800, cursor: 'pointer', padding: 0 }}
                       >
                         {expanded[item.id] ? '‹ Replier' : 'En savoir plus ›'}
                       </button>

@@ -1,8 +1,11 @@
 import React from 'react';
-import { Platform, Text } from 'react-native';
+import { isWebShareVisit, webShareVisitUsername } from '../services/webShareVisitor';
+import { useUserStore } from '../store/useUserStore';
+import { useAccountGateStore } from '../store/useAccountGateStore';
+import { Platform, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NavigationContainer, getStateFromPath } from '@react-navigation/native';
-import { navigationRef } from './navigationRef';
+import { navigationRef, notifyNavigationState, subscribeNavigationState } from './navigationRef';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { colors } from '../theme/colors';
@@ -21,6 +24,11 @@ import MusicConnectionsScreen from '../screens/MusicConnectionsScreen';
 import OffersScreen from '../screens/OffersScreen';
 import PlaylistSalePanel from '../components/PlaylistSalePanel';
 import PlaylistSaleHistoryScreen from '../screens/PlaylistSaleHistoryScreen';
+import { useGameSessionStore } from '../store/useGameSessionStore';
+import { confirmLeaveGame } from '../services/gameExitGuard';
+import { useLayoutMode, DESKTOP_CONTENT_MAX_WIDTH } from '../layout/layoutMode';
+import DesktopSidebar from './DesktopSidebar';
+import { openSessionHistoryGuarded } from '../services/sessionHistoryGuard';
 
 const Tab = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator();
@@ -105,9 +113,20 @@ function MainTabs() {
   // simulateur/Android n'a pas cette zone, le bug n'etait donc jamais visible
   // avant un vrai test sur iPhone.
   const insets = useSafeAreaInsets();
+  // Bureau (11/10/2026) : la navigation passe dans DesktopSidebar ; la barre du bas n'existe que sur téléphone et tablette.
+  const { isDesktop } = useLayoutMode();
   return (
     <Tab.Navigator
       initialRouteName="Listen"
+      // Adel (29/09/2026) : toucher un autre onglet pendant un Solo en cours
+      // -> popup « Quitter la partie ? » (la partie est déjà décomptée).
+      screenListeners={({ navigation, route }) => ({
+        tabPress: (e) => {
+          if (!useGameSessionStore.getState().isGameInProgress || route.name === 'Parties') return;
+          e.preventDefault();
+          confirmLeaveGame(() => navigation.navigate(route.name));
+        },
+      })}
       screenOptions={{
         tabBarActiveTintColor: TAB.active,
         tabBarInactiveTintColor: TAB.inactive,
@@ -118,9 +137,9 @@ function MainTabs() {
           height: 60 + insets.bottom,
           paddingBottom: 8 + insets.bottom,
           paddingTop: 7,
-          display: 'flex',
+          display: isDesktop ? 'none' : 'flex',
         },
-        tabBarLabelStyle: { fontSize: 10, fontWeight: '700' },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
         headerShown: false,
       }}
     >
@@ -128,7 +147,7 @@ function MainTabs() {
         name="Listen"
         component={HomeScreenCompact}
         options={{
-          tabBarLabel: 'Écouter',
+          tabBarLabel: 'Loki Music',
           tabBarIcon: ({ color }) => <TabIcon icon="◉" color={color} />,
         }}
       />
@@ -140,13 +159,111 @@ function MainTabs() {
   );
 }
 
-export default function Navigation() {
+const TAB_ITEMS: Array<{ name: string; label: string; icon: string }> = [
+  { name: 'Listen', label: 'Loki Music', icon: '◉' },
+  { name: 'Discover', label: 'Découvertes', icon: '♫' },
+  { name: 'MyMusic', label: 'Playlists', icon: '☷' },
+  { name: 'Parties', label: 'Soirées', icon: '♬' },
+  { name: 'Profile', label: 'Profil', icon: '◯' },
+];
+
+/**
+ * Barre des 5 onglets TOUJOURS visible (Adel, 05/10/2026 : « la barre de tâche est visible tout le temps, très important »).
+ * Les écrans empilés hors des onglets (Mes sessions, Notifications, Offres, Réglages, profil d'un membre…) cachaient la barre ;
+ * on la remet sous eux, identique à celle des onglets, et un appui revient à l'onglet choisi (garde « Quitter la partie ? » comprise).
+ */
+// État de navigation partagé : alimenté par onReady / onStateChange du NavigationContainer (voir navigationRef.ts).
+type NavSnapshot = { root: string; tab: string | null };
+function readNavSnapshot(): NavSnapshot {
+  if (!navigationRef.isReady()) return { root: 'Main', tab: 'Listen' };
+  const rootState: any = navigationRef.getRootState();
+  const route = rootState?.routes?.[rootState.index ?? 0];
+  const root = route?.name ?? 'Main';
+  if (root !== 'Main') return { root, tab: null };
+  const nested = route?.state;
+  return { root, tab: nested?.routes?.[nested.index ?? 0]?.name ?? 'Listen' };
+}
+function useNavSnapshot(): NavSnapshot {
+  const [snapshot, setSnapshot] = React.useState<NavSnapshot>(readNavSnapshot);
+  React.useEffect(() => {
+    const update = () => setSnapshot(readNavSnapshot());
+    const unsubscribe = subscribeNavigationState(update);
+    update();
+    return unsubscribe;
+  }, []);
+  return snapshot;
+}
+
+function goToTab(name: string) {
+  if (!navigationRef.isReady()) return;
+  // Visiteur web d'un lien partagé : même navigation que connecté, mais les onglets demandent un compte (fonction bloquée).
+  if (isWebShareVisit() && useUserStore.getState().isLocalGuest) { useAccountGateStore.getState().requestAccount('create', webShareVisitUsername()); return; }
+  const go = () => (navigationRef.navigate as any)('Main', { screen: name });
+  if (useGameSessionStore.getState().isGameInProgress && name !== 'Parties') confirmLeaveGame(go);
+  else go();
+}
+
+function PersistentTabBar() {
+  const insets = useSafeAreaInsets();
+  const { isDesktop } = useLayoutMode();
+  const { root: rootRoute } = useNavSnapshot();
+  if (isDesktop) return null;
+  if (rootRoute === 'Main') return null;
   return (
-    <NavigationContainer ref={navigationRef} linking={linking}>
+    <View
+      testID="persistent-tab-bar"
+      style={{ flexDirection: 'row', backgroundColor: TAB.bg, borderTopColor: TAB.border, borderTopWidth: 1, height: 60 + insets.bottom, paddingBottom: 8 + insets.bottom, paddingTop: 7 }}
+    >
+      {TAB_ITEMS.map((item) => (
+        <TouchableOpacity
+          key={item.name}
+          style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+          accessibilityRole="button"
+          accessibilityLabel={`Aller à l’onglet ${item.label}`}
+          testID={`persistent-tab-${item.name}`}
+          onPress={() => goToTab(item.name)}
+        >
+          <TabIcon icon={item.icon} color={TAB.inactive} />
+          <Text style={{ fontSize: 11, fontWeight: '700', color: TAB.inactive }}>{item.label}</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
+// Visiteur web d'un lien partagé (invité) : il voit le profil partagé « comme connecté », mais tout autre écran est une
+// fonction bloquée : on le ramène sur le profil et on propose de créer un compte (Adel, 06/10/2026).
+function guardWebShareVisitor(state: any) {
+  if (!isWebShareVisit() || !useUserStore.getState().isLocalGuest) return;
+  const route = state?.routes?.[state?.index ?? 0];
+  if (!route || route.name === 'PublicProfile') return;
+  const username = webShareVisitUsername();
+  setTimeout(() => {
+    if (!navigationRef.isReady()) return;
+    (navigationRef.navigate as any)('PublicProfile', { username });
+    useAccountGateStore.getState().requestAccount('create', username);
+  }, 0);
+}
+
+export default function Navigation() {
+  const { isDesktop } = useLayoutMode();
+  const { tab } = useNavSnapshot();
+  return (
+    <NavigationContainer
+      ref={navigationRef}
+      linking={linking}
+      onReady={notifyNavigationState}
+      onStateChange={(state) => { guardWebShareVisitor(state); notifyNavigationState(); }}
+    >
+      {/* Bureau : barre latérale + contenu centré, largeur lisible. Téléphone / tablette : rendu historique inchangé. */}
+      <View style={{ flex: 1, flexDirection: isDesktop ? 'row' : 'column' }}>
+      {isDesktop ? <DesktopSidebar items={TAB_ITEMS} activeName={tab} onSelect={goToTab} onOpenSessions={() => openSessionHistoryGuarded(() => { if (navigationRef.isReady()) (navigationRef.navigate as any)('SessionHistory'); })} /> : null}
+      <View style={isDesktop ? { flex: 1, alignItems: 'center' } : { flex: 1 }}>
+      <View style={isDesktop ? { flex: 1, width: '100%', maxWidth: DESKTOP_CONTENT_MAX_WIDTH } : { flex: 1 }}>
       <RootStack.Navigator initialRouteName="Main" screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="Main" component={MainTabs} />
         <RootStack.Screen name="SessionRecap" component={SessionRecapScreen} />
-        <RootStack.Screen name="SessionHistory" component={SessionHistoryScreen} />
+        <RootStack.Screen name="SessionHistory" component={SessionHistoryScreen} options={{ presentation: "transparentModal", animation: "fade", contentStyle: { backgroundColor: "transparent" } }} />
         <RootStack.Screen name="ProfileSettings" component={ProfileSettingsMobileScreen} />
         <RootStack.Screen name="Notifications" component={NotificationsScreen} />
         <RootStack.Screen name="Offers" component={OffersScreen} />
@@ -156,6 +273,10 @@ export default function Navigation() {
         <RootStack.Screen name="AppleMusicConnect" component={AppleMusicConnectScreen} />
         <RootStack.Screen name="MusicConnections" component={MusicConnectionsScreen} />
       </RootStack.Navigator>
+      </View>
+      <PersistentTabBar />
+      </View>
+      </View>
     </NavigationContainer>
   );
 }

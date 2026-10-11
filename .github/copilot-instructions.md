@@ -1,6 +1,18 @@
+## Canonical product library
+Read `/config/keep-product-contract.json` first. It is the machine-enforced anti-regression contract. If an older test/comment/message conflicts with the user's latest explicit decision and this contract, update the stale artifact in the same commit. Never mutate live user certification/FREE/profile data to fix a UI regression.
+
+## Mandatory product specification
+Read `/docs/KEEP_MASTER_SPEC.md` — mandatory master product specification — and `/docs/KEEP_CAHIER_DES_CHARGES_UI.md` before editing. Do not move or duplicate validated modules unless the user's current request explicitly changes the specification.
+
 # KEEP — GitHub Copilot instructions
 
-Before changing anything, read `/CLAUDE.md` and `/AGENTS.md`. They are the source-of-truth rules for every AI working on KEEP.
+Before changing anything, read `/BRANCH_SOURCE_OF_TRUTH.json`, `/CLAUDE.md` and `/AGENTS.md`. They are the source-of-truth rules for every AI working on KEEP.
+
+**Branch safety:** GitHub's repository default is still `main`, so generic code-search tools can silently return stale `main` results. If a result URL/ref is `main` (or has no explicit ref), discard it and refetch the same path from `reconcile/claude-main-20260825` before reasoning or editing. The mobile application and the public website are both built from that same canonical branch.
+
+## Mobile/Desktop parity
+
+Treat iOS, Android and desktop Web as one product implementation. Shared product logic must be edited once under `packages/mobile/src`; Expo Web consumes that same implementation. Never create a parallel Web/Desktop feature tree or duplicate a full screen with platform suffixes to keep two copies in sync. Platform branches are allowed only for technical adapters such as microphone/audio, browser APIs, permissions and routing. Every functional change under `packages/mobile/**` must preserve both 390×844 mobile and 1440×900 desktop behavior through `.github/workflows/keep-dual-viewport-guardian.yml`. Machine contract: `config/platform-parity-contract.json`.
 
 ## One project only
 
@@ -45,3 +57,12 @@ Logic fixes must stay logic fixes.
 7. Never report PASS when a required check has not actually passed.
 
 Never expose API secrets in `EXPO_PUBLIC_*`, client code, screenshots, logs or docs. Provider secrets stay server-side in Supabase Vault/Edge Secrets.
+
+## 🔐 AUTHENTIFICATION — FRONTIÈRE USER / SUPER ADMIN
+
+- **Utilisateur Loki** : runtime `packages/mobile`; récupération utilisateur = `keep-auth-email`.
+- **Super Admin** : runtime `packages/admin`; autorité = `public.admin_users` + rôle actif; login principal = mot de passe Supabase; secours = `keep-admin-bootstrap` avec code à usage unique.
+- Il est **interdit** de brancher le Super Admin sur `keep-auth-email`, le magic-link utilisateur ou un écran mobile de récupération.
+- Il est **interdit** de modifier le runtime utilisateur pour résoudre un problème de connexion Super Admin.
+- Toute IA doit vérifier `config/keep-product-contract.json > authBoundary` avant de toucher à l'authentification.
+- Contrôle bloquant : `scripts/verify-source-of-truth.cjs`.

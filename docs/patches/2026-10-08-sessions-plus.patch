@@ -1,0 +1,171 @@
+--- a/packages/mobile/src/screens/HomeScreenCompact.tsx
++++ b/packages/mobile/src/screens/HomeScreenCompact.tsx
+@@ -9,6 +9,8 @@
+ import { useTranslation } from 'react-i18next';
+ import { KeepVisibility } from '../types';
+ import { SILENCE_PROMPT_GRACE_MS, useSessionStore } from '../store/useSessionStore';
++import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
++import { pendingSessionSummary } from '../services/pendingSessionSummary';
+ import { usePlaylistStore } from '../store/usePlaylistStore';
+ import { useUserStore } from '../store/useUserStore';
+ import { useAccountGateStore } from '../store/useAccountGateStore';
+@@ -120,11 +122,15 @@
+   const listenTicker = useTickerMessages('listen');
+   const { t } = useTranslation();
+   const {
+-    isActive, tracks, showEndPrompt, startedAt, error, signalHint, recognizing, micLevel, musicPresence, micPaused, silenceTimeoutMin, noMusicSince,
++    isActive, sessionId, tracks, showEndPrompt, startedAt, error, signalHint, recognizing, micLevel, musicPresence, micPaused, silenceTimeoutMin, noMusicSince,
+     listenEconomyStatus, listenFreeRequired, listenFreeInsufficient, refreshListenEconomyStatus,
+     useFreeForNextListen, dismissListenFreePrompt,
+     startSession, requestEndSession, dismissEndPrompt, keepTrack, passTrack, setTrackVisibility, submitManualSearch,
+   } = useSessionStore();
++  const historySessions = useSessionHistoryStore((state) => state.sessions);
++  const pendingSummary = useMemo(() => pendingSessionSummary(
++    historySessions, isActive && sessionId ? { id: sessionId, tracks } : null,
++  ), [historySessions, isActive, sessionId, tracks]);
+   const { playlists, refresh } = usePlaylistStore();
+   const user = useUserStore((s) => s.user);
+   // Adel 05/10/2026 : le petit message vert du robot sur l'accueil « ne sert à rien » -> plus de bulle NO_FREE ici (le solde reste visible ailleurs).
+@@ -642,7 +648,7 @@
+   if (!isActive) {
+     return (
+       <SafeAreaView style={s.container}><PersonalThemeBackdrop />
+-        <TopBar navigation={navigation} readyCount={detected} />
++        <TopBar navigation={navigation} readyCount={pendingSummary.sessions} readyTracks={pendingSummary.tracks} />
+         {/* Accueil Écouter (Adel 29/09/2026 : "cette page n'est pas belle") --
+             aligné sur la maquette validée docs/mockups/EcouteRedesign.html :
+             fond aurora, pastilles micro/veille, grand cercle Loki "L" entouré de
+@@ -739,7 +745,7 @@
+   return (
+     <SafeAreaView style={s.container}><PersonalThemeBackdrop />
+       <AuroraBackground active={isActive && !micIdle} />
+-      <TopBar navigation={navigation} readyCount={detected} title="À toi de jouer" />
++      <TopBar navigation={navigation} readyCount={pendingSummary.sessions} readyTracks={pendingSummary.tracks} title="À toi de jouer" />
+ 
+       <ScrollView
+         style={s.main}
+@@ -975,16 +981,16 @@
+   );
+ }
+ 
+-function TopBar({ navigation, readyCount = 0, title }: any) {
++function TopBar({ navigation, readyCount = 0, readyTracks = 0, title }: any) {
+   const readyPulse = useRef(new Animated.Value(0.45)).current;
+   // Adel (05/10/2026) : quand des sessions deviennent prêtes, le ROBOT du Tchat le dit (bulle à côté de lui, vibration courte + son discret) ;
+   // un appui sur la bulle ouvre directement les sessions. Le ☰ pulse en plus pour le signaler.
+   const lastReady = useRef(0);
+   useEffect(() => {
+-    const increased = readyCount > lastReady.current;
+-    lastReady.current = readyCount;
+-    if (increased && readyCount > 0) void robotSay('SESSIONS', { count: readyCount });
+-  }, [readyCount]);
++    const increased = readyTracks > lastReady.current;
++    lastReady.current = readyTracks;
++    if (increased && readyCount > 0) void robotSay('SESSIONS', { count: readyTracks });
++  }, [readyCount, readyTracks]);
+   useEffect(() => {
+     if (!readyCount) { readyPulse.stopAnimation(); readyPulse.setValue(0.45); return undefined; }
+     const loop = Animated.loop(Animated.sequence([
+@@ -1000,15 +1006,15 @@
+     {title ? <Text style={s.topTitle} numberOfLines={1}>{title}</Text> : null}
+     <View style={[s.topBarActions, { marginLeft: 'auto' }]}>
+       {readyCount > 0 ? (
+-        <TouchableOpacity onPress={() => navigation.navigate('SessionHistory')} accessibilityRole="button" accessibilityLabel={`${readyCount} morceaux prêts à écouter et trier`}>
++        <TouchableOpacity onPress={() => navigation.navigate('SessionHistory')} accessibilityRole="button" accessibilityLabel={`${readyCount} session${readyCount > 1 ? 's' : ''} en attente, ${readyTracks} morceaux à trier`}>
+           <Animated.View style={[s.readyPill, { opacity: readyPulse }]}>
+             <View style={s.readyDot} />
+-            <Text style={s.readyText} numberOfLines={1}>{readyCount} {readyCount === 1 ? 'prêt à trier' : 'prêts à trier'}</Text>
++            <Text style={s.readyText} numberOfLines={1}>{readyCount} session{readyCount > 1 ? 's' : ''} à trier</Text>
+           </Animated.View>
+         </TouchableOpacity>
+       ) : null}
+       {/* Adel (05/10/2026) : le ☰ s'anime (halo qui pulse + pastille du nombre) quand des sessions sont prêtes : l'utilisateur comprend qu'il a quelque chose à ouvrir. */}
+-      <TouchableOpacity onPress={() => navigation.navigate('SessionHistory')} accessibilityRole="button" accessibilityLabel={readyCount > 0 ? `Ouvrir mes sessions : ${readyCount} morceau${readyCount > 1 ? 'x' : ''} prêt${readyCount > 1 ? 's' : ''}` : 'Ouvrir mes sessions'} testID="home-sessions-menu">
++      <TouchableOpacity onPress={() => navigation.navigate('SessionHistory')} accessibilityRole="button" accessibilityLabel={readyCount > 0 ? `Ouvrir mes sessions : ${readyCount} session${readyCount > 1 ? 's' : ''} en attente` : 'Ouvrir mes sessions'} testID="home-sessions-menu">
+         <Animated.View style={[s.round, readyCount > 0 && s.roundReady, readyCount > 0 && { transform: [{ scale: readyPulse.interpolate({ inputRange: [0.45, 1], outputRange: [1, 1.1] }) }] }]}>
+           <Text style={s.roundText}>☰</Text>
+         </Animated.View>
+--- a/packages/mobile/src/components/ClampedText.tsx
++++ b/packages/mobile/src/components/ClampedText.tsx
+@@ -3,7 +3,7 @@
+ import { colors } from '../theme/colors';
+ import { CLAMP_WORDS, clampWords } from '../services/clampWords';
+ 
+-// Adel (06/10/2026, soir) : 2 mots puis « En savoir plus »
++// Adel (08/10/2026) : texte court puis « Plus », détails conservés.
+ // (repli, rien n'est supprimé) pour que les offres et les boutons d'achat
+ // restent visibles sans défiler sur iPhone 390.
+ export default function ClampedText({ text, style, max = CLAMP_WORDS }: { text: string; style?: StyleProp<TextStyle>; max?: number }) {
+@@ -20,7 +20,7 @@
+         accessibilityLabel={open ? 'Réduire le texte' : 'En savoir plus'}
+         accessibilityState={{ expanded: open }}
+       >
+-        {open ? 'Réduire' : 'En savoir plus'}
++        {open ? 'Moins' : 'Plus'}
+       </Text>
+     </Text>
+   );
+--- a/packages/mobile/src/screens/DiscoverScreen.tsx
++++ b/packages/mobile/src/screens/DiscoverScreen.tsx
+@@ -1,3 +1,4 @@
++import ClampedText from '../components/ClampedText';
+ import React, { useEffect, useMemo, useState } from 'react';
+ import { ActivityIndicator, Image, PanResponder, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+ import { Alert } from '../utils/keepAlert';
+@@ -771,7 +772,7 @@
+             {eventDetail ? (
+               <>
+                 <Text style={styles.eventModalMeta}>{new Date(eventDetail.startsAt).toLocaleString('fr-FR')} {eventDetail.venueName ? `· ${eventDetail.venueName}` : ''}</Text>
+-                {eventDetail.description ? <Text style={styles.eventModalBody}>{eventDetail.description}</Text> : null}
++                {eventDetail.description ? <ClampedText key={eventDetail.id} text={eventDetail.description} style={styles.eventModalBody} /> : null}
+                 <View style={styles.eventModalStats}>
+                   <View style={styles.eventModalStat}><Text style={styles.eventModalStatValue}>{eventRsvpCounts.going}</Text><Text style={styles.eventModalStatLabel}>participent</Text></View>
+                   <View style={styles.eventModalStat}><Text style={styles.eventModalStatValue}>{eventRsvpCounts.maybe}</Text><Text style={styles.eventModalStatLabel}>intéressés</Text></View>
+--- /dev/null
++++ b/packages/mobile/src/services/pendingSessionSummary.ts
+@@ -0,0 +1,19 @@
++type PendingTrack = { status: string };
++type PendingSession = { id: string; tracks: readonly PendingTrack[] };
++
++/** Count unresolved sessions, never the current detection buffer alone. */
++export function pendingSessionSummary(
++  history: readonly PendingSession[],
++  active: PendingSession | null = null,
++): { sessions: number; tracks: number } {
++  const byId = new Map(history.map((session) => [session.id, session]));
++  // The live state is newer than its persisted snapshot; count it once.
++  if (active) byId.set(active.id, active);
++  let sessions = 0;
++  let tracks = 0;
++  for (const session of byId.values()) {
++    const pending = session.tracks.filter((track) => track.status === 'pending').length;
++    if (pending > 0) { sessions += 1; tracks += pending; }
++  }
++  return { sessions, tracks };
++}
+--- /dev/null
++++ b/packages/mobile/src/services/__tests__/pendingSessionSummary.test.ts
+@@ -0,0 +1,23 @@
++import { pendingSessionSummary } from '../pendingSessionSummary';
++const session = (id: string, statuses: string[]) => ({ id, tracks: statuses.map(status => ({ status })) });
++describe('pending session badge', () => {
++  it('survives archive and reopening with an empty live buffer', () => {
++    expect(pendingSessionSummary([session('saved', ['pending'])])).toEqual({ sessions: 1, tracks: 1 });
++  });
++  it('counts sessions separately from tracks and excludes resolved entries', () => {
++    expect(pendingSessionSummary([session('a', ['pending', 'pending', 'kept']), session('b', ['passed'])]))
++      .toEqual({ sessions: 1, tracks: 2 });
++  });
++  it('prefers the current state over its stale persisted snapshot', () => {
++    expect(pendingSessionSummary([session('a', ['pending'])], session('a', ['kept'])))
++      .toEqual({ sessions: 0, tracks: 0 });
++  });
++  it('counts an unarchived active session once', () => {
++    expect(pendingSessionSummary([], session('live', ['pending']))).toEqual({ sessions: 1, tracks: 1 });
++  });
++  it('does not modify the history while counting', () => {
++    const history = [session('a', ['pending'])]; const before = JSON.stringify(history);
++    pendingSessionSummary(history, session('a', ['passed']));
++    expect(JSON.stringify(history)).toBe(before);
++  });
++});

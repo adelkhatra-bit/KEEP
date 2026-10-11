@@ -18,7 +18,7 @@ describe('audioPreviewService -- préchargement de la manche suivante (Battle so
 
   it('expose preloadTrackPreviewSegment (charge sans jouer, shouldPlay:false via autoPlay=false)', () => {
     expect(preview).toContain('export async function preloadTrackPreviewSegment(');
-    expect(preview).toContain("createSoundWithRetry(previewUrl, effectivePosition, () => {}, false);");
+    expect(preview).toContain("createSoundWithRetry(previewUrl, effectivePosition, () => {}, false, !activePlaying);");
   });
 
   it('expose discardPreloadedTrackPreview pour nettoyer un préchargement abandonné', () => {
@@ -35,20 +35,25 @@ describe('audioPreviewService -- préchargement de la manche suivante (Battle so
 
   it('playTrackPreviewSegment consomme un préchargement correspondant à la clé avant de recréer un son', () => {
     expect(preview).toContain('if (preloadedKey === key && preloadedSound) {');
-    expect(preview).toContain('preloaded.setOnPlaybackStatusUpdate((status) => onStatus(status, preloaded));');
-    expect(preview).toContain('await ensurePlaying(preloaded);');
+    expect(preview).toContain('preloaded.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => onStatus(status, preloaded));');
+    expect(preview).toContain('createdSound = preloaded;');
+    expect(preview).toContain('await ensurePlaying(createdSound);');
   });
 
   it('un échec de consommation du préchargement retombe sur le chargement normal (pas de blocage)', () => {
     const fnStart = preview.indexOf('export async function playTrackPreviewSegment(');
     const fnBody = preview.slice(fnStart, preview.indexOf('\n}\n', fnStart));
     expect(fnBody).toContain('if (!createdSound) {');
-    expect(fnBody).toContain('createdSound = await createSoundWithRetry(previewUrl, effectivePosition, onStatus);');
+    expect(fnBody).toContain('createdSound = await createSoundWithRetry(previewUrl, effectivePosition, onStatus, false);');
+    expect(fnBody).toContain('await awaitNativeHandoffSilence();');
+    expect(fnBody).toContain('await ensurePlaying(createdSound);');
   });
 
   it("KeepBattleMobileGameV3 précharge la manche N+1 dès qu'une réponse est donnée, seulement s'il en reste une", () => {
     expect(battle).toContain('if (soloIndex < solo.rounds.length - 1) {');
-    expect(battle).toContain('void preloadTrackPreviewSegment(soloRoundPreviewKey(nextRound.trackId, soloIndex + 1), nextRound.previewUrl, 0);');
+    expect(battle).toContain('stopTrackPreviewFast();');
+    expect(battle).toContain('void preloadTrackPreviewSegment(');
+    expect(battle).toContain('soloRoundPreviewKey(nextRound.trackId, soloIndex + 1),');
   });
 
   it("playVerified garde la clé de base au premier essai pour rencontrer un préchargement existant", () => {
@@ -66,5 +71,25 @@ describe('Non-régression : le correctif micro/audio (a98868f) reste intact apr�
   it('configurePreviewAudio consulte toujours isNativeRecordingModeActive() et ne force jamais allowsRecordingIOS à false', () => {
     expect(preview).toContain('const recordingActive = isNativeRecordingModeActive();');
     expect(preview).not.toContain('allowsRecordingIOS: false,');
+  });
+});
+
+describe('Accueil Loki Pulse — latence TestFlight et verrou audio global', () => {
+  const home = readNormalized(__dirname, '..', '..', 'screens', 'HomeScreenCompact.tsx');
+  const preview = readNormalized(__dirname, '..', 'audioPreviewService.ts');
+
+  it("prépare l'extrait dès onPressIn sur Web et TestFlight sans jouer de second son", () => {
+    expect(home).not.toContain('onPressIn={() => prewarmHomePulseTrack(item.track.id)}'); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
+    expect(home).not.toContain("if (Platform.OS !== 'web') return;");
+    expect(preview).toContain('const requestEpoch = ++profilePreloadEpoch;');
+    expect(preview).toContain('createSoundWithRetry(previewUrl, 0, () => {}, false, !activePlaying)');
+  });
+
+  it('coupe immédiatement tout ancien extrait avant d’ouvrir le morceau choisi', () => {
+    expect(home).not.toContain('stopTrackPreviewFast();'); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
+    expect(home).not.toContain('setHomePulseSelectedTrackId(trackId);'); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
+    expect(home).not.toContain('setHomePulseOpen(true);');
+    expect(preview).toContain('let playbackRequestEpoch = 0;');
+    expect(preview).toContain('if (requestEpoch !== playbackRequestEpoch) return;');
   });
 });

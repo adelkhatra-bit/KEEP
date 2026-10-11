@@ -1,0 +1,127 @@
+name: Loki Subscription Metadata Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/app-store-subscription-metadata-audit.yml'
+      - '.github/app-store-audit-trigger'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Inspect subscription metadata
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        run: |
+          node <<'NODE'
+          const crypto=require('node:crypto');
+          const key=Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(),'base64');
+          const enc=x=>Buffer.from(JSON.stringify(x)).toString('base64url');
+          const now=Math.floor(Date.now()/1000);
+          const unsigned=enc({alg:'ES256',kid:process.env.ASC_KEY_ID.trim(),typ:'JWT'})+'.'+
+            enc({iss:process.env.ASC_ISSUER_ID.trim(),iat:now-30,exp:now+600,aud:'appstoreconnect-v1'});
+          const token=unsigned+'.'+crypto.sign('sha256',Buffer.from(unsigned),{key,dsaEncoding:'ieee-p1363'}).toString('base64url');
+
+          async function api(p,{allow404=false}={}){
+            const res=await fetch('https://api.appstoreconnect.apple.com'+p,{headers:{Authorization:'Bearer '+token}});
+            if(allow404&&res.status===404)return null;
+            const txt=await res.text();
+            if(!res.ok)throw new Error(p+' HTTP '+res.status+' '+txt.slice(0,1200));
+            return txt?JSON.parse(txt):null;
+          }
+
+          (async()=>{
+            const appId=process.env.ASC_APP_ID.trim();
+            const groups=await api('/v1/apps/'+appId+
+              '/subscriptionGroups?include=subscriptions&fields[subscriptionGroups]=referenceName,subscriptions&fields[subscriptions]=name,productId,state,subscriptionPeriod,versions,prices,pricePoints,planAvailabilities,subscriptionLocalizations,appStoreReviewScreenshot&limit=200&limit[subscriptions]=50');
+
+            const subs=(groups.included||[]).filter(x=>x.type==='subscriptions');
+            const report=[];
+            for(const s of subs){
+              const id=s.id;
+              const row={
+                id,
+                name:s.attributes?.name||null,
+                productId:s.attributes?.productId||null,
+                state:s.attributes?.state||null,
+                period:s.attributes?.subscriptionPeriod||null
+              };
+
+              const versions=await api('/v1/subscriptions/'+id+
+                '/versions?fields[subscriptionVersions]=version,state,subscription,image,images,localizations&limit=50',
+                {allow404:true});
+              row.versions=(versions?.data||[]).map(v=>({
+                id:v.id,
+                version:v.attributes?.version||null,
+                state:v.attributes?.state||null
+              }));
+
+              row.versionDetails=[];
+              for(const v of (versions?.data||[])){
+                const locs=await api('/v1/subscriptionVersions/'+v.id+
+                  '/localizations?fields[subscriptionLocalizations]=name,locale,description&limit=50',
+                  {allow404:true});
+                const images=await api('/v1/subscriptionVersions/'+v.id+
+                  '/images?fields[subscriptionImages]=fileName,imageAsset&limit=50',
+                  {allow404:true});
+                row.versionDetails.push({
+                  id:v.id,
+                  localizations:(locs?.data||[]).map(x=>({
+                    locale:x.attributes?.locale||null,
+                    namePresent:Boolean(x.attributes?.name?.trim()),
+                    descriptionPresent:Boolean(x.attributes?.description?.trim())
+                  })),
+                  images:(images?.data||[]).map(x=>({
+                    fileName:x.attributes?.fileName||null
+                  }))
+                });
+              }
+
+              const prices=await api('/v1/subscriptions/'+id+
+                '/prices?include=territory,subscriptionPricePoint&fields[subscriptionPrices]=startDate,preserved,planType,territory,subscriptionPricePoint&fields[territories]=currency&fields[subscriptionPricePoints]=customerPrice,proceeds,territory&limit=200',
+                {allow404:true});
+              row.prices=(prices?.data||[]).map(p=>({
+                id:p.id,
+                startDate:p.attributes?.startDate||null,
+                planType:p.attributes?.planType||null,
+                territory:p.relationships?.territory?.data?.id||null,
+                pricePoint:p.relationships?.subscriptionPricePoint?.data?.id||null
+              }));
+
+              const planAvail=await api('/v1/subscriptions/'+id+
+                '/planAvailabilities?fields[subscriptionPlanAvailabilities]=availableInNewTerritories,planType,availableTerritories&limit=50',
+                {allow404:true});
+              row.planAvailabilities=(planAvail?.data||[]).map(a=>({
+                id:a.id,
+                planType:a.attributes?.planType||null,
+                availableInNewTerritories:!!a.attributes?.availableInNewTerritories,
+                availableTerritoryCount:a.relationships?.availableTerritories?.data?.length||0
+              }));
+
+              const review=await api('/v1/subscriptions/'+id+
+                '/appStoreReviewScreenshot?fields[subscriptionAppStoreReviewScreenshots]=fileName,assetDeliveryState',
+                {allow404:true});
+              row.reviewScreenshot=review?.data?{
+                fileName:review.data.attributes?.fileName||null,
+                state:review.data.attributes?.assetDeliveryState?.state||null
+              }:null;
+
+              report.push(row);
+            }
+
+            console.log('=== LOKI SUBSCRIPTION METADATA AUDIT ===');
+            console.log(JSON.stringify(report,null,2));
+            console.log('=== END LOKI SUBSCRIPTION METADATA AUDIT ===');
+          })().catch(e=>{console.error(e.message||String(e));process.exit(1)});
+          NODE

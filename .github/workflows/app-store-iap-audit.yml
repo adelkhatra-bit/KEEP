@@ -1,0 +1,188 @@
+name: Loki App Store IAP Audit & Provision
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/app-store-iap-audit.yml'
+      - '.github/app-store-audit-trigger'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Audit subscriptions and IAP
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        run: |
+          node <<'NODE'
+          const crypto=require('node:crypto');
+          const required=['ASC_API_KEY_P8_BASE64','ASC_KEY_ID','ASC_ISSUER_ID','ASC_APP_ID'];
+          if(required.some(k=>!process.env[k]?.trim()))throw new Error('Missing App Store Connect configuration');
+
+          const key=Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(),'base64');
+          const enc=x=>Buffer.from(JSON.stringify(x)).toString('base64url');
+          const now=Math.floor(Date.now()/1000);
+          const unsigned=enc({alg:'ES256',kid:process.env.ASC_KEY_ID.trim(),typ:'JWT'})+'.'+
+            enc({iss:process.env.ASC_ISSUER_ID.trim(),iat:now-30,exp:now+600,aud:'appstoreconnect-v1'});
+          const token=unsigned+'.'+crypto.sign('sha256',Buffer.from(unsigned),{key,dsaEncoding:'ieee-p1363'}).toString('base64url');
+
+          async function api(p,{allow404=false,method='GET',body=null}={}){
+            const headers={Authorization:'Bearer '+token};
+            if(body)headers['Content-Type']='application/json';
+            const res=await fetch('https://api.appstoreconnect.apple.com'+p,{
+              method,
+              headers,
+              body:body?JSON.stringify(body):undefined
+            });
+            if(allow404&&res.status===404)return null;
+            const txt=await res.text();
+            if(!res.ok)throw new Error(p+' HTTP '+res.status+' '+txt.slice(0,1000));
+            return txt?JSON.parse(txt):null;
+          }
+
+          (async()=>{
+            const appId=process.env.ASC_APP_ID.trim();
+            const report={subscriptionGroups:[],inAppPurchases:[],provisionedFreeProducts:[]};
+
+            const freeProducts=[
+              {productId:'com.adelkhatra.keep.free.30',name:'Loki 30 FREE'},
+              {productId:'com.adelkhatra.keep.free.100',name:'Loki 100 FREE'},
+              {productId:'com.adelkhatra.keep.free.300',name:'Loki 300 FREE'}
+            ];
+            const existingIaps=await api('/v1/apps/'+appId+
+              '/inAppPurchasesV2?fields[inAppPurchases]=name,productId,inAppPurchaseType,state&limit=200',
+              {allow404:true});
+            const existingIds=new Set((existingIaps?.data||[]).map(x=>x.attributes?.productId).filter(Boolean));
+            for(const product of freeProducts){
+              if(existingIds.has(product.productId))continue;
+              const created=await api('/v2/inAppPurchases',{
+                method:'POST',
+                body:{
+                  data:{
+                    type:'inAppPurchases',
+                    attributes:{
+                      name:product.name,
+                      productId:product.productId,
+                      inAppPurchaseType:'CONSUMABLE',
+                      familySharable:false,
+                      reviewNote:'Recharge ponctuelle de crédits FREE Loki Music. Crédit serveur uniquement après vérification de la transaction App Store.'
+                    },
+                    relationships:{app:{data:{type:'apps',id:appId}}}
+                  }
+                }
+              });
+              report.provisionedFreeProducts.push({
+                productId:product.productId,
+                id:created?.data?.id||null,
+                state:created?.data?.attributes?.state||null
+              });
+            }
+
+            const groups=await api('/v1/apps/'+appId+
+              '/subscriptionGroups?include=subscriptions&fields[subscriptionGroups]=referenceName,subscriptions&fields[subscriptions]=name,productId,familySharable,state,subscriptionPeriod,reviewNote,groupLevel&limit=200&limit[subscriptions]=50');
+            for(const g of (groups.data||[])){
+              const ids=(g.relationships?.subscriptions?.data||[]).map(x=>x.id);
+              const included=(groups.included||[]).filter(x=>x.type==='subscriptions'&&ids.includes(x.id));
+              report.subscriptionGroups.push({
+                id:g.id,
+                referenceName:g.attributes?.referenceName||null,
+                subscriptions:included.map(s=>({
+                  id:s.id,
+                  name:s.attributes?.name||null,
+                  productId:s.attributes?.productId||null,
+                  state:s.attributes?.state||null,
+                  period:s.attributes?.subscriptionPeriod||null,
+                  reviewNotePresent:Boolean(s.attributes?.reviewNote?.trim()),
+                  familySharable:!!s.attributes?.familySharable,
+                  groupLevel:s.attributes?.groupLevel??null
+                }))
+              });
+            }
+
+            for(const sub of report.subscriptionGroups.flatMap(g=>g.subscriptions)){
+              const detail=await api('/v1/subscriptions/'+sub.id+
+                '?fields[subscriptions]=name,productId,state,reviewNote,subscriptionLocalizations,prices,appStoreReviewScreenshot');
+              sub.reviewScreenshotPresent=Boolean(detail.data?.relationships?.appStoreReviewScreenshot?.data);
+
+              const localizations=await api('/v1/subscriptions/'+sub.id+
+                '/subscriptionLocalizations?fields[subscriptionLocalizations]=name,locale,description,state&limit=200');
+              sub.localizations=(localizations.data||[]).map(x=>({
+                locale:x.attributes?.locale||null,
+                name:x.attributes?.name||null,
+                descriptionPresent:Boolean(x.attributes?.description?.trim()),
+                state:x.attributes?.state||null
+              }));
+
+              const prices=await api('/v1/subscriptions/'+sub.id+
+                '/prices?include=subscriptionPricePoint,territory&fields[subscriptionPrices]=startDate,preserved,territory,subscriptionPricePoint&fields[subscriptionPricePoints]=customerPrice,territory&fields[territories]=currency&limit=50');
+              sub.priceCount=(prices.data||[]).length;
+              sub.prices=(prices.data||[]).slice(0,10).map(x=>{
+                const pointId=x.relationships?.subscriptionPricePoint?.data?.id;
+                const territoryId=x.relationships?.territory?.data?.id;
+                const point=(prices.included||[]).find(y=>y.type==='subscriptionPricePoints'&&y.id===pointId);
+                const territory=(prices.included||[]).find(y=>y.type==='territories'&&y.id===territoryId);
+                return {
+                  territory:territoryId||null,
+                  customerPrice:point?.attributes?.customerPrice||null,
+                  currency:territory?.attributes?.currency||null,
+                  startDate:x.attributes?.startDate||null
+                };
+              });
+            }
+
+            const iaps=await api('/v1/apps/'+appId+
+              '/inAppPurchasesV2?fields[inAppPurchases]=name,productId,inAppPurchaseType,state,reviewNote,familySharable&limit=200',
+              {allow404:true});
+            report.inAppPurchases=(iaps?.data||[]).map(x=>({
+              id:x.id,
+              name:x.attributes?.name||null,
+              productId:x.attributes?.productId||null,
+              type:x.attributes?.inAppPurchaseType||null,
+              state:x.attributes?.state||null,
+              reviewNotePresent:Boolean(x.attributes?.reviewNote?.trim()),
+              familySharable:!!x.attributes?.familySharable
+            }));
+
+            const expected=[
+              'com.adelkhatra.keep.premium.monthly',
+              'com.adelkhatra.keep.creatorpro.monthly',
+              'com.adelkhatra.keep.venuepro.monthly'
+            ];
+            const actual=report.subscriptionGroups.flatMap(g=>g.subscriptions.map(s=>s.productId));
+            report.expectedProducts=expected.map(productId=>({
+              productId,
+              found:actual.includes(productId),
+              state:report.subscriptionGroups.flatMap(g=>g.subscriptions).find(s=>s.productId===productId)?.state||null
+            }));
+
+            const expectedFreeProducts=[
+              'com.adelkhatra.keep.free.30',
+              'com.adelkhatra.keep.free.100',
+              'com.adelkhatra.keep.free.300'
+            ];
+            report.expectedFreeProducts=expectedFreeProducts.map(productId=>{
+              const item=report.inAppPurchases.find(p=>p.productId===productId);
+              return {
+                productId,
+                found:Boolean(item),
+                type:item?.type||null,
+                state:item?.state||null,
+                consumable:item?.type==='CONSUMABLE'
+              };
+            });
+
+            console.log('=== LOKI IAP AUDIT ===');
+            console.log(JSON.stringify(report,null,2));
+            console.log('=== END LOKI IAP AUDIT ===');
+          })().catch(e=>{console.error(e.message||String(e));process.exit(1)});
+          NODE

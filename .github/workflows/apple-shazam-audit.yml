@@ -1,0 +1,63 @@
+name: KEEP — Apple ShazamKit Capability Audit
+
+on:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/apple-shazam-audit.yml'
+  workflow_dispatch:
+
+jobs:
+  audit-shazam:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Audit ShazamKit App Service
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          node - <<'NODE'
+          const crypto = require('node:crypto');
+          const required = ['ASC_API_KEY_P8_BASE64','ASC_KEY_ID','ASC_ISSUER_ID'];
+          const missing = required.filter(k => !process.env[k]?.trim());
+          if (missing.length) throw new Error('Missing Apple API credentials: ' + missing.join(', '));
+
+          const key = Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(), 'base64');
+          const enc = value => Buffer.from(JSON.stringify(value)).toString('base64url');
+          const now = Math.floor(Date.now() / 1000);
+          const body = enc({alg:'ES256',kid:process.env.ASC_KEY_ID.trim(),typ:'JWT'}) + '.' +
+            enc({iss:process.env.ASC_ISSUER_ID.trim(),iat:now-30,exp:now+300,aud:'appstoreconnect-v1'});
+          const token = body + '.' + crypto.sign('sha256',Buffer.from(body),{key,dsaEncoding:'ieee-p1363'}).toString('base64url');
+
+          async function get(route) {
+            const response = await fetch('https://api.appstoreconnect.apple.com/v1/' + route, {
+              headers:{Authorization:'Bearer '+token},
+              signal:AbortSignal.timeout(30000),
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error('Apple HTTP ' + response.status + ' on ' + route);
+            return payload;
+          }
+
+          (async () => {
+            const bundles = await get('bundleIds?filter[identifier]=com.adelkhatra.keep&limit=50');
+            const bundle = (bundles.data || []).find(x => x.attributes?.identifier === 'com.adelkhatra.keep');
+            if (!bundle?.id) throw new Error('Loki bundle id not found');
+            const capabilities = await get('bundleIds/' + encodeURIComponent(bundle.id) + '/bundleIdCapabilities?limit=200');
+            const types = (capabilities.data || []).map(x => String(x.attributes?.capabilityType || '')).filter(Boolean).sort();
+            console.log('Loki Apple capability types: ' + JSON.stringify(types));
+            const shazamLike = types.filter(type => type.includes('SHAZAM'));
+            console.log('Shazam-like capabilities: ' + JSON.stringify(shazamLike));
+            if (!shazamLike.length) {
+              console.log('SHAZAMKIT_APP_SERVICE: NOT_VISIBLE_VIA_API');
+            } else {
+              console.log('SHAZAMKIT_APP_SERVICE: VISIBLE');
+            }
+          })().catch(error => {
+            console.error(error.message);
+            process.exitCode = 1;
+          });
+          NODE

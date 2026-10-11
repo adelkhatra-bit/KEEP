@@ -1,16 +1,18 @@
-import React, { useEffect } from 'react';
-import { Platform } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Platform, Text, TouchableOpacity, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Location from 'expo-location';
+import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import './src/i18n';
 import Navigation from './src/navigation/Navigation';
 import OnboardingScreen from './src/screens/onboarding/OnboardingScreen';
 import GlobalNotificationBanner from './src/components/GlobalNotificationBanner';
+import ProblemReportHost from './src/components/ProblemReportHost';
+import { RootChatDock } from './src/components/ChatDockHost';
 import AppUpdateBanner from './src/components/AppUpdateBanner';
 import AlertHost from './src/components/AlertHost';
 import AccountGateModal from './src/components/AccountGateModal';
 import { useUserStore } from './src/store/useUserStore';
-import { useAppUpdateStore } from './src/store/useAppUpdateStore';
 import { useSessionStore } from './src/store/useSessionStore';
 import { useSessionHistoryStore } from './src/store/useSessionHistoryStore';
 import { useBattleAvailabilityStore } from './src/store/useBattleAvailabilityStore';
@@ -46,6 +48,46 @@ export default function App() {
   const user = useUserStore((s) => s.user);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const updateUser = useUserStore((s) => s.updateUser);
+  const [authReady, setAuthReady] = useState(() => process.env.EXPO_PUBLIC_KEEP_PREVIEW === '1' || !isSupabaseConfigured || !supabase);
+  const [authRecoveryVisible, setAuthRecoveryVisible] = useState(false);
+  const [authRetryKey, setAuthRetryKey] = useState(0);
+  const manualAuthExitRef = useRef(false);
+
+  useEffect(() => {
+    if (authReady) {
+      setAuthRecoveryVisible(false);
+      return;
+    }
+    const timer = setTimeout(() => setAuthRecoveryVisible(true), 8000);
+    return () => clearTimeout(timer);
+  }, [authReady]);
+
+  const retryAuthRecovery = () => {
+    manualAuthExitRef.current = false;
+    setAuthRecoveryVisible(false);
+    setAuthReady(false);
+    setAuthRetryKey((value) => value + 1);
+  };
+
+  const leaveAuthRecovery = () => {
+    manualAuthExitRef.current = true;
+    setAuthRecoveryVisible(false);
+    useUserStore.getState().logout();
+    void clearLocalGuestMarker().catch(() => {});
+    setAuthReady(true);
+
+    if (!supabase) {
+      manualAuthExitRef.current = false;
+      return;
+    }
+
+    void createAuthService(supabase).signOut()
+      .catch(() => {})
+      .finally(() => {
+        manualAuthExitRef.current = false;
+        setAuthRetryKey((value) => value + 1);
+      });
+  };
 
   useEffect(() => {
     if (process.env.EXPO_PUBLIC_KEEP_PREVIEW !== '1') return;
@@ -77,30 +119,8 @@ export default function App() {
     }
   }, []);
 
-  // Adel (02/09/2026) : "comme une application normale ... popup pour qu'il
-  // puisse faire sa mise à jour, toujours avoir la possibilité de dire je la
-  // ferai plus tard" -- vérifie périodiquement si le bundle déployé est plus
-  // récent que celui chargé (voir useAppUpdateStore), et revérifie chaque
-  // fois que l'onglet redevient visible (retour d'un switch d'app), pas
-  // seulement sur une minuterie fixe.
   useEffect(() => {
-    if (Platform.OS !== 'web') return;
-    void useAppUpdateStore.getState().checkNow();
-    const interval = setInterval(() => { void useAppUpdateStore.getState().checkNow(); }, 15 * 60 * 1000);
-    const onVisible = () => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-        void useAppUpdateStore.getState().checkNow();
-      }
-    };
-    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisible);
-    return () => {
-      clearInterval(interval);
-      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisible);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!user || isDemoMode || (user.city && user.countryCode)) return;
+    if (!authReady || !user || isDemoMode || (user.city && user.countryCode)) return;
     let cancelled = false;
 
     const autoFillLocation = async () => {
@@ -132,17 +152,31 @@ export default function App() {
 
     void autoFillLocation();
     return () => { cancelled = true; };
-  }, [isDemoMode, updateUser, user?.city, user?.countryCode, user?.id]);
+  }, [authReady, isDemoMode, updateUser, user?.city, user?.countryCode, user?.id]);
 
   useEffect(() => {
-    if (!isSupabaseConfigured || !supabase) return;
+    if (!isSupabaseConfigured || !supabase) {
+      setAuthReady(true);
+      return;
+    }
 
+    let active = true;
     const authService = createAuthService(supabase);
     const profileService = createProfileService(supabase);
     let profileLoadedFor: string | null = null;
     let saveTimer: ReturnType<typeof setTimeout> | null = null;
+    let inFlightSessionKey: string | null = null;
+    let inFlightSessionPromise: Promise<boolean> | null = null;
+    let bootstrapRetryTimer: ReturnType<typeof setTimeout> | null = null;
+    let bootstrapRetryAttempt = 0;
+    let profileRetryTimer: ReturnType<typeof setTimeout> | null = null;
+    let profileRetryAttempt = 0;
+    let pendingProfileSession: KeepAuthSession | null = null;
+    let applyingRemoteProfile = false;
+    let initialBootstrapSettled = false;
 
-    const handleSession = async (session: KeepAuthSession | null) => {
+    const handleSession = async (session: KeepAuthSession | null): Promise<boolean> => {
+      if (manualAuthExitRef.current && session) return false;
       if (!session) {
         profileLoadedFor = null;
         useBattleAvailabilityStore.getState().reset();
@@ -152,10 +186,12 @@ export default function App() {
           return;
         }
         useUserStore.getState().syncFromAuthSession(null);
-        return;
+        return true;
       }
 
-      useUserStore.getState().syncFromAuthSession(session);
+      if (profileLoadedFor === session.userId && useUserStore.getState().user?.id === session.userId) {
+        return true;
+      }
 
       try {
         let profile = await profileService.loadOrCreateOwnProfile(session);
@@ -180,19 +216,40 @@ export default function App() {
             }
           }
 
-          // Même si le lien de confirmation e-mail ouvre directement KEEP et
-          // crée la session sans repasser par le formulaire, on conserve le
-          // compteur de l'essai local. Exemple : 3 essais consommés + 20 bonus
-          // = 20 crédits restants, et les cadenas des morceaux en attente sont
-          // retirés automatiquement sans les valider à la place de l'utilisateur.
-          await importStagedGuestCreditsForAuthenticatedAccount().catch(() => null);
-          await useSessionHistoryStore.getState().syncUnsyncedKeeps();
-          await useSessionHistoryStore.getState().refreshCreditLocks().catch(() => {});
-          await clearLocalGuestMarker();
         }
 
-        profileLoadedFor = session.userId;
+        // Un profil réellement lu depuis Supabase peut monter immédiatement.
+        // On évite toute auto-sauvegarde pendant cette hydratation distante.
+        if (manualAuthExitRef.current) return false;
+        applyingRemoteProfile = true;
         useUserStore.getState().setUser(profile);
+        applyingRemoteProfile = false;
+        profileLoadedFor = session.userId;
+
+        // Les données secondaires n'empêchent jamais d'entrer dans l'app.
+        void profileService.loadOwnProfileExtras(session)
+          .then((extras) => {
+            if (!active || useUserStore.getState().user?.id !== session.userId) return;
+            applyingRemoteProfile = true;
+            useUserStore.getState().updateUser(extras);
+            applyingRemoteProfile = false;
+          })
+          .catch((error) => {
+            if (__DEV__) console.warn('[KEEP] profile extras unavailable', error);
+          });
+
+        if (!session.isAnonymous) {
+          void (async () => {
+            // Le vrai profil est déjà visible. Crédits, historique et cadenas
+            // se resynchronisent ensuite sans bloquer la reconnaissance du compte.
+            await importStagedGuestCreditsForAuthenticatedAccount().catch(() => null);
+            await useSessionHistoryStore.getState().syncUnsyncedKeeps();
+            await useSessionHistoryStore.getState().refreshCreditLocks().catch(() => {});
+            await clearLocalGuestMarker();
+          })().catch((error) => {
+            if (__DEV__) console.warn('[KEEP] post-auth sync unavailable', error);
+          });
+        }
         if (!session.isAnonymous) {
           void syncCurrentEntitlements().catch((error) => {
             if (__DEV__) console.warn('[KEEP] StoreKit entitlement sync unavailable', error);
@@ -202,17 +259,154 @@ export default function App() {
         if (!session.isAnonymous) {
           registerForPushNotifications().catch(() => {});
         }
+        return true;
       } catch (error) {
         if (__DEV__) console.error('[KEEP] profile load failed', error);
+        return false;
       }
     };
 
-    void authService.getCurrentSession().then(handleSession);
+    const handleSessionOnce = (session: KeepAuthSession | null): Promise<boolean> => {
+      const key = session ? `${session.userId}:${session.isAnonymous ? 'anonymous' : 'account'}` : 'signed-out';
+      if (inFlightSessionPromise && inFlightSessionKey === key) return inFlightSessionPromise;
+      const promise = handleSession(session).finally(() => {
+        if (inFlightSessionPromise === promise) {
+          inFlightSessionPromise = null;
+          inFlightSessionKey = null;
+        }
+      });
+      inFlightSessionKey = key;
+      inFlightSessionPromise = promise;
+      return promise;
+    };
+
+    const cancelProfileRetry = () => {
+      if (profileRetryTimer) clearTimeout(profileRetryTimer);
+      profileRetryTimer = null;
+    };
+
+    const scheduleProfileRetry = (session: KeepAuthSession) => {
+      if (!active || profileRetryTimer) return;
+      pendingProfileSession = session;
+      const delay = Math.min(5000, 700 * (2 ** Math.min(profileRetryAttempt, 3)));
+      profileRetryAttempt += 1;
+      profileRetryTimer = setTimeout(() => {
+        profileRetryTimer = null;
+        const retrySession = pendingProfileSession;
+        if (!active || !retrySession) return;
+        void handleSessionOnce(retrySession)
+          .then((hydrated) => {
+            if (!active) return;
+            if (hydrated) {
+              pendingProfileSession = null;
+              profileRetryAttempt = 0;
+              initialBootstrapSettled = true;
+              setAuthReady(true);
+              return;
+            }
+            scheduleProfileRetry(retrySession);
+          })
+          .catch(() => scheduleProfileRetry(retrySession));
+      }, delay);
+    };
+
+    const finishInitialBootstrap = async (session: KeepAuthSession | null) => {
+      // Une session Supabase réellement restaurée suffit pour conserver le shell
+      // du MÊME compte déjà présent localement pendant que le profil distant se
+      // réhydrate. Le cache n'authentifie jamais l'utilisateur : il n'est utilisé
+      // qu'après confirmation de la vraie session Supabase.
+      const currentUser = useUserStore.getState().user;
+      if (active && session && currentUser?.id === session.userId) {
+        setAuthReady(true);
+      }
+
+      const hydrated = await handleSessionOnce(session);
+      if (active && hydrated) {
+        initialBootstrapSettled = true;
+        bootstrapRetryAttempt = 0;
+        if (bootstrapRetryTimer) {
+          clearTimeout(bootstrapRetryTimer);
+          bootstrapRetryTimer = null;
+        }
+        setAuthReady(true);
+      }
+      return hydrated;
+    };
+
+    // Incident 02/10/2026 : lors d'un pic Supabase, /auth/v1/user et plusieurs
+    // RPC ont renvoyé 500/504 pendant un refresh web. L'ancien bootstrap faisait
+    // seulement UNE relance puis laissait authReady=false pour toujours : écran
+    // noir vide. On ne monte toujours JAMAIS Navigation avec un faux profil :
+    // on garde l'écran de récupération visible et on retente silencieusement
+    // jusqu'à ce que la vraie session + le vrai profil Supabase soient hydratés.
+    const scheduleBootstrapRetry = () => {
+      if (!active || initialBootstrapSettled || bootstrapRetryTimer) return;
+      const delay = Math.min(5000, 600 * (2 ** Math.min(bootstrapRetryAttempt, 3)));
+      bootstrapRetryAttempt += 1;
+      bootstrapRetryTimer = setTimeout(() => {
+        bootstrapRetryTimer = null;
+        if (!active || initialBootstrapSettled) return;
+        void authService.getCurrentSession()
+          .then(async (retrySession) => {
+            const hydrated = await finishInitialBootstrap(retrySession);
+            if (!hydrated) scheduleBootstrapRetry();
+          })
+          .catch(() => scheduleBootstrapRetry());
+      }, delay);
+    };
+
+    void authService.getCurrentSession()
+      .then(async (session) => {
+        const hydrated = await finishInitialBootstrap(session);
+        if (!hydrated) scheduleBootstrapRetry();
+      })
+      .catch(() => scheduleBootstrapRetry());
+
     const unsubscribeAuth = authService.onSessionChange((session) => {
-      void handleSession(session);
+      // Un null transitoire pendant la restauration ne doit jamais effacer le compte.
+      if (!initialBootstrapSettled && !session) return;
+
+      if (!session) {
+        pendingProfileSession = null;
+        profileRetryAttempt = 0;
+        cancelProfileRetry();
+        void handleSessionOnce(null).then((hydrated) => {
+          if (!active) return;
+          if (hydrated) {
+            initialBootstrapSettled = true;
+            setAuthReady(true);
+          }
+        }).catch(() => {});
+        return;
+      }
+
+      // Mot de passe/session acceptés : une panne temporaire de profiles ne doit
+      // jamais masquer de nouveau un compte déjà affiché. Pour un changement
+      // réel de compte on attend le nouveau profil ; pour le même compte on garde
+      // Navigation visible et on réhydrate en arrière-plan.
+      pendingProfileSession = session;
+      const currentUserId = useUserStore.getState().user?.id ?? null;
+      const sameAuthenticatedAccount = currentUserId === session.userId;
+      if (!sameAuthenticatedAccount) setAuthReady(false);
+
+      void handleSessionOnce(session).then((hydrated) => {
+        if (!active) return;
+        if (hydrated) {
+          pendingProfileSession = null;
+          profileRetryAttempt = 0;
+          cancelProfileRetry();
+          initialBootstrapSettled = true;
+          setAuthReady(true);
+          return;
+        }
+        scheduleProfileRetry(session);
+      }).catch(() => {
+        if (active) scheduleProfileRetry(session);
+      });
     });
 
     const unsubscribeStore = useUserStore.subscribe((state, previousState) => {
+      if (applyingRemoteProfile) return;
       if (!state.user || state.isDemoMode || state.user.id !== profileLoadedFor) return;
       if (state.user === previousState.user) return;
 
@@ -227,20 +421,77 @@ export default function App() {
     });
 
     return () => {
+      active = false;
       if (saveTimer) clearTimeout(saveTimer);
+      if (bootstrapRetryTimer) clearTimeout(bootstrapRetryTimer);
+      if (profileRetryTimer) clearTimeout(profileRetryTimer);
       unsubscribeStore();
       unsubscribeAuth();
     };
-  }, []);
+  }, [authRetryKey]);
 
   return (
-    <>
-      {user ? <Navigation /> : <OnboardingScreen />}
-      {user ? <GlobalNotificationBanner /> : null}
-      <AppUpdateBanner />
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+      {authReady ? (user ? <Navigation /> : <OnboardingScreen />) : (
+        <View
+          testID="auth-bootstrap-recovery"
+          accessibilityLabel="Connexion Loki Music en cours"
+          style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28 }}
+        >
+          <ActivityIndicator size="large" color={colors.primaryLight} />
+          <Text style={{ color: colors.textPrimary, fontSize: 22, fontWeight: '800', marginTop: 18 }}>Loki Music</Text>
+          <Text style={{ color: colors.textMutedGrey, fontSize: 14, textAlign: 'center', marginTop: 8 }}>
+            {authRecoveryVisible ? 'Le service met plus de temps que prévu.' : 'Connexion à ton compte…'}
+          </Text>
+
+          {authRecoveryVisible ? (
+            <View style={{ width: '100%', maxWidth: 320, marginTop: 18, gap: 10 }}>
+              <TouchableOpacity
+                testID="auth-recovery-retry"
+                accessibilityRole="button"
+                accessibilityLabel="Réessayer la connexion Loki Music"
+                onPress={retryAuthRecovery}
+                style={{
+                  minHeight: 46,
+                  borderRadius: 23,
+                  backgroundColor: colors.primary,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  paddingHorizontal: 18,
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '900' }}>RÉESSAYER</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                testID="auth-recovery-change-account"
+                accessibilityRole="button"
+                accessibilityLabel="Changer de compte Loki Music"
+                onPress={leaveAuthRecovery}
+                style={{
+                  minHeight: 46,
+                  borderRadius: 23,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  backgroundColor: colors.backgroundCard,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  paddingHorizontal: 18,
+                }}
+              >
+                <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '900' }}>CHANGER DE COMPTE</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+        </View>
+      )}
+      {authReady && user ? <GlobalNotificationBanner /> : null}
+      {authReady && user ? <ProblemReportHost /> : null}
+      {authReady && user ? <RootChatDock /> : null}
+      <AppUpdateBanner authReady={authReady} />
       <AlertHost />
       <AccountGateModal />
       <StatusBar style="light" backgroundColor={colors.background} />
-    </>
+    </SafeAreaProvider>
   );
 }

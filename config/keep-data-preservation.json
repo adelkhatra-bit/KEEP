@@ -1,0 +1,69 @@
+{
+  "version": "2026-09-30.1",
+  "productionProjectRef": "rrhqsqzcplvmwxizqnla",
+  "criticalTables": [
+    "profiles",
+    "profile_private_info",
+    "profile_username_aliases",
+    "tracks",
+    "keep_decisions",
+    "playlists",
+    "playlist_tracks",
+    "social_links",
+    "follows",
+    "track_likes",
+    "music_library_items",
+    "notifications",
+    "push_tokens",
+    "events",
+    "event_rsvps",
+    "event_ticket_orders",
+    "discovery_profile_views",
+    "profile_swipe_listens",
+    "keep_referrals",
+    "keep_referral_codes",
+    "subscriptions",
+    "download_credit_usage",
+    "monthly_free_credit_awards",
+    "admin_credit_grants",
+    "keep_battle_solo_history",
+    "keep_battle_arena_match_results",
+    "keep_battle_skill_stats",
+    "keep_battle_monthly_match_counters",
+    "playlist_sale_offers",
+    "playlist_sale_offer_tracks",
+    "playlist_sale_payments",
+    "playlist_sale_free_transfers",
+    "store_purchase_events",
+    "free_credit_audit_log",
+    "user_data_revision_log"
+  ],
+  "protectedTablePrefixes": [
+    "keep_battle_",
+    "playlist_sale_"
+  ],
+  "appendOnlyTables": [
+    "keep_battle_credit_events",
+    "keep_battle_arena_credit_events",
+    "keep_battle_solo_credit_events",
+    "admin_credit_grants",
+    "monthly_free_credit_awards",
+    "store_purchase_events",
+    "free_credit_audit_log"
+  ],
+  "explicitDeletionPaths": [
+    "supabase/functions/delete-account/"
+  ],
+  "explicitDeletionMarker": "KEEP_DATA_DELETE_EXCEPTION: account-deletion",
+  "forbiddenCommands": [
+    "supabase db reset",
+    "supabase db push"
+  ],
+  "explicitDeletionExceptions": [
+    {
+      "path": "packages/mobile/src/services/trackLikesService.ts",
+      "marker": "KEEP_DATA_DELETE_EXCEPTION: user-removes-own-reaction",
+      "reason": "Adel 05/10/2026 : « impérativement l'utilisateur peut aimer puis se tromper, il faut qu'il puisse des-aimer ». Retrait par l'utilisateur de SA PROPRE réaction (RLS profile_id = auth.uid()), une ligne à la fois, uniquement track_likes / track_dislikes."
+    }
+  ]
+}

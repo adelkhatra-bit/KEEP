@@ -57,6 +57,20 @@ describe('Loki Music duplicate track identity', () => {
       .toEqual([{ provider: 'appleMusic', value: '123' }]);
   });
 
+  it('ne traite jamais le storefront Apple comme un identifiant de morceau', () => {
+    expect(keepProviderIdentities({
+      providerIds: { appleMusic: '111', appleStorefront: 'FR' },
+    } as any)).toEqual([{ provider: 'appleMusic', value: '111' }]);
+
+    expect(tracksRepresentSameKeep({
+      id: 'a', title: 'Titre A', artist: 'Artiste A',
+      providerIds: { appleMusic: '111', appleStorefront: 'FR' },
+    } as any, {
+      id: 'b', title: 'Titre B', artist: 'Artiste B',
+      providerIds: { appleMusic: '222', appleStorefront: 'FR' },
+    } as any)).toBe(false);
+  });
+
   it('retire avant le Swipe tous les morceaux déjà possédés', () => {
     const own = [
       { id: 'keep-1', title: 'Bad Girl', artist: 'Usher', isrc: 'USAR10400214', providerIds: { spotify: '5rPzPAaOUceS8HiAculegz' } },
@@ -74,14 +88,14 @@ describe('Loki Music duplicate track identity', () => {
     expect(filterTracksNotAlreadyKept(candidate as any, index).map((track: any) => track.id)).toEqual(['remote-c']);
   });
 
-  it('retire aussi un morceau via le filet titre/artiste quand aucun id fournisseur n’est disponible', () => {
+  it('ne supprime jamais deux enregistrements distincts sur le seul couple titre/artiste', () => {
     const index = buildKeepTrackIdentityIndex([
-      { id: 'keep-x', title: "N'tya (Album Version)", artist: 'Kayliah', providerIds: {} },
+      { id: 'keep-x', title: "N'tya", artist: 'Kayliah', providerIds: {} },
     ] as any);
     const filtered = filterTracksNotAlreadyKept([
       { id: 'remote-x', title: "N'TYA", artist: 'Kayliah', providerIds: {} },
       { id: 'remote-y', title: 'Autre', artist: 'Kayliah', providerIds: {} },
     ] as any, index);
-    expect(filtered.map((track: any) => track.id)).toEqual(['remote-y']);
+    expect(filtered.map((track: any) => track.id)).toEqual(['remote-x', 'remote-y']);
   });
 });

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { AppState, Platform } from 'react-native';
 import { setManualBattleAvailability, pingManualBattleAvailability, getManualBattleAvailability } from '../services/keepBattleLiveService';
+import { supabase } from '../services/supabaseClient';
 
 // Adel (02/09/2026) : "un utilisateur qui se connecte à la plateforme peut se
 // rendre disponible même s'il est pas en train de faire des Battle ...
@@ -92,7 +93,10 @@ export const useBattleAvailabilityStore = create<BattleAvailabilityState>((set, 
     try {
       await setManualBattleAvailability(value);
       set({ available: value, activatedManually: value });
-      if (value) startPing(); else stopPing();
+      // 29/09/2026 : le ping sert aussi la présence « En ligne » du profil
+      // public ; il continue même Battle OFF (le serveur ne touche alors que
+      // app_last_seen_at, jamais la disponibilité Battle).
+      startPing();
     } finally {
       set({ busy: false });
     }
@@ -109,15 +113,11 @@ export const useBattleAvailabilityStore = create<BattleAvailabilityState>((set, 
     }
   },
   autoDisable: async () => {
-    if (get().busy || !get().available || get().activatedManually) return;
-    set({ busy: true });
-    try {
-      await setManualBattleAvailability(false);
-      set({ available: false, activatedManually: false });
-      stopPing();
-    } finally {
-      set({ busy: false });
-    }
+    // Disponibilité Battle = état de présence Loki, pas état de l'écran Battle.
+    // Quitter une partie / fermer l'arène ne doit JAMAIS mettre le compte OFF.
+    // Seul setAvailable(false), déclenché par un choix explicite de l'utilisateur,
+    // peut désactiver les invitations.
+    return;
   },
   syncFromServer: async () => {
     // Adel (02/09/2026) : "on va les laisser connecté par défaut ... lors de
@@ -129,10 +129,18 @@ export const useBattleAvailabilityStore = create<BattleAvailabilityState>((set, 
     // comme si l'utilisateur venait de l'activer lui-même depuis son profil.
     if (get().busy) return;
     try {
+      // Important : sur un profil qui n'a encore aucune ligne de présence,
+      // getManualBattleAvailability() renvoie false. Le ping crée justement
+      // cette ligne avec manual_available=true. Il faut donc pinger AVANT de
+      // lire l'état, sinon l'UI reste faussement OFF jusqu'à une autre action.
+      await pingManualBattleAvailability();
       const value = await getManualBattleAvailability();
       set({ available: value, activatedManually: value });
-      if (value) startPing(); else stopPing();
+      startPing();
     } catch {
+      // Même si la lecture échoue, la présence de l'utilisateur connecté doit
+      // continuer d'être signalée.
+      startPing();
       // Silencieux : reste sur l'état local par défaut si la lecture échoue.
     }
   },
@@ -155,8 +163,10 @@ export const useBattleAvailabilityStore = create<BattleAvailabilityState>((set, 
 // fois -- mais rien ne le refaisait automatiquement au retour au premier
 // plan. Un ping immédiat dès que l'onglet/l'appli redevient visible
 // rattrape ça pour TOUS les utilisateurs disponibles, pas seulement Flo.
+// 29/09/2026 : au retour au premier plan, on pingue pour TOUT utilisateur
+// connecté (pingTimer actif), Battle ON ou OFF -- présence « En ligne ».
 function pingIfAvailable() {
-  if (useBattleAvailabilityStore.getState().available) {
+  if (pingTimer) {
     void pingManualBattleAvailability().catch(() => {});
   }
 }
@@ -167,5 +177,26 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
 } else {
   AppState.addEventListener('change', (state) => {
     if (state === 'active') pingIfAvailable();
+  });
+}
+
+
+// La disponibilité Battle suit désormais la session Loki elle-même : dès qu'une
+// session Supabase authentifiée est restaurée (persistSession=true), on recharge
+// l'état serveur et on relance le heartbeat. L'utilisateur n'a plus besoin de
+// se déconnecter/reconnecter pour réapparaître en ligne. Seul son bouton Battle
+// ON/OFF peut ensuite modifier ce choix.
+if (supabase) {
+  void supabase.auth.getSession().then(({ data }) => {
+    if (data.session?.user?.id) void useBattleAvailabilityStore.getState().syncFromServer();
+  }).catch(() => {});
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_OUT' || !session?.user?.id) {
+      useBattleAvailabilityStore.getState().reset();
+      return;
+    }
+    if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+      void useBattleAvailabilityStore.getState().syncFromServer();
+    }
   });
 }

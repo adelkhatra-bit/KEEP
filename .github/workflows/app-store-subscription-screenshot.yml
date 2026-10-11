@@ -1,0 +1,190 @@
+name: Loki Subscription Review Screenshot
+
+on:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/app-store-subscription-screenshot.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture-upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: true
+      EXPO_PUBLIC_SUPABASE_URL: https://rrhqsqzcplvmwxizqnla.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru
+      EXPO_PUBLIC_DEMO_MODE: 'false'
+      EXPO_PUBLIC_KEEP_PREVIEW: '0'
+      EXPO_PUBLIC_KEEP_REAL_RECOGNITION: 'false'
+      EXPO_PUBLIC_API_URL: http://127.0.0.1:3010
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install chromium --with-deps
+
+      - name: Start Loki runtime
+        working-directory: packages/mobile
+        run: |
+          node scripts/start-web.cjs --port 8081 --clear >/tmp/loki-sub-review.log 2>&1 &
+          for i in {1..120}; do
+            if grep -Fq '[KEEP WEB] READY http://localhost:8081' /tmp/loki-sub-review.log 2>/dev/null && curl -fsS http://127.0.0.1:8081 >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/loki-sub-review.log
+          exit 1
+
+      - name: Capture subscription paywall
+        run: |
+          mkdir -p artifacts/subscription-review
+          cat > /tmp/capture-paywall.cjs <<'JS'
+          const { chromium }=require('playwright');
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const context=await browser.newContext({
+              viewport:{width:428,height:926},
+              deviceScaleFactor:3,
+              locale:'fr-FR',
+              colorScheme:'dark'
+            });
+            const page=await context.newPage();
+            page.on('dialog',d=>d.dismiss().catch(()=>{}));
+            await page.goto('http://127.0.0.1:8081',{waitUntil:'domcontentloaded',timeout:60000});
+            const free=page.getByText('ESSAYER GRATUITEMENT',{exact:true}).last();
+            if(await free.isVisible().catch(()=>false)){await free.click({force:true});await page.waitForTimeout(1000);}
+            const coach=page.getByLabel('Passer le mini-tour').last();
+            await coach.waitFor({state:'visible',timeout:4000}).catch(()=>{});
+            if(await coach.isVisible().catch(()=>false)){await coach.click({force:true});await page.waitForTimeout(300);}
+            await page.getByText('Profil',{exact:true}).last().waitFor({state:'visible',timeout:20000});
+            await page.getByText('Profil',{exact:true}).last().click();
+            const creator=page.getByLabel('Creator Pro requis').last();
+            await creator.waitFor({state:'visible',timeout:20000});
+            await creator.click({force:true});
+            await page.getByText('Offre & crédits',{exact:true}).last().waitFor({state:'visible',timeout:20000});
+            await page.getByText('Creator Pro',{exact:true}).last().waitFor({state:'visible',timeout:20000}).catch(()=>{});
+            await page.waitForTimeout(1200);
+            await page.screenshot({
+              path:'artifacts/subscription-review/loki-subscription-paywall.jpg',
+              type:'jpeg',quality:94,fullPage:false
+            });
+            const size=await page.evaluate(()=>({w:innerWidth,h:innerHeight,dpr:devicePixelRatio}));
+            console.log('paywall viewport',size,'expected image 1284x2778');
+            await browser.close();
+          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          JS
+          node /tmp/capture-paywall.cjs
+          python3 - <<'PY'
+          from pathlib import Path
+          raw=Path('artifacts/subscription-review/loki-subscription-paywall.jpg').read_bytes()
+          def size(raw):
+              i=2
+              sof={0xC0,0xC1,0xC2,0xC3,0xC5,0xC6,0xC7,0xC9,0xCA,0xCB,0xCD,0xCE,0xCF}
+              while i+9<len(raw):
+                  if raw[i]!=0xFF: i+=1; continue
+                  m=raw[i+1]
+                  if m in sof: return int.from_bytes(raw[i+7:i+9],'big'),int.from_bytes(raw[i+5:i+7],'big')
+                  if m in (0xD8,0xD9): i+=2; continue
+                  seg=int.from_bytes(raw[i+2:i+4],'big'); i+=2+seg
+              raise SystemExit('size unavailable')
+          wh=size(raw); print('subscription review screenshot',wh)
+          if wh!=(1284,2778): raise SystemExit(f'bad dimensions {wh}')
+          PY
+
+      - name: Upload review screenshot to all subscriptions
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        run: |
+          node <<'NODE'
+          const fs=require('node:fs'),crypto=require('node:crypto');
+          const key=Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(),'base64');
+          const enc=x=>Buffer.from(JSON.stringify(x)).toString('base64url');
+          const now=Math.floor(Date.now()/1000);
+          const unsigned=enc({alg:'ES256',kid:process.env.ASC_KEY_ID.trim(),typ:'JWT'})+'.'+
+            enc({iss:process.env.ASC_ISSUER_ID.trim(),iat:now-30,exp:now+900,aud:'appstoreconnect-v1'});
+          const token=unsigned+'.'+crypto.sign('sha256',Buffer.from(unsigned),{key,dsaEncoding:'ieee-p1363'}).toString('base64url');
+          async function api(p,{method='GET',body,allow404=false}={}){
+            const r=await fetch('https://api.appstoreconnect.apple.com'+p,{
+              method,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+              body:body?JSON.stringify(body):undefined
+            });
+            if(allow404&&r.status===404)return null;
+            const t=await r.text(); if(!r.ok)throw new Error(method+' '+p+' HTTP '+r.status+' '+t.slice(0,1000));
+            return t?JSON.parse(t):null;
+          }
+          async function upload(op,buf){
+            const headers={}; for(const h of op.requestHeaders||[])headers[h.name]=h.value;
+            const chunk=buf.subarray(op.offset,op.offset+op.length);
+            const r=await fetch(op.url,{method:op.method,headers,body:chunk});
+            if(!r.ok)throw new Error('asset upload HTTP '+r.status);
+          }
+          async function wait(id){
+            for(let i=0;i<30;i++){
+              await new Promise(r=>setTimeout(r,1500));
+              const x=await api('/v1/subscriptionAppStoreReviewScreenshots/'+id);
+              const st=x.data.attributes?.assetDeliveryState?.state;
+              if(['COMPLETE','UPLOAD_COMPLETE'].includes(st))return st;
+              if(st==='FAILED')throw new Error('Apple screenshot processing failed '+JSON.stringify(x.data.attributes?.assetDeliveryState?.errors||[]));
+            }
+            throw new Error('subscription screenshot processing timeout');
+          }
+          (async()=>{
+            const groups=await api('/v1/apps/'+process.env.ASC_APP_ID.trim()+
+              '/subscriptionGroups?include=subscriptions&limit=200&limit[subscriptions]=50');
+            const expected=new Set([
+              'com.adelkhatra.keep.premium.monthly',
+              'com.adelkhatra.keep.creatorpro.monthly',
+              'com.adelkhatra.keep.venuepro.monthly'
+            ]);
+            const subs=(groups.included||[]).filter(x=>x.type==='subscriptions'&&expected.has(x.attributes?.productId));
+            if(subs.length!==3)throw new Error('Expected 3 subscriptions, found '+subs.length);
+            const file='artifacts/subscription-review/loki-subscription-paywall.jpg';
+            const buf=fs.readFileSync(file), md5=crypto.createHash('md5').update(buf).digest('hex');
+            for(const sub of subs){
+              const current=await api('/v1/subscriptions/'+sub.id+'/appStoreReviewScreenshot',{allow404:true});
+              if(current?.data){
+                console.log(sub.attributes.productId+': review screenshot already present');
+                continue;
+              }
+              const created=await api('/v1/subscriptionAppStoreReviewScreenshots',{
+                method:'POST',
+                body:{data:{
+                  type:'subscriptionAppStoreReviewScreenshots',
+                  attributes:{fileName:'loki-subscription-paywall.jpg',fileSize:buf.length},
+                  relationships:{subscription:{data:{type:'subscriptions',id:sub.id}}}
+                }}
+              });
+              const shot=created.data;
+              for(const op of shot.attributes?.uploadOperations||[])await upload(op,buf);
+              await api('/v1/subscriptionAppStoreReviewScreenshots/'+shot.id,{
+                method:'PATCH',
+                body:{data:{type:'subscriptionAppStoreReviewScreenshots',id:shot.id,
+                  attributes:{uploaded:true,sourceFileChecksum:md5}}}
+              });
+              const st=await wait(shot.id);
+              console.log(sub.attributes.productId+': screenshot '+st);
+            }
+          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: loki-subscription-review-${{ github.run_id }}
+          path: artifacts/subscription-review/*.jpg
+          if-no-files-found: warn
+          retention-days: 14

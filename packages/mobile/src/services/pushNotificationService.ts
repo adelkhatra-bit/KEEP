@@ -1,17 +1,33 @@
-import { Linking, Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
 import type { CanonicalTrack } from '@keep/music';
 import { supabase } from './supabaseClient';
 import { APP_NAME } from '../config/brand';
+import { navigateFromNotificationData } from '../navigation/navigationRef';
+
+type NotificationsModule = typeof import('expo-notifications');
+type NotificationEventSubscription = import('expo-notifications').EventSubscription;
+type NotificationResponse = import('expo-notifications').NotificationResponse;
+
+let nativeNotificationsModule: NotificationsModule | null = null;
+function getNativeNotifications(): NotificationsModule {
+  if (!nativeNotificationsModule) {
+    // Important web: ne pas évaluer expo-notifications dans le bundle navigateur.
+    // Son module web enregistre un listener de token non supporté et pollue la
+    // console même si aucune notification push native n'est demandée.
+    nativeNotificationsModule = require('expo-notifications') as NotificationsModule;
+  }
+  return nativeNotificationsModule;
+}
 
 /**
- * Enregistrement du token push réel + pont temps réel web.
+ * Enregistrement du token push natif.
  *
  * - iOS/Android natifs : token Expo Push, afin qu'une notification Loki puisse
  *   apparaître même lorsque l'utilisateur est dans TikTok, Snapchat, etc.
- * - Web : on écoute `notifications` via Supabase Realtime et on affiche un
- *   petit popup Loki tant que la page est ouverte.
+ * - Web : aucune deuxième écoute temps réel ici. GlobalNotificationBanner est
+ *   l'unique présentateur des notifications in-app, pour empêcher tout doublon.
  * - Détection musicale native : catégorie interactive GARDER / PASSER. Cela
  *   permet au système d'afficher les deux actions dans la notification sans
  *   modifier le design des écrans Loki.
@@ -21,9 +37,10 @@ import { APP_NAME } from '../config/brand';
 const TRACK_CATEGORY = 'KEEP_TRACK';
 export const TRACK_KEEP_ACTION = 'KEEP_TRACK_KEEP';
 export const TRACK_PASS_ACTION = 'KEEP_TRACK_PASS';
-let webRealtimeChannel: ReturnType<NonNullable<typeof supabase>['channel']> | null = null;
-let webToastTimer: ReturnType<typeof setTimeout> | null = null;
-let trackActionSubscription: Notifications.EventSubscription | null = null;
+let trackActionSubscription: NotificationEventSubscription | null = null;
+let notificationTapSubscription: NotificationEventSubscription | null = null;
+let lastTapKey = '';
+let lastTapAt = 0;
 
 function battleLike(type: unknown, title: unknown, data?: Record<string, unknown> | null) {
   const normalized = String(type || data?.type || data?.notificationType || '').toUpperCase();
@@ -33,151 +50,57 @@ function battleLike(type: unknown, title: unknown, data?: Record<string, unknown
 }
 
 
-Notifications.setNotificationHandler({
-  handleNotification: async (notification) => {
-    const content = notification.request.content;
-    const data = (content.data || {}) as Record<string, unknown>;
-    const inlineBattle = battleLike(data.type, content.title, data) && String(data.presentation || '') === 'battle_inline';
-    return {
-      shouldShowAlert: !inlineBattle,
-      shouldPlaySound: !inlineBattle,
-      shouldSetBadge: !inlineBattle,
-      shouldShowBanner: !inlineBattle,
-      shouldShowList: !inlineBattle,
-    };
-  },
-});
-
-function showWebKeepToast(title: string, body: string, row?: Record<string, unknown>) {
-  const doc = (globalThis as any)?.document as Document | undefined;
-  if (!doc?.body) return;
-
-  const existing = doc.getElementById('keep-live-notification-toast');
-  existing?.remove();
-  if (webToastTimer) clearTimeout(webToastTimer);
-
-  const toast = doc.createElement('button');
-  toast.id = 'keep-live-notification-toast';
-  toast.type = 'button';
-  toast.setAttribute('aria-label', `${title}. ${body}. Glisser vers le haut pour fermer.`);
-  Object.assign(toast.style, {
-    position: 'fixed',
-    top: '14px',
-    left: '50%',
-    transform: 'translateX(-50%) translateY(0px)',
-    transition: 'transform .2s ease, opacity .18s ease',
-    touchAction: 'none',
-    opacity: '1',
-    width: 'min(92vw, 420px)',
-    zIndex: '2147483647',
-    border: '1px solid rgba(168,132,250,.55)',
-    borderRadius: '16px',
-    padding: '12px 14px',
-    background: 'rgba(20,14,29,.97)',
-    color: '#fff',
-    boxShadow: '0 12px 32px rgba(0,0,0,.38)',
-    textAlign: 'left',
-    fontFamily: 'system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif',
-    cursor: 'pointer',
+if (Platform.OS !== 'web') {
+  const Notifications = getNativeNotifications();
+  Notifications.setNotificationHandler({
+    handleNotification: async (notification) => {
+      const content = notification.request.content;
+      const data = (content.data || {}) as Record<string, unknown>;
+      const inlineBattle = battleLike(data.type, content.title, data) && String(data.presentation || '') === 'battle_inline';
+      // Adel (29/09/2026) : doublons. Ce gestionnaire ne s'exécute que quand
+      // l'appli est AU PREMIER PLAN ; la bannière interne
+      // (GlobalNotificationBanner) affiche déjà la même notification. Au
+      // premier plan : pas de bannière, pas de son ET pas de deuxième entrée
+      // dans la liste système. La bannière Loki interne est l'unique rendu.
+      // Appli fermée / en arrière-plan : iOS/Android affiche la push normale.
+      return {
+        shouldShowAlert: false,
+        shouldPlaySound: false,
+        shouldSetBadge: !inlineBattle,
+        shouldShowBanner: false,
+        shouldShowList: false,
+      };
+    },
   });
-
-  const brand = doc.createElement('div');
-  brand.textContent = `${APP_NAME} · NOUVEAU`;
-  Object.assign(brand.style, { fontSize: '10px', fontWeight: '900', letterSpacing: '1.1px', color: '#B79CFF', marginBottom: '4px' });
-  const titleNode = doc.createElement('div');
-  titleNode.textContent = title;
-  Object.assign(titleNode.style, { fontSize: '14px', fontWeight: '800', lineHeight: '1.25' });
-  const bodyNode = doc.createElement('div');
-  bodyNode.textContent = body;
-  Object.assign(bodyNode.style, { marginTop: '3px', fontSize: '12px', lineHeight: '1.35', color:'#FFFFFF' });
-
-  toast.append(brand, titleNode, bodyNode);
-
-  const dismiss = () => {
-    if (webToastTimer) { clearTimeout(webToastTimer); webToastTimer = null; }
-    toast.style.transform = 'translateX(-50%) translateY(-140px)';
-    toast.style.opacity = '0';
-    setTimeout(() => toast.remove(), 200);
-  };
-
-  // Adel (04/09/2026) : "il faut vraiment trouver une solution qu'on puisse
-  // les Swiper et les remonter vers le haut ... pour qu'on puisse les
-  // enlever directement et tu n'as toujours pas réglé le problème" -- ce
-  // toast web (bridge temps réel Platform.OS==='web', distinct de
-  // GlobalNotificationBanner déjà corrigé) n'avait AUCUN geste de
-  // fermeture, seulement une disparition automatique à 6.5s -- c'est lui,
-  // pas l'autre bandeau, que le build web affiche réellement pour ce type
-  // de notification. Glisser le doigt vers le HAUT au-delà d'un seuil
-  // ferme immédiatement, un relâchement en dessous ramène le toast à sa
-  // place -- Pointer Events natifs, aucune dépendance supplémentaire.
-  let dragStartY = 0;
-  let dragging = false;
-  let dragDy = 0;
-  toast.addEventListener('pointerdown', (event) => {
-    const pointer = event as PointerEvent;
-    dragging = true;
-    dragStartY = pointer.clientY;
-    dragDy = 0;
-    toast.style.transition = 'none';
-    try { toast.setPointerCapture(pointer.pointerId); } catch {}
-  });
-  toast.addEventListener('pointermove', (event) => {
-    if (!dragging) return;
-    dragDy = Math.min(0, (event as PointerEvent).clientY - dragStartY);
-    toast.style.transform = `translateX(-50%) translateY(${dragDy}px)`;
-  });
-  const endDrag = () => {
-    if (!dragging) return;
-    dragging = false;
-    toast.style.transition = 'transform .2s ease, opacity .18s ease';
-    if (dragDy < -50) dismiss();
-    else toast.style.transform = 'translateX(-50%) translateY(0px)';
-  };
-  toast.addEventListener('pointerup', endDrag);
-  toast.addEventListener('pointercancel', endDrag);
-
-  toast.onclick = () => {
-    if (Math.abs(dragDy) > 8) return;
-    const base = `${globalThis.location?.origin ?? ''}/KEEP/notifications`;
-    if (base.startsWith('http')) globalThis.location.href = base;
-    else dismiss();
-  };
-  doc.body.appendChild(toast);
-  webToastTimer = setTimeout(dismiss, 6500);
 }
 
-async function startWebRealtimeNotificationBridge(): Promise<boolean> {
-  if (Platform.OS !== 'web' || !supabase) return false;
-  const { data } = await supabase.auth.getSession();
-  const profileId = data.session?.user?.id;
-  if (!profileId) return false;
-
-  if (webRealtimeChannel) {
-    await supabase.removeChannel(webRealtimeChannel);
-    webRealtimeChannel = null;
-  }
-
-  webRealtimeChannel = supabase
-    .channel(`keep-live-notifications-${profileId}`)
-    .on(
-      'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'notifications', filter: `profile_id=eq.${profileId}` },
-      (payload) => {
-        const row = (payload as any)?.new ?? {};
-        if (String(row?.data?.presentation || '') === 'battle_inline') return;
-        const title = String(row.title || `Nouveau sur ${APP_NAME}`);
-        const body = String(row.body || `Ouvre ${APP_NAME} pour voir la nouveauté.`);
-        showWebKeepToast(title, body, row);
-      },
-    )
-    .subscribe();
-
-  return true;
+function routeNotificationTap(response: NotificationResponse | null | undefined) {
+  if (!response) return;
+  if (response.actionIdentifier === TRACK_KEEP_ACTION || response.actionIdentifier === TRACK_PASS_ACTION) return;
+  const request = response.notification.request;
+  const data = (request.content.data || {}) as Record<string, unknown>;
+  const key = String(request.identifier || data.notificationId || data.id || JSON.stringify(data));
+  const now = Date.now();
+  if (key && key === lastTapKey && now - lastTapAt < 2500) return;
+  lastTapKey = key;
+  lastTapAt = now;
+  navigateFromNotificationData(data);
 }
 
+function installNotificationTapRouter() {
+  if (Platform.OS === 'web' || notificationTapSubscription) return;
+  const Notifications = getNativeNotifications();
+  notificationTapSubscription = Notifications.addNotificationResponseReceivedListener(routeNotificationTap);
+  void Notifications.getLastNotificationResponseAsync().then(routeNotificationTap).catch(() => {});
+}
 
+// Le web est volontairement sans second toast DOM : GlobalNotificationBanner
+// possède déjà l'abonnement Supabase Realtime, le dédoublonnage sémantique,
+// l'animation depuis le haut et le swipe vers le haut. Un deuxième bridge ici
+// affichait exactement la même notification deux fois.
 async function ensureDetectedTrackCategory(): Promise<void> {
   if (Platform.OS === 'web') return;
+  const Notifications = getNativeNotifications();
   await Notifications.setNotificationCategoryAsync(TRACK_CATEGORY, [
     {
       identifier: TRACK_KEEP_ACTION,
@@ -196,6 +119,7 @@ export function listenForDetectedTrackActions(
   handler: (action: 'KEEP' | 'PASS', entryId: string) => void | Promise<void>,
 ): () => void {
   if (Platform.OS === 'web') return () => {};
+  const Notifications = getNativeNotifications();
   trackActionSubscription?.remove();
   trackActionSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
     const action = response.actionIdentifier;
@@ -217,6 +141,7 @@ export function listenForDetectedTrackActions(
  */
 export async function notifyDetectedTrack(entryId: string, track: CanonicalTrack): Promise<void> {
   if (Platform.OS === 'web') return;
+  const Notifications = getNativeNotifications();
   const permission = await Notifications.getPermissionsAsync();
   if (permission.status !== 'granted') return;
   await ensureDetectedTrackCategory();
@@ -233,22 +158,244 @@ export async function notifyDetectedTrack(entryId: string, track: CanonicalTrack
   });
 }
 
+const reportedPushFailures = new Set<string>();
+const IOS_PRODUCTION_PUSH_REPAIR_KEY = '@keep/ios-push-production-reregister-v1';
+
+async function repairIosProductionPushRegistrationIfNeeded(
+  Notifications: NotificationsModule,
+): Promise<boolean> {
+  if (Platform.OS !== 'ios' || !Device.isDevice) return false;
+  const environment = await iosPushEnvironment();
+  if (environment !== 'production') return false;
+
+  try {
+    if (await AsyncStorage.getItem(IOS_PRODUCTION_PUSH_REPAIR_KEY)) return false;
+  } catch {
+    // L'absence de stockage local ne doit pas empêcher la réparation du push.
+  }
+
+  try {
+    await Notifications.unregisterForNotificationsAsync();
+    // Laisser iOS fermer l'ancien enregistrement avant de demander le nouveau.
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    return true;
+  } catch (error: any) {
+    void reportPushRegistrationFailure(
+      'ios_production_reregister_error',
+      String(error?.message || error || 'unknown').slice(0, 300),
+    );
+    return false;
+  }
+}
+
+async function markIosProductionPushRepairDone(): Promise<void> {
+  if (Platform.OS !== 'ios') return;
+  try {
+    await AsyncStorage.setItem(IOS_PRODUCTION_PUSH_REPAIR_KEY, new Date().toISOString());
+  } catch {}
+}
+
+function isExpoPushToken(token: unknown): token is string {
+  const value = String(token || '').trim();
+  return /^(?:Exponent|Expo)PushToken\[[^\]]+\]$/.test(value);
+}
+
+async function iosPushEnvironment(): Promise<'development' | 'production' | null> {
+  if (Platform.OS !== 'ios') return null;
+  try {
+    const Application = require('expo-application');
+    const environment = await Application.getIosPushNotificationServiceEnvironmentAsync?.();
+    return environment === 'development' || environment === 'production' ? environment : null;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveExpoPushToken(projectId: string, devicePushToken?: import('expo-notifications').DevicePushToken): Promise<string> {
+  const Notifications = getNativeNotifications();
+  // TestFlight/App Store utilisent APNs production alors qu'un build de
+  // développement utilise le sandbox. Le préciser à Expo empêche de fabriquer
+  // un ExpoPushToken lié au mauvais environnement (BadEnvironmentKeyInToken).
+  const iosEnvironment = await iosPushEnvironment();
+  const baseOptions: Record<string, unknown> = { projectId };
+  if (Platform.OS === 'ios' && iosEnvironment) {
+    baseOptions.development = iosEnvironment === 'development';
+  }
+
+  // La conversion explicite est utile après une rotation APNs/FCM, mais
+  // certaines versions iOS/Expo peuvent momentanément renvoyer un token natif.
+  // Dans ce cas on refait immédiatement la résolution canonique via projectId.
+  if (devicePushToken) {
+    try {
+      const converted = await Notifications.getExpoPushTokenAsync({ ...baseOptions, devicePushToken } as any);
+      if (isExpoPushToken(converted.data)) return converted.data.trim();
+    } catch {}
+  }
+  const fresh = await Notifications.getExpoPushTokenAsync(baseOptions as any);
+  if (!isExpoPushToken(fresh.data)) throw new Error('EXPO_PUSH_TOKEN_INVALID');
+  return fresh.data.trim();
+}
+
+// Trace (une fois par lancement et par raison) pourquoi l'appareil ne reçoit
+// pas de notifications push. Lecture : table client_diagnostics, area
+// 'push_registration'. N'affiche rien à l'utilisateur.
+async function reportPushRegistrationFailure(code: string, message: string): Promise<void> {
+  if (!supabase || reportedPushFailures.has(code)) return;
+  reportedPushFailures.add(code);
+  try {
+    const { data } = await supabase.auth.getSession();
+    const profileId = data.session?.user?.id;
+    if (!profileId) return;
+    await supabase.from('client_diagnostics').insert({
+      profile_id: profileId,
+      area: 'push_registration',
+      code,
+      message: message || code,
+      platform: Platform.OS,
+      context: { isDevice: Device.isDevice, osVersion: Device.osVersion ?? null, model: Device.modelName ?? null },
+    });
+  } catch {
+    // Diagnostic best effort uniquement.
+  }
+}
+
+function expoProjectId(): string | null {
+  try {
+    const constantsModule = require('expo-constants');
+    const Constants = constantsModule?.default ?? constantsModule;
+    const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
+    return typeof projectId === 'string' && projectId.trim() ? projectId.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+function pushClientMetadata(): {
+  appVersion: string | null;
+  buildNumber: string | null;
+  deviceModel: string | null;
+  osVersion: string | null;
+  expoProjectId: string | null;
+} {
+  let appVersion: string | null = null;
+  let buildNumber: string | null = null;
+  try {
+    const Application = require('expo-application');
+    appVersion = typeof Application?.nativeApplicationVersion === 'string' ? Application.nativeApplicationVersion : null;
+    buildNumber = typeof Application?.nativeBuildVersion === 'string' ? Application.nativeBuildVersion : null;
+  } catch {}
+  return {
+    appVersion,
+    buildNumber,
+    deviceModel: Device.modelName ?? null,
+    osVersion: Device.osVersion ?? null,
+    expoProjectId: expoProjectId(),
+  };
+}
+
+async function registerExpoTokenWithSupabase(
+  token: string,
+  nativePushToken?: import('expo-notifications').DevicePushToken | null,
+): Promise<{ ok: boolean; reason?: string }> {
+  if (!supabase) return { ok: false, reason: 'supabase_not_configured' };
+  if (!token) return { ok: false, reason: 'empty_token' };
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session?.user?.id) return { ok: false, reason: 'not_logged_in' };
+    const meta = pushClientMetadata();
+    const nativeData = nativePushToken?.data;
+    const nativeToken = typeof nativeData === 'string'
+      ? nativeData.trim()
+      : nativeData != null
+        ? String(nativeData).trim()
+        : null;
+    const { error } = await supabase.rpc('keep_push_token_register_v3', {
+      p_token: token,
+      p_platform: Platform.OS,
+      p_app_version: meta.appVersion,
+      p_build_number: meta.buildNumber,
+      p_device_model: meta.deviceModel,
+      p_os_version: meta.osVersion,
+      p_expo_project_id: meta.expoProjectId,
+      p_native_token: nativeToken || null,
+      p_native_token_type: nativePushToken?.type ? String(nativePushToken.type) : Platform.OS,
+    });
+    if (error) {
+      void reportPushRegistrationFailure('register_rpc_error', String(error.message || error.code || 'rpc_error'));
+      return { ok: false, reason: `supabase_${String(error.code || 'rpc_error')}` };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, reason: 'network_error' };
+  }
+}
+
+export function listenForExpoPushTokenChanges(): () => void {
+  if (Platform.OS === 'web') return () => {};
+  const Notifications = getNativeNotifications();
+  const projectId = expoProjectId();
+  if (!projectId) return () => {};
+  const subscription = Notifications.addPushTokenListener((nextToken) => {
+    // addPushTokenListener renvoie le token NATIF APNs/FCM. On le convertit
+    // en ExpoPushToken et on refuse toute valeur brute avant le RPC.
+    void resolveExpoPushToken(projectId, nextToken)
+      .then((token) => registerExpoTokenWithSupabase(token, nextToken))
+      .catch((error) => {
+        void reportPushRegistrationFailure('expo_token_rotation_error', String((error as any)?.message || error || 'unknown').slice(0, 300));
+      });
+  });
+  return () => subscription.remove();
+}
+
+function notificationPermissionGranted(
+  Notifications: NotificationsModule,
+  permission: Awaited<ReturnType<NotificationsModule['getPermissionsAsync']>>,
+): boolean {
+  if (permission.granted || permission.status === 'granted') return true;
+  if (Platform.OS !== 'ios') return false;
+  const iosStatus = permission.ios?.status;
+  return [
+    Notifications.IosAuthorizationStatus.AUTHORIZED,
+    Notifications.IosAuthorizationStatus.PROVISIONAL,
+    Notifications.IosAuthorizationStatus.EPHEMERAL,
+  ].includes(iosStatus as any);
+}
+
+
+export type PushPermissionState = 'granted' | 'denied' | 'undetermined' | 'unavailable';
+
+export async function getPushPermissionState(): Promise<PushPermissionState> {
+  if (Platform.OS === 'web' || !Device.isDevice) return 'unavailable';
+  try {
+    const Notifications = getNativeNotifications();
+    const permission = await Notifications.getPermissionsAsync();
+    if (permission.status === 'granted') return 'granted';
+    if (permission.status === 'denied') return 'denied';
+    return 'undetermined';
+  } catch {
+    return 'unavailable';
+  }
+}
+
 export async function registerForPushNotifications(): Promise<{ ok: boolean; reason?: string }> {
   if (Platform.OS === 'web') {
-    const realtime = await startWebRealtimeNotificationBridge().catch(() => false);
-    return { ok: realtime, reason: realtime ? 'web_realtime_enabled' : 'web_realtime_unavailable' };
+    return { ok: true, reason: 'web_in_app_banner_owned_by_global_notification_banner' };
   }
+  const Notifications = getNativeNotifications();
+  installNotificationTapRouter();
   if (!Device.isDevice) {
     return { ok: false, reason: 'simulator_no_push' };
   }
 
-  const { status: existing } = await Notifications.getPermissionsAsync();
-  let finalStatus = existing;
-  if (existing !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
+  let permission = await Notifications.getPermissionsAsync();
+  if (!notificationPermissionGranted(Notifications, permission)) {
+    permission = await Notifications.requestPermissionsAsync();
   }
-  if (finalStatus !== 'granted') {
+  if (!notificationPermissionGranted(Notifications, permission)) {
+    const detail = Platform.OS === 'ios'
+      ? `${permission.status}:${String(permission.ios?.status ?? 'unknown')}`
+      : String(permission.status);
+    void reportPushRegistrationFailure('permission_denied', detail);
     return { ok: false, reason: 'permission_denied' };
   }
 
@@ -259,34 +406,81 @@ export async function registerForPushNotifications(): Promise<{ ok: boolean; rea
       name: APP_NAME,
       description: 'Nouveaux abonnés, nouveaux morceaux gardés et événements',
       importance: Notifications.AndroidImportance.HIGH,
+      sound: 'default',
+    });
+    await Notifications.setNotificationChannelAsync('money', {
+      name: `${APP_NAME} · Paiements reçus`,
+      description: 'Ventes et paiements reçus par le propriétaire du profil',
+      importance: Notifications.AndroidImportance.MAX,
+      sound: 'keep_money.wav',
+      vibrationPattern: [0, 120, 70, 140],
     });
   }
 
-  // Sans argument : expo-notifications résout automatiquement le projectId
-  // depuis app.json (extra.eas.projectId) -- convention SDK 49+.
-  const tokenResponse = await Notifications.getExpoPushTokenAsync();
-  const token = tokenResponse.data;
+  // Expo recommande de passer explicitement le EAS projectId.
+  const projectId = expoProjectId();
+  if (!projectId) {
+    void reportPushRegistrationFailure('expo_project_id_missing', 'EAS projectId introuvable dans expo-constants');
+    return { ok: false, reason: 'expo_project_id_missing' };
+  }
 
-  if (!supabase) return { ok: false, reason: 'supabase_not_configured' };
+  const repairedIosProductionRegistration = await repairIosProductionPushRegistrationIfNeeded(Notifications);
 
+  let token: string;
+  let nativePushToken: import('expo-notifications').DevicePushToken | null = null;
   try {
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (!sessionData.session?.user?.id) return { ok: false, reason: 'not_logged_in' };
-    const { error } = await supabase.rpc('keep_push_token_register', {
-      p_token: token,
-      p_platform: Platform.OS,
-    });
-    if (error) return { ok: false, reason: `supabase_${String(error.code || 'rpc_error')}` };
-    return { ok: true };
-  } catch {
-    return { ok: false, reason: 'network_error' };
+    try {
+      nativePushToken = await Notifications.getDevicePushTokenAsync();
+    } catch (nativeError: any) {
+      void reportPushRegistrationFailure(
+        'native_token_error',
+        String(nativeError?.message || nativeError || 'unknown').slice(0, 300),
+      );
+      nativePushToken = null;
+    }
+    token = await resolveExpoPushToken(projectId, nativePushToken || undefined);
+  } catch (error: any) {
+    const detail = String(error?.message || error || 'unknown').slice(0, 300);
+    void reportPushRegistrationFailure('expo_token_error', detail);
+    return { ok: false, reason: 'expo_token_error' };
   }
+
+  const registration = await registerExpoTokenWithSupabase(token, nativePushToken);
+  if (registration.ok && repairedIosProductionRegistration) {
+    await markIosProductionPushRepairDone();
+    const environment = await iosPushEnvironment();
+    const meta = pushClientMetadata();
+    const client = supabase;
+    if (client) {
+      void client.auth.getSession().then(({ data }) => {
+        const profileId = data.session?.user?.id;
+        if (!profileId) return;
+        return client.from('client_diagnostics').insert({
+          profile_id: profileId,
+          area: 'push_registration',
+          code: 'ios_production_reregistered',
+          message: 'APNs/Expo token réenregistré après correction environnement TestFlight.',
+          platform: Platform.OS,
+          context: {
+            environment,
+            appVersion: meta.appVersion,
+            buildNumber: meta.buildNumber,
+            deviceModel: meta.deviceModel,
+          },
+        });
+      }).catch(() => {});
+    }
+  }
+  return registration;
 }
 
 export async function unregisterCurrentPushToken(): Promise<void> {
   if (Platform.OS === 'web' || !Device.isDevice || !supabase) return;
+  const Notifications = getNativeNotifications();
   try {
-    const token = (await Notifications.getExpoPushTokenAsync()).data;
+    const projectId = expoProjectId();
+    if (!projectId) return;
+    const token = await resolveExpoPushToken(projectId);
     if (!token) return;
     await supabase.rpc('keep_push_token_unregister', { p_token: token });
   } catch {

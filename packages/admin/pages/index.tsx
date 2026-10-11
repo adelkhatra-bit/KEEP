@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import Hint from '../components/Hint';
+import { PeriodButtons } from '../components/PresetPicker';
 import { supabase } from '../lib/supabaseClient';
 import { invokeAdminFunction } from '../lib/invokeFunction';
+import { Bars, LineChart } from '../components/MiniChart';
 
 type Country = { code: string; name: string };
 type CountRow = { plan?: string; channel?: string; country?: string; count: number };
@@ -15,6 +18,8 @@ type DashboardData = {
   newUsers: number;
   verifiedEmails: number;
   activePaid: number;
+  activeOffered?: number;
+  testAccounts?: number;
   keeps: number;
   follows: number;
   shares: number;
@@ -24,6 +29,19 @@ type DashboardData = {
   sharesByChannel: CountRow[];
   countryMix: CountRow[];
 };
+
+type Side = { total: number; new: number; verified: number; active: number };
+// admin_dashboard_v2 (comptabilités séparées). Absente tant que la migration n'est pas appliquée → l'Accueil garde la v1.
+type DashboardV2 = {
+  people: { real: Side; test: Side };
+  money: { byCurrency: Array<{ currency: string; gross: number; refunds: number; net: number; count: number }>; paidSubscribers: number; freePacksBought: { count: number; free: number }; marketByCurrency: Array<{ currency: string; cents: number; count: number }> };
+  offered: { subscriptions: number; subscriptionsReal: number; adminFree: { real: number; test: number }; monthlyFree: { real: number; test: number } };
+  freeEconomy: { earnedByType: Record<string, number>; soloPacksFree: number; marketFree: number };
+  shares: { real: number; test: number; anonymous: number; byChannel: CountRow[]; sharers: number };
+  daily: Array<{ date: string; signupsReal: number; signupsTest: number; sharesReal: number; revenueCents: number }>;
+};
+const EARN_LABELS: Record<string, string> = { LISTEN_STREAK_DAILY: 'Série du jour', LISTEN_STREAK_DAY7: 'Série 7 j', FIRST_DISCOVERY_KEEP: 'Découvreur', REFERRAL: 'Parrainage', BATTLE_SOLO: 'Battle solo', BATTLE_ONLINE: 'Battle en ligne' };
+const money = (v: number, currency: string) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(v);
 
 function isoDate(date: Date) {
   return date.toISOString().slice(0, 10);
@@ -62,18 +80,6 @@ function shareChannelLabel(raw: string): string {
   return raw.replace(/_/g, ' ');
 }
 
-const SECTION_HELP: Record<string, string> = {
-  signups: 'Nombre de nouveaux comptes créés chaque jour sur la période choisie (Du/Au ci-dessus). Un compte de test créé pour vérifier une fonctionnalité compte aussi dans ce total.',
-  planMix: 'Nombre d’utilisateurs actuellement sur chaque formule (Free, Premium, Creator Pro, Venue Pro), à l’instant présent — contrairement au reste du tableau de bord, ce chiffre n’est pas limité à la période Du/Au.',
-  shares: 'Nombre de partages effectués par type d’action sur la période (partage de profil, de morceau, par e-mail, etc.). Les partages ne coûtent rien à l’utilisateur ; ce tableau sert à voir ce qui circule le plus.',
-  countryMix: 'Répartition de tous les comptes par pays déclaré. « Non renseigné » = aucun pays n’a été choisi ou détecté pour ce compte.',
-};
-function HelpToggle({ id, open, onToggle }: { id: string; open: string | null; onToggle: (id: string) => void }) {
-  const active = open === id;
-  return (
-    <button type="button" onClick={() => onToggle(id)} title={SECTION_HELP[id]} style={{ width: 20, height: 20, borderRadius: 10, border: '1px solid var(--primary)', background: active ? 'var(--primary)' : 'transparent', color: active ? '#fff' : 'var(--primary)', fontSize: 12, fontWeight: 900, cursor: 'pointer', lineHeight: 1, padding: 0, marginLeft: 8 }}>?</button>
-  );
-}
 
 export default function Dashboard() {
   const today = new Date();
@@ -86,8 +92,7 @@ export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [openHelp, setOpenHelp] = useState<string | null>(null);
-  const toggleHelp = (id: string) => setOpenHelp((current) => (current === id ? null : id));
+  const [v2, setV2] = useState<DashboardV2 | null>(null);
   // Adel (04/09/2026) : "créer un système de déroulement" -- 30 jours
   // d'inscriptions listées d'un bloc rendaient le tableau interminable.
   // Repliée sur les 7 derniers jours par défaut, dépliable en un clic.
@@ -140,6 +145,8 @@ export default function Dashboard() {
       if (statsError) throw statsError;
       setCountries((countryRows ?? []) as Country[]);
       setData(stats as DashboardData);
+      const second = await supabase.rpc('admin_dashboard_v2', { p_from: from, p_to: to, p_country: country || null });
+      setV2(second.error || !(second.data as DashboardV2 | null)?.people ? null : (second.data as DashboardV2));
     } catch (e: any) {
       setError(e?.message ?? 'Impossible de charger les statistiques réelles.');
     } finally {
@@ -147,71 +154,100 @@ export default function Dashboard() {
     }
   };
 
-  useEffect(() => { void load(); }, []);
+  // Zéro clic inutile (07/10/2026) : la période ou le pays choisi se recharge tout seul.
+  useEffect(() => { void load(); }, [from, to, country]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <AdminLayout>
-      <div className="page-title">Dashboard</div>
-      <div className="page-subtitle">Statistiques réelles Loki Music — filtres par période et pays</div>
+      <div className="page-title">Accueil <Hint title="Accueil" text={<>Statistiques réelles Loki Music — filtres par période et pays</>}/></div>
 
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'end' }}>
-          <label>Du<br /><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
-          <label>Au<br /><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
+          <PeriodButtons from={from} to={to} onPick={(r) => { setFrom(r.from); setTo(r.to); }} />
+          <details><summary style={{ cursor: 'pointer', color: '#b79cff', fontWeight: 800 }}>📅 Autre période</summary>
+            <label>Du<br /><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
+            <label>Au<br /><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
+          </details>
           <label>Pays<br />
             <select value={country} onChange={(e) => setCountry(e.target.value)}>
               <option value="">Tous les pays</option>
               {countries.map((c) => <option key={c.code} value={c.code}>{c.name} ({c.code})</option>)}
             </select>
           </label>
-          <button onClick={() => void load()} disabled={loading}>{loading ? 'Chargement…' : 'Appliquer'}</button>
+          {loading ? <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Chargement…</span> : null}
         </div>
       </div>
 
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
-      {!error && data && <div className="demo-banner">● MODE RÉEL — données lues directement depuis Supabase. Les partages sont comptés par type à partir de cette version.</div>}
+      {!error && data && <div className="demo-banner"><span className="real-pill">● Réel <Hint title="Mode réel" text="Données lues directement depuis Supabase. Les partages sont comptés par type à partir de cette version."/></span></div>}
 
       {data && (
         <>
-          {/* Adel (04/09/2026) : "pourquoi tu les ranges pas comme t'as fait
-              dans les abonnements payants actifs ... fais la même chose pour
-              le reste comme ça ça sera bien aligné" -- une seule carte
-              empilée (payants actifs / morceaux gardés) au milieu de 6
-              cartes à une seule ligne cassait l'alignement de la grille
-              (hauteurs différentes -> lignes qui ne tombent pas pareil selon
-              la largeur d'écran). Même empilement appliqué partout : 4
-              cartes à 2 chiffres au lieu de 1 carte double + 6 cartes
-              simples, toutes de la même hauteur. */}
-          <div className="kpi-grid">
-            <div className="kpi-card">
-              <div className="kpi-value">{data.usersTotal}</div><div className="kpi-label">Utilisateurs totaux</div>
-              <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-                <div className="kpi-value">{data.newUsers}</div><div className="kpi-label">Nouveaux sur la période</div>
-              </div>
-            </div>
-            <div className="kpi-card">
-              <div className="kpi-value">{data.verifiedEmails}</div><div className="kpi-label">E-mails vérifiés</div>
-              <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-                <div className="kpi-value">{data.follows}</div><div className="kpi-label">Nouveaux abonnements / suivis</div>
-              </div>
-            </div>
-            <div className="kpi-card">
-              <div className="kpi-value">{data.activePaid}</div><div className="kpi-label">Abonnements payants actifs</div>
-              <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-                <div className="kpi-value">{data.keeps}</div><div className="kpi-label">Morceaux gardés sur la période</div>
-              </div>
-            </div>
-            <div className="kpi-card">
-              <div className="kpi-value">{data.shares}</div><div className="kpi-label">Partages</div>
-              <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-                <div className="kpi-value">{data.eventsCreated}</div><div className="kpi-label">Événements créés</div>
-              </div>
-            </div>
+          {/* 07/10/2026 (Adel) : comptabilités SÉPARÉES, un bloc par monde, côte à côte. Réels ≠ tests, argent ≠ offert. */}
+          <div className="plan-cards">
+            <section className="plan-card">
+              <header className="plan-card-head">👥 Réels<Hint title="Utilisateurs réels" text="Vrais utilisateurs. Les comptes de test (masqués) ne sont JAMAIS comptés ici."/></header>
+              <div className="stat"><b>{v2 ? v2.people.real.total : data.usersTotal}</b><span>comptes</span></div>
+              <div className="stat"><b>{v2 ? v2.people.real.new : data.newUsers}</b><span>nouveaux</span></div>
+              <div className="stat"><b>{v2 ? v2.people.real.verified : data.verifiedEmails}</b><span>e-mails vérifiés</span></div>
+              {v2 && <div className="stat"><b>{v2.people.real.active}</b><span>actifs</span></div>}
+            </section>
+            <section className="plan-card">
+              <header className="plan-card-head">🧪 Tests<Hint title="Comptes de test" text="Comptes créés pour tester (masqués des Découvertes). Toujours séparés des vrais chiffres."/></header>
+              <div className="stat"><b>{v2 ? v2.people.test.total : (data.testAccounts ?? '—')}</b><span>comptes</span></div>
+              {v2 && <div className="stat"><b>{v2.people.test.new}</b><span>nouveaux</span></div>}
+              {v2 && <div className="stat"><b>{v2.shares.test}</b><span>partages</span></div>}
+            </section>
+            <section className="plan-card plan-card-paid">
+              <header className="plan-card-head">💶 Argent<Hint title="Argent réel" text="Uniquement l’argent réellement payé par de vrais utilisateurs, devise par devise (jamais additionnées). Les abonnements offerts n’y sont jamais."/></header>
+              <div className="stat"><b>{v2 ? v2.money.paidSubscribers : data.activePaid}</b><span>abonnés payants</span></div>
+              {v2 && (v2.money.byCurrency.length ? v2.money.byCurrency.map((m) => <div key={m.currency} className="stat"><b>{money(m.net, m.currency)}</b><span>net {m.currency} · {m.count} paiement(s)</span></div>) : <div className="stat"><b>0 €</b><span>encaissé</span></div>)}
+              {v2 && <div className="stat"><b>{v2.money.freePacksBought.count}</b><span>packs FREE achetés</span></div>}
+              {v2 && v2.money.marketByCurrency.map((m) => <div key={m.currency} className="stat"><b>{money(m.cents / 100, m.currency)}</b><span>ventes marketplace</span></div>)}
+            </section>
+            <section className="plan-card">
+              <header className="plan-card-head">🎁 Offert<Hint title="Offert par Loki" text="Ce que Loki donne sans paiement : abonnements offerts et FREE donnés. Jamais compté comme de l’argent."/></header>
+              <div className="stat"><b>{v2 ? v2.offered.subscriptions : (data.activeOffered ?? 0)}</b><span>abonnements offerts</span></div>
+              {v2 && <div className="stat"><b>{v2.offered.adminFree.real}</b><span>FREE donnés (réels)</span></div>}
+              {v2 && <div className="stat"><b>{v2.offered.monthlyFree.real}</b><span>FREE mensuels (réels)</span></div>}
+              {v2 && <div className="stat muted"><b>{v2.offered.adminFree.test + v2.offered.monthlyFree.test}</b><span>FREE vers tests</span></div>}
+            </section>
+            {v2 && <section className="plan-card">
+              <header className="plan-card-head">🎮 FREE<Hint title="FREE gagnés et dépensés" text="FREE gagnés en jouant (séries, découvreur, Battle…) et dépensés (packs Solo, marketplace), par les vrais utilisateurs. Négatif = perdu."/></header>
+              {Object.entries(v2.freeEconomy.earnedByType).map(([k, v]) => <div key={k} className="stat"><b>{v > 0 ? `+${v}` : v}</b><span>{EARN_LABELS[k] ?? k.toLowerCase().replace(/_/g, ' ')}</span></div>)}
+              <div className="stat"><b>−{v2.freeEconomy.soloPacksFree}</b><span>packs Solo</span></div>
+              <div className="stat"><b>{v2.freeEconomy.marketFree}</b><span>échangés marketplace</span></div>
+            </section>}
           </div>
 
           <div className="card" style={{ marginTop: 22 }}>
-            <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center' }}>Inscriptions par jour<HelpToggle id="signups" open={openHelp} onToggle={toggleHelp} /></h3>
-            {openHelp === 'signups' && <div style={{ color: '#b79cff', fontSize: 12, lineHeight: 1.4, marginBottom: 10 }}>{SECTION_HELP.signups}</div>}
+            <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center' }}>Courbes<Hint title="Courbes" text="Jour par jour sur la période choisie. Les vrais utilisateurs et les tests sont des courbes séparées."/></h3>
+            {v2 ? <LineChart dates={v2.daily.map((d) => d.date)} series={[
+              { label: 'Inscriptions réelles', color: '#a78bfa', values: v2.daily.map((d) => d.signupsReal) },
+              { label: 'Inscriptions tests', color: '#8f88a8', values: v2.daily.map((d) => d.signupsTest) },
+              { label: 'Partages réels', color: '#34d399', values: v2.daily.map((d) => d.sharesReal) },
+            ]} /> : <LineChart dates={data.dailySignups.map((d) => d.date)} series={[{ label: 'Inscriptions', color: '#a78bfa', values: data.dailySignups.map((d) => d.count) }]} />}
+          </div>
+
+          <div className="plan-cards" style={{ marginTop: 22 }}>
+            <section className="plan-card" style={{ flexBasis: 360, maxWidth: 'none' }}>
+              <header className="plan-card-head">📤 Partages<Hint title="Partages" text="Partages faits par les vrais utilisateurs, par type. Partager ne coûte rien et ne rapporte pas de FREE (les paliers donnent des Découvertes et des Vibes)."/></header>
+              <div className="stat"><b>{v2 ? v2.shares.real : data.shares}</b><span>partages réels</span></div>
+              {v2 && <div className="stat"><b>{v2.shares.sharers}</b><span>personnes qui partagent</span></div>}
+              <Bars rows={(v2 ? v2.shares.byChannel : data.sharesByChannel).map((r) => ({ label: shareChannelLabel(r.channel || ''), value: r.count }))} color="#34d399" empty="Aucun partage sur la période." />
+            </section>
+            <section className="plan-card" style={{ flexBasis: 300, maxWidth: 'none' }}>
+              <header className="plan-card-head">🧾 Formules<Hint title="Formules" text="Comptes par formule à l’instant présent. « (offert) » = abonnement offert, jamais payé."/></header>
+              <Bars rows={data.planMix.map((r) => ({ label: String(r.plan), value: r.count }))} />
+            </section>
+            <section className="plan-card" style={{ flexBasis: 260, maxWidth: 'none' }}>
+              <header className="plan-card-head">🌍 Pays<Hint title="Pays" text="Comptes réels par pays. « Non renseigné » = aucun pays choisi ou détecté."/></header>
+              <Bars rows={data.countryMix.map((r) => ({ label: r.country === '--' ? 'Non renseigné' : String(r.country), value: r.count }))} color="#60a5fa" />
+            </section>
+          </div>
+
+          <div className="card" style={{ marginTop: 22 }}>
+            <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center' }}>Inscriptions<Hint title="Inscriptions" text="Touche un jour pour voir les comptes créés ce jour-là (et supprimer un compte de test)."/></h3>
             <table><thead><tr><th>Date</th><th>Nouveaux utilisateurs</th></tr></thead><tbody>
               {(signupsExpanded ? data.dailySignups : data.dailySignups.slice(-7)).map((row) => <React.Fragment key={row.date}>
                 <tr style={{ cursor: row.count > 0 ? 'pointer' : 'default' }} onClick={() => { if (row.count > 0) void toggleSignupDate(row.date); }}>
@@ -231,30 +267,6 @@ export default function Dashboard() {
               </React.Fragment>)}
             </tbody></table>
             {data.dailySignups.length > 7 && <button type="button" onClick={() => setSignupsExpanded((v) => !v)} style={{ marginTop: 10, background: 'transparent', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '6px 12px', fontSize: 12, cursor: 'pointer' }}>{signupsExpanded ? 'Réduire aux 7 derniers jours' : `Afficher les ${data.dailySignups.length} jours`}</button>}
-          </div>
-
-          <div className="card" style={{ marginTop: 22 }}>
-            <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center' }}>Répartition des offres<HelpToggle id="planMix" open={openHelp} onToggle={toggleHelp} /></h3>
-            {openHelp === 'planMix' && <div style={{ color: '#b79cff', fontSize: 12, lineHeight: 1.4, marginBottom: 10 }}>{SECTION_HELP.planMix}</div>}
-            <table><thead><tr><th>Formule</th><th>Utilisateurs</th></tr></thead><tbody>
-              {data.planMix.length ? data.planMix.map((row) => <tr key={row.plan}><td>{row.plan}</td><td>{row.count}</td></tr>) : <tr><td colSpan={2}>Aucune donnée.</td></tr>}
-            </tbody></table>
-          </div>
-
-          <div className="card" style={{ marginTop: 22 }}>
-            <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center' }}>Partages par type<HelpToggle id="shares" open={openHelp} onToggle={toggleHelp} /></h3>
-            {openHelp === 'shares' && <div style={{ color: '#b79cff', fontSize: 12, lineHeight: 1.4, marginBottom: 10 }}>{SECTION_HELP.shares}</div>}
-            <table><thead><tr><th>Canal</th><th>Partages</th></tr></thead><tbody>
-              {data.sharesByChannel.length ? data.sharesByChannel.map((row) => <tr key={row.channel}><td>{shareChannelLabel(row.channel || '')}</td><td>{row.count}</td></tr>) : <tr><td colSpan={2}>Les compteurs démarrent avec la nouvelle version.</td></tr>}
-            </tbody></table>
-          </div>
-
-          <div className="card" style={{ marginTop: 22 }}>
-            <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center' }}>Utilisateurs par pays<HelpToggle id="countryMix" open={openHelp} onToggle={toggleHelp} /></h3>
-            {openHelp === 'countryMix' && <div style={{ color: '#b79cff', fontSize: 12, lineHeight: 1.4, marginBottom: 10 }}>{SECTION_HELP.countryMix}</div>}
-            <table><thead><tr><th>Pays</th><th>Utilisateurs</th></tr></thead><tbody>
-              {data.countryMix.map((row) => <tr key={row.country}><td>{row.country === '--' ? 'Non renseigné' : row.country}</td><td>{row.count}</td></tr>)}
-            </tbody></table>
           </div>
         </>
       )}

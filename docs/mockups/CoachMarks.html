@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Loki Music — Mini-tour d'aide (coach-marks) — maquette</title>
+<style>
+  :root{
+    --bg:#0B0A12; --elevated:#151320; --card:#1C1930; --border:#2A2640;
+    --primary:#7C5CFC; --keep:#2DE1C2; --pass:#FF5C72; --white:#FFFFFF; --muted:#9C99B0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,Segoe UI,Roboto,sans-serif}
+  body{background:#05040a;display:flex;justify-content:center;padding:24px;min-height:100vh}
+  .phone{width:390px;height:800px;background:var(--bg);border-radius:38px;position:relative;overflow:hidden;border:1px solid var(--border)}
+  /* faux écran derrière l'overlay */
+  .bg-screen{position:absolute;inset:0;padding:60px 18px;opacity:.35;filter:blur(1px)}
+  .bg-title{color:var(--white);font-size:22px;font-weight:900;margin-bottom:14px}
+  .bg-card{background:var(--card);border:1px solid var(--border);border-radius:16px;height:120px;margin-bottom:12px}
+  .bg-row{display:flex;gap:8px}
+  .bg-btn{flex:1;height:48px;border-radius:12px}
+  .bg-pass{border:1px solid var(--pass)}
+  .bg-keep{background:var(--keep)}
+  /* overlay coach-mark */
+  .overlay{position:absolute;inset:0;background:rgba(5,4,10,.82);display:flex;flex-direction:column;justify-content:flex-end;padding:20px}
+  .bubble{background:var(--elevated);border:1px solid var(--border);border-radius:20px;padding:22px 20px 18px;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+  .step-badge{display:inline-block;background:rgba(124,92,252,.18);color:var(--primary);font-size:12px;font-weight:800;padding:4px 10px;border-radius:20px;margin-bottom:12px}
+  .emoji{font-size:34px;margin-bottom:8px}
+  .b-title{color:var(--white);font-size:20px;font-weight:900;margin-bottom:8px}
+  .b-body{color:var(--muted);font-size:14px;line-height:20px;margin-bottom:18px}
+  .dots{display:flex;gap:6px;justify-content:center;margin-bottom:16px}
+  .dot{width:7px;height:7px;border-radius:5px;background:var(--border)}
+  .dot.on{background:var(--keep);width:20px}
+  .actions{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .skip{color:var(--muted);font-size:14px;font-weight:700;background:none;border:none;cursor:pointer}
+  .next{background:var(--primary);color:#fff;border:none;border-radius:14px;padding:13px 26px;font-size:15px;font-weight:900;cursor:pointer}
+  .next.final{background:var(--keep);color:var(--bg)}
+  .hint{color:var(--muted);text-align:center;font-size:12px;margin-top:22px}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="bg-screen">
+    <div class="bg-title">Loki Music</div>
+    <div class="bg-card"></div>
+    <div class="bg-row"><div class="bg-btn bg-pass"></div><div class="bg-btn bg-keep"></div></div>
+  </div>
+  <div class="overlay">
+    <div class="bubble" id="bubble">
+      <span class="step-badge" id="badge">Bienvenue · 1 / 5</span>
+      <div class="emoji" id="emoji">👋</div>
+      <div class="b-title" id="title">Bienvenue sur Loki Music</div>
+      <div class="b-body" id="body">En 2 gestes tu sais tout. On te montre l'essentiel, tu peux passer quand tu veux.</div>
+      <div class="dots" id="dots"></div>
+      <div class="actions">
+        <button class="skip" onclick="finish()">Passer</button>
+        <button class="next" id="next" onclick="nextStep()">Suivant →</button>
+      </div>
+    </div>
+    <div class="hint">Ne s'affiche qu'une fois. Ré-affichable depuis Réglages → Aide.</div>
+  </div>
+</div>
+<script>
+const steps = [
+  {badge:"Bienvenue · 1 / 5", emoji:"👋", title:"Bienvenue sur Loki Music", body:"« Compris en 2 clics » : on te montre l'essentiel, tu peux passer quand tu veux."},
+  {badge:"Garder · 2 / 5", emoji:"♡", title:"Garder un morceau = 1 clic", body:"Un titre te plaît ? Appuie sur GARDER (menthe) : il est enregistré en public direct. Appui long ou ⚙︎ pour choisir public/privé."},
+  {badge:"Passer · 3 / 5", emoji:"✕", title:"Passer = corail", body:"Pas pour toi ? PASSER (corail). Tu peux aussi glisser la carte : ← passer, garder →."},
+  {badge:"Découvrir & vendre · 4 / 5", emoji:"🏷️", title:"Découvre et vends", body:"Découverte : d'autres profils près de toi. Ta Musique : garde, range, et mets tes playlists en vente (badge « En vente »)."},
+  {badge:"Soirées & Battle · 5 / 5", emoji:"⚔️", title:"Soirées & Battle", body:"Crée ou rejoins une soirée, partage sa playlist, et défie les autres en Battle. Tes crédits Free servent partout."}
+];
+let i = 0;
+const dots = document.getElementById('dots');
+steps.forEach((_,k)=>{const d=document.createElement('div');d.className='dot'+(k===0?' on':'');dots.appendChild(d)});
+function render(){
+  const s=steps[i];
+  document.getElementById('badge').textContent=s.badge;
+  document.getElementById('emoji').textContent=s.emoji;
+  document.getElementById('title').textContent=s.title;
+  document.getElementById('body').textContent=s.body;
+  [...dots.children].forEach((d,k)=>d.className='dot'+(k===i?' on':''));
+  const nx=document.getElementById('next');
+  if(i===steps.length-1){nx.textContent="C'est parti ✓";nx.classList.add('final')}
+  else{nx.textContent="Suivant →";nx.classList.remove('final')}
+}
+function nextStep(){ if(i<steps.length-1){i++;render()} else finish() }
+function finish(){ document.querySelector('.overlay').style.display='none' }
+render();
+</script>
+</body>
+</html>

@@ -15,32 +15,34 @@
 -- Cette migration exécute réellement ce qui avait été annoncé comme fait.
 
 insert into public.admin_credit_grants (profile_id, amount, reason, created_at)
-values ('d15ba595-350b-4bbe-b594-e45adbecd71a', 6, 'SOLO 8/8 perfect score bug compensation (18-19 sep) - 2 perfect solos', now());
+select 'd15ba595-350b-4bbe-b594-e45adbecd71a'::uuid, 6, 'SOLO 8/8 perfect score bug compensation (18-19 sep) - 2 perfect solos', now()
+where exists (select 1 from public.profiles where id='d15ba595-350b-4bbe-b594-e45adbecd71a'::uuid);
 
 insert into public.admin_credit_grants (profile_id, amount, reason, created_at)
-values ('fb655bf8-0da2-4b95-b7b4-46fb4ab7952d', 3, 'SOLO 8/8 perfect score bug compensation (18-19 sep)', now());
+select 'fb655bf8-0da2-4b95-b7b4-46fb4ab7952d'::uuid, 3, 'SOLO 8/8 perfect score bug compensation (18-19 sep)', now()
+where exists (select 1 from public.profiles where id='fb655bf8-0da2-4b95-b7b4-46fb4ab7952d'::uuid);
 
 insert into public.notifications (profile_id, type, title, body, data, push_delivery_status, push_attempt_count)
-values (
-  'd15ba595-350b-4bbe-b594-e45adbecd71a',
+select
+  'd15ba595-350b-4bbe-b594-e45adbecd71a'::uuid,
   'SOLO_BUG_FIX',
   '🎁 Compensation SOLO 8/8 - 6 Free',
   'On a trouvé et fixé le bug qui empêchait tes scores 8/8 d''être crédités. On t''a crédité 6 Free pour tes 2 solos parfaits. Désolé du désagrément! À bientôt pour de nouveaux solos. 🎵',
   jsonb_build_object('event', 'SOLO_BUG_COMPENSATION', 'free_credited', 6, 'reason', 'Perfect 8/8 scores not credited due to database schema conflict - 2 perfect solos'),
   'pending',
   0
-);
+where exists (select 1 from public.profiles where id='d15ba595-350b-4bbe-b594-e45adbecd71a'::uuid);
 
 insert into public.notifications (profile_id, type, title, body, data, push_delivery_status, push_attempt_count)
-values (
-  'fb655bf8-0da2-4b95-b7b4-46fb4ab7952d',
+select
+  'fb655bf8-0da2-4b95-b7b4-46fb4ab7952d'::uuid,
   'SOLO_BUG_FIX',
   '🎁 Compensation SOLO 8/8',
   'On a trouvé et fixé le bug qui empêchait tes scores 8/8 d''être crédités. On t''a crédité 3 Free. Désolé du désagrément! À bientôt pour de nouveaux solos. 🎵',
   jsonb_build_object('event', 'SOLO_BUG_COMPENSATION', 'free_credited', 3, 'reason', 'Perfect 8/8 scores not credited due to database schema conflict'),
   'pending',
   0
-);
+where exists (select 1 from public.profiles where id='fb655bf8-0da2-4b95-b7b4-46fb4ab7952d'::uuid);
 
 -- Vérification : preuve que ça a réellement été écrit cette fois.
 select p.username, acg.amount, acg.reason, acg.created_at

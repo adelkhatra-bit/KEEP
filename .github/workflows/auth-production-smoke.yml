@@ -1,0 +1,74 @@
+name: KEEP — Production Auth Smoke
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - '.github/workflows/auth-production-smoke.yml'
+      - 'packages/mobile/src/services/authService.ts'
+      - 'packages/mobile/src/services/supabaseClient.ts'
+      - 'supabase/functions/keep-username-auth/**'
+  workflow_dispatch:
+
+# Same lock as every browser job using production: never add load while a user
+# login is already competing for the tiny Supabase Free database.
+concurrency:
+  group: keep-production-supabase-browser-audits
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  login-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      SUPABASE_URL: https://rrhqsqzcplvmwxizqnla.supabase.co
+      SUPABASE_ANON_KEY: sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru
+
+    steps:
+      - name: Real username signup → login → cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          user="qat${GITHUB_RUN_ID}"
+          pass="LokiQa${GITHUB_RUN_ID}A9!"
+          token=""
+
+          cleanup() {
+            if [ -n "$token" ]; then
+              curl -fsS --max-time 20                 -H "apikey: $SUPABASE_ANON_KEY"                 -H "Authorization: Bearer $token"                 -H 'Content-Type: application/json'                 -X POST "$SUPABASE_URL/functions/v1/delete-account"                 --data '{}' >/dev/null || true
+            fi
+          }
+          trap cleanup EXIT
+
+          call_auth() {
+            local body="$1"
+            curl -fsS --max-time 25 --retry 1 --retry-all-errors --retry-delay 2               -H "apikey: $SUPABASE_ANON_KEY"               -H "Authorization: Bearer $SUPABASE_ANON_KEY"               -H 'Content-Type: application/json'               -X POST "$SUPABASE_URL/functions/v1/keep-username-auth"               --data "$body"
+          }
+
+          start="$(date +%s)"
+          call_auth "{\"action\":\"signup\",\"username\":\"$user\",\"password\":\"$pass\",\"username_only\":\"1\"}" > /tmp/signup.json
+          signup_s="$(( $(date +%s) - start ))"
+          token="$(node -e "const x=require('/tmp/signup.json');if(!x.ok||!x.access_token)process.exit(2);process.stdout.write(String(x.access_token))")"
+
+          start="$(date +%s)"
+          call_auth "{\"action\":\"login\",\"username\":\"$user\",\"password\":\"$pass\",\"username_only\":\"1\"}" > /tmp/login.json
+          login_s="$(( $(date +%s) - start ))"
+          login_token="$(node -e "const x=require('/tmp/login.json');if(!x.ok||!x.access_token||!x.refresh_token)process.exit(3);process.stdout.write(String(x.access_token))")"
+          test -n "$login_token"
+          token="$login_token"
+
+          curl -fsS --max-time 20             -H "apikey: $SUPABASE_ANON_KEY"             -H "Authorization: Bearer $token"             -H 'Content-Type: application/json'             -X POST "$SUPABASE_URL/functions/v1/delete-account"             --data '{}' > /tmp/delete.json
+          node -e "const x=require('/tmp/delete.json');if(!x.ok)process.exit(4)"
+          token=""
+
+          {
+            echo '### Loki production authentication'
+            echo
+            echo "- Username signup: PASS (${signup_s}s)"
+            echo "- Username login: PASS (${login_s}s)"
+            echo "- Access + refresh token: PASS"
+            echo "- QA account cleanup: PASS"
+          } >> "$GITHUB_STEP_SUMMARY"

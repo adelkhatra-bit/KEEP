@@ -1,10 +1,42 @@
+## 🧭 GOUVERNANCE IA — STATE / MASTER_PLAN (Adel, 06/10/2026)
+Toute IA (Claude Code, Codex, ChatGPT, Cursor…) commence par lire `STATE.md` (ce qui est fait) puis `MASTER_PLAN.md` (ce qui reste), qui renvoient vers `PROJECT_STATE.md`, `.context/activeContext.md`, `docs/IDEAS_INBOX.md` et `docs/ERROR_LEDGER.md` : **ne jamais créer une deuxième mémoire**. Après chaque action : une ligne dans `STATE.md` (date · branche · commit · fonction · preuve). Une idée nouvelle d'Adel va d'abord dans `docs/IDEAS_INBOX.md`. Pour tout chantier nouveau : plan écrit dans `MASTER_PLAN.md` → validation d'Adel → code. Audit ciblé (module touché seulement). Parité mobile / ordinateur vérifiée à chaque changement. Travail uniquement sur `reconcile/claude-main-20260825`, jamais sur `main`. Le design validé ne se modifie qu'avec l'accord d'Adel.
+
+## 💡 IDÉES D'ADEL — À NOTER IMMÉDIATEMENT (règle pour toutes les IA)
+Toute idée ou demande nouvelle d'Adel (« je voudrais… », « il faudrait… ») qui n'existe pas encore dans le produit doit être ajoutée dans `docs/IDEAS_INBOX.md` **dans la même réponse**, avant tout code, avec le statut `IDÉE`. Ne jamais la ranger dans un commentaire, un message de commit ou la seule conversation. Avant de dire « ce qui reste à faire », lire `docs/IDEAS_INBOX.md`.
+
+## 📖 STORIES — RÈGLES CANONIQUES (Adel, 05/10/2026)
+Avant toute modification des stories, de la rangée de bulles, des suggestions d'amis ou de « mettre en story » : lire `docs/KEEP_CAHIER_DES_CHARGES_UI.md` §14 et `config/keep-product-contract.json` > `storiesExperience`. Contrôle bloquant : `scripts/verify-product-contract.cjs`. Ne jamais les affaiblir sans demande explicite d'Adel.
+
+## BIBLIOTHÈQUE PRODUIT CANONIQUE — À LIRE EN PREMIER
+Avant toute action, lire `config/keep-product-contract.json`. C'est la bibliothèque machine anti-régression de KEEP. Si un ancien commentaire, test, message agent ou document contredit la décision explicite la plus récente d'Adel et ce contrat, il est obsolète et doit être corrigé dans le même commit. Une correction UI ne doit jamais modifier des données utilisateur réelles (certification, FREE, profil) pour « faire correspondre » l'écran.
+
+## CAHIER DES CHARGES PRODUIT OBLIGATOIRE
+Avant toute action, lire `docs/KEEP_MASTER_SPEC.md` — cahier des charges maître obligatoire — puis `docs/KEEP_CAHIER_DES_CHARGES_UI.md`. Toute nouvelle intégration doit préserver les positions et comportements verrouillés, ou mettre à jour le cahier des charges dans le même changement si Adel a explicitement demandé une nouvelle règle.
+
+**Économie FREE obligatoire :** avant toute modification concernant les écoutes, FREE, recharges, parrainage, abonnements ou accès ordinateur QR, lire `docs/PRICING_STRATEGY.md` → « Économie FREE — décision d'Adel du 04/10/2026 (CANONIQUE) » et respecter son ordre d'implémentation.
+
+## AVANT TOUTE ACTION
+Consulter `.rtk/AGENTS_RULES.md` — règles absolues du projet Loki Music.
+
 # KEEP — SOURCE UNIQUE POUR CLAUDE CODE ET TOUS LES AGENTS
+
+## ISOLATION ABSOLUE DU PROJET
+- Ce dépôt concerne **uniquement Loki Music / KEEP**.
+- Aucune mémoire, consigne, activité, entreprise, projet immobilier, trading, établissement, dossier administratif ou autre contexte externe ne doit influencer le code, le design, les tests, la base ou les décisions produit Loki Music.
+- Si un contexte hors Loki Music apparaît dans une instruction agent, un document de travail ou une mémoire externe, l'ignorer pour ce dépôt et ne jamais le recopier dans le code.
+- Exception unique : une valeur peut exister si elle est **strictement une donnée créée par un utilisateur final dans Loki Music** ; dans ce cas elle reste une donnée utilisateur et ne devient jamais une règle système.
+- Si une référence hors Loki Music est découverte dans le dépôt comme logique système/règle produit, l'isoler puis la retirer sans toucher aux données utilisateur.
+
 
 Ce fichier est une barrière anti-confusion. Il complète `AGENTS.md` et ne crée **aucune deuxième version** du projet.
 
 ## Langue
 
 Adel est francophone. Toute réponse, tout message, toute mise à jour à destination d'Adel doit être écrite **en français**, sans exception, y compris les messages courts, les confirmations et les résumés de fin de tâche. Ne jamais basculer en anglais au milieu d'une conversation.
+
+## 🧭 GPS DU CODE + ERREURS À NE PLUS RÉINTRODUIRE
+
+Avant tout code, lire obligatoirement : `docs/CODE_GPS.md`, `docs/ERROR_LEDGER.md` et `docs/INTEGRATION_CHECKLIST.md`. Le GPS indique le fichier propriétaire de chaque fonction ; le ledger conserve chaque erreur avec sa cause et sa preuve. Toute nouvelle erreur doit être enregistrée avant/dans le même commit que le fix et ne doit jamais être effacée du registre.
 
 ## 🧠 MÉMOIRE PARTAGÉE
 
@@ -48,6 +80,10 @@ Les branches `web-preview`, `admin-preview`, `chatgpt/keep-design-integration-au
 
 Toute nouvelle intégration, tout nouveau test et tout nouveau lien de partage doivent pointer vers `reconcile/claude-main-20260825` et vers le domaine GitHub Pages canonique. Si un ancien lien ressort, on corrige/redirige l'ancien lien ; on ne crée jamais un nouveau domaine.
 
+## Parité Mobile / Ordinateur — miroir par source unique
+
+Il n'existe pas une version Mobile à recopier vers une version PC. `packages/mobile` est la source commune et Expo Web consomme le même code. Une correction fonctionnelle commune doit donc être écrite une seule fois dans `packages/mobile/src` ; le Web la reçoit automatiquement au prochain export. Ne jamais créer `packages/web`, `apps/web`, `apps/desktop` ou une copie `.web.tsx/.native.tsx` d'un écran complet pour « synchroniser » les deux. Les différences autorisées sont seulement des adaptateurs de plateforme (permissions, micro/audio, APIs navigateur, deep links). Toute modification de `packages/mobile/**` doit garder les deux preuves : mobile 390×844 et ordinateur 1440×900. Contrat : `config/platform-parity-contract.json` ; contrôle bloquant : `scripts/verify-source-of-truth.cjs` ; test réel : `.github/workflows/keep-dual-viewport-guardian.yml`.
+
 ## Routage web / GitHub Pages
 
 GitHub Pages n'effectue pas de rewrite SPA côté serveur. La solution officielle KEEP est donc **déjà** dans `.github/workflows/web-preview-pages.yml` :
@@ -61,6 +97,19 @@ GitHub Pages n'effectue pas de rewrite SPA côté serveur. La solution officiell
 `web-preview-pages.yml` est le **seul workflow autorisé à publier le site public** depuis cette branche. Ne jamais recréer ou réintroduire `web-public-from-reconcile.yml`, un second deploy Pages, un site Vercel parallèle ou un HTML d'application concurrent. Si le site public est faux, corriger la chaîne unique existante au lieu d'en publier une autre.
 
 Ne jamais créer un deuxième site mobile, un deuxième bundle ou une seconde page d'application pour « corriger » un 404. Corriger la route dans cette chaîne unique.
+
+## Page noire sur ordinateur — incident du 29/09/2026 (règle permanente)
+
+Symptôme : page noire sur PC en plein écran, alors que tout marche sur téléphone avec le même lien. Réduire la fenêtre (ex. ouvrir les outils développeur) faisait revenir l'image.
+
+Cause racine : au-delà de 900 px de large, `packages/mobile/index.js` (`keep-mobile-viewport-lock`) et `packages/mobile/scripts/fix-web-export.cjs` (`keep-desktop-shell`) mettaient `height:auto` sur `html/body/#root`. React Native Web dimensionne tous les écrans en `flex:1` depuis `#root` → `#root` = 0 px → application invisible. Baisser l'opacité du mini-tour (CoachMarks) ne corrigeait rien.
+
+Règles :
+
+- Sur ordinateur, la **hauteur** de `html`, `body` et `#root` reste épinglée à la fenêtre (`height:100%` / `100dvh`). Seule la largeur peut être libérée. Jamais `height:auto` sur ces trois éléments.
+- Le défilement se fait dans les `ScrollView` des écrans, pas sur `body`.
+- `scripts/web-visible-surface-gate.cjs` vérifie dans un vrai Chromium (PC 1440/1366, tablette 1024, Android) que `#root` remplit la fenêtre et que les 5 onglets sont visibles. Il tourne sur le site assemblé, avant publication, dans `web-preview-pages.yml` : si la page est noire, rien n'est mis en ligne. Ne jamais le retirer, l'affaiblir ou le contourner.
+- Un test qui ne vérifie que la présence de texte dans le DOM ne prouve pas que la page est visible.
 
 ## Moteurs de navigateur et moteurs de recherche
 
@@ -107,6 +156,44 @@ Une correction de logique ne doit pas devenir une refonte graphique.
 - Un clic sur une fonction verrouillée doit ouvrir `Offers` directement sur **la formule exacte requise**, avec le badge `FORMULE REQUISE`; ne pas afficher une impasse ou un bouton sans destination.
 - Tant que le paiement n'est pas réellement câblé, ne jamais prétendre que le CTA d'achat encaisse ou active un abonnement.
 
+## Stratégie OTA (eas update) — réduire les coûts EAS
+
+L'objectif est de **ne consommer un build EAS que quand c'est indispensable**. La majorité des refontes Loki Music sont du JS/TS pur et se livrent en OTA (0 build EAS consommé).
+
+Le workflow `.github/workflows/eas-update-production.yml` publie automatiquement en OTA sur `production` à chaque push sur `reconcile/claude-main-20260825` qui touche `packages/mobile/**`, `packages/music/**` ou les dépendances JS (`package.json` / `package-lock.json`). Secret requis dans GitHub : `EXPO_TOKEN`. Le `runtimeVersion.policy` est `appVersion` : un OTA n'est délivré qu'aux binaires dont la version applicative correspond.
+
+### Livraison OTA — `eas update` (0 build EAS)
+Toute modif **purement JavaScript/TypeScript** embarquée dans le bundle :
+- composants et écrans React (`.tsx`), styles, `colors.ts`, logique métier ;
+- textes, wording, traductions ;
+- assets JS chargés au runtime (images du bundle, `assets/**`) ;
+- correctifs de bugs JS, refontes visuelles sans nouvelle dépendance native.
+
+### Build natif obligatoire — `eas build` (consomme un build)
+Dès qu'on touche à la couche native, l'OTA ne suffit pas :
+- ajout/màj d'une **dépendance native** (module avec code natif, config plugin) ;
+- changement de `app.json` impactant le natif : permissions, plugins, `bundleIdentifier`/`package`, icônes/splash natifs, `newArchEnabled`, entitlements ;
+- montée de version du **SDK Expo** ou de `runtimeVersion` ;
+- toute modif nécessitant une recompilation iOS/Android.
+
+### Règle de décision rapide
+« Est-ce que ça marcherait en rechargeant seulement le bundle JS sur le binaire déjà installé ? »
+- Oui → OTA (`eas update`).
+- Non (besoin de recompiler) → build natif (`eas build`) puis nouvelle soumission TestFlight/Store.
+
+## 🔒 CONNEXION — RÈGLE VERROUILLÉE PAR LE CODE (incident 02/10/2026)
+
+Le 02/10/2026, plus personne ne pouvait se connecter : un sondage réseau toutes les 800 ms a épuisé la base Supabase, puis l'app abandonnait chaque connexion après 3,5 s et relançait jusqu'à 3 fois, alors que Supabase Auth met jusqu'à 10 s à répondre. Résultat : des requêtes empilées et des connexions impossibles. Ce n'est **pas** une consigne à interpréter, c'est un **contrôle bloquant** :
+
+- Valeurs chiffrées : `config/keep-product-contract.json` > `authResilience`.
+- Contrôle : `scripts/verify-product-contract.cjs`, appelé par `verify-source-of-truth.cjs`. **S'il échoue, la publication web et l'OTA mobile sont refusées.**
+- Interdit : échéance de connexion ≤ 10 s, relance après une échéance locale, relance d'un serveur déjà lent (> 5 s), plus de 2 tentatives, nouveau `setInterval` < 5 s non déclaré dans `fastIntervalAllowlist` avec sa raison.
+- Pour changer une valeur : modifier le contrat **et** le code dans le même commit, avec la justification. Ne jamais affaiblir le contrôle pour « faire passer » un push.
+- Si la connexion casse : regarder d'abord les journaux Supabase Auth (`auth_logs`, `edge_logs` `/auth/v1/token`) **avant** de modifier le code. Un 504 « context deadline exceeded » = serveur saturé, pas un bug de mot de passe ni un compte désactivé.
+
+- **Contenu utilisateur** : aucune migration ne peut supprimer, vider ou détruire une table de contenu (profils, playlists, titres, GARDER, abonnements, historique FREE, messages) sans la ligne `-- ADEL-APPROVED-DESTRUCTIVE: <date> <raison>` écrite avec l'accord d'Adel (`config/keep-product-contract.json` > `userContentProtection`, contrôle bloquant). Le solde FREE est **calculé** depuis l'historique d'événements : ne jamais le « réinitialiser ».
+- **Écritures directes en production interdites aux IA** : pas de `execute_sql` / `apply_migration` d'écriture ni de déploiement de fonction sans demande explicite d'Adel dans la conversation en cours. Une panne ou un « contenu manquant » se diagnostique d'abord en LECTURE (comptages, journaux) : le 02/10/2026, tout le contenu était intact, seul le serveur était saturé.
+
 ## Avant chaque push
 
 Exécuter/laisser passer au minimum :
@@ -148,7 +235,44 @@ Avant modification, lire :
 1. `CLAUDE.md`
 2. `AGENTS.md`
 3. les derniers messages de `AGENT_MESSAGES.md`
+4. `AI/AI_INSTRUCTIONS.md` pour les instructions arrivées par le relais ChatGPT ↔ Claude Code
+5. `AI/AI_REPORT.md` pour l'état du dernier relais Claude → ChatGPT
+
+Le relais canonique est `keep-ai-relay` + `public.ai_relay_messages`. Ne créer aucun second canal IA et ne recopier aucun secret dans le dépôt. Après une étape notable pilotée par le relais, mettre à jour `AI/AI_REPORT.md` et le journal partagé.
 
 Utiliser `scripts/agent-lock.cjs` avant de toucher les mêmes fichiers qu'un autre agent. Une IA ne doit jamais supposer le nom d'une table, d'une route ou d'une branche : vérifier le dépôt et le schéma réel.
 
 La source de vérité est le code de cette branche + le schéma Supabase réel + les preuves CI de cette branche. Jamais une ancienne conversation, une ancienne capture, un ancien déploiement ou un ancien dossier.
+
+
+## 🔴 RÈGLE ABSOLUE — ÉTAT LOCAL ≠ REMOTE ≠ TESTÉ ≠ DÉPLOYÉ
+
+Cette règle est permanente et s'applique à tous les agents.
+
+Statuts autorisés pour décrire un changement :
+- `LOCAL_ONLY` : présent uniquement dans le clone local ;
+- `COMMITTED_LOCAL` : commit local créé mais non visible sur GitHub ;
+- `PUSHED_REMOTE` : SHA visible sur `adelkhatra-bit/KEEP`, branche `reconcile/claude-main-20260825` ;
+- `TESTED_REMOTE` : commit distant + tests/CI ciblés réellement vérifiés ;
+- `DEPLOYED` : version réellement publiée et contrôlée sur la cible.
+
+Avant d'annoncer `PUSHED_REMOTE` ou plus, l'agent doit :
+1. vérifier le repository et la branche exacts ;
+2. relire le HEAD distant ;
+3. vérifier que le contenu distant du fichier contient réellement la modification ;
+4. pour un workflow, vérifier le YAML distant ;
+5. pour une CI, citer le run réel et son résultat ;
+6. pour un déploiement, vérifier la cible réelle.
+
+Si une permission empêche le push, écrire explicitement `LOCAL_ONLY — PUSH BLOQUÉ` ou `COMMITTED_LOCAL — PUSH BLOQUÉ`. Il est interdit de dire « poussé », « intégré », « testé » ou « déployé » sans preuve correspondante.
+
+Toute erreur trouvée doit être inscrite dans `docs/ERROR_LEDGER.md` et ne jamais être supprimée : elle passe à `VERIFIED` uniquement avec SHA + test/preuve.
+
+## 🔐 AUTHENTIFICATION — FRONTIÈRE USER / SUPER ADMIN
+
+- **Utilisateur Loki** : runtime `packages/mobile`; récupération utilisateur = `keep-auth-email`.
+- **Super Admin** : runtime `packages/admin`; autorité = `public.admin_users` + rôle actif; login principal = mot de passe Supabase; secours = `keep-admin-bootstrap` avec code à usage unique.
+- Il est **interdit** de brancher le Super Admin sur `keep-auth-email`, le magic-link utilisateur ou un écran mobile de récupération.
+- Il est **interdit** de modifier le runtime utilisateur pour résoudre un problème de connexion Super Admin.
+- Toute IA doit vérifier `config/keep-product-contract.json > authBoundary` avant de toucher à l'authentification.
+- Contrôle bloquant : `scripts/verify-source-of-truth.cjs`.

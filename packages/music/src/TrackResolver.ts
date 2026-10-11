@@ -109,6 +109,7 @@ export class TrackResolver {
       // Enrichir un morceau déjà connu sans perdre son identité canonique.
       if (!existing.artworkUrl && result.artworkUrl) existing.artworkUrl = result.artworkUrl;
       if (!existing.album && result.album) existing.album = result.album;
+      if (!existing.durationSec && result.durationSec) existing.durationSec = result.durationSec;
       if (!existing.previewUrl && result.previewUrl) existing.previewUrl = result.previewUrl;
       if (result.availableOn?.length) existing.availableOn = Array.from(new Set([...(existing.availableOn ?? []), ...result.availableOn]));
       existing.externalUrls = { ...(existing.externalUrls ?? {}), ...links };
@@ -125,6 +126,7 @@ export class TrackResolver {
       title: result.title,
       artist: result.artist,
       album: result.album,
+      durationSec: result.durationSec,
       artworkUrl: result.artworkUrl,
       previewUrl: result.previewUrl,
       availableOn: result.availableOn,

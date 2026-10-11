@@ -1,19 +1,81 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { fetch as expoFetch } from 'expo/fetch';
 import type { CanonicalTrack, MusicRecognitionProvider, RecognitionResult } from '@keep/music';
 import type { KeepVisibility } from '../types';
 import { getSupabaseAccessToken, supabase } from './supabaseClient';
 import { getSharedMusicSource } from './sharedMusicSourceService';
 import { APP_NAME } from '../config/brand';
+import { updateRecognitionConsensus, type RecognitionConsensusState } from './recognitionConsensus';
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 const DEVICE_KEY = '@keep/music-device-id-v1';
 const FALLBACK_RECHECK_MS = 30 * 1000;
+const FALLBACK_QUOTA_RECHECK_MS = 6 * 60 * 60 * 1000;
+const PRIMARY_RECHECK_MS = 5 * 60 * 1000;
 const PROVIDER_RATE_LIMIT_BACKOFF_MS = 65 * 1000;
+// Économie FREE 04/10/2026 : les fast-paths gratuits restent réactifs, mais
+// aucun fournisseur payant ne doit recevoir plus d'un extrait toutes les 20 s.
+const PAID_PROVIDER_MIN_GAP_MS = 20 * 1000;
+const DEFAULT_RECOGNIZED_TRACK_REMAINING_MS = 75 * 1000;
+const MAX_RECOGNIZED_TRACK_REMAINING_MS = 4 * 60 * 1000;
+// 04/10/2026: AudD renvoie actuellement recognition_not_configured (409) en production.
+// ACRCloud est configuré et devient le moteur serveur prioritaire. AudD reste déployé
+// mais hors du chemin normal tant qu'une clé valide n'est pas explicitement réactivée.
+const AUDD_PRIMARY_ENABLED = false;
 const KEYLESS_SOURCE_RECHECK_MS = 15 * 1000;
 let fallbackUnavailableUntil = 0;
+let primaryUnavailableUntil = 0;
 let recognitionBackoffUntil = 0;
+let fallbackConsensus: RecognitionConsensusState | null = null;
+let lastPaidProviderAttemptAt = 0;
+let paidProviderSuppressedUntil = 0;
+let nextPaidListenUsesFree = false;
+
+export function authorizeNextPaidListenWithFree(): void {
+  nextPaidListenUsesFree = true;
+}
+
+export function clearNextPaidListenFreeAuthorization(): void {
+  nextPaidListenUsesFree = false;
+}
+
+function paidListenAuthorizationActive(): boolean {
+  return nextPaidListenUsesFree;
+}
+
+function estimatedPaidProviderSuppressionMs(recognition: RecognitionResult): number {
+  const durationSec = Number(recognition.durationSec);
+  const offsetSec = Number(recognition.recognizedOffsetSec);
+  if (Number.isFinite(durationSec) && durationSec > 0) {
+    const estimatedRemainingSec = Number.isFinite(offsetSec) && offsetSec >= 0
+      ? Math.max(0, durationSec - offsetSec)
+      : Math.max(45, durationSec * 0.5);
+    return Math.max(
+      PAID_PROVIDER_MIN_GAP_MS,
+      Math.min(MAX_RECOGNIZED_TRACK_REMAINING_MS, (estimatedRemainingSec + 5) * 1000),
+    );
+  }
+  return DEFAULT_RECOGNIZED_TRACK_REMAINING_MS;
+}
+
+/**
+ * Une reconnaissance confirmée ferme les fournisseurs payants jusqu'à la fin
+ * estimée du titre. Les fast-paths gratuits (ShazamKit/mémoire/lien partagé)
+ * restent actifs et peuvent donc détecter le morceau suivant sans coût.
+ */
+export function noteSuccessfulRecognitionForPaidSuppression(recognition: RecognitionResult): void {
+  paidProviderSuppressedUntil = Math.max(
+    paidProviderSuppressedUntil,
+    Date.now() + estimatedPaidProviderSuppressionMs(recognition),
+  );
+}
+
+function deviceTimeZone(): string {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris'; }
+  catch { return 'Europe/Paris'; }
+}
 
 // AJOUT (02/09/2026, demande Adel : "je suis dans la voiture, la musique est
 // longue -- si l'écoute a déjà identifié le morceau, il ne faut pas qu'elle
@@ -119,8 +181,11 @@ export async function recordKeepDecision(
         album: track.album,
         durationSec: track.durationSec,
         artworkUrl: track.artworkUrl,
+        previewUrl: track.previewUrl,
         genres: track.genres ?? [],
         providerIds: track.providerIds ?? {},
+        externalUrls: track.externalUrls ?? {},
+        availableOn: track.availableOn ?? [],
       },
       context,
     }),
@@ -170,6 +235,10 @@ export async function markDirectRediscovery(
   return data === true;
 }
 
+function validUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 export interface PersistedKeepDecision {
   decisionId: string;
   visibility: KeepVisibility;
@@ -178,6 +247,8 @@ export interface PersistedKeepDecision {
   sessionId?: string;
   sourceProfileId?: string;
   sourceUsername?: string;
+  originSource?: string;
+  importedFrom?: 'spotify' | 'deezer' | 'apple_music' | 'youtube_music' | 'soundcloud' | 'tidal';
   creditPolicy: 'LISTEN_KEEP' | 'SOCIAL_ZERO_CREDIT';
   track: CanonicalTrack;
 }
@@ -193,42 +264,93 @@ export interface PersistedKeepDecision {
  */
 export async function loadOwnPersistedKeeps(limit = 750): Promise<PersistedKeepDecision[]> {
   if (!configured(SUPABASE_URL) || !configured(SUPABASE_ANON_KEY) || !supabase) return [];
-  const accessToken = await getSupabaseAccessToken();
-  if (!accessToken) return [];
-  const { data: sessionData } = await supabase.auth.getSession();
+
+  // Source de vérité : la session Supabase courante. Ne jamais dépendre du
+  // store UI pour retrouver la bibliothèque après un OTA/rechargement.
+  let { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData.session?.user?.id) {
+    const refreshed = await supabase.auth.refreshSession().catch(() => null);
+    if (refreshed?.data?.session) sessionData = refreshed.data;
+  }
   const userId = sessionData.session?.user?.id;
   if (!userId) return [];
 
-  const url = new URL(`${SUPABASE_URL.replace(/\/$/, '')}/rest/v1/keep_decisions`);
-  url.searchParams.set('select', 'id,profile_id,visibility,created_at,context,source_user_id,source:profiles!keep_decisions_source_user_id_fkey(username),track:tracks(id,isrc,title,artist,album,duration_sec,artwork_url,genres,provider_ids,preview_url,external_urls,available_on)');
-  url.searchParams.set('profile_id', `eq.${userId}`);
-  url.searchParams.set('decision', 'eq.KEPT');
-  url.searchParams.set('order', 'created_at.asc');
-  url.searchParams.set('limit', String(Math.max(1, Math.min(limit, 1000))));
+  // IMPORTANT : deux lectures simples au lieu d'un embed PostgREST
+  // keep_decisions -> tracks -> profiles. L'ancien URL REST imbriqué pouvait
+  // échouer entièrement si PostgREST ne résolvait plus une relation/permission,
+  // puis MyMusicScreen avalait l'erreur et affichait une bibliothèque vide
+  // alors que les données existaient encore. Ici une relation optionnelle ne
+  // peut plus faire disparaître les morceaux d'un utilisateur.
+  const { data: decisionRows, error: decisionError } = await supabase
+    .from('keep_decisions')
+    .select('id,profile_id,track_id,visibility,created_at,context,source_user_id,source_type')
+    .eq('profile_id', userId)
+    .eq('decision', 'KEPT')
+    .order('created_at', { ascending: true })
+    .limit(Math.max(1, Math.min(limit, 1000)));
+  if (decisionError) throw decisionError;
+  if (!decisionRows?.length) return [];
 
-  const response = await fetch(url.toString(), { headers: baseHeaders(accessToken) });
-  const rows = await parseResponse(response);
-  if (!Array.isArray(rows)) return [];
+  const trackIds = [...new Set(decisionRows.map((row: any) => String(row.track_id || '')).filter(validUuid))];
+  if (!trackIds.length) return [];
 
-  return rows.flatMap((row: any): PersistedKeepDecision[] => {
+  const { data: trackRows, error: trackError } = await supabase
+    .from('tracks')
+    .select('id,isrc,title,artist,album,duration_sec,artwork_url,genres,provider_ids,preview_url,external_urls,available_on')
+    .in('id', trackIds);
+  if (trackError) throw trackError;
+
+  const tracksById = new Map((trackRows ?? []).map((row: any) => [String(row.id), row]));
+  const sourceIds = [...new Set(decisionRows.map((row: any) => String(row.source_user_id || '')).filter(validUuid))];
+  const sourceNames = new Map<string, string>();
+  if (sourceIds.length) {
+    const { data: sourceRows } = await supabase.from('profiles').select('id,username').in('id', sourceIds);
+    for (const row of sourceRows ?? []) {
+      if (row?.id && row?.username) sourceNames.set(String(row.id), String(row.username));
+    }
+  }
+
+  return decisionRows.flatMap((row: any): PersistedKeepDecision[] => {
     if (String(row?.profile_id || '') !== userId) return [];
-    const track = Array.isArray(row?.track) ? row.track[0] : row?.track;
-    const source = Array.isArray(row?.source) ? row.source[0] : row?.source;
+    const track = tracksById.get(String(row?.track_id || '')) as any;
     if (!row?.id || !track?.id || !track?.title || !track?.artist) return [];
+
     const context = row?.context && typeof row.context === 'object' ? row.context : {};
     const createdAt = String(row.created_at || new Date().toISOString());
     const detectedAt = typeof context.detectedAt === 'string' && context.detectedAt ? context.detectedAt : createdAt;
     const sessionId = typeof context.sessionId === 'string' && context.sessionId ? context.sessionId : undefined;
     const visibility: KeepVisibility = row.visibility === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE';
+    const contextSourceProfileId = typeof context.sourceProfileId === 'string' && context.sourceProfileId.trim()
+      ? context.sourceProfileId.trim()
+      : undefined;
+    const sourceProfileId = row.source_user_id ? String(row.source_user_id) : contextSourceProfileId;
+    const sourceUsername = sourceProfileId
+      ? sourceNames.get(sourceProfileId) || (typeof context.sourceUsername === 'string' && context.sourceUsername.trim() ? context.sourceUsername.trim() : undefined)
+      : typeof context.sourceUsername === 'string' && context.sourceUsername.trim()
+        ? context.sourceUsername.trim()
+        : undefined;
+    const creditPolicy: 'LISTEN_KEEP' | 'SOCIAL_ZERO_CREDIT' =
+      context.creditPolicy === 'SOCIAL_ZERO_CREDIT' ? 'SOCIAL_ZERO_CREDIT' : 'LISTEN_KEEP';
+    const originSource = typeof context.source === 'string' && context.source.trim()
+      ? context.source.trim()
+      : row?.source_type
+        ? String(row.source_type)
+        : undefined;
+    const importedFrom = ['spotify','deezer','apple_music','youtube_music','soundcloud','tidal'].includes(String(context.importedFrom || ''))
+      ? String(context.importedFrom) as PersistedKeepDecision['importedFrom']
+      : undefined;
+
     return [{
       decisionId: String(row.id),
       visibility,
       createdAt,
       detectedAt,
       sessionId,
-      sourceProfileId: row.source_user_id ? String(row.source_user_id) : undefined,
-      sourceUsername: source?.username ? String(source.username) : undefined,
-      creditPolicy: context.creditPolicy === 'SOCIAL_ZERO_CREDIT' ? 'SOCIAL_ZERO_CREDIT' : 'LISTEN_KEEP',
+      sourceProfileId,
+      sourceUsername,
+      originSource,
+      importedFrom,
+      creditPolicy,
       track: {
         id: String(track.id),
         isrc: track.isrc || undefined,
@@ -258,16 +380,23 @@ async function recognitionAttempt(
   blob: Blob,
   accessToken: string | null,
   deviceId: string,
+  useFree = false,
 ): Promise<RecognitionAttempt> {
   const form = new FormData();
   form.append('audio', blob, `keep-sample.${audioExtension(blob)}`);
   try {
-    const response = await fetch(`${SUPABASE_URL!.replace(/\/$/, '')}/functions/v1/${functionName}`, {
+    // Expo SDK 54 recommande expo/fetch pour les uploads Blob/File natifs.
+    // Le fetch React Native historique a été observé en production avec un
+    // multipart de 255 octets malgré un enregistrement micro valide.
+    const transportFetch: typeof fetch = Platform.OS === 'web' ? fetch : (expoFetch as unknown as typeof fetch);
+    const response = await transportFetch(`${SUPABASE_URL!.replace(/\/$/, '')}/functions/v1/${functionName}`, {
       method: 'POST',
       headers: {
         ...baseHeaders(accessToken),
         'x-keep-device-id': deviceId,
         'x-keep-platform': Platform.OS,
+        'x-keep-timezone': deviceTimeZone(),
+        'x-keep-use-free': useFree ? '1' : '0',
       },
       body: form,
     });
@@ -289,6 +418,59 @@ async function keepMemoryRecognition(blob: Blob, accessToken: string | null, dev
   const attempt = await recognitionAttempt('keep-music-memory', blob, accessToken, deviceId);
   if (attempt.ok && attempt.payload?.recognition) return attempt.payload.recognition as RecognitionResult;
   return null;
+}
+
+/**
+ * Fast path shared with the native provider. It lets iOS run ShazamKit and the
+ * collective KEEP fingerprint memory concurrently instead of waiting for one
+ * before starting the other. No paid provider is called here.
+ */
+export async function recognizeWithKeepMemoryFast(audioSample: ArrayBuffer | Blob): Promise<RecognitionResult | null> {
+  if (!configured(SUPABASE_URL) || !configured(SUPABASE_ANON_KEY)) return null;
+  const blob = audioSample instanceof Blob ? audioSample : new Blob([audioSample], { type: 'audio/wav' });
+  if (!blob.size || Date.now() < recognitionBackoffUntil) return null;
+  const [accessToken, deviceId] = await Promise.all([getSupabaseAccessToken(), getDeviceId()]);
+  const memory = await keepMemoryRecognition(blob, accessToken, deviceId);
+  if (memory) {
+    recognitionBackoffUntil = 0;
+    fallbackUnavailableUntil = 0;
+    armStickyMatch();
+    noteSuccessfulRecognitionForPaidSuppression(memory);
+  }
+  return memory;
+}
+
+/**
+ * Quand ShazamKit reconnait un titre sur iOS, on apprend aussi ce titre au
+ * catalogue/memoire collective Loki via le resolver public Apple + Deezer.
+ * L'appel est best-effort et n'allonge jamais la reconnaissance affichee.
+ * Ainsi les succes natifs iPhone peuvent ensuite aider le web/Android via la
+ * memoire Loki, meme si AudD/ACRCloud sont temporairement indisponibles.
+ */
+export async function learnRecognitionInBackground(recognition: RecognitionResult): Promise<void> {
+  if (!configured(SUPABASE_URL) || !configured(SUPABASE_ANON_KEY)) return;
+  const title = String(recognition?.title ?? '').trim();
+  const artist = String(recognition?.artist ?? '').trim();
+  if (!title || !artist) return;
+
+  try {
+    const [accessToken, deviceId] = await Promise.all([getSupabaseAccessToken(), getDeviceId()]);
+    await fetch(`${SUPABASE_URL!.replace(/\/$/, '')}/functions/v1/keep-music-keyless-source`, {
+      method: 'POST',
+      headers: {
+        ...baseHeaders(accessToken),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        title: `${artist} - ${title}`,
+        rawText: `${artist} - ${title}`,
+        platform: Platform.OS === 'ios' ? 'NATIVE_SHAZAM' : 'NATIVE_RECOGNITION',
+        deviceId,
+      }),
+    });
+  } catch {
+    // Apprentissage opportuniste : aucun echec ne doit toucher l'UX Ecouter.
+  }
 }
 
 async function keylessSourceRecognition(accessToken: string | null): Promise<RecognitionResult | null> {
@@ -363,16 +545,16 @@ function fallbackKnownUnavailable() {
   return Date.now() < fallbackUnavailableUntil;
 }
 
-function markFallbackUnavailable() {
-  fallbackUnavailableUntil = Date.now() + FALLBACK_RECHECK_MS;
+function markFallbackUnavailable(durationMs = FALLBACK_RECHECK_MS) {
+  fallbackUnavailableUntil = Date.now() + durationMs;
 }
 
 /**
  * Reconnaissance musicale en cascade :
- * 1. AudD via `keep-music-recognition-v2` (clé serveur/Vault validée),
- * 2. ACRCloud via `keep-music-fallback` uniquement si AudD ne reconnaît pas
- *    le morceau ou rencontre un incident,
- * 3. sans clé : métadonnées publiques du partage social + catalogue iTunes.
+ * 1. mémoire collective Loki,
+ * 2. ACRCloud via `keep-music-fallback` (moteur serveur actif),
+ * 3. AudD uniquement si sa clé est explicitement réactivée,
+ * 4. sans clé : métadonnées publiques du partage social + catalogue iTunes.
  *
  * Spotify/YouTube/Deezer/Apple servent ensuite à enrichir le morceau reconnu ;
  * ils ne sont jamais présentés comme des moteurs d'empreinte audio eux-mêmes.
@@ -381,6 +563,14 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
   readonly providerId = 'keep-music-recognition-v2';
 
   async recognize(audioSample: ArrayBuffer | Blob): Promise<RecognitionResult | null> {
+    return this.recognizeInternal(audioSample, false);
+  }
+
+  async recognizeAfterMemory(audioSample: ArrayBuffer | Blob): Promise<RecognitionResult | null> {
+    return this.recognizeInternal(audioSample, true);
+  }
+
+  private async recognizeInternal(audioSample: ArrayBuffer | Blob, skipMemory: boolean): Promise<RecognitionResult | null> {
     if (!configured(SUPABASE_URL) || !configured(SUPABASE_ANON_KEY)) {
       throw new Error(`Reconnaissance ${APP_NAME} indisponible : Supabase n’est pas configuré.`);
     }
@@ -405,12 +595,14 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     // latence/quota externe), et seulement peuplee depuis des matchs deja
     // confirmes avec confiance -- donc pas moins fiable, seulement plus
     // rapide pour ce cas precis.
-    const memory = await keepMemoryRecognition(blob, accessToken, deviceId);
-    if (memory) {
-      recognitionBackoffUntil = 0;
-      fallbackUnavailableUntil = 0;
-      armStickyMatch();
-      return memory;
+    if (!skipMemory) {
+      const memory = await keepMemoryRecognition(blob, accessToken, deviceId);
+      if (memory) {
+        recognitionBackoffUntil = 0;
+        fallbackUnavailableUntil = 0;
+        armStickyMatch();
+        return memory;
+      }
     }
 
     // Musique probablement toujours la même qu'à l'instant : on laisse une
@@ -422,56 +614,94 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
       stickyMemoryMissStreak = 0;
     }
 
-    const primary = await recognitionAttempt('keep-music-recognition-v2', blob, accessToken, deviceId);
-    const primaryRateLimited = primary.status === 429 || primary.payload?.error === 'recognition_rate_limited';
-    if (primary.ok && primary.payload?.recognition) {
-      recognitionBackoffUntil = 0;
-      return primary.payload.recognition as RecognitionResult;
-    }
+    // ACRCloud est le moteur serveur principal tant qu'AudD n'a pas une clé
+    // valide. Cela supprime les 409 AudD observés sur TestFlight/Web sans
+    // désactiver la reconnaissance : le même échantillon part directement
+    // vers le fournisseur réellement configuré.
+    if (!fallbackKnownUnavailable() && Date.now() >= paidProviderSuppressedUntil && Date.now() - lastPaidProviderAttemptAt >= PAID_PROVIDER_MIN_GAP_MS) {
+      const useFree = paidListenAuthorizationActive();
+      lastPaidProviderAttemptAt = Date.now();
+      const acr = await recognitionAttempt('keep-music-fallback', blob, accessToken, deviceId, useFree);
 
-    // Si ACRCloud a déjà répondu « non configuré », ne pas répéter à chaque
-    // extrait le même aller-retour 409. On retente périodiquement pour que
-    // l'activation future dans le Super Admin soit prise en compte sans reload.
-    if (fallbackKnownUnavailable()) {
-      const keyless = await keylessSourceRecognition(accessToken);
-      if (keyless) {
-        recognitionBackoffUntil = 0;
-        return keyless;
+      const acrQuotaExhausted = acr.payload?.providerStatus === 3003
+        || acr.payload?.providerUnavailable === 'quota_exhausted';
+      if (acrQuotaExhausted) {
+        markFallbackUnavailable(FALLBACK_QUOTA_RECHECK_MS);
+        fallbackConsensus = null;
       }
-      if (primaryRateLimited) recognitionBackoffUntil = Date.now() + PROVIDER_RATE_LIMIT_BACKOFF_MS;
-      // AudD/ACRCloud absents ou indisponibles ne deviennent jamais une erreur
-      // rouge utilisateur : Loki continue d'écouter et le partage social reste actif.
-      return null;
+
+      if (acr.ok && acr.payload?.recognition) {
+        fallbackUnavailableUntil = 0;
+        fallbackConsensus = null;
+        recognitionBackoffUntil = 0;
+        noteSuccessfulRecognitionForPaidSuppression(acr.payload.recognition as RecognitionResult);
+        return acr.payload.recognition as RecognitionResult;
+      }
+
+      if (acr.ok && acr.payload?.candidateRecognition) {
+        const decision = updateRecognitionConsensus(
+          fallbackConsensus,
+          acr.payload.candidateRecognition as RecognitionResult,
+          Number(acr.payload.lowConfidenceScore ?? 0),
+        );
+        fallbackConsensus = decision.state;
+        if (decision.accepted) {
+          fallbackUnavailableUntil = 0;
+          recognitionBackoffUntil = 0;
+          noteSuccessfulRecognitionForPaidSuppression(decision.accepted);
+          return decision.accepted;
+        }
+      }
+
+      if (acr.status === 402 && acr.payload?.error === 'listen_free_required') {
+        throw new Error('LISTEN_FREE_REQUIRED');
+      }
+      if (acr.status === 402 && acr.payload?.error === 'listen_free_insufficient') {
+        clearNextPaidListenFreeAuthorization();
+        throw new Error('LISTEN_FREE_INSUFFICIENT');
+      }
+      if (acr.status === 402 && acr.payload?.error === 'guest_listen_limit_reached') {
+        throw new Error('GUEST_LISTEN_LIMIT_REACHED');
+      }
+      if (acr.status === 429 || acr.payload?.error === 'fallback_rate_limited') {
+        recognitionBackoffUntil = Date.now() + PROVIDER_RATE_LIMIT_BACKOFF_MS;
+      }
+      if (acr.status === 409 || acr.payload?.error === 'fallback_not_configured') {
+        markFallbackUnavailable();
+      }
     }
 
-    // Un no-match AudD ou une erreur fournisseur déclenche le second moteur.
-    // Le même échantillon est réutilisé : aucune nouvelle capture micro n'est
-    // nécessaire et le morceau reste dans la session dès qu'un moteur répond.
-    const fallback = await recognitionAttempt('keep-music-fallback', blob, accessToken, deviceId);
-    if (fallback.ok && fallback.payload?.recognition) {
-      fallbackUnavailableUntil = 0;
-      recognitionBackoffUntil = 0;
-      return fallback.payload.recognition as RecognitionResult;
+    // AudD reste disponible comme palier secondaire mais n'est plus appelé
+    // tant qu'il n'est pas explicitement réactivé avec une clé valide.
+    if (AUDD_PRIMARY_ENABLED) {
+      const paidReady = Date.now() >= paidProviderSuppressedUntil && Date.now() - lastPaidProviderAttemptAt >= PAID_PROVIDER_MIN_GAP_MS;
+      const audd = Date.now() < primaryUnavailableUntil || !paidReady
+        ? { ok: false, status: 409, payload: { error: 'recognition_not_configured_cached' } }
+        : await (async () => {
+            const useFree = paidListenAuthorizationActive();
+            lastPaidProviderAttemptAt = Date.now();
+            return recognitionAttempt('keep-music-recognition-v2', blob, accessToken, deviceId, useFree);
+          })();
+      if (audd.ok && audd.payload?.recognition) {
+        primaryUnavailableUntil = 0;
+        fallbackConsensus = null;
+        recognitionBackoffUntil = 0;
+        noteSuccessfulRecognitionForPaidSuppression(audd.payload.recognition as RecognitionResult);
+        return audd.payload.recognition as RecognitionResult;
+      }
+      if (audd.status === 402 && audd.payload?.error === 'listen_free_required') throw new Error('LISTEN_FREE_REQUIRED');
+      if (audd.status === 402 && audd.payload?.error === 'listen_free_insufficient') { clearNextPaidListenFreeAuthorization(); throw new Error('LISTEN_FREE_INSUFFICIENT'); }
+      if (audd.status === 402 && audd.payload?.error === 'guest_listen_limit_reached') throw new Error('GUEST_LISTEN_LIMIT_REACHED');
+      if (audd.status === 409 || audd.payload?.error === 'recognition_not_configured') {
+        primaryUnavailableUntil = Date.now() + PRIMARY_RECHECK_MS;
+      }
     }
 
     const keyless = await keylessSourceRecognition(accessToken);
     if (keyless) {
       recognitionBackoffUntil = 0;
+      noteSuccessfulRecognitionForPaidSuppression(keyless);
       return keyless;
-    }
-
-    if (fallback.status === 429 || fallback.payload?.error === 'fallback_rate_limited') {
-      recognitionBackoffUntil = Date.now() + PROVIDER_RATE_LIMIT_BACKOFF_MS;
-      return null;
-    }
-
-    if (fallback.status === 409 || fallback.payload?.error === 'fallback_not_configured') {
-      markFallbackUnavailable();
-      if (primaryRateLimited) {
-        recognitionBackoffUntil = Date.now() + PROVIDER_RATE_LIMIT_BACKOFF_MS;
-        return null;
-      }
-      return null;
     }
 
     // Avec ou sans fournisseur payant, une panne de reconnaissance ne coupe

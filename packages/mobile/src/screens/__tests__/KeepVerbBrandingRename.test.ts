@@ -80,3 +80,45 @@ describe('Non-régression : les identifiants techniques internes gardent "KEEP"/
     expect(pushNotificationService).toContain("handler: (action: 'KEEP' | 'PASS', entryId: string) => void | Promise<void>,");
   });
 });
+
+
+describe('Branding produit visible -- Loki Music uniquement', () => {
+  const appJson = JSON.parse(readNormalized(__dirname, '..', '..', '..', 'app.json'));
+  const mobileBrand = readNormalized(__dirname, '..', '..', 'config', 'brand.ts');
+  const adminBrand = readNormalized(__dirname, '..', '..', '..', '..', 'admin', 'lib', 'brand.ts');
+  const adminUsers = readNormalized(__dirname, '..', '..', '..', '..', 'admin', 'pages', 'users.tsx');
+
+  it("l'application visible reste Loki Music", () => {
+    expect(appJson.expo.name).toBe('Loki Music');
+    expect(mobileBrand).toContain("export const APP_NAME = 'Loki Music'");
+    expect(adminBrand).toContain("export const APP_NAME = 'Loki Music'");
+  });
+
+  it('les libellés visibles Super Admin utilisent LOKI, jamais KEEP', () => {
+    expect(adminUsers).toContain('`LOKI-${id.replace(/-/g, \'\').slice(0, 12).toUpperCase()}`');
+    expect(adminUsers).toContain('n° LOKI…');
+    expect(adminUsers).not.toContain('`KEEP-${id.replace(/-/g, \'\').slice(0, 12).toUpperCase()}`');
+    expect(adminUsers).not.toContain('n° KEEP…');
+  });
+
+  it('KEEP reste uniquement un identifiant technique historique', () => {
+    expect(appJson.expo.slug).toBe('keep');
+    expect(appJson.expo.ios.bundleIdentifier).toBe('com.adelkhatra.keep');
+    expect(appJson.expo.android.package).toBe('com.adelkhatra.keep');
+  });
+});
+
+
+describe('Loki visible copy — no legacy KEEP wording', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const chat = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'MusicAgoraPanel.tsx'), 'utf8');
+  const profile = fs.readFileSync(path.resolve(__dirname, '..', 'ProfilePublicScreen.tsx'), 'utf8');
+
+  it('uses Loki in moderation copy and Gardés in visible profile stats', () => {
+    expect(chat).toContain('mot interdit sur Loki');
+    expect(chat).not.toContain('mot interdit sur KEEP');
+    expect(profile).toContain('>GARDÉS</Text>');
+    expect(profile).not.toContain('>KEEPS</Text>');
+  });
+});

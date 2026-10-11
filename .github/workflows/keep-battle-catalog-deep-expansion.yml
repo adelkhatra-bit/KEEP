@@ -1,0 +1,100 @@
+name: KEEP — Battle catalog deep expansion
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - '.github/workflows/keep-battle-catalog-deep-expansion.yml'
+      - 'supabase/functions/keep-battle-catalog-seed/**'
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keep-battle-catalog-deep-expansion
+  cancel-in-progress: false
+
+jobs:
+  global-catalog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Expand worldwide style catalog
+        env:
+          KEEP_BATTLE_CATALOG_WORKER_KEY: ${{ secrets.KEEP_BATTLE_CATALOG_WORKER_KEY }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          if [ -z "${KEEP_BATTLE_CATALOG_WORKER_KEY:-}" ]; then
+            echo "KEEP_BATTLE_CATALOG_WORKER_KEY not configured; skipping GitHub catalog expansion."
+            exit 0
+          fi
+
+          base='https://rrhqsqzcplvmwxizqnla.supabase.co/functions/v1/keep-battle-catalog-seed'
+          themes=(
+            FUNK DISCO AFRO RAP_US ELECTRO POP RNB ROCK LATINO HOUSE REGGAETON AMAPIANO
+            ALTERNATIVE COUNTRY METAL SOUNDTRACK BLUES TECHNO TRANCE DNB DUBSTEP UK_GARAGE
+            GRIME DRILL PUNK GOSPEL DANCEHALL SALSA BACHATA CUMBIA MERENGUE FLAMENCO FADO
+            ZOUK KOMPA GNAWA CHAABI KHALEEJI EGYPTIAN_POP JPOP ANIME CPOP MANDOPOP PUNJABI
+            AFROHOUSE AFROPOP LOFI AMBIENT FOLK RAI SOUL REGGAE JAZZ CLASSIQUE
+            ANNEES_80 ANNEES_90 RUSSE TURC KPOP ARABE BRESIL INDE DANCE WORLD HIPHOP
+            SERTANEJO ARABIC_POP AFRO_FUSION BAILE_FUNK PAGODE HARD_ROCK INDIE LATIN_POP
+            MEXICAN TROPICAL VOCAL SINGER_SONGWRITER INSTRUMENTAL NEW_AGE CHRISTMAS
+            ANNEES_60 ANNEES_70 ANNEES_2000 ANNEES_2010 ANNEES_2020
+          )
+          failed=0
+
+          for theme in "${themes[@]}"; do
+            echo "=== $theme ==="
+            if ! body="$(curl --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 145               --fail-with-body -sS               -H "x-keep-worker-key: ${KEEP_BATTLE_CATALOG_WORKER_KEY}"               "$base?theme=$theme&batch=0")"; then
+              echo "::error::Seed failed for $theme"
+              failed=1
+              continue
+            fi
+            echo "$body" | jq -c '{ok,theme,batch,totalBatches,done,queries,found,considered,distinctArtists,inserted,updated,linked,budget}'
+            [ "$(echo "$body" | jq -r '.ok // false')" = "true" ] || failed=1
+            sleep 7
+          done
+
+          exit "$failed"
+
+  french-deep-catalog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Expand French long-tail catalog
+        env:
+          KEEP_BATTLE_CATALOG_WORKER_KEY: ${{ secrets.KEEP_BATTLE_CATALOG_WORKER_KEY }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          if [ -z "${KEEP_BATTLE_CATALOG_WORKER_KEY:-}" ]; then
+            echo "KEEP_BATTLE_CATALOG_WORKER_KEY not configured; skipping GitHub catalog expansion."
+            exit 0
+          fi
+
+          base='https://rrhqsqzcplvmwxizqnla.supabase.co/functions/v1/keep-battle-catalog-seed'
+          failed=0
+
+          for theme in CHANSON_FR RAP_FR; do
+            echo "=== $theme (deep) ==="
+            for batch in $(seq 0 80); do
+              if ! body="$(curl --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 145                 --fail-with-body -sS                 -H "x-keep-worker-key: ${KEEP_BATTLE_CATALOG_WORKER_KEY}"                 "$base?theme=$theme&batch=$batch")"; then
+                echo "::error::Seed failed for $theme batch $batch"
+                failed=1
+                break
+              fi
+              echo "$body" | jq -c '{ok,theme,batch,totalBatches,done,queries,found,considered,distinctArtists,inserted,updated,linked,budget}'
+              if [ "$(echo "$body" | jq -r '.ok // false')" != "true" ]; then
+                failed=1
+                break
+              fi
+              [ "$(echo "$body" | jq -r '.done // false')" = "true" ] && break
+              sleep 8
+            done
+          done
+
+          exit "$failed"

@@ -2,65 +2,137 @@
 import fs from 'fs';
 import path from 'path';
 
-const readNormalized = (...segments: string[]) => fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\r\n/g, '\n');
+const readNormalized = (...segments: string[]) =>
+  fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\r\n/g, '\n');
 
-/**
- * Adel (21/09/2026) : "il ne faut pas qu'il y ait la possibilité de vendre
- * une musique que l'utilisateur a pris à un autre utilisateur -- il faut lui
- * mettre un cadenas et quand il clique dessus ça lui dit que cette musique
- * ne lui appartient pas, elle appartient à un autre utilisateur."
- *
- * Et, séparément : "côté profil utilisateur, lorsqu'un autre utilisateur va
- * visiter un autre utilisateur, il faut que tout soit visible -- même s'il
- * n'a pas de musique à la vente, il faut que le système soit fonctionnel et
- * visible. Et quand je clique dessus, ça marque qu'il n'a pas encore de
- * musique en vente."
- */
-describe('Vente de musique -- cadenas "pas ta découverte" + section toujours visible sur le profil visité (Adel, 21/09/2026)', () => {
+describe('Exclusive collection privacy + ownership contracts', () => {
   const myMusic = readNormalized(__dirname, '..', 'MyMusicScreen.tsx');
   const publicProfile = readNormalized(__dirname, '..', 'PublicUserProfileScreen.tsx');
+  const saleService = readNormalized(__dirname, '..', '..', 'services', 'playlistSaleService.ts');
+  const previewMigration = readNormalized(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260920201000_playlist_sale_offer_preview_tracks.sql');
+  const freeMigration = readNormalized(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260924163120_playlist_sale_free_mode.sql');
+  const freeAccessMigration = readNormalized(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260924163533_playlist_sale_free_transfer_access_hardening.sql');
+  const permanentUserMigration = readNormalized(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260924163615_playlist_sale_free_permanent_user_only.sql');
+  const freeIndexMigration = readNormalized(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260924163717_playlist_sale_free_transfer_indexes.sql');
+  const featureFlags = readNormalized(__dirname, '..', '..', 'services', 'featureFlagService.ts');
+  const immersivePreview = readNormalized(__dirname, '..', '..', 'components', 'PlaylistSaleImmersivePreview.tsx');
+  const salePanel = readNormalized(__dirname, '..', '..', 'components', 'PlaylistSalePanel.tsx');
 
-  it('MyMusicScreen locks the sale checkbox for a track that came from another profile (sourceProfileId set = not self-discovered), styled red (Adel, 21/09/2026 : "il faut que le cadenas soit rouge")', () => {
+  it('never lets a social reprise be added to someone else\'s exclusive collection', () => {
     expect(myMusic).toContain('const notOwnDiscovery = Boolean(localEntry?.sourceProfileId);');
     expect(myMusic).toContain('notOwnDiscovery && styles.selectionCheckLocked');
-    expect(myMusic).toContain("selectionCheckLocked:{opacity:1,borderColor:colors.danger,backgroundColor:'rgba(255,92,114,0.12)'}");
-    expect(myMusic).toContain("{notOwnDiscovery ? '🔒' : selectedSaleTrackIds.has(track.id) ? '✓' : ''}");
+    expect(myMusic).toContain("? Alert.alert('Non éligible'");
+    expect(myMusic).toContain('const alreadySoldElsewhere = Boolean(offered && !includedInEditedOffer);');
+    expect(myMusic).toContain("Alert.alert(\n        'Déjà dans une collection active'");
+    expect(myMusic).toContain("{ text: 'Ajouter quand même', onPress: () => { void applySaleTrackToggle(trackId); } }");
+    expect(myMusic).toContain('disabled: Boolean(notOwnDiscovery)');
   });
 
-  it('tapping the locked checkbox tells the user the track belongs to someone else and explains why, not a silent no-op', () => {
-    expect(myMusic).toContain("? Alert.alert('Pas à vendre', `\"${track.title}\" ne peut pas être vendue : elle vient d'un autre utilisateur. Il doit l'avoir gardée depuis sa propre écoute pour pouvoir la vendre.`)");
+  it('removes every active-offer track from the public/free profile source', () => {
+    expect(publicProfile).toContain('loadMaskedPlaylistSaleTrackIds(result.id)');
+    expect(publicProfile).toContain('const visible = maskedIds.length ? normalized.filter((t) => !maskedIds.includes(t.trackId)) : normalized;');
+    expect(publicProfile).toContain('setTracks(visible);');
+    expect(publicProfile).not.toContain('<LockedTrackRow');
   });
 
-  it('the lock never fully disables the checkbox (only "offered" does) so the explanatory tap still fires', () => {
-    expect(myMusic).toContain('disabled={Boolean(offered)}');
-    expect(myMusic).not.toContain('disabled={Boolean(offered || notOwnDiscovery)}');
+  it('represents paid music only as one locked collection card in a separate horizontal rail', () => {
+    // 02/10/2026 : boutique vendeur validée par Adel (SellerBoutique : Drop du moment 3 max + étagère + boutique).
+    // Une carte verrouillée par collection, séparée des Styles, prix FREE / € distincts.
+    const boutique = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'SellerBoutique.tsx'), 'utf8');
+    expect(publicProfile).toContain('<SellerBoutique');
+    expect(boutique).toContain('<OfferCard key={offer.offerId}');
+    expect(boutique).toContain('✓ DÉBLOQUÉE');
+    expect(boutique).toContain('tokenFree');
+    expect(boutique).toContain('tokenMoney');
+    expect(publicProfile).not.toContain('sale-style:');
   });
 
-  it('PublicUserProfileScreen always renders the "Découvertes à débloquer" section once marketplace is enabled -- never fully hidden just because the seller has zero active offers', () => {
-    expect(publicProfile).toContain('{marketplaceEnabled ? (');
-    expect(publicProfile).not.toContain('{marketplaceEnabled && saleOffers.length > 0 ? (');
+  it('keeps targeted chat sales out of the public visitor boutique without breaking addressed deep-links', () => {
+    expect(publicProfile).toContain('const profileBoutiqueOffers = useMemo(');
+    expect(publicProfile).toContain("!String(offer.playlistId || '').startsWith('keep-chat:')");
+    expect(publicProfile).toContain('offers={profileBoutiqueOffers}');
+    expect(publicProfile).toContain('const offer = saleOffers.find((row) => row.offerId === openSaleOfferId);');
   });
 
-  it('an empty offer list shows a tappable, explicit "pas encore de musique en vente" state instead of nothing', () => {
-    expect(publicProfile).toContain('{saleOffers.length === 0 ? (');
-    expect(publicProfile).toContain("onPress={() => Alert.alert('Découvertes à débloquer', `@${profile.username} n'a pas encore de musique en vente.`)}");
-    expect(publicProfile).toContain('<Text style={styles.marketplaceEmptyText}>Pas encore de musique en vente</Text>');
+  it('never exposes title, artist or artwork through the anonymous preview RPC', () => {
+    expect(saleService).toContain('export type PlaylistSalePreviewTrack = {');
+    expect(saleService).toContain('trackId: string;');
+    expect(saleService).toContain('previewUrl: string;');
+    expect(previewMigration).toContain('returns table(track_id uuid, preview_url text)');
+    expect(previewMigration).not.toMatch(/returns table\([^)]*(title|artist|artwork)/i);
+    expect(publicProfile).not.toContain('artworkUrl={offer.');
   });
 
-  /**
-   * Adel (21/09/2026) : "1000 abonnés assignés via Super Admin, la fonction
-   * reste verrouillée -- comment ça se fait que je suis encore bloqué ?"
-   *
-   * BUG RÉEL trouvé et corrigé : l'effet qui charge saleAccess/refreshLibrary
-   * s'abonnait à l'événement 'focus' avec une fermeture figée au montage, où
-   * marketplaceEnabled valait encore `false` (le flag async n'avait pas fini
-   * de charger). Ce même abonnement périmé était ensuite rappelé à chaque
-   * focus d'écran sans jamais relire la valeur à jour de marketplaceEnabled
-   * -- saleAccess restait donc bloqué à null indéfiniment, même une fois le
-   * flag/bypass Super Admin activé côté serveur.
-   */
-  it('the sale-access effect re-subscribes (and re-fetches) whenever marketplaceEnabled flips, instead of running once with a stale closure forever', () => {
+  it('keeps product visibility independent from checkout availability', () => {
+    expect(featureFlags).toContain('export async function isPlaylistMarketplaceVisible(): Promise<boolean>');
+    expect(featureFlags).toContain('return Boolean(supabase);');
+    expect(featureFlags).toContain("if (Platform.OS !== 'web') return false;");
+    expect(featureFlags).toContain("return isFeatureEnabled('playlist_marketplace');");
+  });
+
+  it('supports one FREE debit for the whole collection, with server-side delivery', () => {
+    expect(saleService).toContain('purchasePlaylistOfferWithFree');
+    expect(publicProfile).toContain("if (offer.paymentMode === 'FREE')");
+    expect(publicProfile).toContain('purchasePlaylistOfferWithFree(offer.offerId)');
+    expect(publicProfile).toContain("purchaseEnabled={!isOwner && (immersivePreviewOffer.paymentMode !== 'MONEY' || marketplacePurchaseEnabled)}");
+    expect(freeMigration).toContain('keep_playlist_sale_purchase_with_free');
+    expect(freeMigration).toContain('keep_playlist_sale_deliver_payment_core');
+    expect(freeMigration).toContain('unique (offer_id, buyer_id)');
+  });
+
+  it('enforces collection-only products on the server, never one-track offers', () => {
+    expect(freeMigration).toContain("raise exception 'COLLECTION_MIN_TWO_TRACKS'");
+    expect(freeMigration).toContain('if v_remaining < 2 then');
+    expect(freeMigration).toContain('set is_active = false');
+    expect(freeMigration).toContain('drop constraint if exists playlist_sale_offers_price_cents_check');
+    expect(freeMigration).toContain('drop constraint if exists playlist_sale_offers_price_preset');
+  });
+
+  it('blocks Supabase anonymous sign-ins from the FREE transfer ledger', () => {
+    expect(freeAccessMigration).toContain('revoke all on table public.playlist_sale_free_transfers from anon, authenticated;');
+    expect(freeAccessMigration).toContain('grant select on table public.playlist_sale_free_transfers to authenticated;');
+    expect(permanentUserMigration).toContain("(auth.jwt()->>'is_anonymous')::boolean");
+    expect(permanentUserMigration).toContain('is false');
+  });
+
+  it('indexes seller and buyer ownership lookups for FREE transfers', () => {
+    expect(freeIndexMigration).toContain('idx_playlist_sale_free_transfers_seller');
+    expect(freeIndexMigration).toContain('idx_playlist_sale_free_transfers_buyer');
+  });
+
+  it('keeps the FREE transfer adjustment helper inaccessible to app clients', () => {
+    expect(freeMigration).toContain('revoke all on function public.keep_playlist_sale_free_adjustment_for_profile(uuid) from public, anon, authenticated;');
+    expect(freeMigration).not.toContain('grant execute on function public.keep_playlist_sale_free_adjustment_for_profile(uuid) to authenticated;');
+  });
+
+  it('requires an explicit confirmation before debiting FREE for a collection', () => {
+    expect(immersivePreview).toContain("const freeAccess = selectedPaymentMode === 'FREE';");
+    expect(immersivePreview).toContain("acceptMarketplacePaymentTerms('playlist_sale')");
+    expect(immersivePreview).toContain("freeAccess ? `DÉBLOQUER LA COLLECTION · ${priceLabel}`");
+    expect(immersivePreview).toContain('FREE INSUFFISANTS');
+    expect(immersivePreview).toContain('RECHARGER MES FREE');
+    expect(immersivePreview).toContain('disabled={!waiverAccepted || busy || freeBlocked || allAlreadyOwned}');
+  });
+
+  it('lets the owner switch an existing collection between euro and FREE without rebuilding it', () => {
+    expect(saleService).toContain('updateOfferPaymentMode');
+    expect(salePanel).toContain('Mode de déblocage');
+    expect(salePanel).toContain('€ EUROS');
+    expect(salePanel).toContain('⚡ FREE');
+    expect(salePanel).toContain("updateOfferPaymentMode(editing.offerId, editing.paymentMode, amount, editing.paymentMode === 'BOTH' ? editing.freePrice : null)");
+  });
+
+  it('keeps native collection management visible while external checkout remains gated', () => {
+    expect(salePanel).toContain('isPlaylistMarketplaceVisible()');
+    expect(salePanel).toContain('setMarketplaceTransactionEnabled(transactionEnabled)');
+    expect(salePanel).toContain('TES COLLECTIONS PUBLIÉES');
+    expect(salePanel).toContain('✎ MODIFIER');
+    expect(salePanel).toContain('€ / FREE');
+    expect(immersivePreview).toContain('PÉPITES À DÉCOUVRIR');
+    expect(immersivePreview).toContain("freeAccess ? `DÉBLOQUER LA COLLECTION · ${priceLabel}` : `COMMENCER MA TRANSACTION · ${priceLabel}`");
+  });
+
+  it('keeps sale access refresh reactive when marketplace visibility changes', () => {
     expect(myMusic).toContain('}, [navigation, refresh, syncUnsyncedKeeps, userId, isLocalGuest, isDemoMode, marketplaceEnabled]);');
-    expect(myMusic).not.toContain('}, [navigation, refresh, syncUnsyncedKeeps, userId, isLocalGuest, isDemoMode]);');
   });
 });

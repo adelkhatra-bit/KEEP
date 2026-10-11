@@ -1,0 +1,158 @@
+name: App Store — fiche, precheck et soumission
+
+on:
+  workflow_dispatch:
+    inputs:
+      lane:
+        description: 'precheck, listing ou submit'
+        required: true
+        default: 'precheck'
+        type: choice
+        options:
+          - precheck
+          - listing
+          - submit
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - 'packages/mobile/.app-store-submit-trigger'
+      - 'packages/mobile/fastlane/Fastfile'
+      - '.github/workflows/app-store-submit.yml'
+
+concurrency:
+  group: app-store-submit
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  app-store:
+    runs-on: macos-14
+    timeout-minutes: 40
+    env:
+      ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+      ASC_APP_VERSION: '1.0.0'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Resolve lane
+        id: lane
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            lane="${{ github.event.inputs.lane }}"
+          else
+            lane="$(tr -d '[:space:]' < packages/mobile/.app-store-submit-trigger)"
+          fi
+          case "$lane" in
+            precheck|listing|submit) ;;
+            *) echo "::error::Lane invalide: $lane"; exit 1 ;;
+          esac
+          resolved_lane="$lane"
+          if [ "$lane" = "precheck" ]; then resolved_lane="validate"; fi
+          echo "requested_lane=$lane" >> "$GITHUB_OUTPUT"
+          echo "lane=$resolved_lane" >> "$GITHUB_OUTPUT"
+          echo "Lane App Store: $lane -> fastlane ios $resolved_lane"
+
+      - name: Verify Apple API secrets
+        shell: bash
+        run: |
+          missing=0
+          for v in ASC_API_KEY_P8_BASE64 ASC_KEY_ID ASC_ISSUER_ID APPLE_TEAM_ID ASC_APP_ID; do
+            if [ -z "${!v:-}" ]; then
+              echo "::error::Secret manquant: $v"
+              missing=1
+            fi
+          done
+          [ "$missing" = "0" ]
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@762794c140bbeda0f1224786aa33b4b46783a6c1 # v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: false
+
+      - name: Install fastlane
+        run: gem install fastlane --no-document
+
+      - name: Verify App Store subscription products
+        shell: bash
+        run: |
+          ruby <<'RUBY'
+          require 'jwt'
+          require 'openssl'
+          require 'base64'
+          require 'json'
+          require 'net/http'
+          require 'uri'
+
+          private_key = OpenSSL::PKey::EC.new(Base64.decode64(ENV.fetch('ASC_API_KEY_P8_BASE64').strip))
+          now = Time.now.to_i
+          token = JWT.encode(
+            { iss: ENV.fetch('ASC_ISSUER_ID').strip, iat: now - 30, exp: now + 300, aud: 'appstoreconnect-v1' },
+            private_key,
+            'ES256',
+            { kid: ENV.fetch('ASC_KEY_ID').strip, typ: 'JWT' }
+          )
+          headers = { 'Authorization' => "Bearer #{token}" }
+
+          def get_json(url, headers)
+            uri = URI(url)
+            request = Net::HTTP::Get.new(uri)
+            headers.each { |k,v| request[k]=v }
+            response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true, read_timeout: 30) { |http| http.request(request) }
+            raise "App Store API HTTP #{response.code}: #{response.body.to_s[0,300]}" unless response.is_a?(Net::HTTPSuccess)
+            JSON.parse(response.body)
+          end
+
+          apps_uri = URI('https://api.appstoreconnect.apple.com/v1/apps')
+          apps_uri.query = URI.encode_www_form('filter[bundleId]' => 'com.adelkhatra.keep', 'fields[apps]' => 'bundleId,name')
+          apps = get_json(apps_uri.to_s, headers)
+          app = Array(apps['data']).find { |item| item.dig('attributes','bundleId') == 'com.adelkhatra.keep' }
+          raise 'App com.adelkhatra.keep introuvable dans App Store Connect' unless app && app['id']
+
+          groups_uri = URI("https://api.appstoreconnect.apple.com/v1/apps/#{URI.encode_www_form_component(app['id'])}/subscriptionGroups")
+          groups_uri.query = URI.encode_www_form(
+            'include' => 'subscriptions',
+            'fields[subscriptions]' => 'productId,state',
+            'limit' => '200',
+            'limit[subscriptions]' => '50'
+          )
+          payload = get_json(groups_uri.to_s, headers)
+          by_product = Array(payload['included'])
+            .select { |item| item['type'] == 'subscriptions' }
+            .to_h { |item| [item.dig('attributes','productId'), item.dig('attributes','state')] }
+
+          expected = [
+            'com.adelkhatra.keep.premium.monthly',
+            'com.adelkhatra.keep.creatorpro.monthly',
+            'com.adelkhatra.keep.venuepro.monthly'
+          ]
+          missing = expected.reject { |id| by_product.key?(id) }
+          raise "Abonnements App Store manquants: #{missing.join(', ')}" unless missing.empty?
+
+          blocked_states = %w[MISSING_METADATA DEVELOPER_ACTION_NEEDED REJECTED]
+          blocked = expected.select { |id| blocked_states.include?(by_product[id].to_s) }
+          raise "Abonnements App Store non prêts: #{blocked.map { |id| "#{id}=#{by_product[id]}" }.join(', ')}" unless blocked.empty?
+
+          puts "App Store subscriptions OK: #{expected.map { |id| "#{id}=#{by_product[id]}" }.join(', ')}"
+          RUBY
+
+      - name: Run App Store lane
+        working-directory: packages/mobile
+        run: fastlane ios "${{ steps.lane.outputs.lane }}"
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "### Loki Music — App Store" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Lane: ${{ steps.lane.outputs.lane }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Version: $ASC_APP_VERSION" >> "$GITHUB_STEP_SUMMARY"
+          echo "- SHA: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"

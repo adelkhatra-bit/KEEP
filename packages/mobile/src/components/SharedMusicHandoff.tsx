@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { Platform } from 'react-native';
 import * as Linking from 'expo-linking';
 import { useShareIntentContext } from 'expo-share-intent';
 import { useSessionStore } from '../store/useSessionStore';
@@ -8,6 +9,8 @@ import { ingestExternalRecognition } from '../services/externalRecognitionIngest
 import { claimPendingReferral, sharedProfileUsernameFromUrl, stageReferralFromUrl } from '../services/referralService';
 import { navigateToSharedProfile } from '../navigation/navigationRef';
 import { supabase } from '../services/supabaseClient';
+import { endWebShareVisit, isWebShareVisit, webShareVisitUsername } from '../services/webShareVisitor';
+import { useUserStore } from '../store/useUserStore';
 
 /**
  * TikTok / Instagram / Snapchat / YouTube -> Partager -> Loki.
@@ -18,6 +21,19 @@ import { supabase } from '../services/supabaseClient';
  * moteurs AudD/ACRCloud restent actifs : les voies se complètent au lieu de se
  * remplacer.
  */
+export function clearConsumedShareParams() {
+  if (Platform.OS !== 'web' || typeof window === 'undefined' || !window.history?.replaceState) return;
+  try {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('u') && !url.searchParams.has('share')) return;
+    url.searchParams.delete('u');
+    url.searchParams.delete('share');
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+  } catch {
+    // adresse illisible : on laisse le navigateur tel quel
+  }
+}
+
 export default function SharedMusicHandoff() {
   const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntentContext();
   const handledRef = useRef('');
@@ -36,12 +52,26 @@ export default function SharedMusicHandoff() {
       // ou tout lien `?u=...&share=...` reçu directement) doit rouvrir le
       // vrai profil swipeable, pas retomber sur l'écran d'accueil générique.
       const sharedUsername = sharedProfileUsernameFromUrl(url);
-      if (sharedUsername) navigateToSharedProfile(sharedUsername);
+      // Visiteur web d'un lien partagé qui rafraîchit la page : l'adresse n'a plus ?u=, on le ramène sur le profil partagé.
+      if (!sharedUsername && isWebShareVisit() && useUserStore.getState().isLocalGuest) {
+        navigateToSharedProfile(webShareVisitUsername());
+        return;
+      }
+      if (sharedUsername) {
+        navigateToSharedProfile(sharedUsername);
+        // Adel (29/09/2026) : « à chaque fois ça remet sur le profil, c'est
+        // difficile d'aller se connecter ». Le lien ne sert qu'UNE fois :
+        // on retire ?u= / &share= de l'adresse (le parrainage est déjà
+        // mémorisé plus haut), sinon chaque rechargement ou retour après
+        // connexion renvoyait de force sur ce profil.
+        clearConsumedShareParams();
+      }
     };
     void Linking.getInitialURL().then(stage).catch(() => {});
     const linkSub = Linking.addEventListener('url', ({ url }) => { void stage(url); });
     const authSub = supabase?.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+        if (event === 'SIGNED_IN') endWebShareVisit();
         void claimPendingReferral().catch(() => false);
       }
     });

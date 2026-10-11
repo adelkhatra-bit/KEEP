@@ -3,10 +3,12 @@
   "version": "0.0.1",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/check-robot-links.js && node scripts/check-contrast.js && next build",
     "start": "next start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "check:robot": "node scripts/check-robot-links.js",
+    "check:contrast": "node scripts/check-contrast.js"
   },
   "dependencies": {
     "next": "^16.0.0",

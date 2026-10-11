@@ -12,6 +12,7 @@ export type KeepPlan = {
   // prix (plan_prices.free_bonus_per_month), une seule source de vérité au
   // lieu d'une clé remote_config séparée par plan.
   monthlyFreeBonus: number;
+  dailyListenLimit: number;
 };
 
 export type CreditFunnel = {
@@ -28,15 +29,31 @@ export type CreditFunnel = {
 
 export async function loadPlans(): Promise<KeepPlan[]> {
   if (!supabase) return [];
-  const { data, error } = await supabase
-    .from('plans')
-    .select('id,code,name,description,trial_days,plan_prices!inner(currency_code,period,amount,is_active,effective_from,free_bonus_per_month)')
-    .eq('is_active', true)
-    .eq('plan_prices.is_active', true)
-    .eq('plan_prices.period', 'MONTHLY');
-  if (error) throw error;
+  const [plansResult, listenLimitsResult] = await Promise.all([
+    supabase
+      .from('plans')
+      .select('id,code,name,description,trial_days,plan_prices!inner(currency_code,period,amount,is_active,effective_from,free_bonus_per_month)')
+      .eq('is_active', true)
+      .eq('plan_prices.is_active', true)
+      .eq('plan_prices.period', 'MONTHLY'),
+    supabase
+      .from('usage_limits')
+      .select('limit_value,plans!inner(code)')
+      .eq('limit_key', 'listens_per_day'),
+  ]);
+  if (plansResult.error) throw plansResult.error;
+  if (listenLimitsResult.error) throw listenLimitsResult.error;
 
-  return (data ?? []).map((row: any) => {
+  const listenLimits = new Map<string, number>();
+  for (const row of listenLimitsResult.data ?? []) {
+    const code = String((row as any)?.plans?.code ?? '');
+    const value = Number((row as any)?.limit_value);
+    if (code && Number.isFinite(value) && value > 0) listenLimits.set(code, value);
+  }
+  const fallbackListenLimit = (code: string) =>
+    code === 'VENUE_PRO' ? 150 : code === 'CREATOR_PRO' ? 60 : code === 'PREMIUM' ? 30 : 5;
+
+  return (plansResult.data ?? []).map((row: any) => {
     const prices = Array.isArray(row.plan_prices) ? row.plan_prices : [];
     const price = prices.slice().sort((a: any, b: any) => String(b.effective_from).localeCompare(String(a.effective_from)))[0];
     return {
@@ -47,15 +64,16 @@ export async function loadPlans(): Promise<KeepPlan[]> {
       monthlyAmount: Number(price?.amount || 0),
       currencyCode: price?.currency_code || 'EUR',
       monthlyFreeBonus: Number(price?.free_bonus_per_month || 0),
+      dailyListenLimit: listenLimits.get(String(row.code)) ?? fallbackListenLimit(String(row.code)),
     };
   }).sort((a: KeepPlan, b: KeepPlan) => ['FREE','PREMIUM','CREATOR_PRO','VENUE_PRO'].indexOf(a.code) - ['FREE','PREMIUM','CREATOR_PRO','VENUE_PRO'].indexOf(b.code));
 }
 
 export const CREDIT_FUNNEL_DEFAULTS: CreditFunnel = {
   guestSuccessLimit: 3,
-  signupBonusSuccesses: 20,
+  signupBonusSuccesses: 5,
   monthlyBonusFree: 5,
-  monthlyBonusPremium: 15,
+  monthlyBonusPremium: 30,
   monthlyBonusCreatorPro: 40,
   monthlyBonusVenuePro: 100,
 };
@@ -63,15 +81,15 @@ export const CREDIT_FUNNEL_DEFAULTS: CreditFunnel = {
 export async function loadCreditFunnel(): Promise<CreditFunnel> {
   if (!supabase) return CREDIT_FUNNEL_DEFAULTS;
   const { data, error } = await supabase.from('remote_config').select('key,value').in('key', [
-    'guest_success_limit', 'signup_bonus_successes',
+    'guest_recognition_limit', 'guest_success_limit', 'signup_bonus_recognitions', 'signup_bonus_successes',
     'free_monthly_bonus_free', 'free_monthly_bonus_premium', 'free_monthly_bonus_creator_pro', 'free_monthly_bonus_venue_pro',
   ]);
   if (error) throw error;
   const map = Object.fromEntries((data ?? []).map((row: any) => [row.key, Number(row.value)]));
   const pick = (key: string, fallback: number) => Number.isFinite(map[key]) ? map[key] : fallback;
   return {
-    guestSuccessLimit: pick('guest_success_limit', CREDIT_FUNNEL_DEFAULTS.guestSuccessLimit),
-    signupBonusSuccesses: pick('signup_bonus_successes', CREDIT_FUNNEL_DEFAULTS.signupBonusSuccesses),
+    guestSuccessLimit: pick('guest_recognition_limit', pick('guest_success_limit', CREDIT_FUNNEL_DEFAULTS.guestSuccessLimit)),
+    signupBonusSuccesses: pick('signup_bonus_recognitions', CREDIT_FUNNEL_DEFAULTS.signupBonusSuccesses),
     monthlyBonusFree: pick('free_monthly_bonus_free', CREDIT_FUNNEL_DEFAULTS.monthlyBonusFree),
     monthlyBonusPremium: pick('free_monthly_bonus_premium', CREDIT_FUNNEL_DEFAULTS.monthlyBonusPremium),
     monthlyBonusCreatorPro: pick('free_monthly_bonus_creator_pro', CREDIT_FUNNEL_DEFAULTS.monthlyBonusCreatorPro),
@@ -84,15 +102,62 @@ export interface SessionScreenCopy {
   emptySubtitle: string | null;
 }
 
+const SESSION_COPY_CACHE_MS = 60 * 1000;
+let sessionCopyCache: { value: SessionScreenCopy; loadedAt: number } | null = null;
+let sessionCopyInFlight: Promise<SessionScreenCopy> | null = null;
+
 export async function loadSessionScreenCopy(): Promise<SessionScreenCopy> {
-  if (!supabase) return { emptyTitle: null, emptySubtitle: null };
-  const { data, error } = await supabase.from('remote_config').select('key,value').in('key', ['session_empty_title', 'session_empty_subtitle']);
-  if (error) return { emptyTitle: null, emptySubtitle: null };
-  const map = Object.fromEntries((data ?? []).map((row: any) => [row.key, row.value]));
-  return {
-    emptyTitle: typeof map.session_empty_title === 'string' ? map.session_empty_title : null,
-    emptySubtitle: typeof map.session_empty_subtitle === 'string' ? map.session_empty_subtitle : null,
-  };
+  const fallback = { emptyTitle: null, emptySubtitle: null };
+  if (!supabase) return fallback;
+  if (sessionCopyCache && Date.now() - sessionCopyCache.loadedAt < SESSION_COPY_CACHE_MS) {
+    return sessionCopyCache.value;
+  }
+  if (!sessionCopyInFlight) {
+    sessionCopyInFlight = (async () => {
+      try {
+        const { data, error } = await supabase.from('remote_config').select('key,value').in('key', ['session_empty_title', 'session_empty_subtitle']);
+        if (error) return sessionCopyCache?.value ?? fallback;
+        const map = Object.fromEntries((data ?? []).map((row: any) => [row.key, row.value]));
+        const value = {
+          emptyTitle: typeof map.session_empty_title === 'string' ? map.session_empty_title : null,
+          emptySubtitle: typeof map.session_empty_subtitle === 'string' ? map.session_empty_subtitle : null,
+        };
+        sessionCopyCache = { value, loadedAt: Date.now() };
+        return value;
+      } catch {
+        return sessionCopyCache?.value ?? fallback;
+      } finally {
+        sessionCopyInFlight = null;
+      }
+    })();
+  }
+  return sessionCopyInFlight;
+}
+
+export async function loadDemoListenLimit(): Promise<number> {
+  if (!supabase) return 3;
+  const { data, error } = await supabase
+    .from('remote_config')
+    .select('value')
+    .eq('key', 'demo_listen_limit')
+    .maybeSingle();
+  if (error) return 3;
+  const limit = Number(data?.value);
+  return Number.isFinite(limit) ? Math.max(1, Math.min(100, Math.round(limit))) : 3;
+}
+
+export async function loadDemoDiscoveryLocked(): Promise<boolean> {
+  if (!supabase) return true;
+  const { data, error } = await supabase
+    .from('remote_config')
+    .select('value')
+    .eq('key', 'demo_discovery_locked')
+    .maybeSingle();
+  if (error) return true;
+  const value = data?.value;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') return value.toLowerCase() !== 'false';
+  return value == null ? true : Boolean(value);
 }
 
 export async function loadSessionSilenceTimeoutMinutes(): Promise<number> {

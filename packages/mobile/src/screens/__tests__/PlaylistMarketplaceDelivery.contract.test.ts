@@ -14,17 +14,39 @@ describe('Loki Music playlist marketplace delivery contract', () => {
     expect(saleService).toContain("offerId: String(row.offer_id ?? row.offerId ?? '')");
   });
 
-  it('lets a seller create and name a multi-track offer with preset prices', () => {
-    expect(myMusic).toContain('CRÉER UNE PLAYLIST À VENDRE');
+  it('lets a creator build and name a multi-track exclusive collection with preset prices', () => {
+    expect(myMusic).toContain('Créer une collection');
+    expect(myMusic).toContain("ÉTAPE 1 SUR 4");
     expect(myMusic).toContain('selectedSaleTrackIds');
-    expect(myMusic).toContain('Nom de la playlist à vendre');
-    expect(myMusic).toContain('SALE_PRESET_PRICES_CENTS.map');
-    expect(salePanel).toContain('PRICE_PRESETS.map');
+    expect(myMusic).toContain('Nom de la collection exclusive');
+    expect(myMusic).toContain("(sellPaymentMode === 'FREE' ? SALE_PRESET_FREE : SALE_PRESET_PRICES_CENTS).map");
+    expect(salePanel).toContain('SALE_PRESET_PRICES_CENTS');
+    expect(salePanel).toContain('SALE_PRESET_FREE');
+    expect(salePanel).toContain("updateOfferPaymentMode(editing.offerId, editing.paymentMode, amount, editing.paymentMode === 'BOTH' ? editing.freePrice : null)");
+    expect(myMusic).toContain("if (saleCartTracks.length < 2)");
   });
 
-  it('delivers to Loki Music first, then requests connected-provider synchronization', () => {
+  it('keeps the Pépites creation flow as selection -> cart review -> payment -> final publish', () => {
+    expect(salePanel).toContain("collectionCartStep === 'TRACKS'");
+    expect(salePanel).toContain("collectionCartStep === 'REVIEW'");
+    expect(salePanel).toContain("collectionCartStep === 'PRICE'");
+    expect(salePanel).toContain("J’AI FINI MA SÉLECTION");
+    expect(salePanel).toContain('OUVRIR MON PANIER →');
+    expect(salePanel).toContain('OUI, MA SÉLECTION EST TERMINÉE');
+    expect(salePanel).toContain('<Text style={s.collectionCartFieldLabel}>DEVISE</Text>');
+    expect(salePanel).toContain("host === 'paypal.me'");
+    expect(salePanel).toContain('PAYPAL DÉJÀ ENREGISTRÉ');
+  });
+
+  it('uses the blue design system for the Pépites cart confirmation CTA', () => {
+    expect(salePanel).toContain('collectionCartReadyButton:{minHeight:76');
+    expect(salePanel).toContain('backgroundColor:colors.primary');
+    expect(salePanel).not.toContain("collectionCartContinueHero:{flex:1,minHeight:62,backgroundColor:'#FFD166'}");
+  });
+
+  it('delivers to Loki Music and keeps connected-provider synchronization available', () => {
     expect(saleService).toContain("keep_playlist_sale_mark_paid_and_deliver");
-    expect(salePanel).toContain('syncMarketplaceDelivery(transaction.id)');
+    expect(providerSync).toContain('export async function syncMarketplaceDelivery');
     expect(providerSync).toContain('/library/marketplace-delivery/${encodeURIComponent(paymentId)}/sync');
   });
 });

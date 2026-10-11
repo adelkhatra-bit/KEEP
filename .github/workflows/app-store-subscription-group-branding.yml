@@ -1,0 +1,65 @@
+name: Loki Subscription Group Branding
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/app-store-subscription-group-branding.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  brand:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Update visible subscription group name
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        run: |
+          node <<'NODE'
+          const crypto=require('node:crypto');
+          const key=Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(),'base64');
+          const enc=x=>Buffer.from(JSON.stringify(x)).toString('base64url');
+          const now=Math.floor(Date.now()/1000);
+          const unsigned=enc({alg:'ES256',kid:process.env.ASC_KEY_ID.trim(),typ:'JWT'})+'.'+enc({iss:process.env.ASC_ISSUER_ID.trim(),iat:now-30,exp:now+600,aud:'appstoreconnect-v1'});
+          const token=unsigned+'.'+crypto.sign('sha256',Buffer.from(unsigned),{key,dsaEncoding:'ieee-p1363'}).toString('base64url');
+          async function api(p,{method='GET',body}={}){
+            const res=await fetch('https://api.appstoreconnect.apple.com'+p,{
+              method,
+              headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+              body:body?JSON.stringify(body):undefined
+            });
+            const txt=await res.text();
+            if(!res.ok)throw new Error(method+' '+p+' HTTP '+res.status+' '+txt.slice(0,900));
+            return txt?JSON.parse(txt):null;
+          }
+          (async()=>{
+            const appId=process.env.ASC_APP_ID.trim();
+            const groups=await api('/v1/apps/'+appId+'/subscriptionGroups?fields[subscriptionGroups]=referenceName&limit=50');
+            const group=(groups.data||[])[0];
+            if(!group)throw new Error('No subscription group found');
+            const versions=await api('/v1/subscriptionGroups/'+group.id+'/versions?limit=50');
+            const version=(versions.data||[]).find(v=>v.attributes?.state==='PREPARE_FOR_SUBMISSION')||(versions.data||[])[0];
+            if(!version)throw new Error('No editable subscription group version');
+            const locs=await api('/v1/subscriptionGroupVersions/'+version.id+'/localizations?limit=50');
+            const fr=(locs.data||[]).find(x=>x.attributes?.locale==='fr-FR');
+            if(!fr)throw new Error('No fr-FR subscription group localization');
+            const before=fr.attributes?.name||'';
+            if(before!=='Abonnements Loki Music'){
+              await api('/v2/subscriptionGroupLocalizations/'+fr.id,{
+                method:'PATCH',
+                body:{data:{type:'subscriptionGroupLocalizations',id:fr.id,attributes:{name:'Abonnements Loki Music'}}}
+              });
+            }
+            const verify=await api('/v2/subscriptionGroupLocalizations/'+fr.id);
+            console.log('Visible subscription group name:',verify.data.attributes?.name);
+            if(verify.data.attributes?.name!=='Abonnements Loki Music')process.exit(2);
+          })().catch(e=>{console.error(e.message||String(e));process.exit(1)});
+          NODE

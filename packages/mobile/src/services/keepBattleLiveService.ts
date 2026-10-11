@@ -1,3 +1,4 @@
+import { coalesced, throttledBeat } from './coalesce';
 import { supabase } from './supabaseClient';
 
 export type KeepBattleLivePlayer = {
@@ -20,6 +21,9 @@ export type KeepBattleLivePlayer = {
   // le salon deja cree (BATTLE_TARGET_NO_CREDIT).
   remainingFree: number;
   hasPaidAccess: boolean;
+  soloRoundIndex?: number | null;
+  soloRoundTotal?: number | null;
+  soloRoundRemaining?: number | null;
 };
 
 export type KeepBattleIncomingChallenge = {
@@ -59,8 +63,8 @@ function str(row: any, camel: string, snake: string, fallback = '') {
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export async function heartbeatSoloBattle(themeCode: string): Promise<void> {
-  const { error } = await client().rpc('keep_battle_solo_heartbeat', { p_theme_code: themeCode || 'MIX' });
+export async function heartbeatSoloBattle(themeCode: string, roundIndex?: number, roundTotal?: number): Promise<void> {
+  const { error } = await client().rpc('keep_battle_solo_heartbeat', { p_theme_code: themeCode || 'MIX', p_round_index: roundIndex ?? null, p_round_total: roundTotal ?? null });
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_HEARTBEAT_FAILED'));
 }
 
@@ -75,23 +79,34 @@ export async function setManualBattleAvailability(available: boolean, themeCode 
 }
 
 export async function pingManualBattleAvailability(): Promise<void> {
-  const { error } = await client().rpc('keep_battle_manual_availability_ping');
-  if (error) throw new Error(String(error.message || 'KEEP_BATTLE_AVAILABILITY_PING_FAILED'));
+  // Un battement toutes les 15 s au plus, même si plusieurs écrans le demandent ensemble (8 envois mesurés à l'ouverture du profil).
+  return throttledBeat('manual-availability-ping', 15000, async () => {
+    const { error } = await client().rpc('keep_battle_manual_availability_ping');
+    if (error) throw new Error(String(error.message || 'KEEP_BATTLE_AVAILABILITY_PING_FAILED'));
+  });
 }
 
-export async function getManualBattleAvailability(): Promise<boolean> {
+async function getManualBattleAvailabilityUncoalesced(): Promise<boolean> {
   const { data, error } = await client().rpc('keep_battle_get_manual_availability');
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_AVAILABILITY_READ_FAILED'));
   return Boolean(data);
 }
+
+export function getManualBattleAvailability(): Promise<boolean> {
+  return coalesced('getManualBattleAvailability', () => getManualBattleAvailabilityUncoalesced());
+}
+
 
 export async function leaveSoloBattle(): Promise<void> {
   const { error } = await client().rpc('keep_battle_solo_leave');
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_LEAVE_FAILED'));
 }
 
-export async function loadLiveSoloPlayers(limit = 12): Promise<KeepBattleLivePlayer[]> {
-  const { data, error } = await client().rpc('keep_battle_solo_available', { p_limit: limit });
+export async function loadLiveSoloPlayers(limit = 12, roundCount = 8): Promise<KeepBattleLivePlayer[]> {
+  const { data, error } = await client().rpc('keep_battle_solo_available', {
+    p_limit: limit,
+    p_round_count: Math.max(5, Math.min(Math.round(roundCount) || 8, 30)),
+  });
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_LIVE_PLAYERS_FAILED'));
   return Array.isArray(data) ? data.map((row: any) => ({
     profileId: str(row, 'profileId', 'profile_id'),
@@ -104,6 +119,9 @@ export async function loadLiveSoloPlayers(limit = 12): Promise<KeepBattleLivePla
     preferredRoundCount: Number(row?.preferredRoundCount ?? row?.preferred_round_count ?? 8) || 8,
     remainingFree: Number(row?.remainingFree ?? row?.remaining_free ?? 0) || 0,
     hasPaidAccess: Boolean(row?.hasPaidAccess ?? row?.has_paid_access ?? false),
+    soloRoundIndex: row?.soloRoundIndex ?? row?.solo_round_index ?? null,
+    soloRoundTotal: row?.soloRoundTotal ?? row?.solo_round_total ?? null,
+    soloRoundRemaining: row?.soloRoundRemaining ?? row?.solo_round_remaining ?? null,
   })).filter((row) => row.profileId) : [];
 }
 
@@ -202,10 +220,28 @@ export async function loadOutgoingBattleChallenges(): Promise<KeepBattleOutgoing
   })).filter((row) => row.id) : [];
 }
 
+export async function cancelBattleChallenge(challengeId: string): Promise<{ status: 'CANCELLED'; targetId?: string | null }> {
+  const { data, error } = await client().rpc('keep_battle_challenge_cancel', { p_challenge_id: challengeId });
+  if (error) throw new Error(String(error.message || 'KEEP_BATTLE_CHALLENGE_CANCEL_FAILED'));
+  return {
+    status: 'CANCELLED',
+    targetId: (data as any)?.targetId ? String((data as any).targetId) : null,
+  };
+}
+
 export async function respondBattleChallenge(challengeId: string, accept: boolean): Promise<{ status: string; arenaId?: string | null; arenaCode?: string | null; arenaState?: any | null }> {
+  // Un refus est volontairement séparé de l'ancienne RPC générique.
+  // Les anciennes builds qui envoient accidentellement p_accept=false ne
+  // peuvent ainsi plus transformer une invitation PENDING en DECLINED.
+  if (!accept) {
+    const { data, error } = await client().rpc('keep_battle_challenge_decline_confirmed', { p_challenge_id: challengeId });
+    if (error) throw new Error(String(error.message || 'KEEP_BATTLE_CHALLENGE_DECLINE_FAILED'));
+    return { status: String((data as any)?.status || 'DECLINED') };
+  }
+
   let lastError: unknown = null;
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const { data, error } = await client().rpc('keep_battle_challenge_respond', { p_challenge_id: challengeId, p_accept: accept });
+    const { data, error } = await client().rpc('keep_battle_challenge_respond', { p_challenge_id: challengeId, p_accept: true });
     if (!error) {
       return {
         status: String((data as any)?.status || ''),

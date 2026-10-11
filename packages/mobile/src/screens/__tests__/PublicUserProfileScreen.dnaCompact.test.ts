@@ -4,25 +4,31 @@ import path from 'path';
 
 const readNormalized = (...segments: string[]) => fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\r\n/g, '\n');
 
-describe('PublicUserProfileScreen Loki Music DNA compaction (Adel, 21/09/2026 : "le bloc ADN prend trop de place, noie le reste")', () => {
+describe('profile Loki Pulse compaction', () => {
   const visited = readNormalized(__dirname, '..', 'PublicUserProfileScreen.tsx');
   const personal = readNormalized(__dirname, '..', 'ProfilePublicScreen.tsx');
 
-  it('collapses the DNA block by default behind a chevron on the visited profile', () => {
-    expect(visited).toContain('const [dnaExpanded, setDnaExpanded] = useState(false);');
-    expect(visited).toContain("onPress={() => setDnaExpanded((v) => !v)}");
+  it('collapses owner and visited Pulse details by default', () => {
+    expect(personal).toContain("const [ownerDnaExpanded, setOwnerDnaExpanded] = useState(false);");
+    expect(visited).toContain('const [visitorPulseExpanded, setVisitorPulseExpanded] = useState(false);');
   });
 
-  it('shows a one-line condensed summary when collapsed, and the full chip detail when expanded (nothing removed)', () => {
-    expect(visited).toContain('styles.dnaCondensed');
-    expect(visited).toContain("[...profile.favoriteGenres.slice(0, 3), ...profile.favoriteArtists.slice(0, 2)].join(' · ')");
-    // Le détail complet (puces cliquables Styles + Artistes) reste présent, juste derrière le chevron.
-    expect(visited).toContain('<Text style={styles.dnaRowLabel}>STYLES</Text>');
-    expect(visited).toContain('<Text style={styles.dnaRowLabel}>ARTISTES</Text>');
+  it('keeps percentage gauges visible while details stay compact', () => {
+    expect(personal).toContain('<Text style={s.dnaCompactScore}>{styleCoveragePercent}%</Text>');
+    expect(visited).toContain('<Text style={styles.visitorDnaSummaryScore}>{visitorStyleCoveragePercent}%</Text>');
+    expect(personal).toContain("ownerDnaExpanded ? '⌃' : '⌄'");
+    expect(visited).toContain('VOIR SES ${visitorStyleBubbles.length} STYLES');
   });
 
-  it('leaves the personal profile\'s own DNA block untouched (full block, no collapse) -- explicit Adel request', () => {
-    expect(personal).not.toContain('dnaExpanded');
-    expect(personal).toContain('<Text style={s.dnaEyebrow}>Loki Music DNA</Text>');
+  it('keeps clickable style bubbles after expansion', () => {
+    expect(personal).toContain('testID="profile-music-style-bubbles"');
+    expect(visited).toContain('testID="public-profile-music-style-bubbles"');
+    expect(personal).toContain('openSelectionSwipe');
+    expect(visited).toContain("openBrowseSwipe({ type: 'genre'");
+  });
+
+  it('never restores visible Loki Music DNA wording', () => {
+    expect(personal).not.toContain('Loki Music DNA');
+    expect(visited).not.toContain('Loki Music DNA');
   });
 });

@@ -1,0 +1,55 @@
+name: Loki Content Rights Verify
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/app-store-content-rights.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  rights:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Ensure third-party content rights declaration
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        run: |
+          node <<'NODE'
+          const crypto=require('node:crypto');
+          const key=Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(),'base64');
+          const enc=x=>Buffer.from(JSON.stringify(x)).toString('base64url');
+          const now=Math.floor(Date.now()/1000);
+          const unsigned=enc({alg:'ES256',kid:process.env.ASC_KEY_ID.trim(),typ:'JWT'})+'.'+enc({iss:process.env.ASC_ISSUER_ID.trim(),iat:now-30,exp:now+600,aud:'appstoreconnect-v1'});
+          const token=unsigned+'.'+crypto.sign('sha256',Buffer.from(unsigned),{key,dsaEncoding:'ieee-p1363'}).toString('base64url');
+          async function api(path,{method='GET',body}={}){
+            const res=await fetch('https://api.appstoreconnect.apple.com'+path,{method,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
+            const txt=await res.text();
+            if(!res.ok)throw new Error(method+' '+path+' HTTP '+res.status+' '+txt.slice(0,800));
+            return txt?JSON.parse(txt):null;
+          }
+          (async()=>{
+            const id=process.env.ASC_APP_ID.trim();
+            let app=await api('/v1/apps/'+id+'?fields[apps]=name,bundleId,contentRightsDeclaration');
+            console.log('Before:',app.data.attributes?.contentRightsDeclaration||'EMPTY');
+            if(app.data.attributes?.contentRightsDeclaration!=='USES_THIRD_PARTY_CONTENT'){
+              app=await api('/v1/apps/'+id,{
+                method:'PATCH',
+                body:{data:{type:'apps',id,attributes:{contentRightsDeclaration:'USES_THIRD_PARTY_CONTENT'}}}
+              });
+              console.log('PATCH response:',app.data.attributes?.contentRightsDeclaration||'EMPTY');
+            }
+            const after=await api('/v1/apps/'+id+'?fields[apps]=contentRightsDeclaration');
+            const value=after.data.attributes?.contentRightsDeclaration||null;
+            console.log('Verified content rights:',value);
+            if(value!=='USES_THIRD_PARTY_CONTENT')process.exit(2);
+          })().catch(e=>{console.error(e.message||String(e));process.exit(1)});
+          NODE

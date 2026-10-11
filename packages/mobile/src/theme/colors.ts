@@ -28,12 +28,26 @@ export const colors = {
   textPrimary: '#FFFFFF',
   textSecondary: '#FFFFFF',
   textMuted: '#FFFFFF',
+  // Gris secondaire #A0A0B0 — dérogation explicite d'Adel (spec refonte
+  // accueil 22/09/2026) pour les textes non fonctionnels : sous-titres et
+  // liens ghost.
+  textMutedGrey: '#A0A0B0',
 
   // États
   success: '#2DE1C2',
   warning: '#FFB454',
   danger: '#FF5C72',
   info: '#5CA8FC',
+  infoFaint: 'rgba(92, 168, 252, 0.08)',
+
+  // Fonds translucides dérivés des états (menthe #2DE1C2 / corail #FF5C72)
+  // + voile de modale. Ajoutés pour bannir les rgba() en dur des écrans.
+  dangerSoft: 'rgba(255, 92, 114, 0.12)', // corail à 12% — encadrés d'erreur
+  successSoft: 'rgba(45, 225, 194, 0.08)', // menthe à 8% — cartes déverrouillées
+  // menthe/violet faint pour fonds sections découvertes/reprises (MyMusicScreen)
+  successFaint: 'rgba(45, 225, 194, 0.06)', // menthe à 6% — fond section découvertes
+  primaryFaint: 'rgba(124, 92, 252, 0.07)', // violet à 7% — fond section reprises
+  overlay: 'rgba(0, 0, 0, 0.7)', // voile sombre des modales plein écran
 
   // Badges
   demoBadgeBg: 'rgba(255, 180, 84, 0.16)',

@@ -37,6 +37,10 @@ export interface User {
   kind: ProfileKind;
   city?: string;
   countryCode?: string;
+  /** BCP-47 language tag detected/selected for localized UI and music recommendations. */
+  preferredLanguageTag?: string;
+  /** ISO-3166 alpha-2 countries whose music scenes the member wants in recommendations. */
+  musicCountryCodes?: string[];
   website?: string;
   favoriteGenres: string[];
   favoriteArtists: string[];
@@ -69,6 +73,7 @@ export interface SessionTrackEntry {
   /** Attribution sociale : présent lorsque ce morceau gardé provient du profil d'un autre membre. */
   sourceProfileId?: string;
   sourceUsername?: string;
+  sourceAvatarUrl?: string | null;
   creditSource?: 'FREE' | 'SOCIAL';
   /**
    * Le morceau reste intégralement dans Mes Sessions (métadonnées + extrait distant)
@@ -89,6 +94,8 @@ export interface SessionTrackEntry {
 }
 
 export interface KeepSession {
+  /** ID Supabase du propriétaire : protège la synchronisation multi-comptes. */
+  ownerUserId?: string;
   id: string;
   startedAt: string;
   endedAt: string | null;

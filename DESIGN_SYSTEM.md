@@ -70,14 +70,14 @@ Note historique : une première version de ce document proposait des gris diffé
 | `h1` | 32 | 40 | 700 | Titre d'écran unique |
 | `h2` | 26 | 32 | 700 | Identité, titre de modale |
 | `h3` | 20 | 26 | 600 | Titre de section |
-| `body` | 16 | 24 | 400 | Texte courant |
-| `bodyMedium` | 16 | 24 | 500 | Métadonnée importante |
-| `bodyBold` | 16 | 24 | 700 | Action ou valeur forte |
+| `body` | 17 | 24 | 400 | Texte courant |
+| `bodyMedium` | 17 | 24 | 500 | Métadonnée importante |
+| `bodyBold` | 17 | 24 | 700 | Action ou valeur forte |
 | `caption` | 14 | 20 | 500 | Compteur, date, aide |
-| `small` | 12 | 16 | 500 | Badge court uniquement |
+| `small` | 11 | 16 | 500 | Badge/caption non essentiel uniquement |
 | `button` | 15 | 20 | 700 | Boutons, casse normale recommandée |
 
-Règles : un seul `h1` par écran ; `h2` pour l'identité ; `h3` pour les sections ; jamais de texte fonctionnel sous 12 px ; majuscules réservées aux libellés courts.
+Règles : un seul `h1` par écran ; `h2` pour l'identité ; `h3` pour les sections ; texte courant cible **17 pt** ; secondaire **13–15 pt** ; minimum absolu **11 pt** uniquement pour badges/captions non essentiels ; aucun texte fonctionnel sous 11 pt ; majuscules réservées aux libellés courts. Supporter Dynamic Type et l'agrandissement sans chevauchement.
 
 ## 4. Espacements et formes
 
@@ -160,6 +160,15 @@ recréer une grille inline.
 - États obligatoires : chargement, vide, erreur avec réessai, contenu, fin de liste.
 - Une ligne de morceau conserve pochette, titre, artiste, lecture, statut et actions disponibles.
 
+### Boucle d'interaction Loki
+
+- Une action doit former un circuit complet : **intention → action → feedback → résultat/retour**.
+- Aucun bouton décoratif ou sans effet réel.
+- **1 tap/clic = fonction** ; le deuxième tap/clic n'est autorisé que pour confirmer une action sensible.
+- Les aides longues et textes lus une seule fois restent repliés derrière « En savoir plus ».
+- Un geste (swipe, drag) accélère une fonction mais ne remplace jamais son bouton essentiel.
+- Mobile et Web partagent le même comportement métier dès que la fonction est commune.
+
 ## 6. Micro-interactions
 
 - Rapide `120 ms` : tap, hover, changement de couleur.
@@ -189,3 +198,85 @@ recréer une grille inline.
 - Aucun écran ne crée une nouvelle couleur, taille ou animation sans ajout préalable dans le design system.
 - Les règles métier et couleurs critiques restent immuables : **GARDER = menthe**, **PASSER = corail**.
 - Toute refonte doit conserver les fonctions existantes, vérifier mobile iOS/Android et valider contraste, taille des touches et lecteur d'écran.
+
+
+## 9. Référentiel multi-écrans et accessibilité — décision du 09/10/2026
+
+**Statut : règles documentées à la demande d'Adel ; conformité du produit NON validée.**
+Cette section précise les exigences à contrôler et prévaut sur les formulations ambiguës des sections précédentes. Elle ne décrit pas des corrections déjà livrées et n'autorise pas une refonte. Aucun fichier d'application, token ou contrôle CI n'est modifié par cet ajout documentaire. L'application progressive et les gardes automatiques restent à intégrer avec preuves dans le chantier existant, sans dupliquer la logique mobile/Web.
+
+### 9.1 Unités et exigences distinctes
+
+- Web : dimensions en **pixels CSS**, et non pixels physiques de l'écran ; texte relatif au réglage utilisateur.
+- iOS : dimensions en **points logiques** et Dynamic Type ; Android : cibles en **dp**, texte adapté à l'échelle utilisateur (sp dans les APIs natives).
+- Une valeur React Native doit être vérifiée sur son rendu de plateforme. Ne pas convertir une capture Retina en taille de police ni assimiler point iOS et point typographique CSS.
+- WCAG 2.2 AA est la cible d'accessibilité Web du projet. Respecter quelques seuils ne suffit pas à déclarer tout le produit conforme.
+
+### 9.2 Boutons, icônes et zones activables
+
+- WCAG 2.2, critère 2.5.8 AA : cible au moins **24 × 24 pixels CSS**, avec exceptions normatives (espacement, lien intégré au texte, contrôle équivalent, contrôle navigateur, présentation essentielle). Ce minimum n'est PAS la cible de confort Loki.
+- Loki conserve une cible Web/iOS au moins **44 × 44** dans l'unité logique de plateforme ; viser **48 × 48** pour les contrôles partagés. Sur Android, cible tactile au moins **48 × 48 dp**.
+- Distinguer le dessin visible de la zone réellement activable : une icône 20–24 ou un bouton visuel compact 36 peut avoir une zone plus grande. Les zones agrandies ne doivent pas se chevaucher ni être coupées par le parent.
+- Les carrés 40 × 40 et chevrons 24 × 24 historiques de TrackActionRow ne prouvent pas la taille de cible : mesurer leur zone activable avant validation.
+- Espacement de confort entre contrôles : viser 8 unités logiques lorsque possible (choix produit, pas minimum universel WCAG). Les actions essentielles restent disponibles sans swipe ni survol.
+- Clavier Web : Tab/Shift+Tab, activation appropriée Entrée/Espace, focus visible et non entièrement masqué par une barre fixe ou une modale. Nom accessible pour chaque icône seule.
+- Ne pas étirer automatiquement un bouton à toute la largeur d'un grand écran. Adapter sa largeur au libellé et à son groupe, tout en conservant une cible confortable.
+
+### 9.3 Écritures et agrandissement
+
+- WCAG ne fixe pas une taille de police universelle de 16 pixels. Les tailles suivantes sont des choix de lisibilité Loki : corps **17** (base existante), secondaire **13–15**, boutons **15** ; **11** réservé aux badges/captions non essentiels. Aucun texte fonctionnel sous 11 ; prix, coûts FREE, actions et messages essentiels ne sont pas des captions décoratives.
+- Sur le Web, vérifier l'agrandissement du texte à **200 %** sans perte de contenu ni de fonction (WCAG 1.4.4). Ne pas désactiver le zoom.
+- Sur iOS/Android, tester les grandes tailles de texte du système : retour à la ligne, hauteur adaptable, aucun libellé essentiel coupé ou recouvert ; une limite de mise à l'échelle ne doit pas neutraliser l'accessibilité.
+- WCAG 1.4.12 : le contenu doit rester utilisable quand l'utilisateur impose simultanément interligne 1,5 fois la taille de police, espace après paragraphe 2 fois, lettres 0,12 fois et mots 0,16 fois. Il s'agit d'un test de résistance, pas de l'obligation de rendre ces valeurs par défaut.
+- Sur grand écran, plafonner la largeur des paragraphes (cible de confort 45–75 caractères environ, choix produit), pas grossir tous les textes proportionnellement à la fenêtre.
+
+### 9.4 Couleur et contraste mesuré
+
+- Texte courant, y compris aides et placeholders utiles : contraste **au moins 4,5:1** avec le fond effectivement rendu.
+- Grand texte Web : **au moins 3:1** à partir de 24 pixels CSS normal, ou 18,67 pixels CSS gras (18/14 points typographiques CSS). Ne pas transposer ces points CSS aux points iOS.
+- Éléments visuels nécessaires à l'identification des contrôles/états et graphiques utiles : **3:1** avec les couleurs adjacentes pertinentes (WCAG 1.4.11). Cela ne signifie pas que chaque bordure décorative doit atteindre 3:1.
+- État/erreur/sélection : ajouter texte, icône ou autre indice, jamais couleur seule. Conserver GARDER menthe et PASSER corail ; choisir le texte/fond compatible sans changer leur sens.
+- Le blanc sur fond sombre reste la règle produit pour le texte fonctionnel ; sur un bouton clair, un texte sombre peut être requis. La règle « blanc partout » ne doit jamais imposer un contraste insuffisant.
+- Vérifier le résultat avec opacité du texte ET des parents, transparence, dégradé, pochette, hover, pressed et focus. Baisser l'opacité ne dispense jamais de mesurer le contraste. Ne pas arrondir un ratio inférieur au seuil pour le faire passer.
+- Exceptions WCAG (contrôle réellement inactif, décoration, certains logos) à distinguer des textes secondaires utiles ; ne pas qualifier une fonction difficile à lire de décoration.
+
+Calcul statique du 09/10 sur aplats opaques de la palette documentée, formule WCAG sRGB ; ce tableau n'est pas une mesure de l'application publiée :
+
+| Texte | Fond | Ratio approximatif | Texte courant AA |
+|---|---|---:|---|
+| Blanc #FFFFFF | Violet #7C5CFC | 4,381:1 | Échec |
+| Noir #000000 | Menthe #2DE1C2 | 12,661:1 | Réussite |
+| Blanc #FFFFFF | Menthe #2DE1C2 | 1,659:1 | Échec |
+| Blanc #FFFFFF | Corail #FF5C72 | 2,989:1 | Échec |
+| Blanc #FFFFFF | Fond #0B0A12 | 19,693:1 | Réussite |
+
+La prescription historique « primaire violet #7C5CFC + texte blanc 15 » doit être traitée comme un écart à corriger/tester, pas une combinaison AA validée. Aucun changement de palette n'a été appliqué par cet audit.
+
+### 9.5 Fenêtres, téléphones et ordinateurs
+
+- Le seuil de mise en page dépend du contenu disponible, pas du seul modèle d'appareil. Un ordinateur peut avoir une fenêtre étroite ; une tablette peut être grande et tactile. Ne pas choisir une capacité audio ou une identité utilisateur uniquement selon la largeur.
+- Reflow Web (WCAG 1.4.10) : contenu ordinaire utilisable à **320 pixels CSS** sans défilement dans deux directions ; vérifier notamment 1280 pixels à zoom 400 %. Exceptions seulement pour les contenus intrinsèquement bidimensionnels.
+- Matrice projet, dimensions logiques largeur × hauteur : téléphones **320×568, 375×667, 390×844, 430×932** ; tablette **768×1024, 1024×768** ; ordinateur **1280×720, 1366×768, 1440×900, 1920×1080**.
+- Ajouter portrait/paysage, redimensionnement sans rechargement, écran partagé, zoom/texte agrandi, clavier ouvert, safe areas et navigateur avec barres visibles.
+- Vérifier chaque écran principal et ses états vide/chargement/erreur, menus, modales, lecteur, story et tchat. Aucun bouton recouvert ; défilement accessible ; textes longs et prix complets.
+- Réutiliser les contrôles existants (dual-viewport, surface visible, runtime) ; ne pas créer un deuxième produit Desktop. Le minimum historique 390/1440 reste requis mais ne suffit pas à cette matrice étendue.
+
+### 9.6 QR et preuve de version
+
+- Le QR autorise une session ordinateur ; il ne copie pas le bundle installé sur le téléphone et ne garantit pas une égalité des versions déployées.
+- Source commune : packages/mobile, branche reconcile/claude-main-20260825. Distinguer code local non poussé, commit distant, Web publié, build natif et mise à jour OTA.
+- Chaque preuve contient : date, plateforme/navigateur, dimensions/zoom/taille système, route, SHA Web servi ou version/build/runtime/OTA mobile, résultat et capture. Pour le parcours QR, vérifier aussi identité du compte et cible Web canonique sans consigner token, QR de connexion ou lien d'authentification.
+- Un test Chromium à390 pixels ne constitue pas une preuve native iOS/Android du micro, audio, secousse, GPS ou push.
+- Lecture statique, test automatisé, contrôle visuel et essai matériel restent des preuves distinctes. Aucun statut « conforme », « testé » ou « déployé » sans preuve correspondante.
+
+### Sources officielles consultées le 09/10/2026
+
+- [W3C — WCAG 2.2, cible minimum AA](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html)
+- [W3C — contraste du texte](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html)
+- [W3C — contraste non textuel](https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html)
+- [W3C — agrandissement du texte](https://www.w3.org/WAI/WCAG22/Understanding/resize-text.html)
+- [W3C — reflow](https://www.w3.org/WAI/WCAG22/Understanding/reflow.html)
+- [W3C — espacement du texte](https://www.w3.org/WAI/WCAG22/Understanding/text-spacing.html)
+- [Apple — accessibilité](https://developer.apple.com/design/human-interface-guidelines/accessibility)
+- [Apple — conseils de conception UI](https://developer.apple.com/design/tips/)
+- [Android — accessibilité](https://developer.android.com/guide/topics/ui/accessibility/apps)

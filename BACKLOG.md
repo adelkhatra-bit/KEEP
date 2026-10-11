@@ -18,7 +18,9 @@
 - [ ] Compte publicitaire (publication payante)
 
 ## PRIORITÉ 5 — Films (V2)
-- [ ] Shazam un film → ajout au profil
+- [ ] Reconnaissance d'un film/série depuis le son ambiant : dialogue, bande originale ou extrait audio → identification du titre
+- [ ] Ajouter le film/série reconnu au profil et permettre à l'utilisateur de le marquer comme aimé
+- [ ] Construire un catalogue audiovisuel très large avec plusieurs sources de reconnaissance et un fallback, sans dépendre du seul catalogue musical
 - [ ] Notification aux abonnés "X a regardé tel film"
 
 ## PRIORITÉ 6 — Design & Communication

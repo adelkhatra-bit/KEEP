@@ -1,3 +1,4 @@
+import { coalesced } from './coalesce';
 import { supabase } from './supabaseClient';
 
 export type KeepBattleDecision = 'KEEP' | 'PASS';
@@ -179,13 +180,16 @@ export type KeepBattleGlobalLeaderboardEntry = {
   skillTier: string | null;
   isOnline: boolean;
   presenceThemeCode: string | null;
+  // Adel (02/10/2026) : abandons Battle + Solo (null tant que le serveur ne
+  // les fournit pas encore : rien n'est inventé).
+  abandons: number | null;
 };
 
 export async function loadKeepBattleGlobalLeaderboard(limit = 20): Promise<KeepBattleGlobalLeaderboardEntry[]> {
   const { data, error } = await client().rpc('keep_battle_global_leaderboard', { p_limit: Math.max(1, Math.min(Math.round(limit), 50)) });
   return (unwrap((data ?? []) as any[] | null, error)).map((row: any) => ({
     profileId: String(row.profile_id ?? row.profileId ?? ''),
-    username: String(row.username ?? 'KEEP'),
+    username: String(row.username ?? 'Loki'),
     avatarUrl: row.avatar_url ?? row.avatarUrl ?? null,
     wins: Number(row.wins ?? 0),
     matchesPlayed: Number(row.matches_played ?? row.matchesPlayed ?? 0),
@@ -196,7 +200,57 @@ export async function loadKeepBattleGlobalLeaderboard(limit = 20): Promise<KeepB
     skillTier: row.skill_tier ?? row.skillTier ?? null,
     isOnline: Boolean(row.is_online ?? row.isOnline ?? false),
     presenceThemeCode: row.presence_theme_code ?? row.presenceThemeCode ?? null,
+    abandons: row.abandons == null ? null : Number(row.abandons),
   })).filter((row) => row.profileId);
+}
+
+export type KeepBattleSoloRank = {
+  rank: number | null;
+  totalPlayers: number;
+  correct: number;
+  totalAnswers: number;
+  accuracy: number;
+  matches: number;
+  perfects: number;
+  abandons: number;
+};
+
+export async function loadKeepBattleSoloLeaderboard(limit = 20): Promise<KeepBattleGlobalLeaderboardEntry[]> {
+  const { data, error } = await client().rpc('keep_battle_solo_leaderboard', { p_limit: Math.max(1, Math.min(Math.round(limit), 50)) });
+  return (unwrap((data ?? []) as any[] | null, error)).map((row: any) => ({
+    profileId: String(row.profile_id ?? row.profileId ?? ''),
+    username: String(row.username ?? 'Loki'),
+    avatarUrl: row.avatar_url ?? row.avatarUrl ?? null,
+    wins: Number(row.wins ?? 0),
+    matchesPlayed: Number(row.matches_played ?? row.matchesPlayed ?? 0),
+    totalScore: Number(row.total_score ?? row.totalScore ?? 0),
+    totalCorrect: Number(row.total_correct ?? row.totalCorrect ?? 0),
+    avgResponseMs: row.avg_response_ms ?? row.avgResponseMs ?? null,
+    topThemeCode: row.top_theme_code ?? row.topThemeCode ?? null,
+    skillTier: row.skill_tier ?? row.skillTier ?? null,
+    isOnline: Boolean(row.is_online ?? row.isOnline ?? false),
+    presenceThemeCode: row.presence_theme_code ?? row.presenceThemeCode ?? null,
+    abandons: row.abandons == null ? null : Number(row.abandons),
+  })).filter((row) => row.profileId);
+}
+
+export async function loadMyKeepBattleSoloRank(): Promise<KeepBattleSoloRank> {
+  // Synchronise le dernier rang connu pour notifier aussi les mouvements
+  // provoqués par les résultats des autres joueurs. Fallback compatible tant
+  // que la nouvelle RPC n'est pas encore visible dans le cache PostgREST.
+  const primary = await client().rpc('keep_battle_sync_my_solo_rank');
+  const response = primary.error ? await client().rpc('keep_battle_my_solo_rank') : primary;
+  const row = unwrap((response.data ?? {}) as any, response.error) as any;
+  return {
+    rank: row?.rank == null ? null : Number(row.rank),
+    totalPlayers: Number(row?.totalPlayers ?? row?.total_players ?? 0),
+    correct: Number(row?.correct ?? 0),
+    totalAnswers: Number(row?.totalAnswers ?? row?.total_answers ?? 0),
+    accuracy: Number(row?.accuracy ?? 0),
+    matches: Number(row?.matches ?? 0),
+    perfects: Number(row?.perfects ?? 0),
+    abandons: Number(row?.abandons ?? 0),
+  };
 }
 
 // Adel (03/09/2026) : "quand j'appuie sur revanche, pareil, ça me met une
@@ -210,6 +264,25 @@ export type KeepBattlePendingRematch = {
   rematchDeadline: string;
   participantUsernames: string[];
 };
+
+export type KeepBattleRematchParticipant = {
+  profileId: string;
+  username: string;
+  rematchReady: boolean | null;
+  isProposer: boolean;
+  isMe: boolean;
+};
+
+export async function loadKeepBattleArenaRematchStatus(arenaId: string): Promise<KeepBattleRematchParticipant[]> {
+  const { data, error } = await client().rpc('keep_battle_arena_rematch_status', { p_arena_id: arenaId });
+  return (unwrap((data ?? []) as any[] | null, error)).map((row: any) => ({
+    profileId: String(row.profile_id ?? row.profileId ?? ''),
+    username: String(row.username ?? 'Loki'),
+    rematchReady: row.rematch_ready == null ? null : Boolean(row.rematch_ready),
+    isProposer: Boolean(row.is_proposer ?? row.isProposer),
+    isMe: Boolean(row.is_me ?? row.isMe),
+  })).filter((row) => row.profileId);
+}
 
 export async function loadPendingArenaRematches(): Promise<KeepBattlePendingRematch[]> {
   const { data, error } = await client().rpc('keep_battle_arena_pending_rematch_for_me');
@@ -235,18 +308,34 @@ export type KeepBattlePlayerStats = {
   totalCorrect: number;
   avgResponseMs: number | null;
   topThemes: KeepBattlePlayerThemeStat[];
-  // Adel (04/09/2026) : "il faut mettre le nombre d'utilisateur [abonnés], le
-  // nombre de Free qu'il a et le nombre de Free qu'il a gagné" -- sur la
-  // fiche stats d'un joueur, déjà publique côté Battle (victoires, matchs).
   followers: number;
   freeBalance: number;
   freeWon: number;
   freeLost: number;
   freeNet: number;
+  battleAbandons: number;
+  soloAbandons: number;
+  abandons: number;
+  freePeriod: 'TODAY_2AM' | string;
+  freePeriodTimezone: string;
+  freePeriodStartedAt: string | null;
+  freePeriodEndsAt: string | null;
 };
 
-export async function loadKeepBattlePlayerStats(profileId: string): Promise<KeepBattlePlayerStats> {
-  const { data, error } = await client().rpc('keep_battle_profile_battle_stats', { p_profile_id: profileId, p_theme_limit: 3 });
+function deviceTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris';
+  } catch {
+    return 'Europe/Paris';
+  }
+}
+
+async function loadKeepBattlePlayerStatsUncoalesced(profileId: string): Promise<KeepBattlePlayerStats> {
+  const { data, error } = await client().rpc('keep_battle_profile_battle_stats_daily', {
+    p_profile_id: profileId,
+    p_theme_limit: 3,
+    p_timezone: deviceTimeZone(),
+  });
   const row = unwrap(data as any, error);
   return {
     wins: Number(row.wins ?? 0),
@@ -264,8 +353,20 @@ export async function loadKeepBattlePlayerStats(profileId: string): Promise<Keep
     freeWon: Number(row.freeWon ?? 0),
     freeLost: Number(row.freeLost ?? 0),
     freeNet: Number(row.freeNet ?? 0),
+    battleAbandons: Number(row.battleAbandons ?? 0),
+    soloAbandons: Number(row.soloAbandons ?? 0),
+    abandons: Number(row.abandons ?? 0),
+    freePeriod: String(row.freePeriod ?? 'TODAY_2AM'),
+    freePeriodTimezone: String(row.freePeriodTimezone ?? deviceTimeZone()),
+    freePeriodStartedAt: row.freePeriodStartedAt ? String(row.freePeriodStartedAt) : null,
+    freePeriodEndsAt: row.freePeriodEndsAt ? String(row.freePeriodEndsAt) : null,
   };
 }
+
+export function loadKeepBattlePlayerStats(profileId: string): Promise<KeepBattlePlayerStats> {
+  return coalesced('loadKeepBattlePlayerStats' + ':' + String(profileId), () => loadKeepBattlePlayerStatsUncoalesced(profileId));
+}
+
 
 export type KeepBattleArenaCreated = {
   id: string;
@@ -295,6 +396,49 @@ function unwrap<T>(data: T | null, error: any): T {
   if (error) throw new Error(String(error?.message || error?.code || 'KEEP_BATTLE_FAILED'));
   if (data == null) throw new Error('KEEP_BATTLE_EMPTY_RESPONSE');
   return data;
+}
+
+
+let battleClockOffsetMs = 0;
+let battleClockOffsetExpiresAt = 0;
+let battleClockOffsetInFlight: Promise<number> | null = null;
+
+/** Calibre les appareils sur l'horloge PostgreSQL pour un départ audio commun. */
+export async function estimateKeepBattleServerClockOffsetMs(force = false): Promise<number> {
+  const now = Date.now();
+  if (!force && battleClockOffsetExpiresAt > now) return battleClockOffsetMs;
+  if (battleClockOffsetInFlight) return battleClockOffsetInFlight;
+
+  battleClockOffsetInFlight = (async () => {
+    const samples: Array<{ rtt: number; offset: number }> = [];
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const t0 = Date.now();
+      try {
+        const { data, error } = await client().rpc('keep_server_epoch_ms');
+        const t1 = Date.now();
+        if (error) throw error;
+        const serverMs = Number(data);
+        if (!Number.isFinite(serverMs)) continue;
+        samples.push({ rtt: Math.max(0, t1 - t0), offset: serverMs - ((t0 + t1) / 2) });
+      } catch {
+        // La calibration est un renfort de synchro, jamais un blocage du Battle.
+      }
+    }
+    if (samples.length) {
+      samples.sort((a, b) => a.rtt - b.rtt);
+      battleClockOffsetMs = Math.round(samples[0].offset);
+    } else {
+      battleClockOffsetMs = 0;
+    }
+    battleClockOffsetExpiresAt = Date.now() + 60_000;
+    return battleClockOffsetMs;
+  })().finally(() => { battleClockOffsetInFlight = null; });
+
+  return battleClockOffsetInFlight;
+}
+
+export function keepBattleServerNowMs(offsetMs = battleClockOffsetMs): number {
+  return Date.now() + offsetMs;
 }
 
 export type KeepBattleCatalogRefresh = {
@@ -384,17 +528,40 @@ export async function loadMyKeepBattleStats(): Promise<KeepBattleStats> {
   return unwrap(data as KeepBattleStats | null, error);
 }
 
-export async function loadMyKeepBattleCreditStatus(): Promise<KeepBattleCreditStatus> {
-  const { data, error } = await client().rpc('keep_battle_credit_status');
-  return unwrap(data as KeepBattleCreditStatus | null, error);
+async function loadMyKeepBattleCreditStatusUncoalesced(): Promise<KeepBattleCreditStatus> {
+  const c = client();
+  const { data, error } = await c.rpc('keep_battle_credit_status');
+  if (!error && data) return unwrap(data as KeepBattleCreditStatus | null, null);
+
+  // Le portefeuille FREE ne dépend pas du bon fonctionnement du module Battle.
+  // Si l'ancien RPC Battle est momentanément indisponible après une migration,
+  // on lit le portefeuille unifié au lieu d'afficher 0 / rien à tous les utilisateurs.
+  const fallback = await c.rpc('keep_free_wallet_status', { p_timezone: 'Europe/Paris' });
+  if (fallback.error || !fallback.data) {
+    return unwrap(data as KeepBattleCreditStatus | null, error || fallback.error);
+  }
+  const row = fallback.data as any;
+  const earned = Number(row.earnedToday ?? row.earned_today ?? 0) || 0;
+  const lost = Number(row.lostToday ?? row.lost_today ?? 0) || 0;
+  return {
+    won: earned,
+    lost,
+    net: earned - lost,
+    remainingFree: Number(row.balance ?? 0) || 0,
+  };
 }
+
+export function loadMyKeepBattleCreditStatus(): Promise<KeepBattleCreditStatus> {
+  return coalesced('loadMyKeepBattleCreditStatus', () => loadMyKeepBattleCreditStatusUncoalesced());
+}
+
 
 // Adel (18/09/2026) : "Lorsqu'un utilisateur se connecte, il faut marquer son
 // style musical" -- met à jour presence_theme_code pour signaler aux autres
 // joueurs quel style musical l'utilisateur joue en solo. Envoie aussi une
 // notification aux joueurs disponibles qu'une partie solo vient de démarrer.
-export async function updateSoloPresenceTheme(themeCode = 'MIX'): Promise<void> {
-  const { error } = await client().rpc('keep_battle_solo_heartbeat', { p_theme_code: themeCode });
+export async function updateSoloPresenceTheme(themeCode = 'MIX', roundIndex = 0, roundTotal = 1): Promise<void> {
+  const { error } = await client().rpc('keep_battle_solo_heartbeat', { p_theme_code: themeCode, p_round_index: roundIndex, p_round_total: roundTotal });
   if (error) throw new Error(String(error?.message || error?.code || 'KEEP_BATTLE_PRESENCE_FAILED'));
 }
 
@@ -454,11 +621,16 @@ export async function loadKeepBattleArena(arenaId: string): Promise<KeepBattleAr
 // Battle (changement d'onglet) démonte KeepBattleArenaPanel et perd l'état
 // local `arena`, sans aucun moyen de retrouver son siège actif au retour.
 // Retourne l'état de l'arène où le joueur a encore un siège ACTIVE, ou null.
-export async function loadMyActiveKeepBattleArena(): Promise<KeepBattleArenaState | null> {
+async function loadMyActiveKeepBattleArenaUncoalesced(): Promise<KeepBattleArenaState | null> {
   const { data, error } = await client().rpc('keep_battle_arena_my_active');
   if (error) return null;
   return (data as KeepBattleArenaState | null) ?? null;
 }
+
+export function loadMyActiveKeepBattleArena(): Promise<KeepBattleArenaState | null> {
+  return coalesced('loadMyActiveKeepBattleArena', () => loadMyActiveKeepBattleArenaUncoalesced());
+}
+
 
 // Adel (03/09/2026) : "un utilisateur pourra regarder le match en cours ...
 // et pouvoir dire je veux participer sans envoyer d'invite, quand le match
@@ -511,8 +683,18 @@ export async function submitKeepBattleArenaQuizAnswer(arenaId: string, selectedA
   return unwrap(data as KeepBattleArenaState | null, error);
 }
 
+export async function acknowledgeKeepBattleArenaPresence(arenaId: string): Promise<void> {
+  const { error } = await client().rpc('keep_battle_arena_presence_ack', { p_arena_id: arenaId });
+  if (error) throw error;
+}
+
 export async function proposeKeepBattleArenaRematch(arenaId: string): Promise<KeepBattleArenaState> {
   const { data, error } = await client().rpc('keep_battle_arena_propose_rematch', { p_arena_id: arenaId });
+  return unwrap(data as KeepBattleArenaState | null, error);
+}
+
+export async function cancelKeepBattleArenaRematch(arenaId: string): Promise<KeepBattleArenaState> {
+  const { data, error } = await client().rpc('keep_battle_arena_cancel_rematch', { p_arena_id: arenaId });
   return unwrap(data as KeepBattleArenaState | null, error);
 }
 

@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { coalesced } from './coalesce';
 import { supabase } from './supabaseClient';
 import { useUserStore } from '../store/useUserStore';
 import { APP_NAME } from '../config/brand';
@@ -21,6 +22,35 @@ const LOCAL_GUEST_LIMIT = 3;
 // Le compte invité ne peut pas charger Remote Config avant authentification.
 // Il applique donc la même valeur de secours que la règle commerciale Loki.
 const LOCAL_GUEST_COST_PER_KEEP = 3;
+const GUEST_STATUS_CACHE_MS = 15 * 1000;
+let guestStatusCache: { deviceId: string; consumed: number; checkedAt: number } | null = null;
+let guestStatusInFlight: Promise<{ deviceId: string; consumed: number } | null> | null = null;
+
+async function loadServerGuestConsumed(deviceId: string): Promise<number | null> {
+  const cached = guestStatusCache;
+  if (cached?.deviceId === deviceId && Date.now() - cached.checkedAt < GUEST_STATUS_CACHE_MS) {
+    return cached.consumed;
+  }
+  if (!guestStatusInFlight) {
+    guestStatusInFlight = (async () => {
+      try {
+        if (!supabase) return null;
+        const { data, error } = await supabase.rpc('keep_guest_device_credit_status', { p_device_id: deviceId });
+        const row = Array.isArray(data) ? data[0] : data;
+        if (error || !row) return null;
+        const consumed = Math.min(Math.max(Number(row.consumed || 0), 0), LOCAL_GUEST_LIMIT);
+        guestStatusCache = { deviceId, consumed, checkedAt: Date.now() };
+        return { deviceId, consumed };
+      } catch {
+        return null;
+      } finally {
+        guestStatusInFlight = null;
+      }
+    })();
+  }
+  const result = await guestStatusInFlight;
+  return result?.deviceId === deviceId ? result.consumed : null;
+}
 
 /**
  * Audit multi-agent 07/09/2026 : le compteur d'essai invité était UNIQUEMENT
@@ -72,14 +102,10 @@ async function readLocalGuestConsumed(): Promise<number> {
   try {
     if (supabase) {
       const deviceId = await getLocalGuestDeviceId();
-      const { data, error } = await supabase.rpc('keep_guest_device_credit_status', { p_device_id: deviceId });
-      const row = Array.isArray(data) ? data[0] : data;
-      if (!error && row) {
-        const serverConsumed = Number(row.consumed || 0);
-        if (serverConsumed > consumed) {
-          consumed = serverConsumed;
-          await AsyncStorage.setItem(LOCAL_GUEST_CREDIT_KEY, String(consumed)).catch(() => {});
-        }
+      const serverConsumed = await loadServerGuestConsumed(deviceId);
+      if (serverConsumed != null && serverConsumed > consumed) {
+        consumed = serverConsumed;
+        await AsyncStorage.setItem(LOCAL_GUEST_CREDIT_KEY, String(consumed)).catch(() => {});
       }
     }
   } catch {
@@ -154,6 +180,49 @@ export async function getDownloadCreditStatus(): Promise<DownloadCreditStatus> {
 }
 
 export type FreeCreditBattleEvent = { result: string; amount: number; createdAt: string; themeCode: string | null; battleType?: string };
+
+export type FreeSpentToday = {
+  spent: number;
+  keepSpent: number;
+  keeps: number;
+  marketplaceSpent: number;
+  marketplacePurchases: number;
+  period: string;
+  timezone: string;
+  startedAt: string | null;
+  endsAt: string | null;
+};
+
+function currentDeviceTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris';
+  } catch {
+    return 'Europe/Paris';
+  }
+}
+
+async function loadFreeSpentTodayUncoalesced(): Promise<FreeSpentToday | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('keep_free_spent_today', { p_timezone: currentDeviceTimeZone() });
+  if (error || !data) return null;
+  const row = data as any;
+  return {
+    spent: Number(row.spent || 0),
+    keepSpent: Number(row.keepSpent ?? row.keep_spent ?? row.spent ?? 0),
+    keeps: Number(row.keeps || 0),
+    marketplaceSpent: Number(row.marketplaceSpent ?? row.marketplace_spent ?? 0),
+    marketplacePurchases: Number(row.marketplacePurchases ?? row.marketplace_purchases ?? 0),
+    period: String(row.period || 'TODAY_2AM'),
+    timezone: String(row.timezone || currentDeviceTimeZone()),
+    startedAt: row.startedAt ? String(row.startedAt) : null,
+    endsAt: row.endsAt ? String(row.endsAt) : null,
+  };
+}
+
+export function loadFreeSpentToday(): Promise<FreeSpentToday | null> {
+  return coalesced('loadFreeSpentToday', () => loadFreeSpentTodayUncoalesced());
+}
+
 
 export type FreeCreditBreakdown = {
   remaining: number;
@@ -262,6 +331,7 @@ export async function consumeDownloadCredit(): Promise<DownloadCreditStatus> {
         if (!error && row) {
           if (!row.allowed) throw new Error('CREDITS_EXHAUSTED');
           consumed = Math.min(Number(row.consumed || consumed), LOCAL_GUEST_LIMIT);
+          guestStatusCache = { deviceId, consumed, checkedAt: Date.now() };
         }
       }
     } catch (e: any) {

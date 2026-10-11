@@ -1,0 +1,40 @@
+{
+  "tabs": [
+    "Discover",
+    "Listen",
+    "MyMusic",
+    "Parties",
+    "Profile"
+  ],
+  "stack": [
+    "AppleMusicConnect",
+    "Main",
+    "MusicConnections",
+    "Notifications",
+    "Offers",
+    "PlaylistSale",
+    "PlaylistSaleHistory",
+    "ProfileSettings",
+    "PublicProfile",
+    "SessionHistory",
+    "SessionRecap"
+  ],
+  "deepLinks": [
+    "AppleMusicConnect=apple-music-connect",
+    "Discover=Discover",
+    "Listen=Listen",
+    "MusicConnections=music-connections",
+    "MyMusic=MyMusic",
+    "Notifications=notifications",
+    "Offers=offers",
+    "Parties=Parties",
+    "PlaylistSale=playlist-sale",
+    "PlaylistSaleHistory=playlist-sale-history",
+    "Profile=Profile",
+    "ProfileSettings=profile-settings",
+    "PublicProfile=profile/:username",
+    "SessionHistory=session-history",
+    "SessionRecap=session-recap",
+    "path=Main"
+  ]
+}

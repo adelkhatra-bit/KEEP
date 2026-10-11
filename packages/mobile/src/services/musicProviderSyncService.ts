@@ -1,5 +1,5 @@
 import { Linking, Platform } from 'react-native';
-import { getSupabaseAccessToken } from './supabaseClient';
+import { getSupabaseAccessToken, supabase } from './supabaseClient';
 import { APP_NAME } from '../config/brand';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -140,11 +140,41 @@ export type PendingFavoriteImport = {
  * jamais publiés tout seuls, à matérialiser en session GARDER/PASSER.
  */
 export async function loadPendingFavoriteImports(): Promise<PendingFavoriteImport[]> {
-  const response = await fetch(`${baseUrl()}/api/music/library/pending-session-imports`, {
-    headers: await headers(false),
-  });
-  const payload = await readJson(response);
-  return Array.isArray(payload?.data) ? payload.data : [];
+  if (!supabase) return [];
+  const { data: authData } = await supabase.auth.getUser();
+  const profileId = authData.user?.id;
+  if (!profileId) return [];
+
+  const { data: rows, error } = await supabase
+    .from('music_library_items')
+    .select('id,provider,track_id,isrc,title,artist,album,artwork_url,imported_at')
+    .eq('profile_id', profileId)
+    .eq('pending_review', true)
+    .is('session_queued_at', null)
+    .order('imported_at', { ascending: true })
+    .limit(100);
+  if (error) throw error;
+
+  const seen = new Set<string>();
+  const output: PendingFavoriteImport[] = [];
+  const idsToClaim: string[] = [];
+  for (const row of rows ?? []) {
+    idsToClaim.push(String(row.id));
+    const key = String(row.track_id || row.isrc || `${String(row.title).toLowerCase()}|${String(row.artist).toLowerCase()}`);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    output.push(row as PendingFavoriteImport);
+  }
+
+  if (idsToClaim.length) {
+    const { error: claimError } = await supabase
+      .from('music_library_items')
+      .update({ session_queued_at: new Date().toISOString() })
+      .in('id', idsToClaim)
+      .eq('profile_id', profileId);
+    if (claimError) throw claimError;
+  }
+  return output;
 }
 
 export async function loadImportedMusic(limit = 2000): Promise<ImportedMusicItem[]> {

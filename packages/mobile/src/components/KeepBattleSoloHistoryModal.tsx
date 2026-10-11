@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, ScrollView, Modal, TouchableOpacity, StyleSheet, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeepBattleSoloHistoryEntry, loadKeepBattleSoloHistory } from '../services/keepBattleHistoryService';
+import KeepModal from './KeepModal';
 
 interface KeepBattleSoloHistoryModalProps {
   visible: boolean;
@@ -58,7 +59,7 @@ export function KeepBattleSoloHistoryModal({ visible, onClose }: KeepBattleSoloH
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent={true} statusBarTranslucent>
+    <KeepModal visible={visible} animationType="slide" transparent={true} statusBarTranslucent>
       <View style={[s.backdrop, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={s.sheet}>
           <View style={s.header}>
@@ -110,7 +111,7 @@ export function KeepBattleSoloHistoryModal({ visible, onClose }: KeepBattleSoloH
           )}
         </View>
       </View>
-    </Modal>
+    </KeepModal>
   );
 }
 

@@ -20,6 +20,13 @@ on:
       - '.github/workflows/public-trial-smoke.yml'
   workflow_dispatch:
 
+# This is an intentional LIVE production journey. It must be the only
+# production-backed browser audit running, otherwise CI can starve Supabase
+# Auth/PostgREST on the Free instance and block real users.
+concurrency:
+  group: keep-production-supabase-browser-audits
+  cancel-in-progress: false
+
 permissions:
   contents: read
 

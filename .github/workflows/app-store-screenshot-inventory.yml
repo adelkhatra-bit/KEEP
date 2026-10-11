@@ -1,0 +1,63 @@
+name: Loki Screenshot Inventory
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/app-store-screenshot-inventory.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: List App Store screenshots
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        run: |
+          node <<'NODE'
+          const crypto=require('node:crypto');
+          const key=Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(),'base64');
+          const enc=x=>Buffer.from(JSON.stringify(x)).toString('base64url');
+          const now=Math.floor(Date.now()/1000);
+          const unsigned=enc({alg:'ES256',kid:process.env.ASC_KEY_ID.trim(),typ:'JWT'})+'.'+
+            enc({iss:process.env.ASC_ISSUER_ID.trim(),iat:now-30,exp:now+600,aud:'appstoreconnect-v1'});
+          const token=unsigned+'.'+crypto.sign('sha256',Buffer.from(unsigned),{key,dsaEncoding:'ieee-p1363'}).toString('base64url');
+          async function api(p){
+            const res=await fetch('https://api.appstoreconnect.apple.com'+p,{headers:{Authorization:'Bearer '+token}});
+            const txt=await res.text();
+            if(!res.ok)throw new Error(p+' HTTP '+res.status+' '+txt.slice(0,800));
+            return txt?JSON.parse(txt):null;
+          }
+          (async()=>{
+            const appId=process.env.ASC_APP_ID.trim();
+            const versions=await api('/v1/apps/'+appId+'/appStoreVersions?filter[platform]=IOS&fields[appStoreVersions]=versionString,appStoreState&limit=50');
+            const version=(versions.data||[]).find(v=>v.attributes?.appStoreState==='PREPARE_FOR_SUBMISSION')||(versions.data||[])[0];
+            const locs=await api('/v1/appStoreVersions/'+version.id+'/appStoreVersionLocalizations?fields[appStoreVersionLocalizations]=locale&limit=50');
+            const loc=(locs.data||[]).find(x=>x.attributes?.locale==='fr-FR')||(locs.data||[])[0];
+            const sets=await api('/v1/appStoreVersionLocalizations/'+loc.id+'/appScreenshotSets?fields[appScreenshotSets]=screenshotDisplayType&limit=50');
+            const set=(sets.data||[]).find(x=>x.attributes?.screenshotDisplayType==='APP_IPHONE_65');
+            if(!set) throw new Error('No APP_IPHONE_65 screenshot set');
+            const shots=await api('/v1/appScreenshotSets/'+set.id+'/appScreenshots?fields[appScreenshots]=fileName,sourceFileChecksum,assetDeliveryState,imageAsset&limit=200');
+            const items=(shots.data||[]).map(s=>({
+              id:s.id,
+              fileName:s.attributes?.fileName||null,
+              checksum:s.attributes?.sourceFileChecksum||null,
+              state:s.attributes?.assetDeliveryState?.state||null,
+              errors:s.attributes?.assetDeliveryState?.errors||[],
+              width:s.attributes?.imageAsset?.width||null,
+              height:s.attributes?.imageAsset?.height||null
+            }));
+            console.log('=== LOKI SCREENSHOT INVENTORY ===');
+            console.log(JSON.stringify({setId:set.id,count:items.length,items},null,2));
+            console.log('=== END LOKI SCREENSHOT INVENTORY ===');
+          })().catch(e=>{console.error(e.message||String(e));process.exit(1)});
+          NODE

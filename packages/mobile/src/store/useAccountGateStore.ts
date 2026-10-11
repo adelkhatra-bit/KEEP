@@ -29,6 +29,6 @@ export const useAccountGateStore = create<AccountGateState>((set) => ({
     followUsername: followUsername.replace(/^@+/, ''),
     celebrate: false,
   }),
-  handleSuccess: () => set({ celebrate: true }),
+  handleSuccess: () => set({ visible: true, celebrate: true }),
   close: () => set({ visible: false, celebrate: false, followUsername: '' }),
 }));
