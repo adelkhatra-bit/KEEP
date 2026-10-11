@@ -20,6 +20,7 @@ import TrackListenControls from '../components/TrackListenControls';
 import ListenEnergyAura from '../components/ListenEnergyAura';
 import MicPermissionPrimerScreen from '../components/MicPermissionPrimerScreen';
 import CoachMarks from '../components/CoachMarks';
+import WebCompanionCountdown from '../components/WebCompanionCountdown';
 import MotionActionButton from '../components/MotionActionButton';
 import { loadSessionScreenCopy, loadCurrentPlanCode, loadDemoListenLimit } from '../services/planService';
 import { getDownloadCreditStatus } from '../services/creditService';
@@ -1038,6 +1039,7 @@ function TopBar({ navigation, readyCount = 0, title, onOpenSessions }: any) {
     {/* Adel (05/10/2026) : plus de gros titre sur l'accueil ; pendant l'écoute, un tout petit « À toi de jouer ». Le menu reste à droite. */}
     {title ? <Text style={s.topTitle} numberOfLines={1}>{title}</Text> : null}
     <View style={[s.topBarActions, { marginLeft: 'auto' }]}>
+      <WebCompanionCountdown />
       {readyCount > 0 ? (
         <TouchableOpacity onPress={openSessions} accessibilityRole="button" accessibilityLabel={`${readyCount} morceaux prêts à écouter et trier`}>
           <Animated.View style={[s.readyPill, { opacity: readyPulse }]}>
