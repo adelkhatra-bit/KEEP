@@ -53,7 +53,12 @@ jobs:
         run: |
           set -euo pipefail
           test "$GITHUB_REPOSITORY" = "adelkhatra-bit/KEEP"
-          test "$GITHUB_REF_NAME" = "reconcile/claude-main-20260825"
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            test "$GITHUB_BASE_REF" = "reconcile/claude-main-20260825"
+            [[ "$GITHUB_REF_NAME" =~ ^[0-9]+/merge$ ]]
+          else
+            test "$GITHUB_REF_NAME" = "reconcile/claude-main-20260825"
+          fi
 
       - name: Verify UI master baseline
         run: node scripts/verify-ui-layout-baseline.cjs
