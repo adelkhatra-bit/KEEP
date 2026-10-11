@@ -914,7 +914,52 @@ const desktopHomeStoryJourney = {
   },
 };
 
+const listenPcAndEventStoryJourney = {
+  id: 'mobile-pc-quotas-event-story',
+  titre: 'Transfert PC, quota restant, Story de soirée avec réponse et points Pulse',
+  devices: [
+    ['PC compact 1098x620', { width: 1098, height: 620 }],
+    ['iPhone simulé 390x844', { width: 390, height: 844 }],
+  ],
+  mobileFlags: true,
+  fakeOptions: { pcSession: true, eventStories: true, ownStory: true },
+  async run({ page, viewport, shot }) {
+    const desktop = viewport.width >= 1024;
+    const checks = [];
+    await page.goto(`${BASE}/Main/Listen/`, { waitUntil: 'load' });
+    await page.getByText('Passer', { exact: true }).first().click({timeout:12000}).catch(() => {});
+    await page.getByRole('button', { name: /Trouver le morceau qui joue/i }).first().waitFor({ state:'visible', timeout:30000 });
+    if (desktop) {
+      const sidebar = page.locator('[data-testid="desktop-sidebar"]');
+      checks.push(['panneau identifiant utilisateur PC visible', await sidebar.isVisible()]);
+      checks.push(['Loki Music et @testeur dans la barre de gauche',
+        (await sidebar.innerText()).includes('Loki Music') && (await sidebar.innerText()).includes('@testeur')]);
+    } else {
+      const transfer = page.locator('[data-testid="home-transfer-to-pc"]');
+      checks.push(['transfert PC visible depuis accueil iPhone', await transfer.isVisible()]);
+      checks.push(['quota restant renseigné', (await page.locator('body').innerText()).includes('RESTANTES')]);
+    }
+    await shot('accueil-quotas-et-pc');
+    await page.goto(`${BASE}/Main/Profile/`, { waitUntil:'load' });
+    const eventBubble = page.locator('[data-testid="story-event-0b5e7a1c-0000-4000-8000-00000000d101"]');
+    await eventBubble.waitFor({ state:'visible', timeout:30000 });
+    await eventBubble.click();
+    await page.locator('[data-testid="event-story-modal"]').waitFor({ state:'visible', timeout:20000 });
+    const body = await page.locator('[data-testid="event-story-modal"]').innerText();
+    checks.push(['Story soirée nom et points Pulse visibles', body.includes('Soirée rooftop synthétique') && body.includes('67 points')]);
+    const maybe = page.getByRole('button', { name:'Peut-être' }).last();
+    checks.push(['bouton Peut-être disponible', await maybe.isVisible()]);
+    await maybe.click();
+    await page.waitForTimeout(350);
+    const changed = await page.locator('[data-testid="event-story-modal"]').innerText();
+    checks.push(['RSVP enregistré et confirmé', changed.includes('✓ Peut-être')]);
+    await shot('story-evenement-rsvp-pulse');
+    return { details:{ desktop, text:body.slice(0,220) }, failures:failed(checks), ok:'Transfert PC et Story événement interactive contrôlés' };
+  },
+};
+
 const JOURNEYS = [
+  listenPcAndEventStoryJourney,
   desktopHomeStoryJourney,
   pcConnectionCountdownJourney,
   crossDeviceReadJourney,
