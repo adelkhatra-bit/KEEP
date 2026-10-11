@@ -13,6 +13,7 @@ export type KeepPlan = {
   // lieu d'une clé remote_config séparée par plan.
   monthlyFreeBonus: number;
   dailyListenLimit: number;
+  listenQuotaPeriod: 'DAY' | 'WEEK' | 'MONTH' | 'NEVER';
 };
 
 export type CreditFunnel = {
@@ -29,7 +30,7 @@ export type CreditFunnel = {
 
 export async function loadPlans(): Promise<KeepPlan[]> {
   if (!supabase) return [];
-  const [plansResult, listenLimitsResult] = await Promise.all([
+  const [plansResult, listenLimitsResult, quotaConfigResult] = await Promise.all([
     supabase
       .from('plans')
       .select('id,code,name,description,trial_days,plan_prices!inner(currency_code,period,amount,is_active,effective_from,free_bonus_per_month)')
@@ -40,9 +41,13 @@ export async function loadPlans(): Promise<KeepPlan[]> {
       .from('usage_limits')
       .select('limit_value,plans!inner(code)')
       .eq('limit_key', 'listens_per_day'),
+    supabase.from('remote_config').select('key,value').like('key', 'listen_quota_%'),
   ]);
   if (plansResult.error) throw plansResult.error;
   if (listenLimitsResult.error) throw listenLimitsResult.error;
+  // Ces clés sont publiques, car les offres doivent afficher les quotas réels.
+  // En cas de panne du paramétrage, retomber sur le contrat plan existant.
+  const quotaConfig = Object.fromEntries((quotaConfigResult.data ?? []).map((row: any) => [String(row.key), row.value]));
 
   const listenLimits = new Map<string, number>();
   for (const row of listenLimitsResult.data ?? []) {
@@ -64,7 +69,11 @@ export async function loadPlans(): Promise<KeepPlan[]> {
       monthlyAmount: Number(price?.amount || 0),
       currencyCode: price?.currency_code || 'EUR',
       monthlyFreeBonus: Number(price?.free_bonus_per_month || 0),
-      dailyListenLimit: listenLimits.get(String(row.code)) ?? fallbackListenLimit(String(row.code)),
+      dailyListenLimit: Number.isFinite(Number(quotaConfig['listen_quota_limit_' + String(row.code)])) && Number(quotaConfig['listen_quota_limit_' + String(row.code)]) >= 1
+        ? Number(quotaConfig['listen_quota_limit_' + String(row.code)])
+        : listenLimits.get(String(row.code)) ?? fallbackListenLimit(String(row.code)),
+      listenQuotaPeriod: ['WEEK','MONTH','NEVER'].includes(String(quotaConfig['listen_quota_period_' + String(row.code)]))
+        ? String(quotaConfig['listen_quota_period_' + String(row.code)]) as KeepPlan['listenQuotaPeriod'] : 'DAY',
     };
   }).sort((a: KeepPlan, b: KeepPlan) => ['FREE','PREMIUM','CREATOR_PRO','VENUE_PRO'].indexOf(a.code) - ['FREE','PREMIUM','CREATOR_PRO','VENUE_PRO'].indexOf(b.code));
 }
