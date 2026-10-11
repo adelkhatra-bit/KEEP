@@ -15,7 +15,22 @@ function notification(id: string, senderId: string, readAt: string | null): Keep
   };
 }
 
+const notificationScreen = fs.readFileSync(
+  path.resolve(__dirname, '..', '..', 'screens', 'NotificationsScreen.tsx'),
+  'utf8',
+);
+const notificationPanel = fs.readFileSync(
+  path.resolve(__dirname, '..', '..', 'components', 'NotificationSidePanel.tsx'),
+  'utf8',
+);
+
 describe('PC/mobile chat read receipts', () => {
+  it('synchronizes the center and notification side panel on remote reads', () => {
+    expect(notificationScreen).toContain('subscribeToNotificationChanges(user.id');
+    expect(notificationScreen).toContain('unsubscribeChanges()');
+    expect(notificationPanel).toContain('subscribeToNotificationChanges(profileId');
+    expect(notificationPanel).toContain('unsubChanges()');
+  });
   it('removes a message from the computer badge once it has been read on phone', () => {
     const unread = notification('101', 'user-a', null);
     expect(buildChatUnreadMap([unread])).toEqual({ 'p:user-a': ['101'] });
