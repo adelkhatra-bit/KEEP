@@ -109,7 +109,9 @@ function requiredReason(feature: string, plan: string, rules: CommercialRules) {
   return `${planLabel(plan)} est la formule minimale requise pour cette fonction. Les formules supérieures compatibles sont aussi affichées.`;
 }
 
-function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFunnel, monthlyFreeBonus: number, dailyListenLimit: number): string[] {
+function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFunnel, monthlyFreeBonus: number, dailyListenLimit: number, period: KeepPlan['listenQuotaPeriod'] = 'DAY'): string[] {
+  const periodLabel = period === 'WEEK' ? 'semaine' : period === 'MONTH' ? 'mois' : period === 'NEVER' ? 'crédit permanent, sans recharge automatique' : 'jour';
+  const listenBenefit = `${dailyListenLimit} identifications incluses par ${periodLabel}. Une fois la limite atteinte, une nouvelle reconnaissance réussie demande les FREE indiqués par Loki, uniquement après ton accord.`;
   const eventFollowers = rules.followerTiers[3] || 500;
   // Adel (04/09/2026) : "il faut vraiment qu'ils sachent combien de Free il
   // a par mois ... sans compter avec les matchs" -- monthlyFreeBonus vient
@@ -118,20 +120,20 @@ function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFun
   // gagner/perdre en plus.
   if (planCode === 'FREE') return [
     monthlyFreeBonus > 0 ? `+${monthlyFreeBonus} Free offerts chaque mois (hors Battle).` : 'Gagne du Free en partageant ton profil et en développant ta communauté.',
-    `${dailyListenLimit} écoutes reconnues incluses par jour, puis 1 FREE par nouveau morceau reconnu. PASSER reste gratuit. GARDER : ${rules.freeCostPerKeep} FREE.`,
+    listenBenefit + ' PASSER reste gratuit. Les décisions de bibliothèque n’affectent pas le quota de reconnaissance.',
     `${rules.freeDiscoveryProfiles} profils Découvertes offerts au démarrage.`,
     `${funnel.guestSuccessLimit} écoutes invitées au total avant compte · +${funnel.signupBonusSuccesses} FREE à la création du compte.`,
   ];
   if (planCode === 'PREMIUM') return [
     `+${monthlyFreeBonus} Free offerts chaque mois (hors Battle).`,
-    `${dailyListenLimit} écoutes reconnues incluses par jour, puis 1 FREE par nouveau morceau reconnu.`,
+    listenBenefit,
     'Découvertes de profils en illimité.',
     `${rules.premiumSmartSortTrials} essais de Loki Music Vibes.`,
     'Certification visible sur le profil et réglages avancés de confort Loki Music.',
   ];
   if (planCode === 'CREATOR_PRO') return [
     `+${monthlyFreeBonus} Free offerts chaque mois (hors Battle).`,
-    `${dailyListenLimit} écoutes reconnues incluses par jour, puis 1 FREE par nouveau morceau reconnu.`,
+    listenBenefit,
     rules.creatorDailyDownloads == null ? 'Téléchargements et Loki Music Vibes illimités.' : `Jusqu'à ${rules.creatorDailyDownloads} téléchargements par jour, Loki Music Vibes illimité.`,
     'Profils DJ, Artiste, Créateur ou Producteur.',
     `À partir de ${eventFollowers} abonnés : soirées ${eventsPerMonthClause(rules.creatorEventsPerMonth)} et notifications aux abonnés.`,
@@ -140,7 +142,7 @@ function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFun
   ];
   if (planCode === 'VENUE_PRO') return [
     `+${monthlyFreeBonus} Free offerts chaque mois (hors Battle).`,
-    `${dailyListenLimit} écoutes reconnues incluses par jour, puis 1 FREE par nouveau morceau reconnu.`,
+    listenBenefit,
     'Profil Lieu / établissement et outils professionnels.',
     `À partir de ${eventFollowers} abonnés : soirées et événements ${eventsPerMonthClause(rules.venueEventsPerMonth)}.`,
     'Invitations aux événements envoyées à tes abonnés et aux utilisateurs concernés, dans le respect de leurs réglages de notifications.',
@@ -523,7 +525,7 @@ export default function OffersScreen({ navigation, route }: any) {
               </TouchableOpacity>
               {expandedPlanCode === plan.code ? <View style={s.planDetails}>
                 {!!plan.description && <Text style={s.planDescription}>{plan.description}</Text>}
-                <View style={s.benefitBox}>{benefitsFor(plan.code, rules, funnel, plan.monthlyFreeBonus, plan.dailyListenLimit).map((benefit) => <Text key={benefit} style={s.benefit}>• {benefit}</Text>)}</View>
+                <View style={s.benefitBox}>{benefitsFor(plan.code, rules, funnel, plan.monthlyFreeBonus, plan.dailyListenLimit, plan.listenQuotaPeriod).map((benefit) => <Text key={benefit} style={s.benefit}>• {benefit}</Text>)}</View>
                 {!iapAvailable() && plan.trialDays > 0 ? <Text style={s.trial}>Essai : {plan.trialDays} jours</Text> : null}
               </View> : null}
               {!active && plan.code !== 'FREE' ? (
