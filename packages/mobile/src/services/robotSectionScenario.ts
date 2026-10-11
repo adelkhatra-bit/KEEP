@@ -83,5 +83,9 @@ export function scenarioForRoute(routeName: string | null | undefined, username:
   const byKey = new Map(SHAKE_ACTIONS.map((action) => [action.key, action] as const));
   const actions = [...scenario.keys.map((key) => byKey.get(key)), byKey.get('REPORT')].filter(Boolean) as RobotAction[];
   const hello = OPEN[Math.abs(Math.floor(seed)) % OPEN.length];
-  return { text: `${hello}${name ? ` ${name}` : ''} ! ${scenario.intro} ${tip}`, actions };
+  // A shake is a compact navigation prompt, not a full-screen tutorial.
+  // Detailed, section-specific advice remains available after selecting an action.
+  const compactText = `Qu'est-ce que je peux faire pour toi${name ? `, ${name}` : ''} ?`;
+  const compactActions = SHAKE_ACTIONS;
+  return { text: compactText, actions: compactActions };
 }
