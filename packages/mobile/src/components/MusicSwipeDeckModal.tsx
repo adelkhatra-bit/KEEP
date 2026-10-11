@@ -1329,7 +1329,8 @@ const s = StyleSheet.create({
   askArrow:{position:'absolute',top:-5,right:56,width:10,height:10,backgroundColor:'#FFE08A',transform:[{rotate:'45deg'}]},
   askText:{color:'#2B1D00',fontSize:16,fontWeight:'900'},
   headerLikeRow:{position:'relative',zIndex:30,flexDirection:'row',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',gap:8,paddingHorizontal:18,paddingTop:8,paddingBottom:10,borderBottomWidth:1,borderBottomColor:'#241A32'},likeRight:{marginLeft:'auto'},
-  headerExtraCompact:{maxHeight:24,overflow:'hidden'},
+  // Ne coupe jamais la pastille des spectateurs (36 px mini), même en fenêtre basse.
+  headerExtraCompact:{maxHeight:48,overflow:'visible'},
   cardCompact:{minHeight:120},
   gradientCompact:{paddingTop:12,paddingBottom:12},
   fullTrackLocked:{color:'#FFFFFF',fontSize:13,lineHeight:18,fontWeight:'800',textAlign:'center',marginHorizontal:4,marginBottom:12,paddingVertical:6},
