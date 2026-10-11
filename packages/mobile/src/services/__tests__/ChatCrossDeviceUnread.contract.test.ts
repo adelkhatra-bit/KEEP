@@ -34,7 +34,7 @@ describe('PC/mobile chat read receipts', () => {
     expect(dock).toContain("AppState.addEventListener('change'");
     expect(dock).toContain("window.addEventListener('focus'");
     expect(dock).toContain('30000');
-    expect(dock).toContain("AppState.currentState !== 'active'");
+    expect(dock).toContain("Platform.OS !== 'web' && AppState.currentState !== 'active'");
     expect(dock).toContain('setUnreadByTarget(buildChatUnreadMap(unreadChat))');
   });
 
