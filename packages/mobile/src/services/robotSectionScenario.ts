@@ -69,23 +69,11 @@ export const SECTION_SCENARIOS: Record<Exclude<RobotSection, 'OTHER'>, Scenario>
   },
 };
 
-const OPEN = ['Yo', 'Hey', 'Alors', 'Go'];
-
 /** Message et propositions du robot quand on le secoue (ou qu'on le touche 5 fois) sur une rubrique donnée. */
 export function scenarioForRoute(routeName: string | null | undefined, username: string, seed = 0): { text: string; actions: RobotAction[] } {
-  const section = sectionOfRoute(routeName);
   const name = String(username || '').trim().replace(/^@+/, '');
-  if (section === 'OTHER') {
-    return { text: `On fait quoi${name ? `, ${name}` : ''} ?`, actions: SHAKE_ACTIONS };
-  }
-  const scenario = SECTION_SCENARIOS[section];
-  const tip = scenario.tips[Math.abs(Math.floor(seed)) % scenario.tips.length];
-  const byKey = new Map(SHAKE_ACTIONS.map((action) => [action.key, action] as const));
-  const actions = [...scenario.keys.map((key) => byKey.get(key)), byKey.get('REPORT')].filter(Boolean) as RobotAction[];
-  const hello = OPEN[Math.abs(Math.floor(seed)) % OPEN.length];
-  // A shake is a compact navigation prompt, not a full-screen tutorial.
-  // Detailed, section-specific advice remains available after selecting an action.
+  // The same seven actions and short prompt are used on every screen.
+  // Section-specific tips remain defined above for contextual coaching.
   const compactText = `Qu'est-ce que je peux faire pour toi${name ? `, ${name}` : ''} ?`;
-  const compactActions = SHAKE_ACTIONS;
-  return { text: compactText, actions: compactActions };
+  return { text: compactText, actions: SHAKE_ACTIONS };
 }
