@@ -331,7 +331,7 @@ jobs:
                 if(Math.abs(beforeRail.y-afterRail.y)>3) throw new Error(`Accueil: bulles bougent avec En savoir plus ${beforeRail.y} -> ${afterRail.y}`);
                 const gap=afterRail.y-(afterCta.y+afterCta.height);
                 if(gap<12) throw new Error(`Accueil: espace CTA/bulles insuffisant (${gap}px)`);
-                const bottomTab=page.getByText('Loki Music',{exact:true}).last();
+                const bottomTab=page.getByText('Loki Music',{exact:true}).filter({visible:true}).first();
                 const tabBox=await bottomTab.boundingBox();
                 if(tabBox){
                   const railBottom=afterRail.y+afterRail.height;
