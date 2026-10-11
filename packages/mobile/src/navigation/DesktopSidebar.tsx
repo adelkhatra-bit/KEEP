@@ -22,11 +22,11 @@ export default function DesktopSidebar({ items, activeName, onSelect, onOpenSess
   const { height } = useWindowDimensions();
   // Aucun défilement de la sidebar PC : compacter les éléments AVANT que
   // « MICRO À L’ARRÊT » et « MES SESSIONS » passent sous la fenêtre.
-  const compact = height < 820;
+  const compact = height < 900;
   // En fenêtre PC basse (écran HP / zoom navigateur), la carte du micro
   // reste dans le viewport, sans ScrollView ni barre latérale défilante.
-  const veryShort = height < 680;
-  const tiny = height < 490;
+  const veryShort = height < 720;
+  const tiny = height < 520;
   const username = useUserStore((s) => s.user?.username);
   const isListening = useSessionStore((s) => s.isActive);
   const liveCount = useSessionStore((s) => s.tracks.length);
@@ -39,6 +39,10 @@ export default function DesktopSidebar({ items, activeName, onSelect, onOpenSess
         <View style={[s.brandBox, compact && s.brandBoxCompact, veryShort && s.brandBoxVeryShort]} accessibilityLabel="Compte Loki Music connecté">
           <Text style={[s.brand, compact && s.brandCompact]}>Loki Music</Text>
           <Text style={s.user} numberOfLines={1}>{username ? `@${String(username).replace(/^@/, '')}` : 'Utilisateur Loki'}</Text>
+          {/* Toujours visible sans défilement, directement sous l'identité. */}
+          <View style={[s.micBadge, veryShort && s.micBadgeCompact]}>
+            <Text style={[s.sessionStatus, compact && s.sessionStatusCompact]} testID="desktop-mic-status" numberOfLines={1}>{isListening ? '● MICRO EN COURS' : '● MICRO À L’ARRÊT'}</Text>
+          </View>
           {!veryShort ? <View style={s.brandAccent} /> : null}
         </View>
         <View style={[s.list, compact && s.listCompact]} testID="desktop-sidebar-nav">
@@ -61,10 +65,9 @@ export default function DesktopSidebar({ items, activeName, onSelect, onOpenSess
           })}
         </View>
         <View style={[s.session, compact && s.sessionCompact, veryShort && s.sessionVeryShort, tiny && s.sessionTiny]} testID="desktop-session-card">
-          <Text style={[s.sessionStatus, compact && s.sessionStatusCompact]} testID="desktop-mic-status">{isListening ? '● MICRO EN COURS' : '● MICRO À L’ARRÊT'}</Text>
           {!veryShort ? <><Text style={[s.sessionValue, compact && s.sessionValueCompact]}>{isListening ? liveCount : lastCount}</Text>
           <Text style={s.sessionLabel}>morceaux {isListening ? 'détectés' : 'dans la dernière session'}</Text></> : null}
-          {listenEconomy && !tiny ? <Text style={[s.quotaStatus, veryShort && s.quotaCompact]} numberOfLines={veryShort ? 1 : 2}>{listenEconomy.includedRemaining} identifications restantes · {listenEconomy.periodMode === 'WEEK' ? 'semaine' : listenEconomy.periodMode === 'MONTH' ? 'mois' : listenEconomy.periodMode === 'NEVER' ? 'crédit sans recharge' : 'aujourd’hui'}</Text> : null}
+          {listenEconomy && !compact ? <Text style={[s.quotaStatus, veryShort && s.quotaCompact]} numberOfLines={veryShort ? 1 : 2}>{listenEconomy.includedRemaining} identifications restantes · {listenEconomy.periodMode === 'WEEK' ? 'semaine' : listenEconomy.periodMode === 'MONTH' ? 'mois' : listenEconomy.periodMode === 'NEVER' ? 'crédit sans recharge' : 'aujourd’hui'}</Text> : null}
           <TouchableOpacity style={[s.primary, compact && s.primaryCompact, tiny && s.primaryTiny]} onPress={onOpenSessions} testID="desktop-open-sessions" accessibilityRole="button" accessibilityLabel="Afficher mes sessions">
             <Text style={s.primaryText}>{isListening ? 'VOIR SANS ARRÊTER' : 'MES SESSIONS'}</Text>
           </TouchableOpacity>
@@ -75,15 +78,15 @@ export default function DesktopSidebar({ items, activeName, onSelect, onOpenSess
 }
 
 const s = StyleSheet.create({
-  side: { width: DESKTOP_SIDEBAR_WIDTH, height: '100%', flexShrink: 0, backgroundColor: '#0E0A14', borderRightWidth: 1, borderRightColor: '#2B2038' },
+  side: { width: DESKTOP_SIDEBAR_WIDTH, height: '100%', flexShrink: 0, overflow: 'hidden', backgroundColor: '#0E0A14', borderRightWidth: 1, borderRightColor: '#2B2038' },
   innerCompact: { paddingTop: 10, paddingBottom: 10, paddingHorizontal: 10, gap: 1 },
   innerVeryShort: { paddingTop: 5, paddingBottom: 5, gap: 0 },
   innerTiny: { paddingTop: 2, paddingBottom: 2 },
   brandBoxVeryShort: { paddingBottom: 3 },
-  itemTiny: { minHeight: 31, paddingVertical: 0 },
+  itemTiny: { minHeight: 36, paddingVertical: 0 },
   sessionTiny: { paddingVertical: 5 },
   quotaCompact: { marginTop: 2, lineHeight: 13 },
-  primaryTiny: { minHeight: 32, marginTop: 4 },
+  primaryTiny: { minHeight: 38, marginTop: 4 },
   brandBoxCompact: { paddingBottom: 5 },
   brandCompact: { fontSize: 18 },
   listCompact: { marginTop: 6, gap: 2 },
@@ -93,7 +96,7 @@ const s = StyleSheet.create({
   labelCompact: { fontSize: 13 },
   sessionCompact: { marginTop: 'auto', padding: 9 },
   sessionVeryShort: { paddingHorizontal: 8, paddingVertical: 7, marginTop: 'auto' },
-  sessionStatusCompact: { fontSize: 10 },
+  sessionStatusCompact: { fontSize: 11 },
   sessionValueCompact: { fontSize: 24, marginTop: 2 },
   primaryCompact: { minHeight: 36, marginTop: 4 },
   inner: { flex: 1, minHeight: 0, paddingHorizontal: 14, paddingTop: 22, paddingBottom: 18, gap: 4 },
@@ -108,7 +111,9 @@ const s = StyleSheet.create({
   icon: { color: '#FFFFFF', fontSize: 20, width: 26, textAlign: 'center' },
   label: { color: '#FFFFFF', fontSize: 15, fontWeight: '700', flexShrink: 1 },
   activeText: { color: colors.primaryLight },
-  session: { marginTop: 22, padding: 12, backgroundColor: colors.backgroundCard, borderRadius: 15, borderWidth: 1, borderColor: colors.border },
+  micBadge: { alignSelf: 'flex-start', marginTop: 9, paddingVertical: 6, paddingHorizontal: 8, backgroundColor: 'rgba(45,225,194,.10)', borderRadius: 11, borderWidth: 1, borderColor: 'rgba(45,225,194,.24)' },
+  micBadgeCompact: { marginTop: 5, paddingVertical: 4 },
+  session: { marginTop: 'auto', padding: 12, backgroundColor: colors.backgroundCard, borderRadius: 15, borderWidth: 1, borderColor: colors.border },
   sessionStatus: { color: colors.keep, fontSize: 11, fontWeight: '900' },
   sessionValue: { color: colors.textPrimary, fontSize: 33, fontWeight: '900', marginTop: 5 },
   sessionLabel: { color: colors.textSecondary, fontSize: 12 },
