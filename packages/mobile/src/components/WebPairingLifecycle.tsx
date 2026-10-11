@@ -146,7 +146,11 @@ export default function WebPairingLifecycle() {
     const check = async () => {
       if (!active) return;
       const sessionId = currentWebCompanionSessionId();
-      if (!sessionId) return;
+      if (!sessionId) {
+        // The QR registration is asynchronous: keep polling until its session ID exists.
+        timer = setTimeout(() => { void check(); }, 10000);
+        return;
+      }
       try {
         const status = await getWebCompanionSessionStatus(sessionId);
         if (!active) return;

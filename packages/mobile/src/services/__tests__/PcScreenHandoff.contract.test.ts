@@ -22,6 +22,13 @@ describe('PC QR : ouverture réelle des cinq onglets', () => {
     expect(server).toContain('PC_SHARE_DURATION_MS');
     expect(server).toContain('screenRequestId');
   });
+  it('continue de surveiller le PC si l’enregistrement QR se termine après le premier contrôle', () => {
+    const pc = source('packages/mobile/src/components/WebPairingLifecycle.tsx');
+    expect(pc).toMatch(/if \(!sessionId\) \{\s*\/\/[^\n]+\n\s*timer = setTimeout\(\(\) => \{ void check\(\); \}, 10000\);\s*return;\s*\}/);
+    expect(pc).toContain('if (status.revoked)');
+    expect(pc).toContain('clearWebCompanionSessionId()');
+  });
+
   it('le clic téléphone écrit une commande et le PC la consomme une fois', () => {
     const service = source('packages/mobile/src/services/webPairingService.ts');
     const pc = source('packages/mobile/src/components/WebPairingLifecycle.tsx');

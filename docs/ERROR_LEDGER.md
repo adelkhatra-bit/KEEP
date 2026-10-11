@@ -23,6 +23,14 @@ Statuts :
 Chaque nouvelle entrée doit contenir :
 `ID | date | zone | symptôme | cause racine | fix | prévention | preuve | statut`.
 
+## ERR-QR-PC-POLL-20261011 · FIXED_UNVERIFIED
+- **Date :** 11/10/2026 ; **zone :** QR ordinateur / WebPairingLifecycle.
+- **Symptôme :** une commande mobile ou une révocation peut ne jamais être reçue sur PC quand le premier contrôle se produit avant la fin de l'enregistrement QR.
+- **Cause :** `check()` quitte sur `!sessionId` sans programmer le prochain passage ; l'effet React ne dépend pas de l'identifiant écrit ensuite en localStorage.
+- **Correctif minimal :** programmer un nouveau contrôle après 10 secondes tant que l'identifiant est absent, sans déconnecter l'utilisateur et sans lancer de polling parallèle.
+- **Prévention :** contrat Jest `PcScreenHandoff.contract.test.ts` vérifie la reprogrammation dans le cas `!sessionId`, la révocation et le traitement des commandes ; valider ensuite CI, parcours QR réel sur deux appareils, SHA Web publié avant VERIFIED.
+- **Preuve :** code et test proposés sur branche isolée ; publication et essai physique non confirmés.
+
 ## Registre actuel
 
 | ID | Zone | Symptôme / cause racine | Fix / prévention | Preuve | Statut |
