@@ -7,7 +7,7 @@ const shell = fs.readFileSync(path.join(root, 'scripts', 'fix-web-export.cjs'), 
 
 describe('Ordinateur : vraie disposition desktop sans étirer l’application mobile', () => {
   it('pas de zoom global : la largeur CSS complète reste disponible au desktop', () => {
-    expect(index).toContain('@media (min-width: 1100px)');
+    expect(index).toContain('@media (min-width: 1024px)');
     expect(index).toMatch(/#root\s*\{\s*zoom:1;\s*width:100vw;/);
     expect(index).not.toMatch(/zoom:1\.[24]/);
     // Le script d'export n'écrit pas le shell 404 (créé par le workflow Pages).

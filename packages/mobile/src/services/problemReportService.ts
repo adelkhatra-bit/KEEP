@@ -11,7 +11,7 @@ import { composeReportUpdateLine, isAbusiveReport, readCrumbs, type ReportUpdate
  */
 export function currentScreenName(): string {
   try {
-    const route: any = (navigationRef as any).getCurrentRoute?.();
+    const route: any = navigationRef.isReady() ? (navigationRef as any).getCurrentRoute?.() : null;
     return String(route?.name ?? 'inconnu').slice(0, 120);
   } catch { return 'inconnu'; }
 }
@@ -20,7 +20,7 @@ type ReportContext = { userId: string; username?: string | null };
 
 function currentRouteParamKeys(): string[] {
   try {
-    const route: any = (navigationRef as any).getCurrentRoute?.();
+    const route: any = navigationRef.isReady() ? (navigationRef as any).getCurrentRoute?.() : null;
     return Object.keys(route?.params ?? {}).slice(0, 12);
   } catch { return []; }
 }

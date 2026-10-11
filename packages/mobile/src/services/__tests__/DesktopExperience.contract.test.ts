@@ -11,24 +11,27 @@ describe('Expérience desktop et mobile isolées', () => {
     expect(design).toContain("desktop: { kind: 'desktop', pageZoom: 1");
     expect(design).toContain("wide: { kind: 'wide', pageZoom: 1");
     expect(entrypoint).toContain('#root { zoom:1;');
+    // Seuil bureau unique (11/10/2026) : 1024 px, jamais l'ancien 1100 px (PC Windows 175 % = 1098 px CSS).
+    expect(design).toContain("export { DESKTOP_MIN_WIDTH } from '../layout/layoutMode'");
     expect(entrypoint).not.toContain('#root { zoom:1.4;');
   });
 
   it('propose un QR en deux régions uniquement sur les vrais écrans desktop', () => {
     const pairing = read('packages/mobile/src/components/WebCompanionPairingScreen.tsx');
-    expect(pairing).toContain('const isDesktopLayout = width >= 1100');
+    expect(pairing).toContain('const { isDesktop: isDesktopLayout } = useLayoutMode();');
     expect(pairing).toContain('s.desktopIntro');
     expect(pairing).toContain('s.qrColumn');
     expect(pairing).toContain('claimDesktopPairing');
   });
 
-  it('exploite le desktop sans créer une seconde bibliothèque de compte', () => {
-    const shell = read('packages/mobile/src/components/DesktopMusicWorkspaceRail.tsx');
-    const home = read('packages/mobile/src/screens/HomeScreenCompact.tsx');
-    expect(shell).toContain("width < 1100");
-    expect(shell).toContain("Platform.OS !== 'web'");
-    expect(shell).toContain('navigation.navigate(screen)');
-    expect(home).toContain('<DesktopMusicWorkspaceRail');
+  it('le bureau a une vraie barre latérale (pas de barre du bas, pas de rail doublon)', () => {
+    const nav = read('packages/mobile/src/navigation/Navigation.tsx');
+    const side = read('packages/mobile/src/navigation/DesktopSidebar.tsx');
+    expect(nav).toContain('<DesktopSidebar');
+    expect(nav).toContain("display: isDesktop ? 'none' : 'flex'");
+    expect(nav).toContain('if (isDesktop) return null;');
+    expect(side).toContain('desktop-session-card');
+    expect(fs.existsSync(path.join(root, 'packages/mobile/src/components/DesktopMusicWorkspaceRail.tsx'))).toBe(false);
   });
 
   it('la boutique consomme réellement le paramétrage Super Admin, en conservant le mobile à 2 colonnes', () => {

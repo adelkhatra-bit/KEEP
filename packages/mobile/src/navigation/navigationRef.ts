@@ -10,6 +10,16 @@ import { useGameSessionStore } from '../store/useGameSessionStore';
 // à cet endroit).
 export const navigationRef = createNavigationContainerRef();
 
+// Abonnements au changement d'écran, alimentés par onReady / onStateChange du NavigationContainer.
+// Jamais navigationRef.addListener avant le montage : React Navigation journalise alors l'erreur
+// « The 'navigation' object hasn't been initialized yet » (observée en console au chargement, 11/10/2026).
+const navigationStateSubscribers = new Set<() => void>();
+export function notifyNavigationState() { navigationStateSubscribers.forEach((fn) => fn()); }
+export function subscribeNavigationState(fn: () => void): () => void {
+  navigationStateSubscribers.add(fn);
+  return () => { navigationStateSubscribers.delete(fn); };
+}
+
 // Adel (29/09/2026) : toute navigation déclenchée hors des écrans
 // (notification, push, lien partagé) pendant un Solo en cours passe par la
 // garde unique : popup « Quitter la partie ? » (partie déjà comptée).

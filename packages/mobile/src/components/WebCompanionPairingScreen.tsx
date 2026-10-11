@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLayoutMode } from '../layout/layoutMode';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { colors } from '../theme/colors';
@@ -44,7 +45,7 @@ function createOnce(): Promise<DesktopPairingChallenge> {
 
 export default function WebCompanionPairingScreen() {
   const { width, height } = useWindowDimensions();
-  const isDesktopLayout = width >= 1100;
+  const { isDesktop: isDesktopLayout } = useLayoutMode();
   const qrSize = pairingQrSize(height, designProfileForWidth(width).pageZoom);
   const [challenge, setChallenge] = React.useState<DesktopPairingChallenge | null>(null);
   const [loading, setLoading] = React.useState(true);

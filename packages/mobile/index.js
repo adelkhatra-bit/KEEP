@@ -13,6 +13,9 @@ import ActiveBattleResumeLifecycle from './src/components/ActiveBattleResumeLife
 import { useUserStore } from './src/store/useUserStore';
 import { isSupabaseConfigured, supabase } from './src/services/supabaseClient';
 import { colors } from './src/theme/colors';
+import { installMinReadableFontSize } from './src/layout/minFontSize';
+
+installMinReadableFontSize();
 
 
 // Samsung Internet / Chrome Android changent la hauteur du viewport lorsque
@@ -38,8 +41,8 @@ if (typeof document !== 'undefined') {
         #root { position:relative; inset:auto; width:100%; height:100dvh; min-height:100vh; max-height:100dvh; overflow:hidden; }
         @supports not (height: 100dvh) { #root { height:100vh; max-height:100vh; } }
       }
-      /* Bureau : largeur CSS native. Les colonnes et grilles exploitent l'espace, sans zoom de l'application mobile. */
-      @media (min-width: 1100px) { #root { zoom:1; width:100vw; height:100dvh; min-height:100vh; max-height:100dvh; } }
+      /* Bureau (DESKTOP_MIN_WIDTH = 1024 px, layout/layoutMode.ts) : largeur CSS native, aucun zoom ; barre latérale + contenu centré dans Navigation.tsx. */
+      @media (min-width: 1024px) { #root { zoom:1; width:100vw; height:100dvh; min-height:100vh; max-height:100dvh; } }
     `;
     document.head.appendChild(style);
   }

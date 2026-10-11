@@ -1,3 +1,4 @@
+import { DESKTOP_MIN_WIDTH } from '../layout/layoutMode';
 import ChatDockHost from './ChatDockHost';
 import React, { useMemo, useState } from 'react';
 import { FlatList, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, ViewStyle, useWindowDimensions } from 'react-native';
@@ -138,7 +139,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
   const { width: windowWidth } = useWindowDimensions();
   // Présentation distincte sur grand écran : la même boutique et les mêmes
   // droits/achats, mais une grille qui exploite la largeur de l'ordinateur.
-  const desktopStore = Platform.OS === 'web' && windowWidth >= 1100;
+  const desktopStore = Platform.OS === 'web' && windowWidth >= DESKTOP_MIN_WIDTH;
   const [adminDesktopColumns, setAdminDesktopColumns] = React.useState({ desktop: 3, wide: 4 });
   React.useEffect(() => {
     if (!desktopStore || !supabase) return undefined;
