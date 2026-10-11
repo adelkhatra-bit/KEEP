@@ -85,6 +85,16 @@ jobs:
 
       - name: Export web bundle
         working-directory: packages/mobile
+        # Mêmes valeurs publiques que web-preview-pages.yml : sans elles l'app web démarre sans adresse Supabase
+        # (écran de connexion, aucun onglet) et le garde-fou navigateur échoue à tort (run 4575, 11/10/2026).
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: 'https://rrhqsqzcplvmwxizqnla.supabase.co'
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru'
+          EXPO_PUBLIC_WEB_URL: 'https://adelkhatra-bit.github.io/KEEP'
+          EXPO_PUBLIC_AUTH_REDIRECT_URL: 'https://adelkhatra-bit.github.io/KEEP/'
+          EXPO_PUBLIC_API_URL: 'https://keep-backend-mu.vercel.app'
+          EXPO_PUBLIC_DEMO_MODE: 'false'
+          EXPO_PUBLIC_KEEP_PREVIEW: '0'
         run: npx expo export --platform web --output-dir dist-web
 
       - name: Verify web entrypoint
