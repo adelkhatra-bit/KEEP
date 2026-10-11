@@ -45,3 +45,4 @@ release: stories 24 h (boutique, cache, anti-doublon), QR ordinateur (Oui/Non, e
 release: stories 24 h, QR ordinateur (Oui/Non, expiré, lien expiré, rechargement, jumelage unique), PC agrandi, robot par rubrique, partage PC 24 h, total des j'aime (2026-10-10T01:30Z, commit de release unique en squash)
 release: PR 86 en ligne
 release: partage QR des cinq onglets, synchronisation privee des recherches PC/iOS (2026-10-10T20:22Z)
+release: déblocage iPhone — PR 87 à 100 enfin publiées (OTA #1016 bloquée par DesktopZoom, corrigé 668c2f95), alerte RELEASE BLOQUÉE ajoutée (2026-10-11T11:26Z)

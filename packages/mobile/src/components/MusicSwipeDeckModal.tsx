@@ -1,3 +1,4 @@
+import { DESKTOP_MIN_WIDTH } from '../layout/layoutMode';
 import { resolveKeptTrackId } from '../services/keepTrackAction';
 import ClampedText from './ClampedText';
 import SourceProfileQuickView from './SourceProfileQuickView';
@@ -972,7 +973,7 @@ export default function MusicSwipeDeckModal({
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   // La présentation des stories est indépendante du mobile : un lecteur 9:16
   // centré et un panneau éditorial occupant la largeur utile du desktop.
-  const desktopStoryLayout = Platform.OS === 'web' && windowWidth >= 1100 && Boolean(trackAddedAt);
+  const desktopStoryLayout = Platform.OS === 'web' && windowWidth >= DESKTOP_MIN_WIDTH && Boolean(trackAddedAt);
   const compactDeck = windowHeight < 640;
   const swipeHint = currentAlreadyKept && !previewOnly
     ? '↑ suivant · ← passer'

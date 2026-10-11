@@ -174,3 +174,14 @@ jobs:
             echo "- OTA eligible: ${{ steps.compatible.outputs.publish || 'no' }}"
             echo '- Native module, dependency or entitlement changes are blocked and still require a new TestFlight build.'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  release-blocked-alert:
+    name: Alerte RELEASE BLOQUÉE
+    needs: [publish]
+    if: ${{ failure() && github.event_name != 'pull_request' }}
+    permissions:
+      contents: read
+      issues: write
+    uses: ./.github/workflows/release-blocked-alert.yml
+    with:
+      workflow_label: 'OTA Production Update'

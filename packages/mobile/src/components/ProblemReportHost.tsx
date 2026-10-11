@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useUserStore } from '../store/useUserStore';
 import { startShakeDetection, subscribeProblemReportOpen, currentScreenName, openProblemReport, announceReportUpdates } from '../services/problemReportService';
-import { navigationRef } from '../navigation/navigationRef';
+import { subscribeNavigationState } from '../navigation/navigationRef';
 import { pushCrumb } from '../services/reportLoop';
 import { robotSay, summonRobotMenu } from '../services/robotCoachService';
 import KeepModal from './KeepModal';
@@ -24,8 +24,7 @@ export default function ProblemReportHost() {
   // Fil des dernières actions : chaque changement d'écran est mémorisé (en mémoire) pour localiser le problème lors d'une secousse.
   useEffect(() => {
     pushCrumb('screen', currentScreenName());
-    const unsubscribe = (navigationRef as any).addListener?.('state', () => pushCrumb('screen', currentScreenName()));
-    return typeof unsubscribe === 'function' ? unsubscribe : undefined;
+    return subscribeNavigationState(() => pushCrumb('screen', currentScreenName()));
   }, []);
   // Le robot annonce les réparations (une fois) puis, rarement et discrètement, rappelle le geste « secoue ton téléphone ».
   useEffect(() => {

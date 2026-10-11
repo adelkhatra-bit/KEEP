@@ -34,10 +34,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-10-06T21:53:55.488Z
-- Branche : `copilot/reconcileclaude-main-20260825`
-- Dernier commit : `0f4775bd` (0f4775bd97085704d3a4984d1babfdec66086638) — Débloquer les gardes d’intégration des modules Stories validés
-- Date du dernier commit : 2026-10-06T21:50:17Z
+- Régénéré le : 2026-10-11T12:34:48.855Z
+- Branche : `claude/desktop-layout-20261011`
+- Dernier commit : `8552d8d` (8552d8df363aa85143c93fbcccd32dca45292589) — feat(desktop): vrai mode bureau (>= 1024 px) — barre latérale, contenu centré, textes >= 11 px, erreur navigation corrigée
+- Date du dernier commit : 2026-10-11T12:18:32+00:00
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -124,17 +124,28 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
-- `0f4775bd` (2026-10-06, copilot-swe-agent[bot]) — Débloquer les gardes d’intégration des modules Stories validés
-- `88ffffe9` (2026-10-06, copilot-swe-agent[bot]) — chore: aligner la branche agent sur la source produit 0138b4e5
-- `0138b4e5` (2026-10-06, Claude) — Stories: anti-doublon entre membres (cadenas + « Déjà en story chez @x, repartage-la »)
-- `39a9fb06` (2026-10-06, Claude) — Ma story s'ouvre sans faux « terminée », secousse = menu du robot (directions + signaler)
-- `c7cb3e76` (2026-10-06, Claude) — Docs: idées 183-188 (proposition lien partagé, premiers pas, parrainage, barre d'onglets) en attente d'OK
-- `6da2753e` (2026-10-06, Claude) — Lien partagé: le visiteur écoute et voit les stories, toute action demande un compte sur place
-- `d61db043` (2026-10-06, Claude) — Lien partagé = vraie app en invité (stories visibles, fonctions bloquées), vues de story en bulles, Services musicaux jamais bloqués, règle 2 mots
-- `16f5c12e` (2026-10-06, Claude) — Lien de partage: même interface que le profil de l'app (styles + liste repliée), parrainage conservé à l'inscription depuis le lien
-- `f27b139e` (2026-10-06, Claude) — Story: vues façon Instagram (musique vue + écoutée/passée/arrêtée), secousse localisée et fenêtre ouverte sur place
-- `d6262cf8` (2026-10-06, Claude) — Super Admin: menu en 8 rubriques, page Signalements (secousses), styles communs carte/bouton
+- `8552d8d` (2026-10-11, Claude) — feat(desktop): vrai mode bureau (>= 1024 px) — barre latérale, contenu centré, textes >= 11 px, erreur navigation corrigée
+- `0bbdaff` (2026-10-11, Claude) — docs: protocole de reprise débloquée pour ChatGPT/Codex (départ propre, contrôles, alerte release)
+- `bcd5711` (2026-10-11, Claude) — release: déblocage iPhone (PR 87 à 100) + alerte RELEASE BLOQUÉE + Mobile CI sur chaque PR
+- `485cb88` (2026-10-11, adelkhatra-bit) — Merge pull request #100 from adelkhatra-bit/fix/robot-shake-cleanup-20261011
+- `be899f5` (2026-10-11, adelkhatra-bit) — test(bot): align unknown-route shake assertion with compact menu
+- `6feccbd` (2026-10-11, adelkhatra-bit) — fix(bot): unify compact shake menu on all routes and remove unused legacy prompt
+- `c84cb79` (2026-10-11, adelkhatra-bit) — Merge pull request #99 from adelkhatra-bit/fix/shake-bot-compact-20261011
+- `7290ca8` (2026-10-11, adelkhatra-bit) — fix(bot): compact shake prompt and full navigation actions
+- `4f51375` (2026-10-11, adelkhatra-bit) — Merge pull request #97 from adelkhatra-bit/fix/qr-preserve-auth-callback-20261011
+- `2200e48` (2026-10-11, adelkhatra-bit) — fix(qr): preserve Supabase auth callback for desktop pairing
 <!-- AUTO:RECENT-COMMITS:END -->
+
+## Registre de versions (généré par le workflow de release, jamais à la main)
+
+Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellement servi en ligne vérifié (`/KEEP/version.json`), build TestFlight et groupe OTA connus. Source : `docs/RELEASE_REGISTER.json`.
+
+<!-- AUTO:RELEASE-REGISTER:START -->
+| Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
+|---|---|---|---|---|---|---|
+| `bcd5711` | `bcd5711` | iOS #226 (réussi) | #1017 (réussie) | 2026-10-11 12:34 | pass | PR 87 à 100 sur iPhone et site ; alerte RELEASE BLOQUÉE |
+<!-- AUTO:RELEASE-REGISTER:END -->
+
 
 Détail complet de chaque mission : `AGENT_MESSAGES.md` (journal narratif par
 agent) et messages des sessions de chat (non versionnés).

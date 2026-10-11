@@ -197,3 +197,20 @@ Règle produit verrouillée (04/10/2026) :
 Le contrat machine est `config/keep-product-contract.json > uxInteractionRules` et la CI refuse toute suppression de ces invariants.
 
 - Reliability and learning rules: read docs/LOKI_RELIABILITY_LEARNING_CONTRACT.md before modifying Loki. Continue using STATE.md and docs/ERROR_LEDGER.md as the existing execution log.
+
+## 🚨 RELEASE BLOQUÉE — règle pour toutes les IA (incident 11/10/2026)
+
+Le 10/10, l'OTA #1016 a échoué sur un test (`DesktopZoom.contract.test.ts`) sans que personne ne soit prévenu : les PR 87 à 100 ne sont jamais arrivées sur iPhone alors que le site GitHub Pages était à jour.
+
+- Tout échec d'un workflow de release (**OTA Production Update**, **Auto EAS Build iOS**, **Web public**, **Mobile CI**) ouvre automatiquement UNE issue GitHub `RELEASE BLOQUÉE — <workflow>` (label `release-blocked`, lien des logs) via `.github/workflows/release-blocked-alert.yml`. Un nouvel échec commente l'issue existante : pas de doublon.
+- **Avant de dire « publié sur iPhone »** : vérifier qu'aucune issue `release-blocked` n'est ouverte et que le SHA de dernière release (`git log -1 -- packages/mobile/.eas-build-trigger`) a un build iOS ET une OTA verts.
+- Chaque PR vers `reconcile/claude-main-20260825` exécute `Mobile CI` **sans filtre de chemins** (mêmes contrôles que l'OTA : scripts verify, typecheck, jest mobile + music). Ne pas fusionner une PR rouge.
+- Une issue `release-blocked` se ferme seulement après correction racine + ligne de release dans `packages/mobile/.eas-build-trigger` + OTA verte. Ne jamais désactiver ni affaiblir un test pour débloquer.
+- Ne pas recréer un second mécanisme d'alerte : étendre le workflow réutilisable existant.
+
+## ✅ « TERMINÉ » = PUBLIÉ ET VÉRIFIÉ SUR LA VERSION SERVIE (Adel, 11/10/2026)
+
+Une correction n'est **terminée** que lorsqu'elle est **publiée ET vérifiée sur la version réellement servie** : SHA lu dans `https://adelkhatra-bit.github.io/KEEP/version.json` pour le web, build TestFlight + groupe OTA pour l'iPhone. Jamais sur la foi d'un commit, d'un push ou d'un build vert (le 11/10, la publication Web #3498 de `8552d8d` a échoué sur le garde-fou navigateur : le site servait toujours `bcd5711`).
+- La preuve est le **Registre de versions** de `PROJECT_STATE.md` (généré par `scripts/release-register.cjs`, écrit par le workflow Web public seulement après vérification du SHA servi) : une ligne par release (commit, SHA web en ligne, build TestFlight, groupe OTA, date, tests, changements visibles). Ne jamais l'éditer à la main.
+- Avant d'écrire « livré / en ligne », lire ce registre et les issues `release-blocked`.
+- Le garde-fou navigateur `scripts/web-visible-surface-gate.cjs` tourne à la publication ET sur chaque PR (`mobile-ci.yml`) avec de vrais profils d'appareil : bureau à souris (1098, 1366, 1440 px) = barre latérale `DesktopSidebar` ; tablette/téléphone tactiles = barre du bas. Ne jamais l'affaiblir : adapter le profil à la réalité de l'appareil.

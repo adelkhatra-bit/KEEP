@@ -69,4 +69,6 @@ const commitsBody = commitsRaw.split('\n').filter(Boolean).map((line) => {
 content = replaceBetweenMarkers(content, 'RECENT-COMMITS', commitsBody);
 
 fs.writeFileSync(statePath, content, 'utf8');
-console.log('PROJECT_STATE.md : sections dynamiques régénérées (état git + 10 derniers commits).');
+// Registre de versions : rendu depuis docs/RELEASE_REGISTER.json (écrit par le workflow de release après vérification du SHA servi).
+require('./release-register.cjs').writeState(require('./release-register.cjs').load());
+console.log('PROJECT_STATE.md : sections dynamiques régénérées (état git + 10 derniers commits + registre de versions).');

@@ -2938,3 +2938,29 @@ Vérification Codex : comportement ancien reproduit en échec ;5 cas exécutés 
 
 Adel m'a désigné chef de projet : tout agent (Codex, Copilot, autres sessions Claude) annonce ici ce qu'il prend AVANT de coder et attend mon retour avant de pousser des changements touchant les mêmes fichiers. Règles : branche `reconcile/claude-main-20260825` uniquement (`main` est un instantané périmé, 4373 commits de retard) ; frontière Auth user/Super Admin de CLAUDE.md respectée (jamais `keep-auth-email` côté admin) ; aucune preuve = pas de « testé/déployé ».
 Ordre de priorité décidé : (1) build iOS : EAS #68–#75 en ERREUR depuis le 17/09 (phase « Bundle JavaScript »), dernier succès #62 du 16/09 — premier qui prend annonce ici, lit les logs EAS, corrige à la racine ; (2) mesurer la reconnaissance d'écoute (taux de match, état clé AudD) et le nombre de morceaux du catalogue Découvertes avant de conclure à « pas assez de musique » ; (3) QR/e-mail et mise en page ordinateur : seulement après validation d'Adel (App.tsx/Navigation.tsx verrouillés) ; (4) Super Admin : PR de robustesse de session ouverte (tri-état du contrôle de rôle), rien d'autre à y toucher sans moi.
+
+
+## [2026-10-11 CLAUDE CODE → CHATGPT / CODEX] REPRISE DÉBLOQUÉE — protocole obligatoire
+- **Débloqué** : la release du 10/10 (PR 87 à 100) était bloquée par l'OTA #1016 (test `DesktopZoom`, corrigé). Commit de release `bcd5711` poussé sur `reconcile/claude-main-20260825` : build iOS #226 + OTA + Web public en cours. **Pas de blocage de push** : tu as le droit de travailler directement sur cette branche (via PR ou push, voir AGENTS.md).
+- **Départ propre (évite la divergence qui a bloqué)** : ne jamais repartir d'un clone local ancien. `git fetch origin reconcile/claude-main-20260825`, puis un worktree neuf : `git worktree add -b mon-travail ../wt origin/reconcile/claude-main-20260825`. Pousser avec `git push origin mon-travail:reconcile/claude-main-20260825` (ou ouvrir une PR vers cette branche). Ne jamais `reset --hard` ni réécrire l'historique.
+- **Avant de livrer** : lancer les mêmes contrôles que l'OTA (scripts `verify-*`, typecheck mobile + music, `npm --workspace packages/mobile test -- --runInBand`). Mobile CI les rejoue sur chaque PR, sans filtre.
+- **Alerte automatique** : tout échec OTA / iOS / Web / Mobile CI ouvre une issue `RELEASE BLOQUÉE — …` (label `release-blocked`). Lire les issues ouvertes avant de dire « publié ». Corriger la cause racine, jamais désactiver un test. Règle complète : `AGENTS.md` > « RELEASE BLOQUÉE ».
+- **Rien de nouveau n'arrive sur iPhone sans ligne dans `packages/mobile/.eas-build-trigger`** : c'est le seul déclencheur de release (iOS + OTA + Web, même SHA).
+
+
+## [2026-10-11 CLAUDE CODE → CHATGPT / CODEX] RÉPARTITION (demande d'Adel) — réutilise ce fichier, `scripts/agent-lock.cjs`, `PROJECT_STATE.md`
+Contexte vérifié : Desktop Commander voit un appareil « Anas » (PC Windows d'Adel) ; clone local `C:\Users\97156\keep` (220 commits de retard, 73 fichiers modifiés) + copie `C:\Users\97156\keep-audit-latest`. Aucun nouveau système de coordination.
+
+**CLAUDE CODE (fichiers réservés — ne pas modifier en parallèle ; `agent-lock` est local à CHAQUE machine, donc la réservation est ici) :**
+- Design ordinateur : `packages/mobile/src/layout/**`, `packages/mobile/src/navigation/**` (`Navigation.tsx`, `DesktopSidebar.tsx`, `navigationRef.ts`), `packages/mobile/index.js`, `packages/mobile/scripts/fix-web-export.cjs`.
+- Textes ≥ 11 px (`layout/minFontSize.ts`) et erreur « navigation object hasn't been initialized » (`ProblemReportHost.tsx`, `problemReportService.ts`).
+- Garde-fou navigateur `scripts/web-visible-surface-gate.cjs`, workflows `web-preview-pages.yml` / `mobile-ci.yml` / `release-blocked-alert.yml`, registre `scripts/release-register.cjs`.
+- Phase 2 (IDEA-221, feu vert d'Adel) : mises en page bureau en colonnes écran par écran, uniquement en mode bureau web, design iPhone intouché.
+
+**CHATGPT (réconciliation du clone du PC Anas — URGENT, SAUVEGARDE D'ABORD, jamais de reset/clean) :**
+1. Sauvegarde : branche `backup/anas-local-<date>` poussée sur GitHub avec TOUT l'état local (73 fichiers modifiés inclus, `git stash`/commit sur branche de sauvegarde, jamais `reset --hard` ni `clean`).
+2. Comparer au distant `origin/reconcile/claude-main-20260825` ; ouvrir une PR (draft) des SEULS travaux absents du distant ; ne rien écraser.
+3. Puis repartir d'un worktree neuf basé sur le distant (protocole du bloc précédent).
+4. Audit des intégrations Supabase / backend / push / QR / Stories / boutique (lecture seule d'abord).
+
+**État de publication (prouvé) :** la publication Web #3498 de `8552d8d` a ÉCHOUÉ (étape « Block black page before publish ») : le profil « tablette 1024 px » du garde-fou avait une souris, donc passait en mode bureau (barre latérale) alors que le garde-fou exigeait la barre du bas. L'alerte RELEASE BLOQUÉE s'est bien ouverte. Correctif en cours par Claude (profils d'appareil réels).

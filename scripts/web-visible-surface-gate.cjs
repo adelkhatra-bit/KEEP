@@ -30,11 +30,17 @@ if (!BASE) {
   process.exit(2);
 }
 
+// Profils d'appareil RÉELS (11/10/2026, 8552d8d : le profil « tablette » 1024 px avait une souris, donc il passait en
+// mode bureau et le garde-fou, qui exigeait la barre du bas, a bloqué la publication). Règle de navigation attendue :
+//  - bureau (souris, >= 1024 px) : barre latérale DesktopSidebar, les 5 entrées visibles ;
+//  - tablette / téléphone (tactile, pas de pointeur fin) : barre du bas, les 5 onglets visibles.
 const scenarios = [
-  { name: 'desktop-1440', context: { viewport: { width: 1440, height: 900 } } },
-  { name: 'desktop-1366', context: { viewport: { width: 1366, height: 768 } } },
-  { name: 'tablet-1024', context: { viewport: { width: 1024, height: 768 } } },
-  { name: 'android-pixel7', context: { ...devices['Pixel 7'] } },
+  { name: 'desktop-1440', expectNav: 'sidebar', context: { viewport: { width: 1440, height: 900 } } },
+  { name: 'desktop-1366', expectNav: 'sidebar', context: { viewport: { width: 1366, height: 768 } } },
+  { name: 'desktop-1098-pc-175pct', expectNav: 'sidebar', context: { viewport: { width: 1098, height: 800 } } },
+  { name: 'tablet-1024-touch', expectNav: 'bottom', context: { viewport: { width: 1024, height: 768 }, hasTouch: true, isMobile: true } },
+  { name: 'phone-390', expectNav: 'bottom', context: { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true } },
+  { name: 'android-pixel7', expectNav: 'bottom', context: { ...devices['Pixel 7'] } },
 ];
 const routes = [
   { path: '/', marker: 'Loki Music' },
@@ -134,6 +140,26 @@ async function measure(page, expectedTab) {
     // le quart bas du viewport. Cela mesure la vraie barre sans confondre un
     // titre identique présent dans le contenu de l'écran.
     const controls = [...document.querySelectorAll('[role="button"], [role="link"], a, button')];
+    // Bureau (11/10/2026) : la navigation est la barre latérale (testID desktop-nav-*), pas la barre du bas.
+    // Même exigence : les 5 onglets visibles dans la fenêtre et le bon onglet actif (couleur de marque).
+    const sidebarControls = [...document.querySelectorAll('[data-testid^="desktop-nav-"]')].filter(visible);
+    if (sidebarControls.length >= 5) {
+      const activeBrand = 'rgb(167, 139, 250)';
+      const inSidebar = (label) => sidebarControls.find((el) => textOf(el).includes(label));
+      const sidebarTabs = tabLabels.filter((label) => Boolean(inSidebar(label)));
+      const control = inSidebar(expectedTab);
+      const sidebarActive = control
+        ? [...control.querySelectorAll('*'), control].some((el) => getComputedStyle(el).color === activeBrand)
+        : false;
+      return {
+        vh,
+        rootHeight: rootRect ? Math.round(rootRect.height) : -1,
+        nav: 'sidebar',
+        visibleTabs: sidebarTabs,
+        activeTabSelected: sidebarActive,
+        booting: document.documentElement.classList.contains('keep-booting'),
+      };
+    }
     const bottomControlForLabel = (label) => controls.find((el) => {
       if (!textOf(el).includes(label) || !visible(el)) return false;
       const r = el.getBoundingClientRect();
@@ -155,6 +181,7 @@ async function measure(page, expectedTab) {
     return {
       vh,
       rootHeight: rootRect ? Math.round(rootRect.height) : -1,
+      nav: 'bottom',
       visibleTabs,
       activeTabSelected,
       booting: document.documentElement.classList.contains('keep-booting'),
@@ -187,7 +214,8 @@ async function measure(page, expectedTab) {
         const label = `${scenario.name} ${route.path} ${phase}`;
         const problems = [];
         if (m.rootHeight < m.vh * 0.9) problems.push(`#root = ${m.rootHeight}px pour une fenêtre de ${m.vh}px (page noire)`);
-        if (m.visibleTabs.length < 5) problems.push(`barre des 5 onglets non visible (visibles: ${m.visibleTabs.join(', ') || 'aucun'})`);
+        if (m.nav !== scenario.expectNav) problems.push(`navigation attendue « ${scenario.expectNav} » mais trouvée « ${m.nav} »`);
+        if (m.visibleTabs.length < 5) problems.push(`les 5 onglets ne sont pas visibles (visibles: ${m.visibleTabs.join(', ') || 'aucun'})`);
         if (!m.activeTabSelected) problems.push(`mauvais onglet actif après ${phase}: « ${route.marker} » n’est pas sélectionné`);
         if (m.booting) problems.push('écran de démarrage jamais levé');
         if (problems.length) failures.push(`${label}: ${problems.join(' ; ')}`);

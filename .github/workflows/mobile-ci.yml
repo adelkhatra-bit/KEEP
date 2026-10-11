@@ -21,22 +21,10 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/mobile-ci.yml'
+  # Chaque PR vers reconcile exécute les MÊMES contrôles que l'OTA, sans filtre
+  # de chemins : un test cassé ne doit plus jamais bloquer une release (11/10/2026).
   pull_request:
     branches: ['reconcile/claude-main-20260825']
-    paths:
-      - 'packages/mobile/**'
-      - 'packages/music/**'
-      - 'supabase/migrations/**'
-      - 'scripts/verify-profile-data-integrity.cjs'
-      - 'scripts/verify-source-of-truth.cjs'
-      - 'scripts/verify-mobile-text-contrast.cjs'
-      - 'scripts/verify-ui-layout-baseline.cjs'
-      - 'config/keep-ui-baseline.json'
-      - 'docs/KEEP_CAHIER_DES_CHARGES_UI.md'
-      - 'docs/KEEP_MASTER_SPEC.md'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/mobile-ci.yml'
   workflow_dispatch:
 
 concurrency:
@@ -102,9 +90,55 @@ jobs:
       - name: Verify web entrypoint
         run: test -f packages/mobile/dist-web/index.html
 
+      # Garde-fou « page noire / navigation visible » AVANT fusion (11/10/2026) : la publication Web #3498 a échoué sur ce
+      # contrôle alors que la CI des PR ne le faisait pas. Même script, mêmes profils d'appareil (bureau souris : barre
+      # latérale ; tablette et téléphone tactiles : barre du bas) que web-preview-pages.yml. Aucune publication ici.
+      - name: Assemble web export for the browser gate
+        working-directory: packages/mobile
+        run: |
+          set -euo pipefail
+          node scripts/fix-web-export.cjs dist-web
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('dist-web/index.html')
+          s = p.read_text(encoding='utf-8')
+          for attr in ('src', 'href'):
+              s = s.replace(f'{attr}="/_expo/', f'{attr}="/KEEP/_expo/').replace(f'{attr}="./_expo/', f'{attr}="/KEEP/_expo/')
+          p.write_text(s, encoding='utf-8')
+          PY
+          rm -rf ../../_gate && mkdir -p ../../_gate/KEEP
+          cp -R dist-web/. ../../_gate/KEEP/
+          for route in Main Main/Listen Main/Discover Main/MyMusic Main/Parties Main/Profile; do
+            mkdir -p "../../_gate/KEEP/$route"
+            cp ../../_gate/KEEP/index.html "../../_gate/KEEP/$route/index.html"
+          done
+
+      - name: Install Chromium for the browser gate
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install chromium --with-deps
+
+      - name: Block black page + wrong navigation (real Chromium, PC + tablet + mobile)
+        run: |
+          set -euo pipefail
+          (cd _gate && python3 -m http.server 8765 --bind 127.0.0.1 >/dev/null 2>&1 &)
+          sleep 2
+          node scripts/web-visible-surface-gate.cjs http://127.0.0.1:8765/KEEP
+
       - name: Export iOS bundle
         working-directory: packages/mobile
         run: npx expo export --platform ios --output-dir dist-ios
 
       - name: Verify iOS export
         run: test -d packages/mobile/dist-ios && test "$(find packages/mobile/dist-ios -type f | wc -l)" -gt 0
+
+  release-blocked-alert:
+    name: Alerte RELEASE BLOQUÉE
+    needs: [verify-mobile]
+    if: ${{ failure() && github.event_name != 'pull_request' }}
+    permissions:
+      contents: read
+      issues: write
+    uses: ./.github/workflows/release-blocked-alert.yml
+    with:
+      workflow_label: 'Mobile CI'

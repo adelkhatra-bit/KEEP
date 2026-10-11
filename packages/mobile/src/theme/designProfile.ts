@@ -2,6 +2,7 @@
 // UNE seule source des mesures propres à l'appareil (aucun écran dupliqué, aucun fichier .web/.native : contrat platform-parity).
 // Le zoom global reste à 1 sur PC : la largeur est exploitée par les layouts (grilles/colonnes), jamais par une version mobile agrandie.
 import { useWindowDimensions } from 'react-native';
+import { DESKTOP_MIN_WIDTH } from '../layout/layoutMode';
 
 export type DesignProfileKind = 'mobile' | 'desktop' | 'wide';
 
@@ -13,7 +14,8 @@ export type DesignProfile = {
   botScale: number;
 };
 
-export const DESKTOP_MIN_WIDTH = 1100;
+// Seuil bureau UNIQUE : défini dans layout/layoutMode.ts (11/10/2026 : 1100 px excluait un PC Windows à 175 % = 1098 px CSS).
+export { DESKTOP_MIN_WIDTH } from '../layout/layoutMode';
 export const WIDE_MIN_WIDTH = 1700;
 
 export const DESIGN_PROFILES: Record<DesignProfileKind, DesignProfile> = {
