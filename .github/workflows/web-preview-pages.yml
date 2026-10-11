@@ -8,6 +8,16 @@ on:
       # RELEASE UNIQUE : le web public part uniquement du même commit que le
       # build TestFlight, matérialisé par .eas-build-trigger.
       - 'packages/mobile/.eas-build-trigger'
+      - 'packages/mobile/src/**'
+      - 'packages/mobile/assets/**'
+      - 'packages/mobile/app.json'
+      - 'packages/mobile/package.json'
+      - 'packages/admin/**'
+      - 'packages/music/**'
+      - 'config/**'
+      - 'scripts/**'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/web-preview-pages.yml'
   workflow_dispatch:
 
@@ -59,21 +69,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - name: Lock release SHA to TestFlight trigger
+      - name: Authorize canonical web release
         id: fresh
         shell: bash
         run: |
           set -euo pipefail
-          git fetch origin "$KEEP_PROJECT_BRANCH" --depth=200
-          release_sha="$(git log -1 --format=%H "origin/$KEEP_PROJECT_BRANCH" -- packages/mobile/.eas-build-trigger)"
-          test -n "$release_sha"
-          if [ "$GITHUB_SHA" = "$release_sha" ]; then
-            echo "build=yes" >> "$GITHUB_OUTPUT"
-            echo "Unified release SHA confirmed: $GITHUB_SHA"
-          else
-            echo "build=no" >> "$GITHUB_OUTPUT"
-            echo "Not a release commit: $GITHUB_SHA (current TestFlight release SHA: $release_sha)"
-          fi
+          test "$GITHUB_REPOSITORY" = "$KEEP_PROJECT_REPOSITORY"
+          test "$GITHUB_REF_NAME" = "$KEEP_PROJECT_BRANCH"
+          echo "build=yes" >> "$GITHUB_OUTPUT"
+          echo "Web release source: $GITHUB_SHA"
 
       - name: Configure GitHub Pages
         if: steps.fresh.outputs.build == 'yes'
