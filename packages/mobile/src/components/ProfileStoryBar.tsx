@@ -88,7 +88,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const [eventStories, setEventStories] = useState<EventStoryCard[]>([]);
   const [openEventStory, setOpenEventStory] = useState<EventStoryCard | null>(null);
   const [eventRsvpBusy, setEventRsvpBusy] = useState(false);
-  const [eventRsvp, setEventRsvp] = useState<EventRsvpStatus | null>(null);
+  const [eventRsvp, setEventRsvpChoice] = useState<EventRsvpStatus | null>(null);
   const [ownStoryOpening, setOwnStoryOpening] = useState(false);
   const ownStoryLoadRef = React.useRef<Promise<MusicStory | null> | null>(null);
   const reloadOwnStory = useCallback((): Promise<MusicStory | null> => {
@@ -313,7 +313,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     setEventRsvpBusy(true);
     try {
       await setEventRsvp(viewer.id, event.eventId, choice);
-      setEventRsvp(choice);
+      setEventRsvpChoice(choice);
     } catch {
       Alert.alert('Soirée', 'Réponse non enregistrée. Vérifie ta connexion puis réessaie.');
     } finally { setEventRsvpBusy(false); }
@@ -527,7 +527,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
           ranking={ranking}
           stories={stories.map((story) => (lastSeenAt[story.profileId] !== undefined ? { ...story, lastSeenAt: lastSeenAt[story.profileId] } : story))}
           eventStories={eventStories}
-          onOpenEventStory={(event) => { setOpenEventStory(event); setEventRsvp(null); }}
+          onOpenEventStory={(event) => { setOpenEventStory(event); setEventRsvpChoice(null); }}
           seen={seen}
           size={avatarSize}
           online={online}
