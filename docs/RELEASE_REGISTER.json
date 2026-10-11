@@ -1,5 +1,14 @@
 [
   {
+    "commit": "a1d7ac3f199ac6b45f601cee77e0ec3a12dd6e26",
+    "web": "a1d7ac3f199ac6b45f601cee77e0ec3a12dd6e26",
+    "testflight": "iOS #227 in_progress (release a1d7ac3)",
+    "ota": "OTA #1018 in_progress (release a1d7ac3)",
+    "date": "2026-10-11 18:24",
+    "tests": "pass",
+    "changes": "release(ios+web): publish verified PR110 on unified TestFlight and desktop source"
+  },
+  {
     "commit": "d13e0f18c6a429d39bb0a21604abe9c0e5009296",
     "web": "d13e0f18c6a429d39bb0a21604abe9c0e5009296",
     "testflight": "iOS #226 success (release bcd5711)",
