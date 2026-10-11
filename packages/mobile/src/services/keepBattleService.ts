@@ -594,7 +594,7 @@ export function subscribeKeepBattle(battleId: string, onChange: () => void) {
 export async function createKeepBattleArena(themeCode = 'MIX', roundCount = 8, themeCodes?: string[]): Promise<KeepBattleArenaCreated> {
   const selectedThemes = Array.from(new Set((themeCodes || [])
     .map((code) => code.trim().toUpperCase())
-    .filter((code) => code && code !== 'MIX'))).slice(0, 3);
+    .filter((code) => code && code !== 'MIX'))).slice(0, 8);
   const { data, error } = await client().rpc('keep_battle_arena_create', {
     p_theme_code: selectedThemes[0] || themeCode.toUpperCase(),
     p_round_count: Math.max(5, Math.min(roundCount, 12)),
