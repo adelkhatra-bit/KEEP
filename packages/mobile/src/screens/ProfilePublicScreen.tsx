@@ -24,6 +24,7 @@ import { getDownloadCreditStatus, loadFreeSpentToday } from '../services/creditS
 import { loadMyFreeWalletStatus } from '../services/freeWalletService';
 import { keepLokiPulseTrack } from '../services/lokiPulseKeep';
 import { hideLokiPulseTrack, loadLokiPulse, LokiPulseItem } from '../services/lokiPulseService';
+import { loadEventStories, type EventStoryCard } from '../services/eventStoryService';
 import { loadPulsePreferenceState } from '../services/pulsePreferenceService';
 import { loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadMyActiveKeepBattleArena, loadMyKeepBattleCreditStatus, loadMyKeepBattleStats, KeepBattleStats } from '../services/keepBattleService';
 import { getCommercialRules, getGrowthRewardStatus, getSmartSortAccess, GrowthRewardStatus, QuotaAccess } from '../services/growthAccessService';
@@ -563,6 +564,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [profileSwipeOpen, setProfileSwipeOpen] = useState(false);
   const [selectionSwipe, setSelectionSwipe] = useState<{ title: string; subtitle: string; tracks: CanonicalTrack[]; sourceByTrack?: Record<string, { profileId?: string; username?: string; avatarUrl?: string | null }> } | null>(null);
   const [lokiPulseItems, setLokiPulseItems] = useState<LokiPulseItem[]>([]);
+  const [myPulseEventStories, setMyPulseEventStories] = useState<EventStoryCard[]>([]);
   const [lokiPulseSwipeOpen, setLokiPulseSwipeOpen] = useState(false);
   const [lokiPulseSelectedTrackId, setLokiPulseSelectedTrackId] = useState<string | null>(null);
   const [pulseTasteOpen, setPulseTasteOpen] = useState(false);
@@ -720,7 +722,14 @@ export default function ProfilePublicScreen({ navigation }: any) {
       }
     };
     void refreshPulse();
-    const unsubscribe = navigation?.addListener?.('focus', () => { void refreshPulse(); });
+    const refreshMyEvents = () => {
+      if (!user?.id || accountRequired) { if (live) setMyPulseEventStories([]); return; }
+      void loadEventStories(30).then((items) => {
+        if (live) setMyPulseEventStories(items.filter((item) => item.creatorId === user.id));
+      }).catch(() => {});
+    };
+    refreshMyEvents();
+    const unsubscribe = navigation?.addListener?.('focus', () => { void refreshPulse(); refreshMyEvents(); });
     return () => { live = false; unsubscribe?.(); };
   }, [accountRequired, navigation, user?.id]);
 
@@ -2497,15 +2506,26 @@ export default function ProfilePublicScreen({ navigation }: any) {
       ) : null}
 
 
-      {!accountRequired && visibleLokiPulseItems.length ? (
+      {!accountRequired && (visibleLokiPulseItems.length > 0 || myPulseEventStories.length > 0) ? (
         <View style={s.lokiPulseSection} testID="profile-loki-pulse-track-bubbles">
           <View style={s.lokiPulseHeader}>
             <View style={s.lokiPulseHeaderCopy}>
               <Text style={s.lokiPulseEyebrow}>LOKI PULSE</Text>
               <Text style={s.lokiPulseTitle}>Des sons qui te ressemblent</Text>
             </View>
-            <Text style={s.lokiPulseCost}>GARDER · {freeCostPerKeep} FREE</Text>
+            <Text style={s.lokiPulseCost}>Musiques · collection</Text>
           </View>
+          {myPulseEventStories.length ? <View style={{ gap: 7, paddingHorizontal: 12, paddingTop: 10 }}>
+            <Text style={{ color: colors.keep, fontWeight: '900', fontSize: 12 }}>MES SOIRÉES · POINTS PULSE</Text>
+            {myPulseEventStories.map((event) => (
+              <TouchableOpacity key={event.eventId} style={{ borderRadius: 14, borderWidth: 1, borderColor: colors.primaryLight, paddingHorizontal: 12, paddingVertical: 10, minHeight: 48, flexDirection: 'row', gap: 10, alignItems: 'center' }}
+                onPress={() => navigation.navigate('Parties', { openEventId: event.eventId })} accessibilityRole="button"
+                accessibilityLabel={`Ouvrir la soirée ${event.name} et son score Loki Pulse`} testID={`loki-pulse-event-${event.eventId}`}>
+                <Text style={{ color: colors.textPrimary, fontSize: 12, fontWeight: '800', flex: 1 }} numberOfLines={1}>{event.name}</Text>
+                <Text style={{ color: colors.keep, fontSize: 12, fontWeight: '900' }}>{event.pulseScore} PTS</Text>
+              </TouchableOpacity>
+            ))}
+          </View> : null}
           <Text style={s.lokiPulseHint}>Appris par Loki à partir de tes écoutes et adapté à tes goûts. Appuie sur une bulle pour écouter.</Text>
           <ScrollView
             ref={lokiPulseScrollRef}
