@@ -61,6 +61,9 @@ async function openPage(browser, viewport, fakeOptions, { mobileFlags }) {
   await ctx.addInitScript(([k, v]) => {
     try { localStorage.setItem(k, v); localStorage.setItem('keep_has_seen_onboarding_guide', 'true'); } catch { /* stockage indisponible */ }
   }, [fake.AUTH_STORAGE_KEY, JSON.stringify(sb.session)]);
+  if (fakeOptions?.pcSession) {
+    await ctx.addInitScript(() => localStorage.setItem('loki:web-companion-session', 'pc-e2e-1'));
+  }
   const page = await ctx.newPage();
   const pageErrors = [];
   page.on('pageerror', (e) => pageErrors.push(String(e.message).slice(0, 160)));
@@ -811,7 +814,46 @@ const crossDeviceReadJourney = {
   },
 };
 
+// Contrôle visuel du badge PC réel (après QR) : horloge locale, session
+// serveur non révoquée et aucune fenêtre HTML distincte de l'accueil Loki.
+const pcConnectionCountdownJourney = {
+  id: 'pc-connexion-compteur-24h',
+  titre: 'PC connecté — compte à rebours 24 h dans l’accueil',
+  devices: [PC],
+  mobileFlags: false,
+  fakeOptions: { pcSession: true },
+  async run({ page, shot }) {
+    await page.goto(`${BASE}/`, { waitUntil: 'load' });
+    await page.getByText('Passer', { exact: true }).first().click({ timeout: 15000 }).catch(() => {});
+    await page.getByText('PC CONNECTÉ', { exact: true }).waitFor({ timeout: 25000 });
+    const badge = page.locator('[data-testid="pc-connected-countdown"]');
+    const shown = (await badge.innerText()).replace(/\s+/g, ' ');
+    const looksLikeCountdown = /2[12]:\d{2}:\d{2}/.test(shown);
+    const initial = shown.match(/(\d{2}:\d{2}:\d{2})/)?.[1];
+    await page.waitForTimeout(1250);
+    const later = (await badge.innerText()).match(/(\d{2}:\d{2}:\d{2})/)?.[1];
+    let sidebarBox = await page.locator('[data-testid="desktop-sidebar"]').boundingBox();
+    for (let retry = 0; retry < 20 && sidebarBox && sidebarBox.x < -2; retry++) {
+      await page.waitForTimeout(150);
+      sidebarBox = await page.locator('[data-testid="desktop-sidebar"]').boundingBox();
+    }
+    const chatDrawerBox = await page.locator('[data-testid="loki-global-chat-drawer"]').boundingBox();
+    const pageGeometry = await page.evaluate(() => ({ width: window.innerWidth, scrollWidth: document.documentElement.scrollWidth }));
+    await shot('accueil-pc-connexion-24h');
+    const checks = [
+      ['navigation bureau entière visible sans rognage latéral', !!sidebarBox && sidebarBox.x >= -2 && sidebarBox.width >= 220],
+      ['tiroir Tchat entièrement visible sur PC', !!chatDrawerBox && chatDrawerBox.x >= 0 && chatDrawerBox.x + chatDrawerBox.width <= pageGeometry.width],
+      ['aucun débordement horizontal du document', pageGeometry.scrollWidth <= pageGeometry.width + 3],
+      ['PC connecté est visible sur accueil, sans page supplémentaire', await badge.isVisible()],
+      ['durée initiale cohérente avec la session serveur de 75 minutes', looksLikeCountdown],
+      ['compteur avance sans requête réseau chaque seconde', !!initial && !!later && initial !== later],
+    ];
+    return { details: { initial, later, shown, sidebarBox, pageGeometry }, failures: failed(checks), ok: 'Compteur PC 24 h affiché et animé sur accueil' };
+  },
+};
+
 const JOURNEYS = [
+  pcConnectionCountdownJourney,
   crossDeviceReadJourney,
   popupJourney('FREE'),
   popupJourney('MONEY'),
