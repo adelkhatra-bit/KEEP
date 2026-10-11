@@ -21,6 +21,7 @@ import ListenEnergyAura from '../components/ListenEnergyAura';
 import MicPermissionPrimerScreen from '../components/MicPermissionPrimerScreen';
 import CoachMarks from '../components/CoachMarks';
 import WebCompanionCountdown from '../components/WebCompanionCountdown';
+import { useLayoutMode } from '../layout/layoutMode';
 import MotionActionButton from '../components/MotionActionButton';
 import { loadSessionScreenCopy, loadCurrentPlanCode, loadDemoListenLimit } from '../services/planService';
 import { getDownloadCreditStatus } from '../services/creditService';
@@ -119,7 +120,8 @@ function formatElapsed(startedAt: string | null) {
 
 export default function HomeScreenCompact({ navigation }: any) {
   // La bandelette de l'accueil n'est affichée que si l'écran a la place (jamais au détriment du bouton ou du compteur).
-  const roomForHomeTicker = useWindowDimensions().height >= 700;
+  const { isDesktop: desktopHome, height: homeViewportHeight } = useLayoutMode();
+  const roomForHomeTicker = homeViewportHeight >= 700;
   const [tickersClosed, setTickersClosed] = useState(false);
   const closeTickers = () => { setTickersClosed(true); closeRobotInfo(); };
   const homeTicker = useTickerMessages('home');
@@ -662,11 +664,14 @@ export default function HomeScreenCompact({ navigation }: any) {
             MODE DÉMO, test d'onglet et mini-tour sont tous conservés. */}
         <AuroraBackground active />
         {/* Adel 05/10/2026 : Écouter = tout visible d'un coup, JAMAIS de défilement ni de swipe. La mise en page s'adapte à la taille de l'écran (orbe et espacements proportionnels). */}
-        <View style={[s.main, s.idle, s.idleFit]}>
+        <View style={[s.main, s.idle, s.idleFit, desktopHome && s.desktopIdleFit]} testID="home-idle-layout">
           {roomForHomeTicker && !tickersClosed ? <LedTicker onDismiss={closeTickers} messages={homeTicker} testID="home-led-ticker" style={{ alignSelf: 'stretch', width: '100%', marginTop: -16 }} /> : null}
-          <View style={s.idleHero}>
-            <LokiIdleOrb />
-            <LokiMusic3DTitle />
+          <View style={[s.idleHero, desktopHome && s.desktopIdleHero]} testID="home-idle-hero">
+            <View style={desktopHome ? s.desktopIdleIdentity : undefined}>
+              <LokiIdleOrb />
+              <LokiMusic3DTitle />
+            </View>
+            <View style={desktopHome ? s.desktopIdleActions : s.mobileIdleActions}>
             <Text numberOfLines={2} ellipsizeMode="tail" style={s.idleSubtitle}>{homeSubtitleLead}</Text>
             <TouchableOpacity
               style={s.idleLearnMore}
@@ -717,6 +722,7 @@ export default function HomeScreenCompact({ navigation }: any) {
                 </TouchableOpacity>
               </View>
             ) : null}
+            </View>
           </View>
           {Platform.OS === 'web' && !musicEngine.isDemoMode ? (
             <TouchableOpacity style={s.tabTest} onPress={testTabCapture} disabled={tabTestBusy} accessibilityLabel="Tester avec le son d'un onglet">
@@ -1015,6 +1021,7 @@ export default function HomeScreenCompact({ navigation }: any) {
 }
 
 function TopBar({ navigation, readyCount = 0, title, onOpenSessions }: any) {
+  const { isDesktop } = useLayoutMode();
   const openSessions = () => onOpenSessions ? onOpenSessions() : navigation.navigate('SessionHistory');
   const readyPulse = useRef(new Animated.Value(0.45)).current;
   // Adel (05/10/2026) : quand des sessions deviennent prêtes, le ROBOT du Tchat le dit (bulle à côté de lui, vibration courte + son discret) ;
@@ -1035,7 +1042,7 @@ function TopBar({ navigation, readyCount = 0, title, onOpenSessions }: any) {
     return () => loop.stop();
   }, [readyCount, readyPulse]);
 
-  return <View style={s.topBar}>
+  return <View style={[s.topBar, isDesktop && s.desktopTopBar]}>
     {/* Adel (05/10/2026) : plus de gros titre sur l'accueil ; pendant l'écoute, un tout petit « À toi de jouer ». Le menu reste à droite. */}
     {title ? <Text style={s.topTitle} numberOfLines={1}>{title}</Text> : null}
     <View style={[s.topBarActions, { marginLeft: 'auto' }]}>
@@ -1049,12 +1056,12 @@ function TopBar({ navigation, readyCount = 0, title, onOpenSessions }: any) {
         </TouchableOpacity>
       ) : null}
       {/* Adel (05/10/2026) : le ☰ s'anime (halo qui pulse + pastille du nombre) quand des sessions sont prêtes : l'utilisateur comprend qu'il a quelque chose à ouvrir. */}
-      <TouchableOpacity onPress={openSessions} accessibilityRole="button" accessibilityLabel={readyCount > 0 ? `Ouvrir mes sessions : ${readyCount} morceau${readyCount > 1 ? 'x' : ''} prêt${readyCount > 1 ? 's' : ''}` : 'Ouvrir mes sessions'} testID="home-sessions-menu">
+      {!isDesktop ? <TouchableOpacity onPress={openSessions} accessibilityRole="button" accessibilityLabel={readyCount > 0 ? `Ouvrir mes sessions : ${readyCount} morceau${readyCount > 1 ? 'x' : ''} prêt${readyCount > 1 ? 's' : ''}` : 'Ouvrir mes sessions'} testID="home-sessions-menu">
         <Animated.View style={[s.round, readyCount > 0 && s.roundReady, readyCount > 0 && { transform: [{ scale: readyPulse.interpolate({ inputRange: [0.45, 1], outputRange: [1, 1.1] }) }] }]}>
           <Text style={s.roundText}>☰</Text>
         </Animated.View>
         {readyCount > 0 ? <View style={s.roundBadge} pointerEvents="none"><Text style={s.roundBadgeText}>{readyCount > 9 ? '9+' : readyCount}</Text></View> : null}
-      </TouchableOpacity>
+      </TouchableOpacity> : null}
     </View>
   </View>;
 }
@@ -1222,6 +1229,12 @@ function ListenWaveform({ active, recognizing, micLevel, idle }: { active: boole
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
   idleHero: { width: '100%', maxWidth: 692, alignItems: 'center' },
+  mobileIdleActions: { width: '100%', alignItems: 'center' },
+  desktopIdleIdentity: { flex: 0.42, minWidth: 220, alignItems: 'center', justifyContent: 'center' },
+  desktopIdleActions: { flex: 0.58, minWidth: 270, alignItems: 'center', justifyContent: 'center' },
+  desktopIdleHero: { maxWidth: 930, minHeight: 275, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 26, paddingHorizontal: 30, paddingVertical: 22, borderRadius: 28, borderWidth: 1, borderColor: 'rgba(167,139,250,0.38)', backgroundColor: 'rgba(16,12,32,0.88)' },
+  desktopIdleFit: { justifyContent: 'center', paddingTop: 0, paddingBottom: 8, paddingHorizontal: 18, overflow: 'visible' },
+  desktopTopBar: { maxWidth: 960, minHeight: 50, paddingTop: 2, paddingBottom: 2 },
   idlePills: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 14 },
   micPillReady: { backgroundColor: 'rgba(124,92,252,0.14)', borderColor: 'rgba(124,92,252,0.45)' },
   liveDotReady: { backgroundColor: C.purpleLight },
