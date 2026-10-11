@@ -109,9 +109,9 @@ export default function SessionHistoryScreen({ navigation }: any) {
   };
 
   return (
-    <View style={[styles.overlay, { justifyContent: desktop ? 'flex-end' : 'flex-end' }]}>
+    <View style={[styles.overlay, { justifyContent: 'center', alignItems: desktop ? 'flex-end' : 'center' }]} testID="sessions-overlay-centered">
       <Pressable style={styles.backdrop} onPress={() => navigation.goBack()} accessibilityLabel="Fermer les sessions" accessibilityRole="button" />
-      <SafeAreaView style={[styles.container, styles.sheet, desktop ? { width: Math.min(480, width * 0.48), height: height - 32, marginVertical: 16, marginRight: 16, borderRadius: 22 } : { width: '100%', height: Math.round(height * 0.78), borderTopLeftRadius: 24, borderTopRightRadius: 24 }]}>
+      <SafeAreaView style={[styles.container, styles.sheet, desktop ? { width: Math.min(480, width * 0.48), height: height - 32, marginVertical: 16, marginRight: 16, borderRadius: 22 } : { width: Math.min(480, width - 24), height: Math.min(Math.round(height * 0.82), 760), borderRadius: 24 }]}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.helpButton} onPress={() => setHelpOpen(true)} accessibilityRole="button" accessibilityLabel="Comprendre Mes Sessions">
           <Text style={styles.helpButtonText}>?</Text>
