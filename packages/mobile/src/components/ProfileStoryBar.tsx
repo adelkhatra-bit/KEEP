@@ -52,6 +52,8 @@ import { buildViewerDetail } from '../services/storyViewerDetail';
 import { loadMyLikesAmong, loadLikeCounts, likeKey } from '../services/trackLikesService';
 import { navigationRef } from '../navigation/navigationRef';
 import KeepModal from './KeepModal';
+import { eventStoryStillVisible, loadEventStories, type EventStoryCard } from '../services/eventStoryService';
+import { setEventRsvp, type EventRsvpStatus } from '../services/creatorEventService';
 
 /**
  * Bulles de stories du PROFIL, à côté de la photo (Adel, 05/10/2026).
@@ -83,6 +85,10 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const [followBusy, setFollowBusy] = useState<string | null>(null);
   const [lastSeenAt, setLastSeenAt] = useState<Record<string, string>>({});
   const [ownStory, setOwnStory] = useState<MusicStory | null>(null);
+  const [eventStories, setEventStories] = useState<EventStoryCard[]>([]);
+  const [openEventStory, setOpenEventStory] = useState<EventStoryCard | null>(null);
+  const [eventRsvpBusy, setEventRsvpBusy] = useState(false);
+  const [eventRsvp, setEventRsvpChoice] = useState<EventRsvpStatus | null>(null);
   const [ownStoryOpening, setOwnStoryOpening] = useState(false);
   const ownStoryLoadRef = React.useRef<Promise<MusicStory | null> | null>(null);
   const reloadOwnStory = useCallback((): Promise<MusicStory | null> => {
@@ -281,6 +287,37 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
       try { if (channel && supabase) void supabase.removeChannel(channel); } catch { /* déjà fermé */ }
     };
   }, [viewer.id, isFocused]);
+
+  // Les événements approuvés ont leur propre story de 24 h : pas de faux
+  // morceau injecté dans le lecteur musical et aucun RSVP sur événement expiré.
+  useEffect(() => {
+    if (!isFocused || !viewer.id) return undefined;
+    let mounted = true;
+    const refreshEvents = () => {
+      void loadEventStories().then((rows) => {
+        if (mounted) setEventStories(rows.filter((item) => eventStoryStillVisible(item)));
+      }).catch(() => { if (mounted) setEventStories([]); });
+    };
+    refreshEvents();
+    const interval = setInterval(refreshEvents, 60000);
+    return () => { mounted = false; clearInterval(interval); };
+  }, [viewer.id, isFocused]);
+
+  const respondToEventStory = async (event: EventStoryCard, choice: EventRsvpStatus) => {
+    if (eventRsvpBusy || !eventStoryStillVisible(event) || event.creatorId === viewer.id) return;
+    if (choice === 'GOING' && (event.ticketPriceCents ?? 0) > 0) {
+      setOpenEventStory(null);
+      (navigationRef as any).navigate('Parties', { openEventId: event.eventId });
+      return;
+    }
+    setEventRsvpBusy(true);
+    try {
+      await setEventRsvp(viewer.id, event.eventId, choice);
+      setEventRsvpChoice(choice);
+    } catch {
+      Alert.alert('Soirée', 'Réponse non enregistrée. Vérifie ta connexion puis réessaie.');
+    } finally { setEventRsvpBusy(false); }
+  };
 
   // Liste des vues ouverte : on la rafraîchit toutes les 8 s pour voir « regarde maintenant » puis « parti il y a … » sans quitter l'écran.
   useEffect(() => {
@@ -489,6 +526,8 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
           activityKnown={activityKnown}
           ranking={ranking}
           stories={stories.map((story) => (lastSeenAt[story.profileId] !== undefined ? { ...story, lastSeenAt: lastSeenAt[story.profileId] } : story))}
+          eventStories={eventStories}
+          onOpenEventStory={(event) => { setOpenEventStory(event); setEventRsvpChoice(null); }}
           seen={seen}
           size={avatarSize}
           online={online}
@@ -498,6 +537,49 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
           followBusyId={followBusy}
         />
       </View>
+
+      <KeepModal visible={Boolean(openEventStory)} transparent animationType="fade" onRequestClose={() => setOpenEventStory(null)}>
+        <SafeAreaView style={styles.eventStoryBackdrop}>
+          <View style={styles.eventStorySheet} testID="event-story-modal">
+            <View style={styles.sheetHeader}>
+              <Text style={styles.eventStoryEyebrow}>STORY ÉVÉNEMENT · LOKI PULSE</Text>
+              <TouchableOpacity onPress={() => setOpenEventStory(null)} accessibilityRole="button" accessibilityLabel="Fermer la Story événement" style={styles.sheetClose}><Text style={styles.sheetCloseText}>✕</Text></TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={styles.eventStoryContent}>
+              {openEventStory?.imageUrl ? <Image source={{ uri: openEventStory.imageUrl }} style={styles.eventStoryCover} resizeMode="cover" /> : null}
+              <Text style={styles.eventStoryTitle}>{openEventStory?.name}</Text>
+              <Text style={styles.eventStoryMeta}>@{openEventStory?.username} · {openEventStory?.venueName}</Text>
+              <Text style={styles.eventStoryMeta}>{openEventStory?.startsAt ? new Date(openEventStory.startsAt).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : ''}</Text>
+              {openEventStory?.description ? <Text style={styles.eventStoryDescription}>{openEventStory.description}</Text> : null}
+              <Text style={styles.eventStoryPulse}>LOKI PULSE · {openEventStory?.pulseScore ?? 0} points</Text>
+              <Text style={styles.eventStoryMeta}>✓ {openEventStory?.goingCount ?? 0} participent · {openEventStory?.maybeCount ?? 0} peut-être</Text>
+              {openEventStory && openEventStory.creatorId !== viewer.id && eventStoryStillVisible(openEventStory) ? (
+                <View style={styles.eventStoryActions} testID="event-story-rsvp-actions">
+                  {([
+                    ['GOING', (openEventStory.ticketPriceCents ?? 0) > 0 ? '🎟 Voir le billet' : '✓ Je participe'],
+                    ['MAYBE', 'Peut-être'],
+                    ['NOT_GOING', 'Je passe'],
+                  ] as [EventRsvpStatus,string][]).map(([choice,label]) => (
+                    <TouchableOpacity key={choice} style={[styles.eventStoryAction, eventRsvp === choice && styles.eventStoryActionSelected]}
+                      disabled={eventRsvpBusy} onPress={() => { void respondToEventStory(openEventStory, choice); }}
+                      accessibilityRole="button" accessibilityLabel={label}>
+                      <Text style={styles.eventStoryActionText}>{eventRsvpBusy ? '…' : eventRsvp === choice ? '✓ ' + label : label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : null}
+              <TouchableOpacity style={styles.eventStoryOpen} onPress={() => {
+                if (!openEventStory) return;
+                const eventId = openEventStory.eventId;
+                setOpenEventStory(null);
+                (navigationRef as any).navigate('Parties', { openEventId: eventId });
+              }} accessibilityRole="button" accessibilityLabel="Voir le détail de la soirée">
+                <Text style={styles.eventStoryOpenText}>Voir la soirée et les participants ›</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </SafeAreaView>
+      </KeepModal>
 
       <KeepModal visible={plusOpen} transparent animationType="fade" onRequestClose={closePlus}>
         <SafeAreaView style={styles.backdrop}>
@@ -682,6 +764,21 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
 }
 
 const styles = StyleSheet.create({
+  eventStoryBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,.88)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, paddingVertical: 22 },
+  eventStorySheet: { width: '100%', maxWidth: 480, maxHeight: '96%', backgroundColor: '#181225', borderWidth: 2, borderColor: '#7C5CFC', borderRadius: 26, padding: 16 },
+  eventStoryContent: { alignItems: 'stretch', paddingBottom: 12 },
+  eventStoryEyebrow: { color: '#B79CFF', fontWeight: '900', fontSize: 11, letterSpacing: 1 },
+  eventStoryCover: { width: '100%', height: 190, borderRadius: 16, marginBottom: 12 },
+  eventStoryTitle: { color: '#FFFFFF', fontSize: 23, fontWeight: '900', marginBottom: 8 },
+  eventStoryMeta: { color: '#ECE5FC', fontSize: 13, lineHeight: 19, marginBottom: 7 },
+  eventStoryDescription: { color: '#FFFFFF', fontSize: 13, lineHeight: 20, marginBottom: 10 },
+  eventStoryPulse: { color: '#2DE1C2', fontSize: 16, fontWeight: '900', marginVertical: 10 },
+  eventStoryActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginVertical: 12 },
+  eventStoryAction: { minHeight: 48, flexGrow: 1, minWidth: 94, paddingHorizontal: 9, borderRadius: 14, backgroundColor: '#302447', borderWidth: 1, borderColor: '#A78BFA', alignItems: 'center', justifyContent: 'center' },
+  eventStoryActionSelected: { borderColor: '#2DE1C2', backgroundColor: '#164738' },
+  eventStoryActionText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900', textAlign: 'center' },
+  eventStoryOpen: { minHeight: 48, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', borderRadius: 16, backgroundColor: '#7C5CFC', marginTop: 5 },
+  eventStoryOpenText: { color: '#FFFFFF', fontSize: 13, fontWeight: '900' },
   rowCopy: { flex: 1, minWidth: 0 },
   previewBtn: { flexShrink: 0, width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: '#7C5CFC', backgroundColor: '#1B1230', alignItems: 'center', justifyContent: 'center' },
   previewBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '900' },

@@ -21,6 +21,8 @@ import ListenEnergyAura from '../components/ListenEnergyAura';
 import MicPermissionPrimerScreen from '../components/MicPermissionPrimerScreen';
 import CoachMarks from '../components/CoachMarks';
 import WebCompanionCountdown from '../components/WebCompanionCountdown';
+import WebCompanionSessionsPanel from '../components/WebCompanionSessionsPanel';
+import { listenPeriodLabel } from '../services/listenEconomyService';
 import { useLayoutMode } from '../layout/layoutMode';
 import MotionActionButton from '../components/MotionActionButton';
 import { loadSessionScreenCopy, loadCurrentPlanCode, loadDemoListenLimit } from '../services/planService';
@@ -194,7 +196,7 @@ export default function HomeScreenCompact({ navigation }: any) {
 
   const explainDemo = () => Alert.alert(
     'Mode démo',
-    `Tu peux identifier jusqu’à ${demoListenLimit} morceaux trouvés sur cet appareil avant de créer ou connecter un compte. Ensuite, chaque formule inclut un quota quotidien d’écoutes reconnues ; au-delà, une nouvelle reconnaissance réussie coûte 1 FREE.`,
+    `Tu peux identifier jusqu’à ${demoListenLimit} morceaux sur cet appareil avant de te connecter. Chaque formule possède ensuite un quota modifiable par jour, semaine, mois ou sans recharge. Au-delà, une reconnaissance réussie nécessite ton accord pour utiliser des FREE.`,
     [
       { text: 'Plus tard', style: 'cancel' },
       { text: 'Créer / se connecter', onPress: () => useAccountGateStore.getState().requestAccount('create') },
@@ -203,10 +205,11 @@ export default function HomeScreenCompact({ navigation }: any) {
 
   const explainListenEconomy = () => {
     if (!listenEconomyStatus) return;
-    const included = `${listenEconomyStatus.used}/${listenEconomyStatus.limit} écoutes reconnues aujourd’hui.`;
+    const period = listenPeriodLabel(listenEconomyStatus.periodMode);
+    const included = `${listenEconomyStatus.used}/${listenEconomyStatus.limit} morceaux reconnus ${period}.`;
     if (!listenEconomyStatus.overQuota) {
-      const extra = ` Il reste ${listenEconomyStatus.includedRemaining} écoute${listenEconomyStatus.includedRemaining > 1 ? 's' : ''} incluse${listenEconomyStatus.includedRemaining > 1 ? 's' : ''} aujourd’hui.`;
-      Alert.alert('Écoutes du jour', included + extra);
+      const extra = ` Il reste ${listenEconomyStatus.includedRemaining} identification${listenEconomyStatus.includedRemaining > 1 ? 's' : ''} incluse${listenEconomyStatus.includedRemaining > 1 ? 's' : ''} ${period}.`;
+      Alert.alert('Mes identifications', included + extra);
       return;
     }
     const useOneFree = () => {
@@ -217,7 +220,7 @@ export default function HomeScreenCompact({ navigation }: any) {
     const premium = () => { dismissListenFreePrompt(); navigation.navigate('Offers', { focusPlan: 'PREMIUM' }); };
     if (listenEconomyStatus.canPayWithFree && !listenFreeInsufficient) {
       Alert.alert(
-        'Plus d’écoute incluse aujourd’hui',
+        'Quota inclus utilisé',
         `La prochaine reconnaissance réussie coûte ${listenEconomyStatus.overQuotaFreeCost} FREE. Ton solde : ${listenEconomyStatus.freeBalance} FREE.`,
         [
           { text: `UTILISER ${listenEconomyStatus.overQuotaFreeCost} FREE`, onPress: useOneFree },
@@ -439,7 +442,7 @@ export default function HomeScreenCompact({ navigation }: any) {
     return () => unsubscribe?.();
   }, [navigation, user?.id]);
   useEffect(() => {
-    if (isDemoMode || musicEngine.isDemoMode || !user) return undefined;
+    if (isDemoMode || !user) return undefined;
     void refreshListenEconomyStatus();
     const unsubscribe = navigation?.addListener?.('focus', () => { void refreshListenEconomyStatus(); });
     return () => unsubscribe?.();
@@ -547,7 +550,6 @@ export default function HomeScreenCompact({ navigation }: any) {
   }, [canGoOlder, currentIndex, tracks]);
 
   const detected = tracks.length;
-  const kept = tracks.filter((tr) => tr.status === 'kept' || tr.status === 'already_saved').length;
   const pending = current?.status === 'pending';
   const alreadySaved = current?.status === 'already_saved';
   // Audit Adel (11/09/2026) : cet ecran a son propre rendu de carte (jamais
@@ -704,7 +706,7 @@ export default function HomeScreenCompact({ navigation }: any) {
                 ◉  TROUVER LE MORCEAU
               </MotionActionButton>
             </View>
-            {isDemoMode || musicEngine.isDemoMode ? (
+            {isDemoMode || (musicEngine.isDemoMode && !listenEconomyStatus) ? (
               <View style={s.demoRow}>
                 <Text style={s.demo}>MODE DÉMO{isDemoMode ? ` · ${Math.min(demoListenUsed, demoListenLimit)}/${demoListenLimit} TROUVAILLES` : ''}</Text>
                 <TouchableOpacity style={s.demoHelp} onPress={explainDemo} accessibilityRole="button" accessibilityLabel="À quoi servent le mode démo et les FREE ?">
@@ -714,12 +716,17 @@ export default function HomeScreenCompact({ navigation }: any) {
             ) : user && listenEconomyStatus ? (
               <View style={s.demoRow}>
                 <Text style={s.demo}>
-                  {listenEconomyStatus.used}/{listenEconomyStatus.limit} TROUVAILLES AUJOURD’HUI
+                  {listenEconomyStatus.includedRemaining} RESTANTES · {listenEconomyStatus.used}/{listenEconomyStatus.limit} {listenEconomyStatus.periodMode === 'WEEK' ? 'SEMAINE' : listenEconomyStatus.periodMode === 'MONTH' ? 'MOIS' : listenEconomyStatus.periodMode === 'NEVER' ? 'CRÉDIT' : 'JOUR'}
                   {listenEconomyStatus.overQuota ? ` · +${listenEconomyStatus.overQuotaFreeCost} FREE / MORCEAU` : ''}
                 </Text>
                 <TouchableOpacity style={s.demoHelp} onPress={explainListenEconomy} accessibilityRole="button" accessibilityLabel="Comprendre le quota d’écoutes et les FREE">
                   <Text style={s.demoHelpText}>?</Text>
                 </TouchableOpacity>
+              </View>
+            ) : null}
+            {!desktopHome && user && !isDemoMode ? (
+              <View style={s.pcTransferRow} testID="home-pc-transfer-row">
+                <WebCompanionSessionsPanel buttonOnly />
               </View>
             ) : null}
             </View>
@@ -790,7 +797,7 @@ export default function HomeScreenCompact({ navigation }: any) {
               <View style={s.stats}>
                 <MiniStat value={elapsed} label="Durée" />
                 <MiniStat value={String(detected)} label="Détectés" />
-                <MiniStat value={String(kept)} label="Gardés" highlight />
+                <MiniStat value={listenEconomyStatus ? String(listenEconomyStatus.includedRemaining) : "—"} label="Restantes" highlight />
               </View>
             </Animated.View>
           </ListenEnergyAura>
@@ -1232,6 +1239,7 @@ const s = StyleSheet.create({
   mobileIdleActions: { width: '100%', alignItems: 'center' },
   desktopIdleIdentity: { flex: 0.42, minWidth: 220, alignItems: 'center', justifyContent: 'center' },
   desktopIdleActions: { flex: 0.58, minWidth: 270, alignItems: 'center', justifyContent: 'center' },
+  pcTransferRow: { width: '100%', alignItems: 'center', marginTop: 13, marginBottom: 5 },
   desktopIdleHero: { maxWidth: 930, minHeight: 275, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 26, paddingHorizontal: 30, paddingVertical: 22, borderRadius: 28, borderWidth: 1, borderColor: 'rgba(167,139,250,0.38)', backgroundColor: 'rgba(16,12,32,0.88)' },
   // Réserve à droite le couloir du bot TCHAT PC : aucun chevauchement du CTA
   // et du texte de reconnaissance sur les fenêtres Windows à 1024–1098 px.

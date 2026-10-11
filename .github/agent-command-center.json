@@ -14,7 +14,7 @@
   ],
   "approvedProtectedFileBlobs": {
     "packages/mobile/App.tsx": "0882aebd034371e0257e57d531ddeaedbe35a8a7",
-    "packages/mobile/src/navigation/Navigation.tsx": "d6c43d69f2977977017c12ce08097a0f35db3be3"
+    "packages/mobile/src/navigation/Navigation.tsx": "86ddb200ccbf09673078e5e402e23162bec38857"
   },
   "protectedUi": [
     "barre des 5 onglets",

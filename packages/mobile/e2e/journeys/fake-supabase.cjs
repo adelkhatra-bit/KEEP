@@ -207,6 +207,38 @@ function createFakeSupabase(options = {}) {
           countryCodes: profile.music_country_codes, preferredLanguageTag: profile.preferred_language_tag,
           dismissCount: 0, version: 1,
         });
+        case 'keep_event_story_list': {
+          if (!opts.eventStories) return json(200, []);
+          const now = Date.now();
+          return json(200, [
+            {
+              event_id: '0b5e7a1c-0000-4000-8000-00000000d101',
+              creator_id: SELLER, username: SELLER_USERNAME,
+              event_name: 'Soirée rooftop synthétique', description: 'Une soirée de démonstration, aucune vraie entrée.',
+              venue_name: 'Loki Rooftop',image_url:null,
+              starts_at: new Date(now+3*3600000).toISOString(),
+              ends_at: new Date(now+7*3600000).toISOString(),
+              shared_at: recent(60000), going_count:7, maybe_count:2,
+              checked_in_count:3, pulse_score:67, ticket_price_cents:null,
+            },
+            {
+              event_id: '0b5e7a1c-0000-4000-8000-00000000d102',
+              creator_id: UID, username: USERNAME,
+              event_name: 'Ma soirée synthétique', description: 'Soirée du compte de test.',
+              venue_name: 'Loki Test',image_url:null,
+              starts_at: new Date(now+5*3600000).toISOString(),
+              ends_at: new Date(now+9*3600000).toISOString(),
+              shared_at: recent(120000), going_count:4, maybe_count:3,
+              checked_in_count:2, pulse_score:43, ticket_price_cents:null,
+            }
+          ]);
+        }
+        case 'keep_listen_status': if (!opts.eventStories) return json(200, null); return json(200, {
+          ok:true,planCode:'PREMIUM',isAnonymous:false,featureKey:'LISTEN_DAILY',
+          periodKey:'W:'+new Date().toISOString().slice(0,10),periodMode:'WEEK',nextResetAt:new Date(Date.now()+6*86400000).toISOString(),
+          used:3,limit:10,includedRemaining:7,overQuota:false,overQuotaFreeCost:1,
+          freeBalance:34,canListen:true,canPayWithFree:true,timezone:'Europe/Paris',
+        });
         case 'keep_agora_my_shareable_tracks': return json(200, [SHAREABLE_TRACK]);
         case 'keep_notification_action': {
           const action = body().p_action;

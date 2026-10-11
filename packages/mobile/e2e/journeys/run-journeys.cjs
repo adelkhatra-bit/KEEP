@@ -914,7 +914,122 @@ const desktopHomeStoryJourney = {
   },
 };
 
+const listenPcAndEventStoryJourney = {
+  id: 'mobile-pc-quotas-event-story',
+  titre: 'Transfert PC, quota restant, Story de soirée avec réponse et points Pulse',
+  devices: [
+    ['PC compact 1098x620', { width: 1098, height: 620 }],
+    ['iPhone simulé 390x844', { width: 390, height: 844 }],
+  ],
+  mobileFlags: true,
+  fakeOptions: { pcSession: true, eventStories: true, ownStory: true },
+  async run({ page, viewport, shot }) {
+    const desktop = viewport.width >= 1024;
+    const checks = [];
+    await page.goto(`${BASE}/Main/Listen/`, { waitUntil: 'load' });
+    await page.getByText('Passer', { exact: true }).first().click({timeout:12000}).catch(() => {});
+    await page.getByRole('button', { name: /Trouver le morceau qui joue/i }).first().waitFor({ state:'visible', timeout:30000 });
+    if (desktop) {
+      const sidebar = page.locator('[data-testid="desktop-sidebar"]');
+      checks.push(['panneau identifiant utilisateur PC visible', await sidebar.isVisible()]);
+      checks.push(['Loki Music et @testeur dans la barre de gauche',
+        (await sidebar.innerText()).includes('Loki Music') && (await sidebar.innerText()).includes('@testeur')]);
+    } else {
+      const transfer = page.locator('[data-testid="home-transfer-to-pc"]');
+      checks.push(['transfert PC visible depuis accueil iPhone', await transfer.isVisible()]);
+      checks.push(['quota restant renseigné', (await page.locator('body').innerText()).includes('RESTANTES')]);
+      const shareErrors = [];
+      page.on('pageerror', (error) => { shareErrors.push(String(error.message)); });
+      page.on('dialog', (dialog) => { void dialog.dismiss(); });
+      await transfer.click();
+      await page.waitForTimeout(450);
+      checks.push(['transfert PC actionnable sans erreur JavaScript', shareErrors.length === 0]);
+    }
+    await shot('accueil-quotas-et-pc');
+    await page.goto(`${BASE}/Main/Profile/`, { waitUntil:'load' });
+    const eventBubble = page.locator('[data-testid="story-event-0b5e7a1c-0000-4000-8000-00000000d101"]');
+    await eventBubble.waitFor({ state:'visible', timeout:30000 });
+    await eventBubble.click();
+    await page.locator('[data-testid="event-story-modal"]').waitFor({ state:'visible', timeout:20000 });
+    const body = await page.locator('[data-testid="event-story-modal"]').innerText();
+    checks.push(['Story soirée nom et points Pulse visibles', body.includes('Soirée rooftop synthétique') && body.includes('67 points')]);
+    const maybe = page.getByRole('button', { name:'Peut-être' }).last();
+    checks.push(['bouton Peut-être disponible', await maybe.isVisible()]);
+    await maybe.click();
+    await page.waitForTimeout(350);
+    const changed = await page.locator('[data-testid="event-story-modal"]').innerText();
+    checks.push(['RSVP enregistré et confirmé', changed.includes('✓ Peut-être')]);
+    await shot('story-evenement-rsvp-pulse');
+    return { details:{ desktop, text:body.slice(0,220) }, failures:failed(checks), ok:'Transfert PC et Story événement interactive contrôlés' };
+  },
+};
+
+// Reproduction utilisateur PC HP : Soirées et Battle doivent remplir la largeur
+// restante, la colonne identité/micro/session tient sans scroll même à 560px.
+const desktopPartiesBattleSidebarJourney = {
+  id: 'desktop-soirees-battle-sidebar-sans-scroll',
+  titre: 'PC : Soirées et Battle sur toute la largeur, micro visible sans défiler',
+  devices: [
+    ['PC compact 1024x560', { width: 1024, height: 560 }],
+    ['PC HP 1098x620', { width: 1098, height: 620 }],
+    ['PC standard 1440x900', { width: 1440, height: 900 }],
+  ],
+  mobileFlags: false,
+  fakeOptions: { pcSession: true },
+  async run({ page, viewport, shot }) {
+    const checks = [];
+    const fit = (rect) => Boolean(rect && rect.y >= -2 && rect.y + rect.height <= viewport.height + 2 && rect.x >= -2 && rect.x + rect.width <= viewport.width + 2);
+    await page.goto(`${BASE}/Main/Parties/`, { waitUntil: 'load' });
+    const sidebar = page.getByTestId('desktop-sidebar');
+    await sidebar.waitFor({ state: 'visible', timeout: 35000 });
+    const username = await sidebar.innerText();
+    checks.push(['logo Loki Music et @testeur visibles dans la colonne', username.includes('Loki Music') && username.includes('@testeur')]);
+    const micro = page.getByTestId('desktop-mic-status');
+    const microRect = await micro.boundingBox();
+    checks.push(['pastille MICRO À L’ARRÊT accessible immédiatement en haut', fit(microRect) && microRect.y < 220]);
+    checks.push(['état micro lisible et non tronqué', (await micro.innerText()).includes('MICRO À L’ARRÊT')]);
+    const sessions = page.getByTestId('desktop-open-sessions');
+    const sessionRect = await sessions.boundingBox();
+    checks.push(['MES SESSIONS accessible sans scroll latéral', fit(sessionRect)]);
+    const navFit = await sidebar.evaluate((el) => el.scrollHeight <= el.clientHeight + 3);
+    checks.push(['barre latérale sans défilement vertical', navFit]);
+    const home = page.getByTestId('parties-home-actions');
+    await home.waitFor({ state: 'visible', timeout: 30000 });
+    const homeRect = await home.boundingBox();
+    checks.push(['cartes de soirée dans la largeur PC', !!homeRect && homeRect.width >= viewport.width * 0.57]);
+    const actions = page.getByRole('button', { name: /Créer une soirée|Voir mes soirées|Voir mes invitations/i });
+    checks.push(['les trois actions Soirées sont présentes', (await actions.count()) >= 3]);
+    const dockRect = await page.getByTestId('loki-global-chat-drawer').boundingBox();
+    const actionRects = await Promise.all((await actions.all()).map((action) => action.boundingBox()));
+    const dockOverlapsActions = !!dockRect && actionRects.some((card) => !!card
+      && dockRect.x < card.x + card.width && dockRect.x + dockRect.width > card.x
+      && dockRect.y < card.y + card.height && dockRect.y + dockRect.height > card.y);
+    checks.push(['le Tchat ne recouvre aucune des trois cartes Soirées', !dockOverlapsActions]);
+    await shot('soirees-pleine-largeur');
+    await page.getByRole('button', { name: 'Ouvrir directement Battle' }).click();
+    const stage = page.getByTestId('desktop-battle-stage');
+    await stage.waitFor({ state: 'visible', timeout: 30000 });
+    const stageRect = await stage.boundingBox();
+    const sidebarRect = await sidebar.boundingBox();
+    checks.push(['Battle occupe toute la largeur hors barre latérale', !!stageRect && !!sidebarRect && stageRect.width >= viewport.width - sidebarRect.width - 18]);
+    checks.push(['fond Battle violet présent sur la totalité du bureau', await page.getByTestId('desktop-battle-atmosphere').isVisible()]);
+    checks.push(['panneau informations gauche présent sans chevauchement', await page.getByTestId('desktop-battle-left').isVisible()]);
+    checks.push(['panneau informations droit présent sans chevauchement', await page.getByTestId('desktop-battle-right').isVisible()]);
+    const left = await page.getByTestId('desktop-battle-left').boundingBox();
+    const right = await page.getByTestId('desktop-battle-right').boundingBox();
+    checks.push(['panneaux desktop entièrement dans leur zone', !!left && !!right && !!stageRect && left.x >= stageRect.x && right.x + right.width <= stageRect.x + stageRect.width + 2 && left.x + left.width < right.x]);
+    await shot('battle-pleine-largeur');
+    const docWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+    checks.push(['aucun débordement horizontal page', docWidth <= viewport.width + 4]);
+    const sidebarMicroBattle = await page.getByTestId('desktop-mic-status').boundingBox();
+    checks.push(['état micro reste affiché pendant Battle', fit(sidebarMicroBattle)]);
+    return { details: { homeRect, microRect, sessionRect, stageRect, left, right, docWidth }, failures: failed(checks), ok: 'Soirées, Battle et sidebar visibles dans la fenêtre PC, sans bande noire vide ni défilement latéral' };
+  },
+};
+
 const JOURNEYS = [
+  desktopPartiesBattleSidebarJourney,
+  listenPcAndEventStoryJourney,
   desktopHomeStoryJourney,
   pcConnectionCountdownJourney,
   crossDeviceReadJourney,
