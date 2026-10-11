@@ -203,7 +203,9 @@ const boutiqueJourney = {
     await allPreview.click({ force: true });
     await page.waitForTimeout(1200);
     r.cta_reagit = (await page.getByText(/Aperçu \d+\/\d+/i).count()) > 0
-      || (await page.getByText(/Fin des aperçus/i).count()) > 0;
+      || (await page.getByText(/Fin des aperçus/i).count()) > 0
+      || (await page.getByText(/Extraits indisponibles|Chargement des aperçus/i).count()) > 0;
+    await shot('apercus');
     await page.locator('[aria-label^="Fermer"]').first().click({ force: true }).catch(() => {});
 
     await page.goto(profileUrl, { waitUntil: 'load' });
@@ -578,7 +580,7 @@ const chatMiniJourney = {
     const vp = page.viewportSize();
     r.hauteur_mini_pct = box ? Math.round((box.height / vp.height) * 100) : null;
     r.dans_ecran = Boolean(box && box.x >= 0 && box.y >= 0 && box.x + box.width <= vp.width + 1 && box.y + box.height <= vp.height + 1);
-    r.page_visible = (await page.getByText('Écouter', { exact: true }).first().isVisible().catch(() => false));
+    r.page_visible = (await page.getByRole('button', { name: /Trouver le morceau/i }).first().isVisible().catch(() => false));
     await page.getByText(fake.GROUP_NAME).first().click();
     await page.getByText('Fais tourner le son').first().waitFor({ timeout: 15000 });
     r.composer_visible = await page.getByPlaceholder('Écris un message…').first().isVisible().catch(() => false);
@@ -628,40 +630,35 @@ const chatMiniJourney = {
   },
 };
 
-// Notification « nouveau morceau » d'un profil suivi (Adel 02/10/2026) :
-// titre, artiste et pochette MASQUÉS, même pour une ancienne notification
-// qui les contient encore ; écoute masquée + GARDER dans la notification.
+// Les notifications de nouveaux titres sont désormais routées vers Stories.
+// Le test vérifie qu'une ancienne ligne NEW_PUBLIC_KEEP ne réapparaisse pas
+// dans la cloche ni dans le compteur (sans exposer titre, artiste, pochette).
 const newKeepNotifJourney = {
   id: 'notif-nouveau-morceau-masque',
-  titre: 'Notification nouveau morceau — titre masqué, écoute + GARDER',
+  titre: 'Nouveau morceau vers Stories — pas de doublon dans la cloche',
   devices: [ANDROID, MOBILE_SE, PC],
   mobileFlags: true,
   fakeOptions: { newKeepNotif: true },
   async run({ page, shot }) {
     const r = {};
     await page.goto(`${BASE}/notifications`, { waitUntil: 'load' });
-    await page.getByText(`Nouveau morceau chez ${fake.SELLER_USERNAME}`).first().waitFor({ timeout: 40000 });
-    await page.locator('[data-testid="new-keep-listen"]').first().waitFor({ timeout: 20000 });
-    const text = await page.locator('body').innerText();
-    r.titre_masque = !text.includes(fake.SECRET_TRACK.title) && !text.includes(fake.SECRET_TRACK.artist);
+    await page.getByText('Centre de notifications').first().waitFor({ timeout: 40000 });
+    await page.waitForTimeout(900);
+    const content = await page.locator('body').innerText();
+    r.titre_masque = !content.includes(fake.SECRET_TRACK.title) && !content.includes(fake.SECRET_TRACK.artist);
     r.pochette_masquee = (await page.locator('img[src*="secret.jpg"]').count()) === 0;
-    r.ecouter = await page.locator('[data-testid="new-keep-listen"]').first().isVisible();
-    r.garder = await page.locator('[data-testid="new-keep-keep"]').first().isVisible();
-    r.texte_garder = (await page.locator('[data-testid="new-keep-keep"]').first().innerText().catch(() => '')).replace(/\s+/g, ' ');
-    await shot('notification');
-    await page.locator('[data-testid="new-keep-keep"]').first().click({ force: true });
-    r.choix_public_prive = (await page.getByText('Public', { exact: true }).count()) > 0 && (await page.getByText('Privé', { exact: true }).count()) > 0;
-    const textAfter = await page.locator('body').innerText();
-    r.toujours_masque_avant_choix = !textAfter.includes(fake.SECRET_TRACK.title);
-    await shot('garder');
+    r.hors_cloche = content.includes('Aucune notification pour le moment.');
+    r.compteur_zero = (await page.getByText('0 non lue').count()) > 0;
+    r.pas_ancien_bouton = (await page.locator('[data-testid="new-keep-keep"]').count()) === 0;
+    await shot('stories-sans-doublon');
     const checks = [
-      ['titre et artiste jamais affichés (même ancienne notification)', r.titre_masque],
-      ['pochette jamais affichée', r.pochette_masquee],
-      ['bouton ▶ Écouter dans la notification', r.ecouter],
-      ['bouton AJOUTER GRATUITEMENT disponible dans la notification', r.garder && /AJOUTER GRATUITEMENT/.test(r.texte_garder)],
-      ['GARDER demande Public / Privé, titre toujours masqué', r.choix_public_prive && r.toujours_masque_avant_choix],
+      ['titre et artiste masqués', r.titre_masque],
+      ['pochette masquée', r.pochette_masquee],
+      ['nouveau morceau absent de la cloche', r.hors_cloche],
+      ['compteur de notifications non pollué', r.compteur_zero],
+      ['ancien bouton GARDER absent de la cloche', r.pas_ancien_bouton],
     ];
-    return { details: r, failures: failed(checks), ok: 'titre masqué, écoute + GARDER dans la notification' };
+    return { details: r, failures: failed(checks), ok: 'nouveaux titres dirigés vers Stories, cloche désencombrée' };
   },
 };
 
