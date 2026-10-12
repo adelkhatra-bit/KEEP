@@ -1,5 +1,14 @@
 [
   {
+    "commit": "54d74a5e00eeaa8a6ef9970994d9acc41a60026b",
+    "web": "54d74a5e00eeaa8a6ef9970994d9acc41a60026b",
+    "testflight": "iOS #230 success (release 1f44ee1)",
+    "ota": "OTA #1021 success (release 1f44ee1)",
+    "date": "2026-10-12 22:00",
+    "tests": "pass",
+    "changes": "fix(music): let a second shared link supersede slow first search and honor confirmed visibility"
+  },
+  {
     "commit": "204bc622bfe079be9981fb8926b46bf60515f472",
     "web": "204bc622bfe079be9981fb8926b46bf60515f472",
     "testflight": "iOS #230 success (release 1f44ee1)",

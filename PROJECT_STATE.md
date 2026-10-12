@@ -143,6 +143,7 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
+| `54d74a5` | `54d74a5` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 22:00 | pass | fix(music): let a second shared link supersede slow first search and honor confirmed visibility |
 | `204bc62` | `204bc62` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 21:45 | pass | fix(ci): safely guard absent saved entry in unified Keep confirmation |
 | `87267b5` | `87267b5` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 20:35 | pass | fix(ci): use verified provider player identity for YouTube video id |
 | `82d6a00` | `82d6a00` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 20:24 | pass | fix(ci): remove duplicate pending-session counter declaration blocking mobile typecheck |
