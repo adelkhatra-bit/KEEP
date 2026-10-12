@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Alert } from '../utils/keepAlert';
-import { pinStoryTrack } from '../services/musicStoriesService';
-import { resolveKeptTrackId } from '../services/keepTrackAction';
+import { pinStoryTrack, notifyOwnStoryChanged } from '../services/musicStoriesService';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useTranslation } from 'react-i18next';
 import { ProviderPlaylist } from '@keep/music';
@@ -79,22 +78,13 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
         else Alert.alert('Morceau non gardé', 'Vérifie tes FREE ou ta connexion puis réessaie.');
         return;
       }
-      // Same rule as microphone, tab and link preview: GARDER Public only
-      // publishes Story after the server confirmed the kept decision.
-      let published = false;
-      if (nextVisibility === 'PUBLIC' && savedEntry?.status === 'kept' && savedEntry.visibility === 'PUBLIC') {
-        try {
-          await pinStoryTrack(resolveKeptTrackId(track.id), {
-            title: track.title, artist: track.artist, album: track.album,
-            artworkUrl: track.artworkUrl, previewUrl: track.previewUrl, isrc: track.isrc,
-          });
-          published = true;
-        } catch {
-          // GARDER succeeded, but Story did not: never display a false badge.
-        }
-      }
-      setKeepStoryPublished(published);
-      setKeepSuccessVisibility(nextVisibility);
+      // Public KEEP is already included in the 24 h Story via
+      // loadProfileStory() reading keep_decisions. A second story pin would
+      // create duplicate server work and possibly duplicate cards.
+      const publicConfirmed = savedEntry.status === 'kept' && savedEntry.visibility === 'PUBLIC';
+      if (publicConfirmed) notifyOwnStoryChanged();
+      setKeepStoryPublished(publicConfirmed);
+      setKeepSuccessVisibility(savedEntry.visibility ?? nextVisibility);
       setKeepPromptOpen(false);
       setKeepSuccessOpen(true);
     } finally {
