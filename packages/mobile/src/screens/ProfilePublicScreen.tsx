@@ -2189,7 +2189,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
               }}
               accessibilityLabel={accountRequired ? 'Comprendre comment publier une Pépite' : 'Gérer pépites'}
             >
-              ◆ PÉPITES
+              ◆ VENDRE
             </MotionActionButton>
             {ownerBoutiqueOffers.length ? <View pointerEvents="none" style={s.ownerQuickActionBadge} accessibilityLabel={`${ownerBoutiqueOffers.length} collection${ownerBoutiqueOffers.length > 1 ? 's' : ''} publiée${ownerBoutiqueOffers.length > 1 ? 's' : ''}`}><Text style={s.ownerQuickActionBadgeText}>{ownerBoutiqueOffers.length}</Text></View> : null}
           </View>
