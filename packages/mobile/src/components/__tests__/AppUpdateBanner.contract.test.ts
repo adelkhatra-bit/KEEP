@@ -21,12 +21,16 @@ describe('silent app update contract', () => {
     expect(source).toContain('useAppUpdateStore');
     expect(source).toContain('latestSha');
     expect(source).toContain('void checkNow()');
-    expect(source).toContain('setInterval(() => { void checkNow(); }, 60_000)');
+    expect(source).toContain('setInterval(() => { void checkNow(); }, 15_000)');
     expect(source).toContain('reloadToLatest()');
     expect(source).toContain("if (!authReady || Platform.OS !== 'web' || !latestSha || webReloadingRef.current) return undefined;");
-    // Jamais de rechargement sous les doigts : seulement onglet en arrière-plan.
+    // Rechargement invisible si l'onglet est masqué OU visible et inactif : jamais pendant la saisie.
     expect(source).toContain("document.visibilityState === 'hidden'");
     expect(source).toContain("document.addEventListener('visibilitychange', onHidden)");
+    expect(source).toContain('const VISIBLE_IDLE_MS = 30_000');
+    expect(source).toContain('lastInteractionRef.current');
+    expect(source).toContain("['INPUT', 'TEXTAREA', 'SELECT']");
+    expect(source).toContain('setInterval(applyUpdate, 5_000)');
   });
 
   it('cannot be blocked by a legacy dismissed-update SHA', () => {
