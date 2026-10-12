@@ -1,5 +1,14 @@
 [
   {
+    "commit": "7e6cce68130b981b6b855ba1e9ef278903ce28ec",
+    "web": "7e6cce68130b981b6b855ba1e9ef278903ce28ec",
+    "testflight": "iOS #230 success (release 1f44ee1)",
+    "ota": "OTA #1021 success (release 1f44ee1)",
+    "date": "2026-10-12 22:07",
+    "tests": "pass",
+    "changes": "test(music): align 12 regression suites with unified link preview, confirmed FREE KEEP and automatic public Story"
+  },
+  {
     "commit": "54d74a5e00eeaa8a6ef9970994d9acc41a60026b",
     "web": "54d74a5e00eeaa8a6ef9970994d9acc41a60026b",
     "testflight": "iOS #230 success (release 1f44ee1)",
