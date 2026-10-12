@@ -1,5 +1,14 @@
 [
   {
+    "commit": "ce8b585a6fafc76519c8bd1efd1ea0ecae2ed182",
+    "web": "ce8b585a6fafc76519c8bd1efd1ea0ecae2ed182",
+    "testflight": "iOS #230 success (release 1f44ee1)",
+    "ota": "OTA #1021 success (release 1f44ee1)",
+    "date": "2026-10-12 20:10",
+    "tests": "pass",
+    "changes": "fix(swipe): advance only after server confirms KEEP and FREE debit"
+  },
+  {
     "commit": "1b02f9ac1850bda212458089cbdba297265a93da",
     "web": "1b02f9ac1850bda212458089cbdba297265a93da",
     "testflight": "iOS #230 success (release 1f44ee1)",

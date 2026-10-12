@@ -143,6 +143,7 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
+| `ce8b585` | `ce8b585` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 20:10 | pass | fix(swipe): advance only after server confirms KEEP and FREE debit |
 | `1b02f9a` | `1b02f9a` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 20:01 | pass | fix(listen): keep PC tab monitoring through song changes, preserve previews and honest FREE keeps |
 | `e1bad17` | `e1bad17` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 19:53 | pass | test(music): require explicit saved link sessions while keeping searches read-only |
 | `d8e54f1` | `d8e54f1` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 19:47 | pass | fix(listen): monitor successive PC tab songs into real session with preview and FREE KEEP |
