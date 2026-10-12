@@ -143,6 +143,7 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
+| `fbb446f` | `fbb446f` | iOS #230 in_progress (release 1f44ee1) | OTA #1021 in_progress (release 1f44ee1) | 2026-10-12 18:45 | pass | fix(home): place manual title and link search beside tab audio on Loki Music home |
 | `49910c1` | `49910c1` | iOS #229 success (release a18e390) | OTA #1020 success (release a18e390) | 2026-10-12 18:37 | pass | fix(keep): honor Public/Private once without a redundant second confirmation |
 | `0a92851` | `0a92851` | iOS #229 success (release a18e390) | OTA #1020 success (release a18e390) | 2026-10-12 18:31 | pass | fix(listen): show server-backed identifications consumed instead of duplicate detected counter, surface tab audio on PC home |
 | `3357ca7` | `3357ca7` | iOS #229 success (release a18e390) | OTA #1020 success (release a18e390) | 2026-10-12 18:19 | pass | feat(desktop): cockpit Battle 16:9 sans espaces inutiles, rebasé sur version officielle (#150) |
