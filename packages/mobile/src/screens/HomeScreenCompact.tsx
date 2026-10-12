@@ -403,6 +403,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [manualSearchQuery, setManualSearchQuery] = useState('');
   const [manualSearchBusy, setManualSearchBusy] = useState(false);
   const [manualSearchNotFound, setManualSearchNotFound] = useState(false);
+  const [manualSearchResult, setManualSearchResult] = useState<{ title: string; artist: string } | null>(null);
 
   const runManualSearch = async () => {
     if (manualSearchBusy || !manualSearchQuery.trim()) return;
@@ -414,6 +415,9 @@ export default function HomeScreenCompact({ navigation }: any) {
         setManualSearchNotFound(true);
         return;
       }
+      const latest = useSessionStore.getState().tracks;
+      const found = latest[latest.length - 1]?.track;
+      if (found) setManualSearchResult({ title: found.title, artist: found.artist });
       setManualSearchOpen(false);
       setManualSearchQuery('');
     } finally {
@@ -747,6 +751,12 @@ export default function HomeScreenCompact({ navigation }: any) {
             <View style={desktopHome ? s.desktopIdleIdentity : undefined}>
               <LokiIdleOrb />
               <LokiMusic3DTitle />
+              {manualSearchResult ? (
+                <View testID="home-manual-search-result" style={{ alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12 }} accessibilityLiveRegion="polite">
+                  <Text style={{ color: C.text, fontSize: 14, fontWeight: '700', textAlign: 'center' }} numberOfLines={2}>{manualSearchResult.title}</Text>
+                  <Text style={{ color: C.muted, fontSize: 12, textAlign: 'center' }} numberOfLines={1}>{manualSearchResult.artist}</Text>
+                </View>
+              ) : null}
             </View>
             <View style={desktopHome ? s.desktopIdleActions : s.mobileIdleActions}>
             <Text numberOfLines={2} ellipsizeMode="tail" style={s.idleSubtitle}>{homeSubtitleLead}</Text>
