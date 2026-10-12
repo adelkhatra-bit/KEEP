@@ -1,5 +1,14 @@
 [
   {
+    "commit": "9b70980600a88654bea9a06e8333a512dd88b430",
+    "web": "9b70980600a88654bea9a06e8333a512dd88b430",
+    "testflight": "iOS #230 success (release 1f44ee1)",
+    "ota": "OTA #1021 success (release 1f44ee1)",
+    "date": "2026-10-12 19:09",
+    "tests": "pass",
+    "changes": "fix(web): repair tab capture JSX and avoid starting microphone before browser share prompt"
+  },
+  {
     "commit": "d3cbeaebfc042bf9bc792ec452ec449d68294cbb",
     "web": "d3cbeaebfc042bf9bc792ec452ec449d68294cbb",
     "testflight": "iOS #230 success (release 1f44ee1)",
