@@ -557,6 +557,11 @@ export default function HomeScreenCompact({ navigation }: any) {
   }, [canGoOlder, currentIndex, tracks]);
 
   const detected = tracks.length;
+  // La consommation est enregistrée par Supabase, pas déduite du nombre de cartes de la session.
+  // Un doublon ou un essai sans résultat ne consomme aucune identification.
+  const consumedIdentifications = isDemoMode
+    ? `${demoListenUsed}/${demoListenLimit}`
+    : listenEconomyStatus ? `${listenEconomyStatus.used}/${listenEconomyStatus.limit}` : '—';
   const pending = current?.status === 'pending';
   const alreadySaved = current?.status === 'already_saved';
   // Audit Adel (11/09/2026) : cet ecran a son propre rendu de carte (jamais
@@ -660,10 +665,12 @@ export default function HomeScreenCompact({ navigation }: any) {
   // de la session normale : ne touche ni son état ni son design validé.
   const [tabTestBusy, setTabTestBusy] = useState(false);
   const testTabCapture = async () => {
-    if (tabTestBusy || musicEngine.isDemoMode || !useSessionStore.getState().isActive) return;
-    // Le micro et le partage audio ne doivent jamais enregistrer en même temps.
+    if (tabTestBusy || musicEngine.isDemoMode) return;
+    // L’action est aussi disponible dès l’accueil PC, avant de lancer le micro.
+    // Lancer la session dans le geste utilisateur, puis la mettre en pause avant de capter le son partagé.
+    if (!useSessionStore.getState().isActive) useSessionStore.getState().startSession();
     const wasPaused = useSessionStore.getState().micPaused;
-    pauseListening();
+    useSessionStore.getState().pauseListening();
     setTabTestBusy(true);
     try {
       // getDisplayMedia doit partir directement du clic, sans await préalable.
@@ -751,6 +758,11 @@ export default function HomeScreenCompact({ navigation }: any) {
                 ◉  TROUVER LE MORCEAU
               </MotionActionButton>
             </View>
+            {Platform.OS === 'web' && !musicEngine.isDemoMode ? (
+              <TouchableOpacity testID="home-tab-audio-option" style={s.tabTest} onPress={testTabCapture} disabled={tabTestBusy} accessibilityRole="button" accessibilityLabel="Reconnaître le son d’un onglet YouTube ou TikTok sur PC">
+                <Text style={s.tabTestText}>{tabTestBusy ? 'Analyse de l’onglet…' : '♫ Son d’un onglet PC'}</Text>
+              </TouchableOpacity>
+            ) : null}
             {isDemoMode || (musicEngine.isDemoMode && !listenEconomyStatus) ? (
               <View style={s.demoRow}>
                 <Text style={s.demo}>MODE DÉMO{isDemoMode ? ` · ${Math.min(demoListenUsed, demoListenLimit)}/${demoListenLimit} TROUVAILLES` : ''}</Text>
@@ -826,7 +838,7 @@ export default function HomeScreenCompact({ navigation }: any) {
               <ListenWaveform active={isActive} recognizing={recognizing} micLevel={micLevel} idle={micIdle} />
               <View style={s.stats}>
                 <MiniStat value={elapsed} label="Durée" />
-                <MiniStat value={String(detected)} label="Détectés" />
+                <MiniStat value={consumedIdentifications} label="Écoutes consommées" />
 
               </View>
             </Animated.View>
