@@ -1,5 +1,7 @@
 # ERROR LEDGER — mémoire anti-régression Loki Music
 
+- **ERR-SESSION-SWIPE-MODAL-20261012 · FIXED_UNVERIFIED** | Sur mobile, « Trouver le morceau → hamburger → Swipe » : la fenêtre de session en direct ne proposait pas l'accès direct ; le parcours via `SessionHistory` (écran `transparentModal`) empilait `SessionRecap` puis un `KeepModal` Swipe, avec démarrage de l'audio potentiellement avant la présentation visible. Correction ciblée : arrêt micro explicite et conservation session avant navigation Swipe différée après fermeture de la première Modal ; remplacement de l'écran Sessions au lieu d'empilement ; ouverture Swipe à route focalisée après interactions ; fenêtres Sessions centrées sur 390×844 et PC. Aucun fichier App/Navigation, barre d'onglets, serveur ou historique supprimé. Vérification requise : CI + vrai navigateur 390×844 et 1440×900 + TestFlight iPhone, fenêtre visible et micro libéré.
+
 Date de référence : 24/09/2026
 
 ## Revue parent — 07/10/2026
