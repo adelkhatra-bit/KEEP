@@ -23,6 +23,9 @@ begin
 end;
 $fn$;
 revoke execute on function public.keep_auto_share_approved_event() from public, anon, authenticated;
+-- Earlier UX PR may have installed the same action under its previous name.
+-- Keep exactly one automatic Story trigger whichever migration merged first.
+drop trigger if exists keep_auto_event_story_approval on public.events;
 drop trigger if exists trg_keep_auto_event_story_approved on public.events;
 create trigger trg_keep_auto_event_story_approved
 after insert or update of moderation_status on public.events
