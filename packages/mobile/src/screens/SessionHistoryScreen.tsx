@@ -5,6 +5,7 @@ import { Alert } from '../utils/keepAlert';
 import { useTranslation } from 'react-i18next';
 import { isCloudProfileRecoverySession, useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useSessionStore } from '../store/useSessionStore';
+import { isContinuousTabMusicActive, stopContinuousTabMusic } from '../services/continuousTabMusicSession';
 import { KeepSession } from '../types';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
@@ -96,6 +97,23 @@ export default function SessionHistoryScreen({ navigation }: any) {
           {isLive ? <Text style={styles.liveHint}>● Écoute en cours · les titres sont sauvegardés localement au fil de la session</Text> : null}
           {lockedCount > 0 ? <Text style={styles.lockedHint}>🔒 {lockedCount} morceau{lockedCount > 1 ? 'x' : ''} en attente de déblocage</Text> : null}
         </TouchableOpacity>
+        {isLive && isContinuousTabMusicActive() ? (
+          <View style={styles.cardFooter}>
+            <TouchableOpacity
+              style={styles.sortButton}
+              accessibilityRole="button"
+              accessibilityLabel="Arrêter le suivi YouTube PC puis ouvrir cette session pour préécouter, swiper et garder"
+              onPress={() => {
+                stopContinuousTabMusic();
+                const current = useSessionStore.getState();
+                if (current.isActive && current.sessionId === item.id) current.requestEndSession();
+                navigation.replace('SessionRecap', { sessionId: item.id, openSwipe: pendingCount > 0 });
+              }}
+            >
+              <Text style={styles.sortText}>■ ARRÊTER ET {pendingCount > 0 ? 'SWIPER' : 'OUVRIR'} · {pendingCount}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
         {!isLive ? <View style={styles.cardFooter}>
           {pendingCount > 0 ? (
             <TouchableOpacity style={styles.sortButton} onPress={() => navigation.replace('SessionRecap', { sessionId: item.id, openSwipe: true })} accessibilityRole="button" accessibilityLabel={`Swiper ${pendingCount} musiques`}>
