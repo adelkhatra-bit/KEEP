@@ -670,14 +670,14 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         // Adel 05/10/2026 : « tu écris trop » -- plus de phrase d'accroche sur la story d'un autre (elle nommait à tort le diffuseur comme crédité).
         headerExtra={isOwnOpen ? (
           <TouchableOpacity style={styles.viewsChip} onPress={() => { setViewersOpen(true); refreshViewers(); }} accessibilityRole="button" accessibilityLabel="Voir qui a vu ta story" testID="story-views-chip">
-            <Text style={styles.viewsChipText}>👁 {viewers ? `${viewers.length} vue${viewers.length > 1 ? 's' : ''}` : '… vues'} {ownLikeTotal !== null ? ` · ❤️ ${ownLikeTotal}` : ''} · Voir qui ›</Text>
+            <Text style={styles.viewsChipText}>👁 {viewers ? `${viewers.length} spectateur${viewers.length > 1 ? 's' : ''}` : '… spectateurs'} {ownLikeTotal !== null ? ` · ❤️ ${ownLikeTotal}` : ''} · Voir qui ›</Text>
           </TouchableOpacity>
         ) : null}
         overlay={isOwnOpen && viewersOpen ? (
           <SafeAreaView style={styles.backdrop}>
             <View style={styles.sheet}>
               <View style={styles.sheetHeader}>
-                <Text style={styles.sheetTitle}>Vues de ta story</Text>
+                <Text style={styles.sheetTitle}>Qui a vu ta story ?</Text>
                 <TouchableOpacity onPress={() => setViewersOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer la liste" style={styles.sheetClose}><Text style={styles.sheetCloseText}>✕</Text></TouchableOpacity>
               </View>
               {viewers === null && !viewersError ? <Text style={styles.viewsEmpty}>Chargement des vues…</Text> : null}
@@ -689,6 +689,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
               {!viewersError && viewers && viewers.length === 0 ? <Text style={styles.viewsEmpty}>Aucune vue enregistrée</Text> : null}
               {/* Vues façon Instagram (Adel, 06/10/2026) : une bulle par spectateur, indépendante ; on touche une bulle → ce qu'il a vu.
                   Pastille : ✓ = toute la story, sinon « vues / total ». Aucun texte long, aucune durée. */}
+              <Text style={styles.detailMeta}>1 spectateur = 1 personne, même si elle ouvre plusieurs morceaux ou revient. Chaque pastille indique les morceaux réellement consultés lors de sa dernière visite.</Text>
               <ScrollView contentContainerStyle={styles.viewerGrid}>
                 {(viewers ?? []).map((v) => {
                   const total = openStory?.tracks.length || v.tracksTotal || 0;
@@ -729,7 +730,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
                         </View>
                       ))}
                     </ScrollView>
-                    <Text style={styles.detailLegend}>✓ entière · ⏭ passée · ■ arrêt</Text>
+                    <Text style={styles.detailLegend}>Dernière visite · ✓ entière · ⏭ passée · ■ arrêt</Text>
                   </View>
                 );
               })()}
