@@ -33,6 +33,7 @@ import WheelPicker from '../components/WheelPicker';
 import StandardBackButton from '../components/StandardBackButton';
 import ContextHelpSheet from '../components/ContextHelpSheet';
 import PayoutCheckoutSheet from '../components/PayoutCheckoutSheet';
+import { getMyPayoutMethods, setMyPayoutLink } from '../services/payoutLinkService';
 import KeepModal from '../components/KeepModal';
 
 const RSVP_LABEL: Record<EventRsvpStatus, string> = {
@@ -559,6 +560,33 @@ export default function PartiesScreen({ navigation, route }: any) {
   // Adel (17-18/09/2026) : "construis tout ce qui manque ... entrée
   // payante" -- null = gratuit, sinon un montant fixe de la liste.
   const [ticketPriceCents, setTicketPriceCents] = useState<number | null>(null);
+  const [ticketPayoutLink, setTicketPayoutLink] = useState('');
+  const [ticketPayoutReady, setTicketPayoutReady] = useState(false);
+  const [ticketPayoutSaving, setTicketPayoutSaving] = useState(false);
+  useEffect(() => {
+    if (!createOpen || !user?.id) return undefined;
+    let active = true;
+    void getMyPayoutMethods().then((method) => {
+      if (!active) return;
+      setTicketPayoutLink(method.link || '');
+      setTicketPayoutReady(Boolean(method.link || method.qrUrl));
+    }).catch(() => { if (active) setTicketPayoutReady(false); });
+    return () => { active = false; };
+  }, [createOpen, user?.id]);
+
+  const saveTicketPayout = async () => {
+    if (!ticketPayoutLink.trim() || ticketPayoutSaving) return;
+    setTicketPayoutSaving(true);
+    try {
+      await setMyPayoutLink(ticketPayoutLink.trim());
+      setTicketPayoutReady(true);
+      Alert.alert('Paiement prêt', 'Ton PayPal est enregistré. Les billets payés seront à confirmer dans Mes soirées.');
+    } catch {
+      Alert.alert('PayPal à vérifier', 'Indique ton pseudo PayPal.Me ou un lien sécurisé valide.');
+    } finally {
+      setTicketPayoutSaving(false);
+    }
+  };
   // Adel (08/09/2026) : "un numero de telephone ... je souhaite montrer mon
   // numero de telephone ou pas" -- optionnel, masque par defaut.
   const [organizerPhone, setOrganizerPhone] = useState('');
@@ -1058,7 +1086,10 @@ export default function PartiesScreen({ navigation, route }: any) {
   const publish = async () => {
     const iso = parseDate();
     if (name.trim().length < 3) return Alert.alert('Événement', 'Indique un nom pour l’événement.');
-    if (!iso) return Alert.alert('Événement', 'Indique la date au format AAAA-MM-JJTHH:MM.');
+    if (!iso) return Alert.alert('Événement', 'Indique la date et l’heure.');
+    if (ticketPriceCents !== null && !ticketPayoutReady) {
+      return Alert.alert('Paiement à configurer', 'Enregistre d’abord ton PayPal ci-dessous pour vendre des billets.');
+    }
     setCreateBusy(true);
     try {
       const payload = { name: name.trim(), description: description.trim(), venueName: venueName.trim(), startsAt: iso, endsAt: new Date(Date.parse(iso) + eventDurationHours * 3600000).toISOString(), countryCode: countryCode.trim().toUpperCase().slice(0,2), imageUrls: eventImageUrls, requireQrCode, audienceMode, organizerPhone: organizerPhone.trim() || undefined, showOrganizerPhone, lat: venueCoords?.lat, lng: venueCoords?.lng };
@@ -1683,7 +1714,7 @@ export default function PartiesScreen({ navigation, route }: any) {
                     plus" ouvre la photo complète (jamais rognée) + le texte
                     intégral + YouTube, puis on répond juste après. */}
                 {currentEvent.description?<Text style={styles.description} numberOfLines={3}>{currentEvent.description}</Text>:null}
-                {!isPendingPreview && (currentEvent.description || currentEvent.imageUrls.length > 1) ? <TouchableOpacity style={styles.moreLink} onPress={() => setEventDetailOpen(true)}><Text style={styles.moreLinkText}>En savoir plus ›</Text></TouchableOpacity> : null}
+                {!isPendingPreview && (currentEvent.description || currentEvent.imageUrls.length > 1) ? <TouchableOpacity style={styles.moreLink} onPress={() => setEventDetailOpen(true)}><Text style={styles.moreLinkText}>Plus ›</Text></TouchableOpacity> : null}
                 {!isPendingPreview && currentEvent.organizerPhone ? <View style={styles.eventLinksRow}><TouchableOpacity style={styles.callOrganizerLink} onPress={()=>{void Linking.openURL(`tel:${currentEvent.organizerPhone}`);}}><View style={styles.callOrganizerIcon}><Text style={styles.callOrganizerIconText}>📞</Text></View><View><Text style={styles.callOrganizerLabel}>Appeler l’organisateur</Text><Text style={styles.callOrganizerNumber}>{currentEvent.organizerPhone}</Text></View></TouchableOpacity></View> : null}
                 {isPendingPreview
                   ? null
@@ -1857,7 +1888,26 @@ export default function PartiesScreen({ navigation, route }: any) {
           </TouchableOpacity>
         ))}
       </View>
-      {ticketPriceCents !== null ? <Text style={styles.rsvpToggleHint}>L'acheteur paiera directement sur ton lien de paiement personnel (menu ☰ &gt; Type de profil &amp; outils créateur). Loki Music ne touche jamais cet argent.</Text> : null}
+      {ticketPriceCents !== null ? <View style={styles.eventPayoutCard} testID="event-direct-ticket-payout">
+        <Text style={styles.eventPayoutTitle}>{ticketPayoutReady ? '✓ PAIEMENT PRÊT' : '1 · ACTIVER LES BILLETS'}</Text>
+        <Text style={styles.eventPayoutHint}>Paiement direct sur ton PayPal. Tu confirmes chaque règlement avant d’émettre le billet.</Text>
+        <View style={styles.eventPayoutRow}>
+          <TextInput
+            style={[styles.input, styles.eventPayoutInput]}
+            value={ticketPayoutLink}
+            onChangeText={(value) => { setTicketPayoutLink(value); setTicketPayoutReady(false); }}
+            placeholder="Ton pseudo PayPal.Me"
+            placeholderTextColor={colors.textMuted}
+            autoCapitalize="none"
+            accessibilityLabel="Pseudo PayPal.Me pour recevoir les billets"
+          />
+          <TouchableOpacity style={styles.eventPayoutSave} disabled={ticketPayoutSaving || !ticketPayoutLink.trim()}
+            onPress={() => { void saveTicketPayout(); }} accessibilityRole="button" accessibilityLabel="Enregistrer mon PayPal pour la billetterie">
+            <Text style={styles.eventPayoutSaveText}>{ticketPayoutSaving ? '…' : '✓ OK'}</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.eventPayoutHint}>2 · Après validation, la soirée apparaît aussi en Story 24 h et Loki Pulse. Aucun paiement n’est prélevé par Loki Music.</Text>
+      </View> : null}
 
       {/* Adel (08/09/2026) : "les trucs à cocher tu les mets ensemble en
           dessous, à la fin ... que tu comprends l'idée" -- les trois
@@ -1884,7 +1934,7 @@ export default function PartiesScreen({ navigation, route }: any) {
       {/* Adel (08/09/2026) : "publie sans notification pour moi c'est pas
           logique" -- un seul bouton desormais, qui notifie toujours à la
           création. */}
-      <TouchableOpacity style={styles.publish} onPress={()=>void publish()} disabled={createBusy}>{createBusy?<ActivityIndicator color={colors.white}/>:<Text style={styles.publishText}>{editingEventId ? 'ENREGISTRER LES MODIFICATIONS' : 'PUBLIER + NOTIFIER'}</Text>}</TouchableOpacity>
+      <TouchableOpacity style={styles.publish} onPress={()=>void publish()} disabled={createBusy}>{createBusy?<ActivityIndicator color={colors.white}/>:<Text style={styles.publishText}>{editingEventId ? 'ENREGISTRER' : ticketPriceCents !== null ? 'PUBLIER · BILLETS' : 'PUBLIER · GRATUIT'}</Text>}</TouchableOpacity>
     </ScrollView></View></View></KeepModal>
 
     {/* Adel (08/09/2026) : "voir tous les participants" */}
@@ -2002,6 +2052,13 @@ export default function PartiesScreen({ navigation, route }: any) {
 }
 
 const styles=StyleSheet.create({
+eventPayoutCard:{marginTop:10,marginBottom:12,padding:14,gap:10,borderRadius:18,borderWidth:1,borderColor:colors.warning,backgroundColor:colors.backgroundCard},
+eventPayoutTitle:{color:colors.warning,fontSize:14,fontWeight:'900'},
+eventPayoutHint:{color:colors.textPrimary,fontSize:12,lineHeight:17},
+eventPayoutRow:{flexDirection:'row',gap:8,alignItems:'center'},
+eventPayoutInput:{flex:1,minWidth:0,marginBottom:0},
+eventPayoutSave:{minWidth:70,minHeight:48,paddingHorizontal:12,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary,borderRadius:14},
+eventPayoutSaveText:{color:colors.white,fontSize:12,fontWeight:'900'},
 desktopContent:{flexGrow:1,width:'100%',maxWidth:'100%',alignSelf:'stretch',paddingHorizontal:24,paddingTop:14,paddingBottom:24,backgroundColor:'rgba(32,20,52,.84)'},
 desktopPartyHome:{flexDirection:'row',flexWrap:'wrap',justifyContent:'center',alignItems:'stretch',flexGrow:1,paddingVertical:14,gap:14},
 desktopPartyHomeChoice:{flexGrow:1,flexBasis:208,minWidth:190,minHeight:174,flexDirection:'column',alignItems:'flex-start',justifyContent:'space-between',paddingHorizontal:22,paddingVertical:20},
