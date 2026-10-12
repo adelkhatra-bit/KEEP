@@ -29,9 +29,9 @@ describe('Notifications readable-action contract', () => {
     expect(sizeOf('cardTitle')).toBeGreaterThanOrEqual(16);
   });
 
-  it('never shows more than 2 lines of notification text: the rest goes behind « En savoir plus »', () => {
+  it('never shows more than 2 lines of notification text: the rest goes behind « Plus »', () => {
     expect(source).toContain('numberOfLines={expandedNotificationIds.has(item.id) ? undefined : 2}');
-    expect(source).toContain("'En savoir plus ›'");
+    expect(source).toContain("'Plus ›'");
     expect(source).not.toMatch(/styles\.cardBody\} numberOfLines=\{3\}/);
   });
 });
