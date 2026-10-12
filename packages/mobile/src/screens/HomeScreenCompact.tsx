@@ -403,7 +403,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [manualSearchQuery, setManualSearchQuery] = useState('');
   const [manualSearchBusy, setManualSearchBusy] = useState(false);
   const [manualSearchNotFound, setManualSearchNotFound] = useState(false);
-  const [manualSearchResult, setManualSearchResult] = useState<{ title: string; artist: string } | null>(null);
+  const [manualSearchResult, setManualSearchResult] = useState<{ title: string; artist: string; track: any } | null>(null);
 
   const runManualSearch = async () => {
     if (manualSearchBusy || !manualSearchQuery.trim()) return;
@@ -417,7 +417,7 @@ export default function HomeScreenCompact({ navigation }: any) {
       }
       const latest = useSessionStore.getState().tracks;
       const found = latest[latest.length - 1]?.track;
-      if (found) setManualSearchResult({ title: found.title, artist: found.artist });
+      if (found) setManualSearchResult({ title: found.title, artist: found.artist, track: found });
       setManualSearchOpen(false);
       setManualSearchQuery('');
     } finally {
@@ -752,9 +752,12 @@ export default function HomeScreenCompact({ navigation }: any) {
               <LokiIdleOrb />
               <LokiMusic3DTitle />
               {manualSearchResult ? (
-                <View testID="home-manual-search-result" style={{ alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12 }} accessibilityLiveRegion="polite">
-                  <Text style={{ color: C.text, fontSize: 14, fontWeight: '700', textAlign: 'center' }} numberOfLines={2}>{manualSearchResult.title}</Text>
-                  <Text style={{ color: C.muted, fontSize: 12, textAlign: 'center' }} numberOfLines={1}>{manualSearchResult.artist}</Text>
+                <View testID="home-manual-search-result" style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'center', maxWidth: 290, paddingVertical: 8, gap: 10 }} accessibilityLiveRegion="polite">
+                  <TrackCover track={manualSearchResult.track} style={{ width: 52, height: 52, borderRadius: 9 }} fallbackStyle={{ width: 52, height: 52, borderRadius: 9 }} fallbackTextStyle={{ fontSize: 18 }} />
+                  <View style={{ flexShrink: 1 }}>
+                    <Text style={{ color: C.text, fontSize: 14, fontWeight: '700' }} numberOfLines={2}>{manualSearchResult.title}</Text>
+                    <Text style={{ color: C.muted, fontSize: 12 }} numberOfLines={1}>{manualSearchResult.artist}</Text>
+                  </View>
                 </View>
               ) : null}
             </View>
@@ -808,7 +811,7 @@ export default function HomeScreenCompact({ navigation }: any) {
               accessibilityLabel="Chercher un morceau par son titre ou son lien"
               accessibilityHint="Ouvre la recherche par titre, artiste ou lien musical"
             >
-              Rechercher une musique
+              ♫  Trouve ta musique en un clic
             </MotionActionButton>
             {isDemoMode || (musicEngine.isDemoMode && !listenEconomyStatus) ? (
               <View style={s.demoRow}>
