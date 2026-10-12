@@ -27,6 +27,8 @@ describe('Browser tab audio remains independent from the microphone (regression)
 
   it('requests browser screen sharing without first starting an idle microphone session', () => {
     const action = home.slice(home.indexOf('const testTabCapture = async () => {'), home.indexOf('// Keep the search modal mounted'));
-    expect(action.indexOf('const sample = await captureTabAudioSample();')).toBeLessThan(action.indexOf('if (!useSessionStore.getState().isActive) useSessionStore.getState().startSession();'));
+    expect(action).toContain('const monitor = await startTabAudioMonitor(');
+    expect(action).toContain("current.startSession({ captureMode: 'tab' })");
+    expect(action.slice(0, action.indexOf('const monitor = await startTabAudioMonitor('))).not.toContain('startSession(');
   });
 });
