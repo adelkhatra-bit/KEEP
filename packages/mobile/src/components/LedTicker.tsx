@@ -46,5 +46,5 @@ const s = StyleSheet.create({
   close: { position: 'absolute', right: 6, top: 8, width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(27,18,48,.92)', borderWidth: 1, borderColor: '#7C5CFC' },
   closeText: { color: '#FFFFFF', fontSize: 14, fontWeight: '900', lineHeight: 16 },
   track: { flexDirection: 'row', alignItems: 'center', width: 4000 },
-  text: { color: '#FFFFFF', fontSize: 17, lineHeight: 24, fontWeight: '800', letterSpacing: 0.3 },
+  text: { color: '#FFFFFF', fontSize: 14, lineHeight: 20, fontWeight: '800', letterSpacing: 0.2 },
 });
