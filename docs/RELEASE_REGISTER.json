@@ -1,5 +1,14 @@
 [
   {
+    "commit": "3357ca7d60c9a8be670a4db97a69e72c964fc69e",
+    "web": "3357ca7d60c9a8be670a4db97a69e72c964fc69e",
+    "testflight": "iOS #229 success (release a18e390)",
+    "ota": "OTA #1020 success (release a18e390)",
+    "date": "2026-10-12 18:19",
+    "tests": "pass",
+    "changes": "feat(desktop): cockpit Battle 16:9 sans espaces inutiles, rebasé sur version officielle (#150)"
+  },
+  {
     "commit": "97b3d1a050cf2b43afcbfa1dbec185488fbba372",
     "web": "97b3d1a050cf2b43afcbfa1dbec185488fbba372",
     "testflight": "iOS #229 success (release a18e390)",
