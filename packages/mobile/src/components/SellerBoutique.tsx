@@ -264,12 +264,12 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
       <View style={s.banner}>
         <View style={s.bannerHead}>
           <View style={s.liveDot} />
-          <Text style={s.bannerKicker} numberOfLines={1}>{ownerMode ? 'MA BOUTIQUE MUSICALE · MES PÉPITES' : 'BOUTIQUE MUSICALE · SES PÉPITES'}</Text>
+          <Text style={s.bannerKicker} numberOfLines={1}>{ownerMode ? 'MA BOUTIQUE' : `BOUTIQUE · @${sellerName}`}</Text>
         </View>
-        <Text style={s.bannerTitle}>{`${visibleOffers.length} collection${visibleOffers.length > 1 ? 's' : ''} · 1 clic pour écouter`}</Text>
+        <Text style={s.bannerTitle}>{`${visibleOffers.length} collection${visibleOffers.length > 1 ? 's' : ''} à découvrir`}</Text>
         <Text style={s.bannerPersonal} numberOfLines={2}>
           {ownerMode
-            ? 'Ton club musical est prêt. Lance directement une collection.'
+            ? 'Écoute tes collections ou ouvre Vendre pour les gérer.'
             : viewerName
               ? `${viewerName}, découvre la sélection de ${sellerName}.`
               : `Découvre la sélection de ${sellerName}.`}
@@ -301,12 +301,12 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
             <View style={s.dropHead}>
               <View style={s.dropLive}>
                 <View style={s.dropLiveDot} />
-                <Text style={s.dropKicker}>BOUTIQUE MUSICALE</Text>
+                <Text style={s.dropKicker}>SÉLECTION</Text>
               </View>
             </View>
             <View style={s.dropMain}>
               <View style={s.dropCopy}>
-                <Text style={s.dropFeatured}>★ PÉPITE À LA UNE</Text>
+                <Text style={s.dropFeatured}>★ À LA UNE</Text>
                 <Text style={s.dropTitle} numberOfLines={1}>{offerDisplayName(drop)}</Text>
                 <Text style={s.dropMeta} numberOfLines={1}>
                   {drop.trackCount} titres · {drop.genres?.[0] || 'Mix'}{ownerMode ? '' : dropNew > 0 ? ` · ${dropNew} nouveau${dropNew > 1 ? 'x' : ''} pour toi` : ' · déjà chez toi'}
@@ -315,7 +315,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
               <View style={s.dropPlay}><Text style={s.dropPlayText}>▶</Text></View>
             </View>
             <View style={s.dropListenStrip}>
-              <Text style={s.dropListenText}>{ownerMode ? 'TOUCHE POUR ÉCOUTER TA COLLECTION' : 'TOUCHE POUR ÉCOUTER · TITRES PROTÉGÉS'}</Text>
+              <Text style={s.dropListenText}>{'▶ ÉCOUTER'}</Text>
               <Text style={s.dropListenArrow}>›</Text>
             </View>
             <View style={s.dropFoot}>
@@ -326,7 +326,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
       ) : null}
 
       <View style={s.shelfHead}>
-        <Text style={s.shelfTitle} numberOfLines={1}>{ownerMode ? 'Mes collections' : 'Toutes les Pépites'}</Text>
+        <Text style={s.shelfTitle} numberOfLines={1}>{ownerMode ? 'Collections' : 'Explorer'}</Text>
         <TouchableOpacity onPress={() => setStoreOpen(true)} accessibilityRole="button" accessibilityLabel={`Voir toute la boutique musicale, ${visibleOffers.length} collections`}>
           <Text style={s.seeAll}>Tout voir · {visibleOffers.length} ›</Text>
         </TouchableOpacity>
@@ -365,7 +365,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
         ))}
       </ScrollView>
       <Text style={s.hint}>{ownerMode
-        ? 'Touche une collection pour l’écouter directement. Pour modifier une collection publiée, utilise ◆ PÉPITES sur ton profil.'
+        ? 'Pour publier ou modifier une collection, appuie sur Vendre dans ton profil.'
         : `Merci pour ta visite${viewerName ? ` ${viewerName}` : ''} · écoute, puis garde seulement ce qui te ressemble.`}</Text>
 
       <KeepModal visible={storeOpen} animationType="slide" transparent onRequestClose={() => setStoreOpen(false)}>
