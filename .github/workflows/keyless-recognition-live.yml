@@ -126,8 +126,26 @@ jobs:
             const p = await r.json();
             if(!r.ok || !p?.recognition?.title || !p?.recognition?.artist)
               throw new Error('No real YouTube title for '+url+': '+JSON.stringify(p));
+            const identity=(p.recognition.title+' '+p.recognition.artist).toLowerCase();
+            if(!identity.includes('never gonna give you up') || !identity.includes('rick astley'))
+              throw new Error('WRONG YOUTUBE SONG: '+url+' resolved to '+identity);
+            if(!String(p.recognition.externalUrls?.source||'').includes('dQw4w9WgXcQ'))
+              throw new Error('Source URL lost the actual video ID: '+JSON.stringify(p.recognition.externalUrls));
             console.log('LIVE YOUTUBE SHARE OK', {url,track:p.recognition.title,artist:p.recognition.artist,strategy:p.strategy});
           }
+          // YouTube share captions can be unrelated to the video. The link must
+          // always win over text accidentally copied around it.
+          const spoof = await fetch(`${base}/functions/v1/keep-music-keyless-source`, {
+            method: 'POST',headers:{apikey:key,Authorization:`Bearer ${key}`,
+              'Content-Type':'application/json','x-keep-device-id':'github-keyless-youtube-spoof-check'},
+            body:JSON.stringify({url:variants[0],platform:'YOUTUBE',
+              rawText:'Daft Punk - One More Time',title:'Daft Punk - One More Time'}),
+            signal:AbortSignal.timeout(45000),
+          });
+          const suspect = await spoof.json();
+          const text=(String(suspect.recognition?.title||'')+' '+String(suspect.recognition?.artist||'')).toLowerCase();
+          if(!spoof.ok || !text.includes('rick astley') || !text.includes('never gonna give you up'))
+            throw new Error('Copied caption changed YouTube video identity: '+JSON.stringify(suspect));
           JS
       - name: Spotify et Deezer partagés — vraie recherche musicale
         shell: bash
