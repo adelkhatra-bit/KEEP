@@ -352,11 +352,15 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
             && item.startedAt.startsWith(day) && (item.ownerUserId ?? '') === (ownerUserId ?? '')
             && !state.dismissedSessionIds.includes(item.id));
           const id = existing?.id ?? `shared-${day}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-          const duplicate = existing?.tracks.find((item) =>
-            Boolean(normalizedSource && item.track.externalUrls?.source === normalizedSource)
-            || (normalized(item.track.title) === normalized(enrichedTrack.title)
-              && normalized(item.track.artist) === normalized(enrichedTrack.artist))
-          );
+          const duplicate = existing?.tracks.find((item) => {
+            const previousSource = String(item.track.externalUrls?.source ?? '').trim();
+            // Two distinct shared video URLs must remain TWO swipeable entries,
+            // even if their uploader supplied identical title/artist metadata.
+            // Otherwise the second YouTube link silently reopened the first.
+            if (normalizedSource && previousSource) return normalizedSource === previousSource;
+            return normalized(item.track.title) === normalized(enrichedTrack.title)
+              && normalized(item.track.artist) === normalized(enrichedTrack.artist);
+          });
           if (duplicate) { outcome = { sessionId: id, entryId: duplicate.id, added: false }; return state; }
           const entry: SessionTrackEntry = {
             id: `shared-track-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
