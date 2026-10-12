@@ -12,6 +12,9 @@ describe('Loki events: seller checkout, moderation and Pulse visibility', () => 
 
   it('offers a clear direct organizer payout setup inside the same event form', () => {
     expect(parties).toContain('testID="event-ticket-seller-onboarding"');
+    expect(parties).toContain('desktopParties && styles.desktopEventBackdrop');
+    expect(parties).toContain('desktopParties && styles.desktopEventSheet');
+    expect(parties).toContain("maxWidth:960,height:'90%'");
     expect(parties).toContain('Vendre des billets');
     expect(parties).toContain('setMyPayoutLink(eventPayoutLink)');
     expect(parties).toContain('getMyPayoutMethods()');
