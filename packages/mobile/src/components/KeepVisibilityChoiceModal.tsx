@@ -21,27 +21,15 @@ type Props = {
   editMode?: boolean;
 };
 
-export default function KeepVisibilityChoiceModal({
-  visible,
-  title,
-  trackLabel,
-  body = 'Choisis ce que les autres verront. Tu pourras modifier ce choix plus tard.',
-  costFree,
-  playlists = [],
-  selectedPlaylistId,
-  onSelectPlaylist,
-  onPublic,
-  onPrivate,
-  onCancel,
-  busy = false,
-  editMode = false,
-}: Props) {
+/** Shared GARDER choices: same artwork/cost/visibility layout in live Listen, Swipe and link preview. */
+export function KeepVisibilityChoiceContent({
+  title, trackLabel, body = 'Choisis ce que les autres verront. Tu pourras modifier ce choix plus tard.',
+  costFree, playlists = [], selectedPlaylistId, onSelectPlaylist, onPublic, onPrivate, onCancel,
+  busy = false, editMode = false,
+}: Omit<Props, 'visible'>) {
   const cost = Math.max(0, Number(costFree || 0));
   const showCost = !editMode && cost > 0;
-
   return (
-    <KeepModal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <View style={s.overlay}>
         <View style={s.card}>
           <Text style={s.eyebrow}>{editMode ? 'VISIBILITÉ' : 'GARDER CE MORCEAU'}</Text>
           <Text style={s.title}>{title || (editMode ? 'Modifier la visibilité' : 'Garder ce morceau')}</Text>
@@ -105,11 +93,18 @@ export default function KeepVisibilityChoiceModal({
             <Text style={s.cancelText}>ANNULER</Text>
           </TouchableOpacity>
         </View>
+  );
+}
+
+export default function KeepVisibilityChoiceModal({ visible, ...props }: Props) {
+  return (
+    <KeepModal visible={visible} transparent animationType="fade" onRequestClose={props.onCancel}>
+      <View style={s.overlay}>
+        <KeepVisibilityChoiceContent {...props} />
       </View>
     </KeepModal>
   );
 }
-
 
 type SuccessProps = {
   visible: boolean;
