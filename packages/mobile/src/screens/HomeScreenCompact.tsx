@@ -42,7 +42,7 @@ import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import KeepVisibilityChoiceModal from '../components/KeepVisibilityChoiceModal';
 import { preloadTrackPreview, preloadTrackPreviewSegment, stopTrackPreview, stopTrackPreviewFast, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
-import { pinStoryTrack } from '../services/musicStoriesService';
+import { pinStoryTrack, notifyOwnStoryChanged } from '../services/musicStoriesService';
 import { resolveKeptTrackId } from '../services/keepTrackAction';
 import KeepModal from '../components/KeepModal';
 import { openSessionHistoryGuarded } from '../services/sessionHistoryGuard';
@@ -584,16 +584,12 @@ export default function HomeScreenCompact({ navigation }: any) {
       setManualKeepChoiceOpen(false);
       await refreshCreditBadge().catch(() => {});
       if (visibility === 'PUBLIC') {
-        try {
-          await pinStoryTrack(resolveKeptTrackId(result.track.id), {
-            title: result.track.title, artist: result.track.artist, album: result.track.album,
-            artworkUrl: result.track.artworkUrl, previewUrl: result.track.previewUrl, isrc: result.track.isrc,
-          });
-          setManualStoryPublished(true);
-        } catch {
-          setManualStoryPublished(false);
-          Alert.alert('Profil enregistré', 'Morceau gardé en public, mais sa publication Story n’a pas été confirmée. Tu peux la publier depuis ton profil.');
-        }
+        // Same rule as microphone/Swipe: a confirmed PUBLIC keep decision is
+        // already part of the 24h personal Story via loadProfileStory(). Do not
+        // create a second story_pins row or demand another publication click.
+        // The notification refreshes the ring and the Story across both views.
+        notifyOwnStoryChanged();
+        setManualStoryPublished(true);
       }
     } catch (error: any) {
       const insufficient = /CREDITS_EXHAUSTED|insufficient|free/i.test(String(error?.message || ''));
