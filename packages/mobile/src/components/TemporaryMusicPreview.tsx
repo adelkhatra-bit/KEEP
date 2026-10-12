@@ -3,7 +3,8 @@ import { Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'r
 import TrackCover from './TrackCover';
 import { resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
-import { playTrackPreviewFromGesture, stopTrackPreviewFast } from '../services/audioPreviewService';
+import { playTrackPreviewSegment, stopTrackPreviewFast, unlockWebAudioForGesture } from '../services/audioPreviewService';
+import { KeepVisibilityChoiceContent } from './KeepVisibilityChoiceModal';
 
 export type TemporaryMusicResult = {
   title: string;
@@ -20,6 +21,7 @@ export type TemporaryMusicResult = {
  */
 export default function TemporaryMusicPreview({
   visible, result, onClose, onNext, onReplaceLink, onSave, onSeeSessions, saved = false, saving = false,
+  onKeep, keepChoiceOpen = false, onChooseVisibility, onCancelKeep, keepCostFree = 3, keptVisibility = null, storyPublished = false,
 }: {
   visible: boolean;
   result: TemporaryMusicResult | null;
@@ -30,6 +32,13 @@ export default function TemporaryMusicPreview({
   onSeeSessions?: () => void;
   saved?: boolean;
   saving?: boolean;
+  onKeep?: () => void;
+  keepChoiceOpen?: boolean;
+  onChooseVisibility?: (visibility: 'PUBLIC' | 'PRIVATE') => void;
+  onCancelKeep?: () => void;
+  keepCostFree?: number;
+  keptVisibility?: 'PUBLIC' | 'PRIVATE' | null;
+  storyPublished?: boolean;
 }) {
   const embed = resolveEmbeddedMusicPlayer(result?.sourceUrl);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -54,16 +63,36 @@ export default function TemporaryMusicPreview({
     return () => { alive = false; stopTrackPreviewFast('temporary:music-share'); };
   }, [visible, result?.title, result?.artist, result?.sourceUrl, result?.previewUrl]);
 
+  useEffect(() => { if (keepChoiceOpen) stopTrackPreviewFast('temporary:music-share'); }, [keepChoiceOpen]);
+
   const togglePreview = () => {
     if (!previewUrl) return;
     if (previewPlaying) { stopTrackPreviewFast('temporary:music-share'); setPreviewPlaying(false); return; }
     setPreviewError(false);
-    void playTrackPreviewFromGesture('temporary:music-share', previewUrl, setPreviewPlaying)
+    unlockWebAudioForGesture();
+    void playTrackPreviewSegment('temporary:music-share', previewUrl, 0, 20000, setPreviewPlaying, undefined, true)
       .catch(() => { setPreviewPlaying(false); setPreviewError(true); });
   };
 
   if (!result || !visible) return null;
+  // Use the exact same GARDER component as Swipe/Écouter, inside the already
+  // opened Loki sheet. Avoid stacking two native iOS Modals.
+  if (keepChoiceOpen && onChooseVisibility && onCancelKeep) {
+    return (
+      <View testID="temporary-music-keep-choice" style={{ flex: 1, padding: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(7,6,19,0.94)' }}>
+        <KeepVisibilityChoiceContent
+          title="Garder ce morceau" trackLabel={`${result.title} · ${result.artist}`}
+          costFree={keepCostFree} busy={saving}
+          body="Le morceau est déjà dans Mes Sessions. Le débit FREE et la publication sur le profil n’auront lieu qu’après ton choix."
+          onPublic={() => onChooseVisibility('PUBLIC')}
+          onPrivate={() => onChooseVisibility('PRIVATE')}
+          onCancel={onCancelKeep}
+        />
+      </View>
+    );
+  }
   const NativeWebView = Platform.OS === 'web' ? null : require('react-native-webview').WebView;
+  const limitedYouTubeEmbed = embed?.provider === 'YOUTUBE' ? `${embed.url}&start=0&end=20` : embed?.url;
 
   return (
     <View testID="temporary-music-preview" style={{ flex: 1 }}>
@@ -102,7 +131,7 @@ export default function TemporaryMusicPreview({
             <View key={embed.url} testID="temporary-music-embedded-player" style={{ width: '100%', height: embed.provider === 'YOUTUBE' ? 280 : 185, minHeight: 170, borderRadius: 12, overflow: 'hidden', backgroundColor: '#090713' }}>
               {Platform.OS === 'web' ?
                 React.createElement('iframe' as any, {
-                  src: embed.url,
+                  src: limitedYouTubeEmbed,
                   title: embed.label,
                   width: '100%',
                   height: '100%',
@@ -113,7 +142,7 @@ export default function TemporaryMusicPreview({
                 })
                 : NativeWebView ? (
                   <NativeWebView
-                    source={{ uri: embed.url }}
+                    source={{ uri: limitedYouTubeEmbed! }}
                     style={{ flex: 1 }}
                     javaScriptEnabled
                     domStorageEnabled
@@ -141,11 +170,20 @@ export default function TemporaryMusicPreview({
             </TouchableOpacity>
           ) : null}
           {previewError ? <Text style={{ color: '#F5CE87', fontSize: 11, marginTop: 6 }}>Extrait indisponible : utilise le lecteur de la plateforme ci-dessus.</Text> : null}
+          {embed?.provider === 'YOUTUBE' ? <Text style={{ color: '#D1CBE5', fontSize: 11, marginTop: 6 }}>Aperçu vidéo limité aux 20 premières secondes via le lecteur officiel YouTube ; certaines vidéos peuvent refuser l’intégration.</Text> : null}
           <Text style={{ color: '#C9C3E0', fontSize: 11, lineHeight: 17, marginTop: 12 }}>
-            {saved
-              ? 'Morceau ajouté à Mes Sessions. Tu peux le préécouter puis choisir GARDER avec tes FREE et Public pour ta Story.'
-              : 'Préécoute dans Loki : aucun achat, aucune session ni Story sans ta confirmation.'}
+            {keptVisibility === 'PUBLIC'
+              ? storyPublished ? '✓ Gardé sur ton profil et publié en Story · 24 h.' : '✓ Gardé sur ton profil. La publication Story n’est pas encore confirmée.'
+              : keptVisibility === 'PRIVATE'
+                ? '✓ Gardé en privé dans ton profil. Aucun partage en Story.'
+                : saved ? '✓ Dans Mes Sessions, en attente. Préécoute gratuite ; le FREE n’est débité que si tu choisis GARDER.'
+                  : 'Préécoute dans Loki : aucun FREE débité ni publication sans ton choix.'}
           </Text>
+          {result.identified && onKeep && keptVisibility == null ? (
+            <TouchableOpacity testID="temporary-music-keep" accessibilityRole="button" accessibilityLabel="Garder ce morceau sur mon profil avec les FREE" onPress={onKeep} disabled={saving} style={{ marginTop: 12, backgroundColor: '#2DE1C2', minHeight: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: '#10101A', fontWeight: '900', fontSize: 13 }}>{saving ? 'Vérification…' : `♡ GARDER · ${keepCostFree} FREE · PUBLIC OU PRIVÉ`}</Text>
+            </TouchableOpacity>
+          ) : null}
           {result.identified && onSave ? (
             <TouchableOpacity testID="temporary-music-add-session" accessibilityRole="button" accessibilityLabel={saved ? 'Morceau ajouté dans Mes Sessions' : 'Ajouter ce morceau à Mes Sessions'} disabled={saved || saving} onPress={onSave} style={{ marginTop: 12, backgroundColor: saved ? '#285A52' : '#2DE1C2', minHeight: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 }}>
               <Text style={{ color: saved ? '#FFFFFF' : '#10101A', fontWeight: '900', fontSize: 13 }}>
