@@ -1,5 +1,14 @@
 [
   {
+    "commit": "bcbdd94fa6cf80f1168f6a32e6d28fba9fca0670",
+    "web": "bcbdd94fa6cf80f1168f6a32e6d28fba9fca0670",
+    "testflight": "iOS #230 in_progress (release 1f44ee1)",
+    "ota": "OTA #1021 in_progress (release 1f44ee1)",
+    "date": "2026-10-12 18:51",
+    "tests": "pass",
+    "changes": "feat(storefront): highlight personalized discovery in boutique hero without changing navigation"
+  },
+  {
     "commit": "fbb446fb885f8e01d0737ecbb6096c14f4210f86",
     "web": "fbb446fb885f8e01d0737ecbb6096c14f4210f86",
     "testflight": "iOS #230 in_progress (release 1f44ee1)",
