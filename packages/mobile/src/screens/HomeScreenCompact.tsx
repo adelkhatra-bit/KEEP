@@ -698,6 +698,34 @@ export default function HomeScreenCompact({ navigation }: any) {
     }
   };
 
+  // Keep the search modal mounted on the idle home, not only on the active microphone screen.
+  const manualSearchModal = (
+      <KeepModal visible={manualSearchOpen} transparent animationType="fade" onRequestClose={() => !manualSearchBusy && setManualSearchOpen(false)}>
+        <View style={s.modalOverlay}><View style={s.modalCard}>
+          <Text style={s.modalTitle}>Chercher un morceau</Text>
+          <Text style={s.modalBody}>Entre l’artiste et le titre, ou colle le lien d’une vidéo YouTube, Spotify, Deezer ou Apple Music. Pour YouTube, Loki Music recherche les informations publiques de la vidéo et les compare aux catalogues musicaux : il ne reconnaît pas directement l’audio à partir d’un simple lien.</Text>
+          <TextInput
+            style={s.manualSearchInput}
+            value={manualSearchQuery}
+            onChangeText={(v) => { setManualSearchQuery(v); setManualSearchNotFound(false); }}
+            placeholder="Artiste – Titre, ou lien YouTube/Spotify/Deezer…"
+            placeholderTextColor={C.muted}
+            editable={!manualSearchBusy}
+            autoFocus
+            returnKeyType="search"
+            onSubmitEditing={runManualSearch}
+          />
+          {manualSearchNotFound ? <Text style={s.manualSearchNotFound}>Aucun titre confirmé à partir de cette recherche. Essaie « Artiste – Titre », une autre vidéo YouTube ou la capture audio de l’onglet sur PC.</Text> : null}
+          <View style={s.modalActions}>
+            <TouchableOpacity style={s.modalBtn} onPress={() => setManualSearchOpen(false)} disabled={manualSearchBusy}><Text style={s.modalBtnText}>Annuler</Text></TouchableOpacity>
+            <TouchableOpacity style={[s.modalBtn, s.modalEnd]} onPress={runManualSearch} disabled={manualSearchBusy || !manualSearchQuery.trim()}>
+              <Text style={s.modalEndText}>{manualSearchBusy ? 'Recherche…' : 'Chercher'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View></View>
+      </KeepModal>
+  );
+
   if (showMicPrimer) {
     return <MicPermissionPrimerScreen onAuthorized={dismissMicPrimer} onLater={dismissMicPrimer} />;
   }
@@ -770,7 +798,7 @@ export default function HomeScreenCompact({ navigation }: any) {
               accessibilityLabel="Chercher un morceau par son titre ou son lien"
               accessibilityHint="Ouvre la recherche par titre, artiste ou lien musical"
             >
-              Tu connais le titre ? Cherche-le toi-même
+              Rechercher une musique
             </MotionActionButton>
             {isDemoMode || (musicEngine.isDemoMode && !listenEconomyStatus) ? (
               <View style={s.demoRow}>
@@ -788,6 +816,7 @@ export default function HomeScreenCompact({ navigation }: any) {
             </View>
           </View>
         </View>
+        {manualSearchModal}
         <CoachMarks visible={showCoach && !showMicPrimer} onFinish={finishCoach} />
 </SafeAreaView>
     );
@@ -1050,30 +1079,7 @@ export default function HomeScreenCompact({ navigation }: any) {
         }}
       />
 
-      <KeepModal visible={manualSearchOpen} transparent animationType="fade" onRequestClose={() => !manualSearchBusy && setManualSearchOpen(false)}>
-        <View style={s.modalOverlay}><View style={s.modalCard}>
-          <Text style={s.modalTitle}>Chercher un morceau</Text>
-          <Text style={s.modalBody}>Entre l’artiste et le titre, ou colle le lien d’une vidéo YouTube, Spotify, Deezer ou Apple Music. Pour YouTube, Loki Music recherche les informations publiques de la vidéo et les compare aux catalogues musicaux : il ne reconnaît pas directement l’audio à partir d’un simple lien.</Text>
-          <TextInput
-            style={s.manualSearchInput}
-            value={manualSearchQuery}
-            onChangeText={(v) => { setManualSearchQuery(v); setManualSearchNotFound(false); }}
-            placeholder="Artiste – Titre, ou lien YouTube/Spotify/Deezer…"
-            placeholderTextColor={C.muted}
-            editable={!manualSearchBusy}
-            autoFocus
-            returnKeyType="search"
-            onSubmitEditing={runManualSearch}
-          />
-          {manualSearchNotFound ? <Text style={s.manualSearchNotFound}>Aucun titre confirmé à partir de cette recherche. Essaie « Artiste – Titre », une autre vidéo YouTube ou la capture audio de l’onglet sur PC.</Text> : null}
-          <View style={s.modalActions}>
-            <TouchableOpacity style={s.modalBtn} onPress={() => setManualSearchOpen(false)} disabled={manualSearchBusy}><Text style={s.modalBtnText}>Annuler</Text></TouchableOpacity>
-            <TouchableOpacity style={[s.modalBtn, s.modalEnd]} onPress={runManualSearch} disabled={manualSearchBusy || !manualSearchQuery.trim()}>
-              <Text style={s.modalEndText}>{manualSearchBusy ? 'Recherche…' : 'Chercher'}</Text>
-            </TouchableOpacity>
-          </View>
-        </View></View>
-      </KeepModal>
+      {manualSearchModal}
 
       <KeepModal visible={showEndPrompt} transparent animationType="fade">
         <View style={s.modalOverlay}><View style={s.modalCard}>
