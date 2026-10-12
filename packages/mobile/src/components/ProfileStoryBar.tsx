@@ -133,7 +133,9 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     if (detailFor === viewerId) { setDetailFor(null); return; }
     setDetailFor(viewerId);
     if (detailLikes[viewerId] || !openStory) return;
-    void loadMyLikesAmong(viewerId, openStory.tracks.map((track) => track.id)).then((set) => setDetailLikes((previous) => ({ ...previous, [viewerId]: set }))).catch(() => setDetailLikes((previous) => ({ ...previous, [viewerId]: new Set() })));
+    void loadMyLikesAmong(viewerId, openStory.tracks.map((track) => track.id))
+      .then((set) => setDetailLikes((previous) => ({ ...previous, [viewerId]: set })))
+      .catch(() => {}); // erreur réseau : ne jamais inventer une absence de cœur
   };
   const watchRef = React.useRef<ReturnType<typeof watchStoryOf>>(null);
   const [plusOpen, setPlusOpen] = useState(false);
@@ -332,6 +334,21 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     const timer = setInterval(refreshViewers, 8000);
     return () => clearInterval(timer);
   }, [viewersOpen, refreshViewers]);
+
+  // Les cœurs peuvent arriver pendant que le propriétaire consulte le détail sur un autre appareil.
+  // Même table track_likes et même rafraîchissement 8 s sur iPhone / ordinateur.
+  useEffect(() => {
+    if (!viewersOpen || !detailFor || !openStory || openStory.profileId !== viewer.id) return undefined;
+    let live = true;
+    const refreshHearts = () => {
+      void loadMyLikesAmong(detailFor, openStory.tracks.map((track) => track.id))
+        .then((set) => { if (live) setDetailLikes((previous) => ({ ...previous, [detailFor]: set })); })
+        .catch(() => {}); // conserver le dernier état en cas de coupure
+    };
+    refreshHearts();
+    const timer = setInterval(refreshHearts, 8000);
+    return () => { live = false; clearInterval(timer); };
+  }, [viewersOpen, detailFor, openStory, viewer.id]);
 
   // Départ : fermeture de la story, app mise en arrière-plan ou écran quitté -> le propriétaire voit tout de suite « parti ».
   const stopWatch = useCallback(() => { watchRef.current?.stop(); watchRef.current = null; }, []);
