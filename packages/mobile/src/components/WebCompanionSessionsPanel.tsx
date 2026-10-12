@@ -12,7 +12,7 @@ import {
   isPcTargetScreen,
   requestWebCompanionScreen,
 } from '../services/webPairingService';
-import { loadPcShareFreeCost, pcShareHoursLeft, pcShareMessage } from '../services/pcShareService';
+import { pcShareHoursLeft } from '../services/pcShareService';
 import KeepModal from './KeepModal';
 import { buildAffiliatedPublicProfileLink, shareProfileByEmail } from '../services/sharingService';
 import { useUserStore } from '../store/useUserStore';
