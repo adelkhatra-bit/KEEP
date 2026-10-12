@@ -6,6 +6,7 @@ import type { KeepVisibility } from '../types';
 import { getSupabaseAccessToken, supabase } from './supabaseClient';
 import { getSharedMusicSource } from './sharedMusicSourceService';
 import { sharedSourcePlatformFromUrl } from './sharedSourcePlatform';
+import { parseMusicShareInput } from './musicShareLink';
 import { APP_NAME } from '../config/brand';
 import { updateRecognitionConsensus, type RecognitionConsensusState } from './recognitionConsensus';
 
@@ -521,8 +522,10 @@ export async function searchTrackByText(query: string): Promise<RecognitionResul
   // Liens musicaux : lookup direct Apple/Deezer ; liens YouTube : métadonnées
   // publiques/oEmbed et recherche catalogue. Ce n'est PAS une empreinte audio.
   // Le serveur a besoin du champ platform pour choisir le bon oEmbed.
-  const looksLikeUrl = /^https?:\/\//i.test(trimmed);
-  const body = looksLikeUrl ? { url: trimmed, platform: sharedSourcePlatformFromUrl(trimmed) } : { title: trimmed };
+  const input = parseMusicShareInput(trimmed);
+  const body = 'url' in input
+    ? { url: input.url, rawText: input.rawText, platform: sharedSourcePlatformFromUrl(input.url) }
+    : { title: input.title };
   try {
     const accessToken = await getSupabaseAccessToken();
     const response = await fetch(`${SUPABASE_URL!.replace(/\/$/, '')}/functions/v1/keep-music-keyless-source`, {
