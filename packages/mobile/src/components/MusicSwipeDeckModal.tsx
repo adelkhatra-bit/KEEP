@@ -823,10 +823,11 @@ export default function MusicSwipeDeckModal({
       if (result !== false) {
         // GARDER en Public = nouvelle musique dans ma story : le cercle de ma photo doit s'allumer tout de suite.
         if (visibility === 'PUBLIC') {
+          // A confirmed PUBLIC keep is already in the personal 24h story
+          // through keep_decisions. Explicit pinning here adds duplicate work
+          // and risks exposing a second Story entry. Older already-kept songs
+          // still have the dedicated "Mettre en story" action.
           notifyOwnStoryChanged();
-          // Adel (05/10/2026) : « il a gardé en public mais son cercle ne s'est pas allumé » -- un morceau DÉJÀ gardé auparavant garde son
-          // ancienne date et n'entrait donc jamais en story. On l'épingle aussi (date = maintenant) ; sans effet si déjà en story.
-          if (!isSaleStoryTrack(keptTrack)) void pinStoryTrack(resolveKeptTrackId(keptTrack.id), keptTrack).catch(() => {}).finally(() => notifyOwnStoryChanged());
         }
         // Le choix Public/Privé constitue déjà l'accord explicite pour GARDER.
         // Ne pas ouvrir une deuxième confirmation : passer au morceau suivant.
