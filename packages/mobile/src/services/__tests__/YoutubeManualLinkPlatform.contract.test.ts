@@ -9,13 +9,15 @@ describe('YouTube manual recognition and tab capture', () => {
     const classifier = fs.readFileSync(path.resolve(__dirname, '..', 'sharedSourcePlatform.ts'), 'utf8');
     expect(classifier).toContain("host === 'youtu.be'");
     expect(classifier).toContain("host === 'youtube.com'");
-    expect(source).toContain('platform: sharedSourcePlatformFromUrl(trimmed)');
+    expect(source).toContain('platform: sharedSourcePlatformFromUrl(input.url)');
   });
-  it('keeps the tab audio control in active listening rather than idle', () => {
+  it('shows tab audio on PC in active listening and idle home, without exposing it on native mobile', () => {
     expect(screen).toContain('submitCapturedAudioRecognition(recognition)');
     expect(screen).toContain('pauseListening()');
     expect(screen).toContain('resumeListening()');
     expect(screen).toContain('Reconnaître le son d’un onglet YouTube (PC)');
+    expect(screen).toContain("desktopHome && Platform.OS === 'web'");
+    expect(screen).toContain('testID="home-tab-audio-option"');
     expect(screen).toContain('lien d’une vidéo YouTube');
   });
 });
