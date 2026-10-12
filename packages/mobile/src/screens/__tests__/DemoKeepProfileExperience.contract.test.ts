@@ -55,7 +55,7 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     // 02/10/2026 : boutique vendeur validée par Adel (SellerBoutique : Drop du moment 3 max + étagère + boutique).
     expect(profile).toContain('<SellerBoutique');
     expect(boutique).toContain('accessibilityLabel="Collections à débloquer"');
-    expect(boutique).toContain('TOUCHE POUR ÉCOUTER · TITRES PROTÉGÉS');
+    expect(boutique).toContain('▶ ÉCOUTER');
     expect(profile).not.toContain("mode={unlocked ? 'UNLOCKED' : 'LOCKED'}");
     expect(styleCard).toContain('<ImageBackground');
     expect(styleCard).toContain('const PUBLIC_GRADIENTS');
@@ -79,10 +79,10 @@ describe('Demo keep confirmation + visited profile premium design', () => {
 
   it('makes a seller and their Drops unmistakable without adding a bulky shop header', () => {
     expect(profile).toContain('offers={profileBoutiqueOffers}');
-    expect(boutique).toContain('★ PÉPITE À LA UNE');
-    expect(boutique).toContain("ownerMode ? 'MA BOUTIQUE MUSICALE · MES PÉPITES' : 'BOUTIQUE MUSICALE · SES PÉPITES'");
+    expect(boutique).toContain('★ À LA UNE');
+    expect(boutique).toContain("ownerMode ? 'MA BOUTIQUE' : `BOUTIQUE · @${sellerName}`");
     expect(boutique).toContain('Tout voir · {visibleOffers.length} ›');
-    expect(boutique).toContain('TOUCHE POUR ÉCOUTER · TITRES PROTÉGÉS');
+    expect(boutique).toContain('▶ ÉCOUTER');
     expect(profile).not.toContain('BOUTIQUE MUSICALE ACTIVE');
   });
 
