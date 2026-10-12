@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import TrackCover from './TrackCover';
 import { resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
+import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
+import { playTrackPreviewFromGesture, stopTrackPreviewFast } from '../services/audioPreviewService';
 
 export type TemporaryMusicResult = {
   title: string;
   artist: string;
   artworkUrl?: string;
+  previewUrl?: string;
   sourceUrl?: string | null;
   identified: boolean;
 };
@@ -27,8 +30,36 @@ export default function TemporaryMusicPreview({
   saved?: boolean;
   saving?: boolean;
 }) {
+  const embed = resolveEmbeddedMusicPlayer(result?.sourceUrl);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewPlaying, setPreviewPlaying] = useState(false);
+  const [previewError, setPreviewError] = useState(false);
+  // A provider may refuse to embed on iOS or inside a browser. The legally
+  // available catalogue excerpt is the in-Loki fallback, with no external navigation.
+  useEffect(() => {
+    let alive = true;
+    stopTrackPreviewFast('temporary:music-share');
+    setPreviewPlaying(false);
+    setPreviewError(false);
+    setPreviewUrl(null);
+    if (visible && result?.identified && result.title && result.artist) {
+      void resolveTrackPreviewUrl({ title: result.title, artist: result.artist,
+        id: 'temporary-preview', providerIds: {}, artworkUrl: result.artworkUrl,
+        previewUrl: result.previewUrl,
+      }).then((url) => { if (alive) setPreviewUrl(url); }).catch(() => {});
+    }
+    return () => { alive = false; stopTrackPreviewFast('temporary:music-share'); };
+  }, [visible, result?.title, result?.artist, result?.sourceUrl, result?.previewUrl]);
+
+  const togglePreview = () => {
+    if (!previewUrl) return;
+    if (previewPlaying) { stopTrackPreviewFast('temporary:music-share'); setPreviewPlaying(false); return; }
+    setPreviewError(false);
+    void playTrackPreviewFromGesture('temporary:music-share', previewUrl, setPreviewPlaying)
+      .catch(() => { setPreviewPlaying(false); setPreviewError(true); });
+  };
+
   if (!result || !visible) return null;
-  const embed = resolveEmbeddedMusicPlayer(result.sourceUrl);
   const NativeWebView = Platform.OS === 'web' ? null : require('react-native-webview').WebView;
 
   return (
@@ -84,6 +115,14 @@ export default function TemporaryMusicPreview({
               {result.identified ? 'Titre trouvé. Cette plateforme ne fournit pas de lecteur intégré pour ce lien.' : 'Ce lien ne permet pas d’intégrer directement un lecteur.'}
             </Text>
           )}
+          {previewUrl ? (
+            <TouchableOpacity testID="temporary-music-play-catalog-excerpt" onPress={togglePreview} accessibilityRole="button"
+              accessibilityLabel={previewPlaying ? 'Arrêter l’extrait musical' : 'Écouter un extrait du catalogue dans Loki Music'}
+              style={{ marginTop: 10, minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: '#2DE1C2', alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: '#2DE1C2', fontWeight: '800', fontSize: 12 }}>{previewPlaying ? '■ ARRÊTER L’EXTRAIT' : '♫ ÉCOUTER L’EXTRAIT'}</Text>
+            </TouchableOpacity>
+          ) : null}
+          {previewError ? <Text style={{ color: '#F5CE87', fontSize: 11, marginTop: 6 }}>Extrait indisponible : utilise le lecteur de la plateforme ci-dessus.</Text> : null}
           <Text style={{ color: '#C9C3E0', fontSize: 11, lineHeight: 17, marginTop: 12 }}>
             {saved
               ? 'Morceau ajouté à Mes Sessions. Tu peux le préécouter puis choisir GARDER avec tes FREE et Public pour ta Story.'
