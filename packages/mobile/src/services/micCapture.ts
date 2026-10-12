@@ -355,24 +355,27 @@ async function ensureTabAudioStream(): Promise<MediaStream> {
     if (e?.name === 'NotAllowedError' || e?.name === 'PermissionDeniedError') throw new MicPermissionDeniedError();
     throw e;
   }
-  // On ne veut jamais l'image -- coupée immédiatement, jamais affichée ni envoyée.
-  display.getVideoTracks().forEach((t) => t.stop());
+  // Conserver le flux vidéo vivant PENDANT la capture audio : certains navigateurs
+  // terminent aussi l'audio partagé si on arrête immédiatement la piste vidéo.
+  // Les images ne sont ni lues, ni enregistrées, ni envoyées ; toutes les pistes
+  // seront fermées en finally après l'échantillon.
   const audioTracks = display.getAudioTracks();
   if (!audioTracks.length) {
     display.getTracks().forEach((t) => t.stop());
     throw new Error("Aucun son partagé -- coche « Partager l'audio de l'onglet » dans la fenêtre de partage du navigateur.");
   }
-  return new MediaStream(audioTracks);
+  return display;
 }
 
 async function captureStreamToWav(
   stream: MediaStream,
-  versionAtStart: number,
+  versionAtStart: number | null,
   onLevel?: (level: number) => void,
   durationMs = DEFAULT_SAMPLE_DURATION_MS,
-  onPeak?: (peak: number) => void
+  onPeak?: (peak: number) => void,
+  isolatedAudioCtx?: AudioContext
 ): Promise<Blob> {
-  const audioCtx = getWebAudioCtx();
+  const audioCtx = isolatedAudioCtx ?? getWebAudioCtx();
   if (audioCtx.state === 'suspended') await audioCtx.resume().catch(() => {});
   if (audioCtx.state !== 'running') {
     throw new Error("Capture audio indisponible (contexte audio suspendu par le navigateur) -- réessaie d'écouter.");
@@ -409,13 +412,19 @@ async function captureStreamToWav(
   processor.connect(muteGain);
   muteGain.connect(audioCtx.destination);
 
-  await waitForSampleOrCancel(safeSampleDuration(durationMs), versionAtStart);
+  if (versionAtStart === null) {
+    // Capture d'onglet indépendante : ne pas partager le jeton d'annulation
+    // du micro, sinon pauseListening() annule le flux YouTube.
+    await new Promise<void>((resolve) => setTimeout(resolve, safeSampleDuration(durationMs)));
+  } else {
+    await waitForSampleOrCancel(safeSampleDuration(durationMs), versionAtStart);
+  }
 
   processor.disconnect();
   source.disconnect();
   muteGain.disconnect();
 
-  if (versionAtStart !== cancellationVersion) throw new MicCaptureCancelledError();
+  if (versionAtStart !== null && versionAtStart !== cancellationVersion) throw new MicCaptureCancelledError();
 
   const sampleRate = audioCtx.sampleRate;
   const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
@@ -475,13 +484,26 @@ async function captureAudioSampleWeb(onLevel?: (level: number) => void, duration
  */
 export async function captureTabAudioSample(onLevel?: (level: number) => void, durationMs = DEFAULT_SAMPLE_DURATION_MS): Promise<Blob> {
   if (Platform.OS !== 'web') throw new Error('Capture d’onglet disponible uniquement sur navigateur.');
-  const versionAtStart = cancellationVersion;
-  const stream = await ensureTabAudioStream();
+  if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getDisplayMedia) {
+    throw new Error('Partage audio d’onglet non disponible dans ce navigateur. Utilise Chrome ou Edge sur PC, ou colle directement le lien musical.');
+  }
+  // Contexte indépendant : cancelAudioCapture() ferme le contexte du micro et
+  // incrémente cancellationVersion ; il ne doit PAS interrompre ce partage.
+  // Le contexte est démarré dans le clic, avant toute attente asynchrone.
+  const AudioCtxCtor: typeof AudioContext = (window as any).AudioContext ?? (window as any).webkitAudioContext;
+  if (!AudioCtxCtor) throw new Error('Audio du navigateur indisponible. Colle plutôt le lien musical.');
+  const tabAudioCtx = new AudioCtxCtor();
+  const resume = tabAudioCtx.state === 'suspended' ? tabAudioCtx.resume().catch(() => {}) : Promise.resolve();
+  let display: MediaStream | null = null;
   try {
-    if (versionAtStart !== cancellationVersion) throw new MicCaptureCancelledError();
-    return await captureStreamToWav(stream, versionAtStart, onLevel, durationMs);
+    // getDisplayMedia est appelé immédiatement pendant le geste utilisateur.
+    display = await ensureTabAudioStream();
+    await resume;
+    const audioOnly = new MediaStream(display.getAudioTracks());
+    return await captureStreamToWav(audioOnly, null, onLevel, durationMs, undefined, tabAudioCtx);
   } finally {
-    stream.getTracks().forEach((t) => t.stop());
+    display?.getTracks().forEach((track) => track.stop());
+    if (tabAudioCtx.state !== 'closed') await tabAudioCtx.close().catch(() => {});
   }
 }
 
