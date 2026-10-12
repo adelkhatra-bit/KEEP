@@ -55,6 +55,16 @@ describe('production v4 playback contract — PC/iOS', () => {
       ['Alpha', 'FULL', true], ['Beta', 'SKIPPED', false], ['Gamma', 'LEFT_HERE', false],
     ]);
   });
+  it('uses the real last track from Supabase even after swiping back from track 10', () => {
+    const latest = normalizeStoryViewerPlayback({
+      chapters: [{ i: 9, s: 4, t: 'd' }, { i: 2, s: 12, t: 'b' }],
+      playback_progress: { lastTrackId: 'b' },
+    });
+    expect(latest.lastTrackId).toBe('b');
+    const detail = buildViewerDetail(tracks, { ...base, ...latest }, new Set());
+    expect(detail.leftAtTitle).toBe('Beta');
+    expect(detail.rows.filter((row) => row.outcome === 'LEFT_HERE').map((row) => row.title)).toEqual(['Beta']);
+  });
   it('does not erase old v4 track_views or fabricate missing progress', () => {
     expect(normalizeStoryViewerPlayback({ chapters: [{ i: 0, s: 4 }], track_views: [{ t: 'b', s: 12 }], last_track_id: 'b' }))
       .toMatchObject({ trackViews: [{ trackId: 'b', seconds: 12 }], lastTrackId: 'b' });
