@@ -38,6 +38,8 @@ export default function SessionHistoryScreen({ navigation }: any) {
       // Règle d'Adel (05/10/2026) : la session la plus récente est toujours en haut.
       return new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime();
     }), [sessions]);
+  const totalPending = useMemo(() => visibleSessions.reduce((total, item) => total + pendingTracks(item), 0), [visibleSessions]);
+  const totalDetected = useMemo(() => visibleSessions.reduce((total, item) => total + item.tracks.length, 0), [visibleSessions]);
   const deleteSession = useSessionHistoryStore((s) => s.deleteSession);
   const refreshCreditLocks = useSessionHistoryStore((s) => s.refreshCreditLocks);
   const reconcileOrphanedLiveSessions = useSessionHistoryStore((s) => s.reconcileOrphanedLiveSessions);
@@ -94,7 +96,7 @@ export default function SessionHistoryScreen({ navigation }: any) {
             {t('session.detected', { count: item.tracks.length })} · {t('session.kept', { count: keptCount })}
             {pendingCount > 0 ? ` · ${pendingCount} à swiper` : ''}
           </Text>
-          {isLive ? <Text style={styles.liveHint}>● Écoute en cours · les titres sont sauvegardés localement au fil de la session</Text> : null}
+          {isLive ? <Text style={styles.liveHint}>● Suivi en cours · {pendingCount} musique{pendingCount !== 1 ? 's' : ''} en attente · les morceaux sont conservés dans la session au fil de l’écoute</Text> : null}
           {lockedCount > 0 ? <Text style={styles.lockedHint}>🔒 {lockedCount} morceau{lockedCount > 1 ? 'x' : ''} en attente de déblocage</Text> : null}
         </TouchableOpacity>
         {isLive && isContinuousTabMusicActive() ? (
@@ -110,14 +112,14 @@ export default function SessionHistoryScreen({ navigation }: any) {
                 navigation.replace('SessionRecap', { sessionId: item.id, openSwipe: pendingCount > 0 });
               }}
             >
-              <Text style={styles.sortText}>■ ARRÊTER ET {pendingCount > 0 ? 'SWIPER' : 'OUVRIR'} · {pendingCount}</Text>
+              <Text style={styles.sortText}>■ ARRÊTER ET {pendingCount > 0 ? 'SWIPER TOUTES' : 'OUVRIR'} · {pendingCount}</Text>
             </TouchableOpacity>
           </View>
         ) : null}
         {!isLive ? <View style={styles.cardFooter}>
           {pendingCount > 0 ? (
             <TouchableOpacity style={styles.sortButton} onPress={() => navigation.replace('SessionRecap', { sessionId: item.id, openSwipe: true })} accessibilityRole="button" accessibilityLabel={`Swiper ${pendingCount} musiques`}>
-              <Text style={styles.sortText}>SWIPER · {pendingCount}</Text>
+              <Text style={styles.sortText}>SWIPER TOUTES · {pendingCount}</Text>
             </TouchableOpacity>
           ) : null}
           <TouchableOpacity style={[styles.deleteButton, pendingCount === 0 && styles.deleteButtonFull]} onPress={() => requestDelete(item)} accessibilityRole="button" accessibilityLabel={`Supprimer ${autoTitle(item)}`}><Text style={styles.deleteText}>Supprimer</Text></TouchableOpacity>
@@ -134,7 +136,12 @@ export default function SessionHistoryScreen({ navigation }: any) {
         <TouchableOpacity style={styles.helpButton} onPress={() => setHelpOpen(true)} accessibilityRole="button" accessibilityLabel="Comprendre Mes Sessions">
           <Text style={styles.helpButtonText}>?</Text>
         </TouchableOpacity>
-        <View style={styles.headerCopy}><Text style={styles.title}>{t('history.title')}</Text></View>
+        <View style={styles.headerCopy}>
+          <Text style={styles.title}>{t('history.title')}</Text>
+          <Text testID="session-history-pending-total" style={{ color: colors.textSecondary, fontSize: 12, marginTop: 3 }}>
+            {totalDetected} musique{totalDetected !== 1 ? 's' : ''} · {totalPending} en attente
+          </Text>
+        </View>
         <TouchableOpacity style={styles.backButton} onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))} hitSlop={8} accessibilityRole="button" accessibilityLabel="Retour"><Text style={styles.backArrow}>←</Text></TouchableOpacity>
       </View>
       <ContextHelpSheet
