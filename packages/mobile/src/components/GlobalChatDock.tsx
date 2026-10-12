@@ -16,7 +16,7 @@ import { PHONE_MAX_WIDTH } from '../layout/layoutMode';
 import { QUIET_CONFIRMS, setRobotQuiet } from '../services/robotQuietService';
 import StoryVisitorToast from './StoryVisitorToast';
 import { ROBOT_ACTIONS } from '../services/robotCoachMessages';
-import { closeRobotInfo, markRobotActive, robotExplain, robotSay, robotWelcome } from '../services/robotCoachService';
+import { closeRobotInfo, markRobotActive, robotExplain, robotSay, robotWelcome, summonRobotMenu } from '../services/robotCoachService';
 import { openProblemReport } from '../services/problemReportService';
 import { loadMyFreeWalletStatus } from '../services/freeWalletService';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
@@ -1115,7 +1115,13 @@ export default function GlobalChatDock() {
             style={[styles.fab, desktopDock && styles.fabDesktop]}
             hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
             onPress={() => { void toggle(); }}
+            onLongPress={() => {
+              const route = navigationRef.isReady() ? navigationRef.getCurrentRoute()?.name : null;
+              void summonRobotMenu(user?.username ?? '', route);
+            }}
+            delayLongPress={450}
             accessibilityRole="button"
+            accessibilityHint="Appui long : aide du robot dans cette rubrique"
             accessibilityLabel={previewOnly && !visualTestPreview ? 'Se connecter pour ouvrir le Tchat' : chatEnabled ? 'Ouvrir le Tchat' : 'Activer et ouvrir le Tchat'}
           >
             <View style={[styles.halo, desktopDock && styles.haloDesktop, !chatEnabled && styles.haloOff]} />
@@ -1131,7 +1137,7 @@ export default function GlobalChatDock() {
               </View>
               <View style={[styles.drawerCopy, desktopDock && styles.drawerCopyDesktop]}>
                 <Text style={[styles.drawerLabel, desktopDock && styles.drawerLabelDesktop]}>TCHAT</Text>
-                <Text style={[styles.drawerSub, desktopDock && styles.drawerSubDesktop]} numberOfLines={1}>{previewOnly ? 'CONNEXION' : unreadCount > 0 && latestChatSender ? `@${latestChatSender}` : 'LOKI'}</Text>
+                <Text style={[styles.drawerSub, desktopDock && styles.drawerSubDesktop]} numberOfLines={1}>{previewOnly ? 'CONNEXION' : unreadCount > 0 && latestChatSender ? `@${latestChatSender}` : 'MAINTENIR · AIDE'}</Text>
               </View>
               <Text style={styles.drawerChevron}>{side === 'left' ? '›' : '‹'}</Text>
               <View style={[styles.presenceDot, chatEnabled ? styles.presenceOn : styles.presenceOff]} />
