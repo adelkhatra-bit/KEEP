@@ -1,4 +1,4 @@
-import { resolveTrackArtworkUrl } from '../trackPreviewResolver';
+import { resolveTrackArtworkUrl, resolveTrackPreviewUrl, scoreTrackSearchResult } from '../trackPreviewResolver';
 
 const itunes = (results: any[]) => ({ ok: true, json: async () => ({ results }) });
 
@@ -32,4 +32,25 @@ describe('pochette de secours (titre + artiste)', () => {
     (global as any).fetch = jest.fn().mockRejectedValue(new Error('réseau coupé'));
     await expect(resolveTrackArtworkUrl({ title: 'Panne Réseau', artist: 'Test Hors Ligne' })).resolves.toBeNull();
   });
+  it('ne confond pas deux artistes ayant le même titre : aucun extrait erroné', async () => {
+    const wanted = { title: 'Same Title - Preview Check', artist: 'Artiste Correct' } as any;
+    const homonym = {
+      trackName: 'Same Title - Preview Check',
+      artistName: 'Autre Artiste',
+      previewUrl: 'https://example.com/wrong-preview.m4a',
+      artworkUrl100: 'https://example.com/wrong-cover.jpg',
+    };
+    expect(scoreTrackSearchResult(wanted, homonym)).toBe(0);
+    (global as any).fetch = jest.fn().mockResolvedValue(itunes([homonym]));
+    await expect(resolveTrackPreviewUrl(wanted)).resolves.toBeNull();
+  });
+
+  it('accepte la même œuvre quand le titre et l’artiste correspondent vraiment', async () => {
+    const wanted = { title: 'Same Title - Good Preview', artist: 'Artiste Correct' } as any;
+    const exact = { trackName: wanted.title, artistName: wanted.artist, previewUrl: 'https://example.com/good-preview.m4a' };
+    expect(scoreTrackSearchResult(wanted, exact)).toBeGreaterThan(7);
+    (global as any).fetch = jest.fn().mockResolvedValue(itunes([exact]));
+    await expect(resolveTrackPreviewUrl(wanted)).resolves.toBe(exact.previewUrl);
+  });
+
 });
