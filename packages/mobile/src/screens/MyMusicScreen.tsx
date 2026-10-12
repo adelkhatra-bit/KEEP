@@ -1679,7 +1679,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
                 {regularPlaylists.map((playlist) => <View key={`manual:${playlist.id}`}>{renderPlaylist({ item: playlist })}</View>)}
               </View>
             ) : null}
-            {localKeptEntries.length && originFilter !== 'ALL' ? <View style={[styles.originSection, originFilter === 'USERS' ? styles.originSectionSocial : styles.originSectionOwn]}>
+            {localKeptEntries.length && !['ALL'].includes(originFilter) ? <View style={[styles.originSection, originFilter === 'USERS' ? styles.originSectionSocial : styles.originSectionOwn]}>
               <View style={styles.originSectionHeader}>
                 <View style={styles.originSectionTitleRow}>
                   <Text style={styles.originSectionIcon}>{originFilter === 'USERS' ? '👥' : '🎧'}</Text>
