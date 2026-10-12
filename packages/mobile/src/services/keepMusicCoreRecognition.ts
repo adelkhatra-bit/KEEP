@@ -573,7 +573,14 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     return this.recognizeInternal(audioSample, true);
   }
 
-  private async recognizeInternal(audioSample: ArrayBuffer | Blob, skipMemory: boolean): Promise<RecognitionResult | null> {
+  /** Un onglet PC peut changer de chanson sans fin de session : il n'utilise
+   * pas la fenêtre "même musique" fondée sur le micro ambiant, ni une ancienne
+   * URL partagée. Les limites de coût/quotas serveur restent obligatoires. */
+  async recognizeFreshTabAudio(audioSample: ArrayBuffer | Blob): Promise<RecognitionResult | null> {
+    return this.recognizeInternal(audioSample, false, true);
+  }
+
+  private async recognizeInternal(audioSample: ArrayBuffer | Blob, skipMemory: boolean, tabAudio = false): Promise<RecognitionResult | null> {
     if (!configured(SUPABASE_URL) || !configured(SUPABASE_ANON_KEY)) {
       throw new Error(`Reconnaissance ${APP_NAME} indisponible : Supabase n’est pas configuré.`);
     }
@@ -610,7 +617,7 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
 
     // Musique probablement toujours la même qu'à l'instant : on laisse une
     // chance de plus à la mémoire gratuite avant de rouvrir AudD/ACRCloud.
-    if (Date.now() < stickyMatchUntil) {
+    if (!tabAudio && Date.now() < stickyMatchUntil) {
       stickyMemoryMissStreak += 1;
       if (stickyMemoryMissStreak < STICKY_MEMORY_MISS_TOLERANCE) return null;
       stickyMatchUntil = 0;
@@ -621,7 +628,7 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     // valide. Cela supprime les 409 AudD observés sur TestFlight/Web sans
     // désactiver la reconnaissance : le même échantillon part directement
     // vers le fournisseur réellement configuré.
-    if (!fallbackKnownUnavailable() && Date.now() >= paidProviderSuppressedUntil && Date.now() - lastPaidProviderAttemptAt >= PAID_PROVIDER_MIN_GAP_MS) {
+    if (!fallbackKnownUnavailable() && (tabAudio || Date.now() >= paidProviderSuppressedUntil) && Date.now() - lastPaidProviderAttemptAt >= PAID_PROVIDER_MIN_GAP_MS) {
       const useFree = paidListenAuthorizationActive();
       lastPaidProviderAttemptAt = Date.now();
       const acr = await recognitionAttempt('keep-music-fallback', blob, accessToken, deviceId, useFree);
@@ -700,7 +707,9 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
       }
     }
 
-    const keyless = await keylessSourceRecognition(accessToken);
+    // Une URL de partage mémorisée n'est jamais une preuve que le son du
+    // nouvel onglet correspond encore à cette chanson.
+    const keyless = tabAudio ? null : await keylessSourceRecognition(accessToken);
     if (keyless) {
       recognitionBackoffUntil = 0;
       noteSuccessfulRecognitionForPaidSuppression(keyless);
@@ -713,5 +722,9 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     return null;
   }
 }
+
+/** Moteur commun PC/mobile ; seul l'adaptateur de capture est spécifique. */
+const tabAudioRecognitionProvider = new KeepMusicCoreRecognitionProvider();
+export const recognizeFreshTabAudio = (sample: Blob) => tabAudioRecognitionProvider.recognizeFreshTabAudio(sample);
 
 export const isSecureRecognitionConfigured = configured(SUPABASE_URL) && configured(SUPABASE_ANON_KEY);
