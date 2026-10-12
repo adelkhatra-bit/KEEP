@@ -659,6 +659,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
 
       <MusicSwipeDeckModal
         visible={Boolean(openStory)}
+        ownStoryView={isOwnOpen}
         tracks={openStory?.tracks ?? []}
         initialTrackId={openStory?.tracks[0]?.id ?? null}
         resetKey={openStory?.profileId ?? null}
