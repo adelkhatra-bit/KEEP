@@ -52,5 +52,11 @@
   "accessibilityTouchTargets": {
     "sharedMinimum": 48,
     "visualMayBeSmallerIfHitTargetIsExpanded": true
+  },
+  "listenHome": {
+    "remainingQuotaCounterVisible": false,
+    "remainingQuotaMiniStatVisible": false,
+    "quotaHelpLocation": "En savoir plus",
+    "tickerMaxFontSizePx": 14
   }
 }
