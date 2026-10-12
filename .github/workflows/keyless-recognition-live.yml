@@ -129,6 +129,35 @@ jobs:
             console.log('LIVE YOUTUBE SHARE OK', {url,track:p.recognition.title,artist:p.recognition.artist,strategy:p.strategy});
           }
           JS
+      - name: Spotify et Deezer partagés — vraie recherche musicale
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'JS'
+          const base = process.env.KEEP_SUPABASE_URL;
+          const key = process.env.KEEP_SUPABASE_ANON_KEY;
+          const h = {apikey:key,Authorization:`Bearer ${key}`,'content-type':'application/json'};
+          async function check(url,platform,title,artist) {
+            const res = await fetch(`${base}/functions/v1/keep-music-keyless-source`, {
+              method:'POST',headers:{...h,'x-keep-device-id':'github-keyless-'+platform.toLowerCase()},
+              body:JSON.stringify({url,platform}),signal:AbortSignal.timeout(45000),
+            });
+            const payload = await res.json();
+            if(!res.ok || !payload?.recognition?.title || !payload?.recognition?.artist)
+              throw Error(platform+' share lookup failed: '+JSON.stringify(payload));
+            const rec = payload.recognition;
+            if(!rec.title.toLowerCase().includes(title) || !rec.artist.toLowerCase().includes(artist))
+              throw Error(platform+' wrong music: '+JSON.stringify(rec));
+            console.log('LIVE PROVIDER SHARE OK',{platform,title:rec.title,artist:rec.artist,strategy:payload.strategy});
+          }
+          await check('https://open.spotify.com/track/4PTG3Z6ehGkBFwjybzWkR8','SPOTIFY','never gonna give you up','rick astley');
+          const response = await fetch('https://api.deezer.com/search?q='+encodeURIComponent('Daft Punk One More Time')+'&limit=20',{signal:AbortSignal.timeout(12000)});
+          if(!response.ok) throw Error('Deezer public search offline: HTTP '+response.status);
+          const rows=(await response.json()).data||[];
+          const song=rows.find(row=>/one more time/i.test(String(row.title||'')) && /daft punk/i.test(String(row.artist?.name||'')));
+          if(!song?.id) throw Error('Deezer public catalogue not found for test song');
+          await check('https://www.deezer.com/track/'+song.id,'DEEZER','one more time','daft punk');
+          JS
       - name: Contrat mobile — fallback sans clé reste branché
         run: |
           grep -q "keep-music-keyless-source" packages/mobile/src/services/keepMusicCoreRecognition.ts
