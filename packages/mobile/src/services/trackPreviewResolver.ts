@@ -21,6 +21,12 @@ export function scoreTrackSearchResult(track: CanonicalTrack, result: any): numb
   const resultTitle = normalizeTrackText(result?.trackName);
   const resultArtist = normalizeTrackText(result?.artistName);
 
+  // Ne jamais lire un titre homonyme d'un autre artiste : un bon score
+  // de titre seul ne garantit pas qu'il s'agisse du bon enregistrement.
+  const wholePhrase = (a: string, b: string) =>
+    Boolean(a && b) && (a === b || (` ${a} `).includes(` ${b} `) || (` ${b} `).includes(` ${a} `));
+  if (!wholePhrase(wantedTitle, resultTitle) || !wholePhrase(wantedArtist, resultArtist)) return 0;
+
   let score = 0;
   if (wantedTitle && resultTitle === wantedTitle) score += 8;
   else if (wantedTitle && resultTitle && (resultTitle.includes(wantedTitle) || wantedTitle.includes(resultTitle))) score += 4;
