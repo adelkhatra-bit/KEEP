@@ -19,6 +19,7 @@ import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import { CreatorEvent, EventRsvpCounts, EventRsvpStatus, loadEventRsvpCounts, loadMyRsvps, loadUpcomingEvents, setEventRsvp } from '../services/creatorEventService';
 import StandardBackButton from '../components/StandardBackButton';
 import KeepModal from '../components/KeepModal';
+import { loadEventStories, type EventStoryCard } from '../services/eventStoryService';
 
 const DISCOVERY_RADII = [5, 10, 25, 50, 100, 250, 500, 1000, 5000, 20000];
 const FREE_LOCAL_DISCOVERY_LIMIT = 3;
@@ -82,6 +83,7 @@ export default function DiscoverScreen({ navigation, route }: any) {
   const [currentProfileSnapshot, setCurrentProfileSnapshot] = useState<PublicProfileSnapshot | null>(null);
   const [discoverMode, setDiscoverMode] = useState<'PEOPLE' | 'EVENTS'>('PEOPLE');
   const [upcomingEvents, setUpcomingEvents] = useState<CreatorEvent[]>([]);
+  const [pulseEvents, setPulseEvents] = useState<EventStoryCard[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [eventsFeatureEnabled, setEventsFeatureEnabled] = useState(true);
   const [returnToParties, setReturnToParties] = useState(false);
@@ -135,6 +137,24 @@ export default function DiscoverScreen({ navigation, route }: any) {
       .finally(() => { if (live) setEventsLoading(false); });
     return () => { live = false; };
   }, [eventsFeatureEnabled, user?.id]);
+  useEffect(() => {
+    if (!eventsFeatureEnabled || isDemoMode || !user?.id) {
+      setPulseEvents([]);
+      return undefined;
+    }
+    let active = true;
+    const refresh = () => {
+      void loadEventStories(12)
+        .then((rows) => { if (active) setPulseEvents(rows.filter((event) => event.creatorId !== user.id)); })
+        .catch(() => { if (active) setPulseEvents([]); });
+    };
+    refresh();
+    const unsubscribe = navigation.addListener?.('focus', refresh);
+    return () => { active = false; unsubscribe?.(); };
+  }, [eventsFeatureEnabled, isDemoMode, user?.id, navigation]);
+  const pulseEventIds = useMemo(() => new Set(pulseEvents.map((event) => event.eventId)), [pulseEvents]);
+  const regularEvents = useMemo(() => upcomingEvents.filter((event) => !pulseEventIds.has(event.id)), [upcomingEvents, pulseEventIds]);
+
   const [searchPosition, setSearchPosition] = useState<SearchPosition | null>(null);
   const [searchBusy, setSearchBusy] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -634,7 +654,36 @@ export default function DiscoverScreen({ navigation, route }: any) {
         {discoverMode === 'EVENTS' ? (
           <View style={styles.eventsDiscovery}>
             <View style={styles.eventsDiscoveryHeader}><View style={{flex:1}}><Text style={styles.sectionTitle}>Événements à découvrir</Text><Text style={styles.mutedHint}>Soirées publiques validées, à venir sur Loki Music.</Text></View><Text style={styles.eventsCount}>{upcomingEvents.length}</Text></View>
-            {eventsLoading ? <ActivityIndicator color={colors.primaryLight} style={styles.eventsLoader} /> : upcomingEvents.length ? upcomingEvents.map((event) => {
+            {pulseEvents.length ? (
+              <View style={{ marginBottom: 18, borderRadius: 20, padding: 12, borderWidth: 1, borderColor: colors.primaryLight, backgroundColor: 'rgba(124,92,252,0.12)', gap: 10 }} testID="discover-event-loki-pulse">
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <Text style={{ color: colors.primaryLight, fontSize: 13, fontWeight: '900' }}>LOKI PULSE · SOIRÉES</Text>
+                  <Text style={{ color: colors.textSecondary, fontSize: 11 }}>Activité réelle</Text>
+                </View>
+                {pulseEvents.map((event) => {
+                  const regularEvent = upcomingEvents.find((row) => row.id === event.eventId);
+                  return (
+                    <TouchableOpacity key={event.eventId} style={[styles.eventDiscoveryCard, { borderColor: colors.primaryLight }]}
+                      onPress={() => {
+                        if (regularEvent) void openEventInline(regularEvent);
+                        else navigation.navigate('Parties', { openEventId: event.eventId });
+                      }}
+                      accessibilityRole="button" accessibilityLabel={`Découvrir la soirée ${event.name} et voir ses participations`}>
+                      {event.imageUrl
+                        ? <Image source={{ uri: event.imageUrl }} style={styles.eventDiscoveryCover} />
+                        : <View style={[styles.eventDiscoveryCover, styles.eventDiscoveryFallback]}><Text style={styles.eventDiscoveryFallbackText}>♬</Text></View>}
+                      <View style={styles.eventDiscoveryCopy}>
+                        <Text style={styles.eventDiscoveryTitle} numberOfLines={1}>{event.name}</Text>
+                        <Text style={styles.eventDiscoveryMeta} numberOfLines={1}>@{event.username} · {new Date(event.startsAt).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</Text>
+                        <Text style={styles.eventDiscoveryArtists} numberOfLines={1}>{event.goingCount} participent · {event.maybeCount} peut-être · {event.pulseScore} Pulse</Text>
+                      </View>
+                      <Text style={styles.eventDiscoveryArrow}>›</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ) : null}
+            {eventsLoading ? <ActivityIndicator color={colors.primaryLight} style={styles.eventsLoader} /> : regularEvents.length ? regularEvents.map((event) => {
               const startsAt = new Date(event.startsAt);
               const live = startsAt.getTime() <= Date.now() && (!event.endsAt || new Date(event.endsAt).getTime() >= Date.now());
               return (
@@ -650,7 +699,7 @@ export default function DiscoverScreen({ navigation, route }: any) {
                   <Text style={styles.eventDiscoveryArrow}>›</Text>
                 </TouchableOpacity>
               );
-            }) : <View style={styles.emptyCard}><Text style={styles.mutedHint}>Aucun événement public validé à venir pour le moment.</Text></View>}
+            }) : pulseEvents.length ? null : <View style={styles.emptyCard}><Text style={styles.mutedHint}>Aucun événement public validé à venir pour le moment.</Text></View>}
           </View>
         ) : <>
         <View style={styles.discoveryHeader}>
