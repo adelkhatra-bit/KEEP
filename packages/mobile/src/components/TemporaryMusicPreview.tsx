@@ -16,11 +16,16 @@ export type TemporaryMusicResult = {
  * Closing this Loki-branded modal destroys the embedded player and its result.
  */
 export default function TemporaryMusicPreview({
-  visible, result, onClose,
+  visible, result, onClose, onNext, onSave, onSeeSessions, saved = false, saving = false,
 }: {
   visible: boolean;
   result: TemporaryMusicResult | null;
   onClose: () => void;
+  onNext?: () => void;
+  onSave?: () => void;
+  onSeeSessions?: () => void;
+  saved?: boolean;
+  saving?: boolean;
 }) {
   if (!result || !visible) return null;
   const embed = resolveEmbeddedMusicPlayer(result.sourceUrl);
@@ -80,8 +85,27 @@ export default function TemporaryMusicPreview({
             </Text>
           )}
           <Text style={{ color: '#C9C3E0', fontSize: 11, lineHeight: 17, marginTop: 12 }}>
-            Aperçu temporaire : rien n’est ajouté à tes morceaux, playlists ou sessions. Fermer efface ce résultat.
+            {saved
+              ? 'Morceau ajouté à Mes Sessions. Tu peux le préécouter puis choisir GARDER avec tes FREE et Public pour ta Story.'
+              : 'Préécoute dans Loki : aucun achat, aucune session ni Story sans ta confirmation.'}
           </Text>
+          {result.identified && onSave ? (
+            <TouchableOpacity testID="temporary-music-add-session" accessibilityRole="button" accessibilityLabel={saved ? 'Morceau ajouté dans Mes Sessions' : 'Ajouter ce morceau à Mes Sessions'} disabled={saved || saving} onPress={onSave} style={{ marginTop: 12, backgroundColor: saved ? '#285A52' : '#2DE1C2', minHeight: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 }}>
+              <Text style={{ color: saved ? '#FFFFFF' : '#10101A', fontWeight: '900', fontSize: 13 }}>
+                {saving ? 'Ajout…' : saved ? '✓ Dans Mes Sessions' : '＋ Ajouter à Mes Sessions'}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+          {saved && onSeeSessions ? (
+            <TouchableOpacity testID="temporary-music-see-sessions" accessibilityRole="button" accessibilityLabel="Ouvrir Mes Sessions pour garder ce morceau avec mes FREE" onPress={onSeeSessions} style={{ marginTop: 8, minHeight: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#2DE1C2' }}>
+              <Text style={{ color: '#2DE1C2', fontWeight: '800', fontSize: 12 }}>Mes Sessions · GARDER / FREE / Story</Text>
+            </TouchableOpacity>
+          ) : null}
+          {onNext ? (
+            <TouchableOpacity testID="temporary-music-next" accessibilityRole="button" accessibilityLabel="Rechercher une autre musique sans sortir de Loki" onPress={onNext} style={{ marginTop: 8, minHeight: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#6956BB' }}>
+              <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 12 }}>♫ Autre musique</Text>
+            </TouchableOpacity>
+          ) : null}
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fermer cet aperçu sans enregistrer" onPress={onClose} style={{ marginTop: 12, backgroundColor: '#6956BB', minHeight: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: 13 }}>FERMER · NE PAS ENREGISTRER</Text>
           </TouchableOpacity>
