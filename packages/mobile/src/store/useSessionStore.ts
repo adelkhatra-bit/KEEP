@@ -205,6 +205,8 @@ interface SessionStore {
   setSilenceTimeoutMin: (minutes: number) => void;
   attachLocation: (label: string, lat?: number, lng?: number) => void;
   submitManualSearch: (query: string) => Promise<'added' | 'duplicate' | 'not_found'>;
+  /** Même chemin anti-doublon et quota FREE que la reconnaissance micro. */
+  submitCapturedAudioRecognition: (recognition: RecognitionResult) => Promise<'added' | 'duplicate' | 'inactive'>;
 }
 
 function persistLiveSession(state: SessionStore) {
@@ -722,6 +724,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   setSilenceTimeoutMin: (minutes) => set({ silenceTimeoutMin: minutes }),
   attachLocation: (label, lat, lng) => { set({ locationLabel: label, lat, lng }); persistLiveSession(get()); },
 
+  submitCapturedAudioRecognition: async (recognition) => {
+    if (!get().isActive) return 'inactive';
+    return applyDetectedTrack(set, get, recognition, 'listen');
+  },
   submitManualSearch: async (query) => {
     const trimmed = query.trim();
     if (!trimmed || !get().isActive) return 'not_found';
