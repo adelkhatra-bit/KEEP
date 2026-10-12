@@ -25,6 +25,7 @@ import OffersScreen from '../screens/OffersScreen';
 import PlaylistSalePanel from '../components/PlaylistSalePanel';
 import PlaylistSaleHistoryScreen from '../screens/PlaylistSaleHistoryScreen';
 import { useGameSessionStore } from '../store/useGameSessionStore';
+import { useSessionStore } from '../store/useSessionStore';
 import { confirmLeaveGame } from '../services/gameExitGuard';
 import { useLayoutMode, DESKTOP_CONTENT_MAX_WIDTH } from '../layout/layoutMode';
 import DesktopSidebar from './DesktopSidebar';
@@ -114,6 +115,7 @@ function requestTabHome(name: string) {
   if (!['Listen', 'Discover', 'MyMusic', 'Parties', 'Profile'].includes(name)) return;
   // Ne jamais détruire une partie ni une écoute active par un simple clic de menu.
   if (useGameSessionStore.getState().isGameInProgress && name === 'Parties') return;
+  if (useSessionStore.getState().isActive && name === 'Listen') return;
   for (const notify of tabHomeSubscribers) notify(name as HomeTabName);
 }
 
