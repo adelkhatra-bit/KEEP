@@ -79,6 +79,9 @@ jobs:
           cat /tmp/keep-dual-runtime.log
           exit 1
 
+      - name: Test pasted music link preview — PC and iPhone viewport
+        run: node scripts/test-temporary-music-search-browser.cjs
+
       - name: Test KEEP critical loop — mobile 390x844 + desktop smoke 1440x900
         run: |
           mkdir -p artifacts/dual-viewport
