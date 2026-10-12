@@ -1103,7 +1103,18 @@ export default function PartiesScreen({ navigation, route }: any) {
         Alert.alert('Événement modifié', 'Envoyé au Super Admin pour validation — il redevient visible dès l’approbation.');
       } else {
         const created = await createCreatorEvent({ ...payload, djArtistNames: user?.username ? [user.username] : [], includeRsvpButtons });
-        await setEventTicketPrice(created.id, ticketPriceCents);
+        // A failed ticket-price call must never create a second copy when the
+        // organizer retries. Keep the newly created draft in edit mode.
+        try {
+          await setEventTicketPrice(created.id, ticketPriceCents);
+        } catch {
+          setEditingEventId(created.id);
+          setEventViewMode('MY');
+          setPartyHome(false);
+          void reload();
+          Alert.alert('Soirée enregistrée', 'Ta soirée existe déjà. La billetterie n’a pas été configurée. Réessaie ici sans recréer une soirée.');
+          return;
+        }
         resetEventForm();
         // La lecture serveur peut avoir un très court délai après l'Edge
         // Function. Injecter immédiatement la soirée créée évite l'état
