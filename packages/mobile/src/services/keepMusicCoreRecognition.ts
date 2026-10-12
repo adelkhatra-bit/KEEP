@@ -5,6 +5,7 @@ import type { CanonicalTrack, MusicRecognitionProvider, RecognitionResult } from
 import type { KeepVisibility } from '../types';
 import { getSupabaseAccessToken, supabase } from './supabaseClient';
 import { getSharedMusicSource } from './sharedMusicSourceService';
+import { sharedSourcePlatformFromUrl } from './sharedSourcePlatform';
 import { APP_NAME } from '../config/brand';
 import { updateRecognitionConsensus, type RecognitionConsensusState } from './recognitionConsensus';
 
@@ -517,12 +518,11 @@ async function keylessSourceRecognition(accessToken: string | null): Promise<Rec
 export async function searchTrackByText(query: string): Promise<RecognitionResult | null> {
   const trimmed = query.trim();
   if (!trimmed || !configured(SUPABASE_URL) || !configured(SUPABASE_ANON_KEY)) return null;
-  // Un lien Spotify/Deezer/Apple Music/SoundCloud/Tidal collé donne une bien
-  // meilleure preuve qu'un titre tapé à la main -- keep-music-keyless-source
-  // sait déjà lire ces hôtes (lookup exact Apple/Deezer, page title sinon) et
-  // applique un seuil de confiance plus permissif que pour du texte libre.
+  // Liens musicaux : lookup direct Apple/Deezer ; liens YouTube : métadonnées
+  // publiques/oEmbed et recherche catalogue. Ce n'est PAS une empreinte audio.
+  // Le serveur a besoin du champ platform pour choisir le bon oEmbed.
   const looksLikeUrl = /^https?:\/\//i.test(trimmed);
-  const body = looksLikeUrl ? { url: trimmed } : { title: trimmed };
+  const body = looksLikeUrl ? { url: trimmed, platform: sharedSourcePlatformFromUrl(trimmed) } : { title: trimmed };
   try {
     const accessToken = await getSupabaseAccessToken();
     const response = await fetch(`${SUPABASE_URL!.replace(/\/$/, '')}/functions/v1/keep-music-keyless-source`, {
