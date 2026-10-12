@@ -30,7 +30,7 @@ describe('Événements + écoute FREE + sessions PC (source unique)', () => {
   });
 
   it('n’affiche plus Gardés et offre le transfert direct depuis iPhone', () => {
-    expect(home).toContain('label="Restantes"');
+    expect(home).not.toContain('label="Restantes"');
     expect(home).not.toContain('label="Gardés"');
     expect(home).toContain('<WebCompanionSessionsPanel buttonOnly />');
     const pc = read('packages','mobile','src','components','WebCompanionSessionsPanel.tsx');
