@@ -25,7 +25,7 @@ describe('Web ↔ mobile parity contract', () => {
     expect(profile).toContain("from('profile_private_info').upsert");
     expect(profile).toContain("from('social_links').upsert");
     expect(profile).toContain("storage.from('avatars').upload");
-    expect(profileSettings).toContain('createProfileService(supabase).saveOwnProfile(nextUser)');
+    expect(profileSettings).toContain('createProfileService(supabase).saveOwnProfile(nextUser, { allowClearing: true, preserveUneditedCollections: true })');
   });
 
   it('keeps GPS behavior equivalent while using the correct platform API', () => {
