@@ -1,5 +1,33 @@
 # MASTER PLAN — Loki Music (ce qui RESTE à faire)
 
+## AUDIT TRANSVERSAL EXÉCUTOIRE — 12/10/2026 — Loki Music / Découvertes / Playlists / Soirées / Profil / Hamburger / Sessions / Super Admin
+
+**Demande utilisateur explicitement validée :** vérifier le produit comme un vrai utilisateur, corriger les liaisons, rendre la boutique et les soirées compréhensibles et visibles, synchroniser mobile et ordinateur. Dossier de coordination [#153](https://github.com/adelkhatra-bit/KEEP/issues/153). **Source de vérité : ce MASTER_PLAN.md**, avec `STATE.md` (preuves), `docs/ERROR_LEDGER.md` (anomalies), `docs/IDEAS_INBOX.md` (idées). Ne pas créer de seconde liste parallèle.
+
+### Protocole obligatoire à chaque prise en charge par une IA
+1. Lire `AGENTS.md`, `CLAUDE.md`, `config/keep-product-contract.json`, `STATE.md`, ce plan, `docs/IDEAS_INBOX.md` et `docs/ERROR_LEDGER.md`; consulter #153 et PR ouvertes avant toute modification.
+2. Reproduire comme **visiteur, membre FREE, membre payant, vendeur, organisateur et Super Admin** sur 390×844 et PC 1440×900. Tester les vrais appels et états (chargement, vide, erreur, permissions, déconnexion, retour, rechargement).
+3. Cartographier les liaisons **Loki Music → session → GARDER/PASSER/ARRÊTER → Découvertes → profil artiste → boutique → aperçu → achat FREE/PayPal → bibliothèque/Playlists → Stories → Soirées → participer/billetterie → notifications → Super Admin**. Vérifier l'identité des objets, leur persistance Supabase, leur statut public/privé et l'absence de double validation.
+4. Corriger sur branche canonique `reconcile/claude-main-20260825` via PR ciblées, sans modifier `packages/mobile/App.tsx` pour le responsive, `Navigation.tsx`, la barre 5 onglets ou le design validé sans nouvelle instruction explicite. Ne pas casser les fonctions existantes.
+5. Pour chaque changement : test de non-régression, CI, contrôle publication web SHA, contrôle distinct TestFlight, preuve visuelle et audio. Une réussite de build ne vaut pas test utilisateur. Reporter dans `STATE.md` et #153.
+
+### File d'exécution, dans cet ordre (statut NON VALIDÉ tant que la preuve manque)
+- **P0 · Publication et cohérence** : confirmer que `fbb446f` (recherche titre/lien déplacée près de l'audio onglet PC), `c897014` (texte boutique min 11 px) et `bcbdd94` (découverte personnalisée) sont dans la version web effectivement servie ; déterminer le SHA de TestFlight. Vérifier et fermer les PR obsolètes seulement après équivalence fonctionnelle démontrée.
+- **P0 · Loki Music / Sessions** : démarrage microphone, animation active, arrêt immédiat et libération d'Audio.Recording, source PC onglet YouTube/TikTok, reconnaissance correcte vs lien périmé, débit quota uniquement sur succès non doublonné, prévisualisation audible, contrôle sans swipe obligatoire.
+- **P0 · Super Admin** : droits d'accès, boutons et retours, réglages sauvegardés, `remote_config` UTF-8, FREE et quotas DAY/WEEK/MONTH/NEVER, prix et expiration, état après reload ; distinguer `listen_quota_limit_FREE=10` actif de `listen_pricing_draft_free_per_day=8` brouillon et `demo_listen_limit=3`.
+- **P1 · Découvertes / Loki Pulse** : catalogues, artistes, genres/styles, personnalisation, aperçu qui joue, recherche, ouvrir profil/boutique/soirée, cas vide, lenteur et navigation retour.
+- **P1 · Playlists / Bibliothèque** : ajout après KEEP, absence de doublons, accès depuis session/profil/réglages, audio et ordre, synchronisation PC/mobile après recharge.
+- **P1 · Soirées / Battle** : date expirée jamais présentée comme événement actif, modération Super Admin, visibilité approuvée, Story automatique, Loki Pulse, réponses participe/peut-être, billetterie et boutique organisateur ; cartes affichant date, lieu, prix, état et CTA.
+- **P1 · Profil / Hamburger** : pseudo, bio, avatar Supabase Storage, ville/pays GPS éditables, date de naissance, genre, réseaux et site web persistants ; liens sociaux actifs ou popup d'absence, notification visiteur connecté, Retour réglages avancés et accès Playlists sans déconnexion.
+- **P1 · Vitrine vendeurs** : mettre en avant créateur, photo, univers musical, titres, prix, aperçu 15 s, action « Voir sa boutique », états vide et erreurs ; présentation premium et lisible sur PC/mobile, sans animation lourde ou fausse promesse.
+- **P2 · Parité** : QR pairing sécurisé, états de session synchronisés, notifications non doublonnées et effaçables, cohérence commandes PC/iOS, temps de réponse et tests audio sur appareils réels.
+
+### Critères de clôture
+Chaque ligne doit contenir : fichier/règle corrigé, scénario reproduit, test automatisé, test 390×844, test PC, CI, SHA, URL/version réellement publiée, TestFlight si applicable, et anomalie restante. **Ne jamais annoncer 100 % ni “poussé sur iPhone” sans preuve.** Le dossier #153 sert de point d'entrée commun ; aucune IA ne doit présumer que la création de ce dossier lance d'autres agents automatiquement.
+
+---
+
+
 > Complète `STATE.md` (ce qui est fait). **Règle de travail : plan écrit → validation d'Adel → code.** Une étape à la fois. Aucune IA ne touche `main`, ni au design validé sans accord. Chaque étape finit par : tests + 7 gardes + preuve mobile 390 / ordinateur 1440 + ligne dans `STATE.md`. Audit **ciblé** (seulement le module touché).
 > Statuts : ✅ fait · 🟡 partiel · ⛔ pas fait · ❓ cause non établie. Tout ce qui n'est pas vérifié sur iPhone est marqué « non vérifié iPhone ».
 
