@@ -33,7 +33,7 @@ export function supportedSharedMusicUrl(value: string): string | null {
   try {
     const parsed = new URL(candidate);
     if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null;
-    const host = parsed.hostname.toLowerCase().replace(/^www\\./, '');
+    const host = (parsed.hostname.toLowerCase().startsWith('www.') ? parsed.hostname.toLowerCase().slice(4) : parsed.hostname.toLowerCase());
     const hosts = [
       'youtube.com', 'youtu.be', 'spotify.com', 'deezer.com', 'music.apple.com',
       'soundcloud.com', 'listen.tidal.com', 'tiktok.com', 'instagram.com',
