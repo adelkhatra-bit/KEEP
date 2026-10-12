@@ -1,3 +1,6 @@
+## 12/10/2026 — Navigation des cinq onglets : retour systématique au point d'entrée
+- **IDÉE · EN COURS** : sur PC (sidebar) et mobile (barre inférieure), un clic sur Loki Music, Découvertes, Playlists, Soirées ou Profil doit ramener à la page d'entrée de cette rubrique, y compris si l'utilisateur y est déjà mais a ouvert un sous-écran. « Soirées » doit rouvrir Créer / Mes soirées / Invitations, sans flèche Retour. Ne pas interrompre un Solo/Battle ou une écoute en cours ; conserver garde de confirmation et données persistées. Même app React Native/Expo ; pas de HTML parallèle. Vérifier 390×844 et 1440×900 avant fusion.
+
 ## 12/10/2026 — synchronisation des détails des spectateurs de Story
 - **IDÉE · EN COURS** : le propriétaire doit voir sur mobile et ordinateur, pour chaque spectateur réel, quelle musique de sa story a été vue, celle où il s'est arrêté, si l'écoute a été complète ou passée et si un cœur a été enregistré. Corriger la compatibilité entre la RPC `keep_my_story_viewers_v4` de production et les champs attendus par le client ; ne jamais afficher « aucune vue » sur une erreur réseau ; actualiser les détails sur les deux appareils à partir du serveur. Ne pas inventer de visionnage ni modifier les réactions, historiques ou données réelles.
 
