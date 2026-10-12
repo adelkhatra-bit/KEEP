@@ -13,6 +13,8 @@ export type TemporaryMusicResult = {
   previewUrl?: string;
   sourceUrl?: string | null;
   identified: boolean;
+  /** Exact provider-video metadata, not a cross-catalog audio identification. */
+  sourceOnly?: boolean;
 };
 
 /**
@@ -55,14 +57,14 @@ export default function TemporaryMusicPreview({
     setPreviewError(false);
     setPreviewUrl(null);
     setNextLink('');
-    if (visible && result?.identified && result.title && result.artist) {
+    if (visible && result?.identified && !result.sourceOnly && result.title && result.artist) {
       void resolveTrackPreviewUrl({ title: result.title, artist: result.artist,
         id: 'temporary-preview', providerIds: {}, artworkUrl: result.artworkUrl,
         previewUrl: result.previewUrl,
       }).then((url) => { if (alive) setPreviewUrl(url); }).catch(() => {});
     }
     return () => { alive = false; stopTrackPreviewFast('temporary:music-share'); };
-  }, [visible, result?.title, result?.artist, result?.sourceUrl, result?.previewUrl]);
+  }, [visible, result?.title, result?.artist, result?.sourceUrl, result?.sourceOnly, result?.previewUrl]);
 
   useEffect(() => { if (keepChoiceOpen) stopTrackPreviewFast('temporary:music-share'); }, [keepChoiceOpen]);
 
@@ -110,7 +112,7 @@ export default function TemporaryMusicPreview({
             <View style={{ flex: 1 }}>
               <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '900' }} numberOfLines={2}>{result.title}</Text>
               <Text style={{ color: '#D1CBE5', fontSize: 12, marginTop: 5 }} numberOfLines={2}>{result.artist}</Text>
-              {!result.identified ? <Text style={{ color: '#F5CE87', fontSize: 11, marginTop: 5 }}>Lien affiché, morceau non identifié</Text> : null}
+              {result.sourceOnly ? <Text style={{ color: '#F5CE87', fontSize: 11, marginTop: 5 }}>Vidéo YouTube exacte · pas de correspondance audio au catalogue</Text> : !result.identified ? <Text style={{ color: '#F5CE87', fontSize: 11, marginTop: 5 }}>Lien affiché, morceau non identifié</Text> : null}
             </View>
           </View>
           {onReplaceLink ? (
@@ -177,7 +179,7 @@ export default function TemporaryMusicPreview({
               ? storyPublished ? '✓ Gardé sur ton profil et publié en Story · 24 h.' : '✓ Gardé sur ton profil. La publication Story n’est pas encore confirmée.'
               : keptVisibility === 'PRIVATE'
                 ? '✓ Gardé en privé dans ton profil. Aucun partage en Story.'
-                : saved ? '✓ Dans Mes Sessions, en attente. Préécoute gratuite ; le FREE n’est débité que si tu choisis GARDER.'
+                : saved ? '✓ Dans Mes Sessions, en attente. La vidéo reste chez YouTube ; un débit FREE n’a lieu que si tu choisis GARDER.'
                   : 'Préécoute dans Loki : aucun FREE débité ni publication sans ton choix.'}
           </Text>
           {result.identified && onKeep && keptVisibility == null ? (
