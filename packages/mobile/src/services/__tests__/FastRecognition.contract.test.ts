@@ -62,14 +62,15 @@ describe('Fast recognition contract', () => {
     const home = fs.readFileSync(path.resolve(__dirname, '..', '..', 'screens', 'HomeScreenCompact.tsx'), 'utf8');
     expect(session).toContain('submitCapturedAudioRecognition: async (recognition)');
     expect(session).toContain("return applyDetectedTrack(set, get, recognition, 'listen')");
-    expect(home).toContain('pauseListening();');
-    expect(home).toContain('startTabAudioMonitor(');
-    expect(home).toContain("current.startSession({ captureMode: 'tab' })");
-    expect(home).toContain('submitCapturedAudioRecognition(recognition)');
-    expect(home).toContain('resumeListening()');
+    const monitor = fs.readFileSync(path.resolve(__dirname, '..', 'continuousTabMusicSession.ts'), 'utf8');
+    expect(monitor).toContain('startTabAudioMonitor(async (sample) => {');
+    expect(monitor).toContain('initial.pauseListening();');
+    expect(monitor).toContain("current.startSession({ captureMode: 'tab' })");
+    expect(monitor).toContain('live.submitCapturedAudioRecognition(recognition)');
+    expect(monitor).toContain('session.resumeListening()');
     expect(home).toContain('testID="listen-tab-audio-option"');
     expect(home).not.toContain('Tester avec le son d’un onglet');
-    expect(home).toContain('colle le lien d’une vidéo YouTube');
+    expect(home).toContain('Colle un lien YouTube ou Spotify');
   });
 
   it('seeds fingerprint memory from kept profile tracks including native Shazam matches', () => {

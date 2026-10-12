@@ -42,7 +42,7 @@ describe('Demo keep confirmation + visited profile premium design', () => {
   });
 
   it('resolves an inline audio preview even when discovery search links exist', () => {
-    expect(listen).toContain('if (track.previewUrl || embedUrl) return;');
+    expect(listen).toContain('if (track.previewUrl || sourceOnlyVideo) return;');
     expect(listen).not.toContain('if (track.previewUrl || embedUrl || externalPlayUrl) return;');
     expect(listen).toContain('resolveTrackPreviewUrl(track)');
   });
@@ -197,7 +197,7 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(swipe).toContain("setPrefilterRemovedCount(0)");
     expect(swipe).toContain(": (loop ? shuffle(inputTracks) : inputTracks);");
     expect(swipe).not.toContain("preparedTracksRef.current = result.tracks");
-    expect(swipe).toContain("rightLabel={currentAlreadyKept ? 'DÉJÀ' : 'GARDER'}");
+    expect(swipe).toContain("rightLabel={ownStoryView ? 'DÉJÀ EN STORY' : currentAlreadyKept ? 'DÉJÀ' : 'GARDER'}");
   });
 
   it('waits for the Swipe deck to be ready before starting audio, preventing the first-preview cut', () => {

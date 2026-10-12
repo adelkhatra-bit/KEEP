@@ -29,7 +29,7 @@ describe('Same music decision workflow for microphone, PC tab and shared link', 
   it('GARDER from the shared link uses the same server credit and visibility transaction as Swipe', () => {
     expect(home).toContain('keepTrackInSession(target.sessionId, target.entryId, manualKeepPlaylistId, visibility)');
     expect(sessions).toContain('await commitKeep(entry.track, entry.recommendations, playlistId, {');
-    expect(home).toContain('costFree={creditCostPerKeep} playlists={playlists.map(');
+    expect(home).toContain('keepCostFree={creditCostPerKeep} playlists={playlists.map(');
     expect(temporary).toContain('<KeepVisibilityChoiceContent');
     expect(temporary).toContain('selectedPlaylistId={selectedPlaylistId} onSelectPlaylist={onSelectPlaylist}');
     expect(swipe).toContain('<KeepVisibilityChoiceModal');
@@ -49,8 +49,9 @@ describe('Same music decision workflow for microphone, PC tab and shared link', 
     expect(temporary).toContain('onReplaceLink(nextLink.trim())');
     const commit = home.slice(home.indexOf('const confirmManualKeep = async ('), home.indexOf('const saveManualPreviewToSessions ='));
     expect(commit.indexOf('keepTrackInSession(')).toBeGreaterThan(-1);
-    expect(commit.indexOf('pinStoryTrack(')).toBeGreaterThan(commit.indexOf('keepTrackInSession('));
-    expect(commit).toContain("if (visibility === 'PUBLIC')");
+    expect(commit.indexOf('notifyOwnStoryChanged()')).toBeGreaterThan(commit.indexOf('keepTrackInSession('));
+    expect(commit).not.toContain('pinStoryTrack(');
+    expect(commit).toContain("if (confirmedVisibility === 'PUBLIC')");
     const microphoneKeep = home.slice(home.indexOf('const doKeep = async ('), home.indexOf('// Règle produit 24/09/2026'));
     expect(microphoneKeep).toContain("confirmed?.status === 'kept'");
     expect(microphoneKeep).toContain("confirmed.visibility === 'PUBLIC'");

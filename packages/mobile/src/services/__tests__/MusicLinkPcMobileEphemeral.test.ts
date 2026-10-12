@@ -29,7 +29,7 @@ describe('PC and iPhone YouTube share parity; temporary result only', () => {
     expect(sharedSourcePlatformFromUrl(spoof)).toBe('UNKNOWN');
   });
   it('never writes pasted or copied link results to the live session', () => {
-    const first = home.slice(home.indexOf('const runManualSearch = async () => {'), home.indexOf('const refreshCreditBadge = async () => {'));
+    const first = home.slice(home.indexOf('const runManualSearch = async (inputOverride?: string) => {'), home.indexOf('const refreshCreditBadge = async () => {'));
     const second = home.slice(home.indexOf('const recordSharedLinkResult = async (url: string)'), home.indexOf('const importCopiedMusicLink = () => {'));
     for (const block of [first, second]) {
       expect(block).toContain('searchTrackByText(');

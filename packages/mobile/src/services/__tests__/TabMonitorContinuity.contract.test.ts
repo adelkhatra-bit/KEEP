@@ -28,7 +28,7 @@ describe('PC tab music session continues across multiple songs', () => {
   it('does not prompt to restart a deliberately paused microphone during tab preview', () => {
     expect(controls).toContain('pausedMicForPreview.current');
     expect(controls).toContain('if (isPlaying || !pausedMicForPreview.current) return;');
-    expect(controls).toContain('if (track.previewUrl) return;');
+    expect(controls).toContain('if (track.previewUrl || sourceOnlyVideo) return;');
   });
   it('keeps free-gated save, session swipe, and explicit story publication', () => {
     expect(row).toContain("savedEntry.status !== 'kept'");

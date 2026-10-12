@@ -33,7 +33,7 @@ describe('Manual link search is ephemeral on desktop and mobile', () => {
   const modal = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'TemporaryMusicPreview.tsx'), 'utf8');
 
   it('never calls session-saving methods from manual link lookup', () => {
-    const search = home.slice(home.indexOf('const runManualSearch = async () =>'), home.indexOf('const refreshCreditBadge ='));
+    const search = home.slice(home.indexOf('const runManualSearch = async (inputOverride?: string) =>'), home.indexOf('const refreshCreditBadge ='));
     const importLink = home.slice(home.indexOf('const recordSharedLinkResult = async ('), home.indexOf('const importCopiedMusicLink ='));
     for (const code of [search, importLink]) {
       expect(code).not.toContain('submitManualSearch(');

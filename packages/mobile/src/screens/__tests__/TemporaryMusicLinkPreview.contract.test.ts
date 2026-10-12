@@ -37,7 +37,7 @@ describe('One KEEP / FREE / story contract for microphone, PC tab, and copied li
     expect(home).toContain('onChooseVisibility={(visibility) => { void confirmManualKeep(visibility); }}');
     expect(temporary).toContain('KeepVisibilityChoiceContent');
     expect(temporary).toContain('costFree={keepCostFree}');
-    expect(confirm).toContain('keepTrackInSession(target.sessionId, target.entryId, undefined, visibility)');
+    expect(confirm).toContain('keepTrackInSession(target.sessionId, target.entryId, manualKeepPlaylistId, visibility)');
     expect(confirm).toContain("committed?.status !== 'kept'");
     expect(history).toContain('await commitKeep(entry.track, entry.recommendations, playlistId');
     expect(live).toContain('await commitKeep(entry.track, entry.recommendations, playlistId');

@@ -43,11 +43,12 @@ describe('Three music entries lead to the SAME sessions and FREE/visibility deci
     const action = home.slice(home.indexOf('const confirmManualKeep = async'), home.indexOf('const saveManualPreviewToSessions ='));
     const commit = action.indexOf('keepTrackInSession(');
     const verified = action.indexOf("committed?.status !== 'kept'");
-    const story = action.indexOf('await pinStoryTrack(');
+    const story = action.indexOf('notifyOwnStoryChanged()');
     expect(commit).toBeGreaterThanOrEqual(0);
     expect(verified).toBeGreaterThan(commit);
     expect(story).toBeGreaterThan(verified);
-    expect(action).toContain("if (visibility === 'PUBLIC')");
+    expect(action).toContain("if (confirmedVisibility === 'PUBLIC')");
+    expect(action).not.toContain('await pinStoryTrack(');
     expect(action).not.toContain('consumeDownloadCredit(');
   });
 
