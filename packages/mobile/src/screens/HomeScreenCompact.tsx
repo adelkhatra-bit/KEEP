@@ -6,6 +6,8 @@ import { nextTickerBatch } from '../services/tickerMemory';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Image, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import TrackCover from '../components/TrackCover';
+import TemporaryMusicPreview, { type TemporaryMusicResult } from '../components/TemporaryMusicPreview';
+import { resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from '../utils/keepAlert';
 import { useTranslation } from 'react-i18next';
@@ -406,38 +408,76 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [manualSearchQuery, setManualSearchQuery] = useState('');
   const [manualSearchBusy, setManualSearchBusy] = useState(false);
   const [manualSearchNotFound, setManualSearchNotFound] = useState(false);
-  // Preview only: pasted links are NEVER written to sessions, playlists or Supabase.
-  const [manualSearchResult, setManualSearchResult] = useState<{ title: string; artist: string; track: any } | null>(null);
+  // Éphémère : aucune recherche par lien n'est ajoutée aux sessions ou playlists.
+  const [manualSearchResult, setManualSearchResult] = useState<(TemporaryMusicResult & { track: { title: string; artist: string; artworkUrl?: string } }) | null>(null);
+  const [manualResultOpen, setManualResultOpen] = useState(false);
   const searchGeneration = useRef(0);
+  const pausedForPreview = useRef(false);
 
   const closeManualSearchPreview = () => {
-    searchGeneration.current += 1; // Ignore an older in-flight lookup after closing.
+    searchGeneration.current += 1; // Ignore an in-flight result after closing.
     setManualSearchOpen(false);
+    setManualResultOpen(false);
     setManualSearchQuery('');
     setManualSearchNotFound(false);
     setManualSearchResult(null);
     setManualSearchBusy(false);
+    if (pausedForPreview.current) {
+      pausedForPreview.current = false;
+      if (useSessionStore.getState().isActive) resumeListening();
+    }
   };
 
-  // The same shared behavior runs on PC and TestFlight; only layout differs.
+  // Same logic on desktop and TestFlight, without touching either visual layout.
   useEffect(() => {
     const unsubscribe = navigation?.addListener?.('blur', closeManualSearchPreview);
     return () => { unsubscribe?.(); searchGeneration.current += 1; };
   }, [navigation]);
 
+  const openTemporaryMusicPreview = (found: Awaited<ReturnType<typeof searchTrackByText>>, raw: string): boolean => {
+    const pasted = supportedSharedMusicUrl(raw);
+    const sourceUrl = [
+      pasted,
+      found?.externalUrls?.source,
+      found?.externalUrls?.youtube,
+      found?.externalUrls?.spotify,
+      found?.externalUrls?.deezer,
+    ].find((url) => resolveEmbeddedMusicPlayer(url)) || pasted || null;
+    const embed = resolveEmbeddedMusicPlayer(sourceUrl);
+    if (!found && !embed) return false;
+    const result: TemporaryMusicResult & { track: { title: string; artist: string; artworkUrl?: string } } = {
+      title: found?.title || 'Vidéo musicale partagée',
+      artist: found?.artist || 'Lien affiché · titre non identifié',
+      artworkUrl: found?.artworkUrl,
+      track: { title: found?.title || 'Vidéo musicale partagée', artist: found?.artist || 'Lien partagé', artworkUrl: found?.artworkUrl },
+      sourceUrl,
+      identified: Boolean(found),
+    };
+    const session = useSessionStore.getState();
+    if (session.isActive && !session.micPaused && !pausedForPreview.current) {
+      pausedForPreview.current = true;
+      pauseListening(); // Prevent the in-app video from being captured by the mic.
+    }
+    setManualSearchResult(result);
+    // Keep the SAME RN modal mounted: native iOS cannot display two root Modals
+    // simultaneously while the search sheet is being dismissed.
+    setManualSearchOpen(false);
+    setManualResultOpen(true);
+    setManualSearchNotFound(false);
+    return true;
+  };
+
   const runManualSearch = async () => {
     if (manualSearchBusy || !manualSearchQuery.trim()) return;
     const generation = ++searchGeneration.current;
+    const input = manualSearchQuery.trim();
     setManualSearchBusy(true);
     setManualSearchNotFound(false);
     try {
-      const found = await searchTrackByText(manualSearchQuery);
+      const found = await searchTrackByText(input);
       if (generation !== searchGeneration.current) return;
-      if (!found) { setManualSearchNotFound(true); return; }
-      // Preview-only lookup. Never alter any live or saved session.
-      setManualSearchResult({ title: found.title, artist: found.artist, track: found });
-      setManualSearchOpen(false);
-      setManualSearchQuery('');
+      // Searching is NOT the user's GARDER action. No session, quota or DB write.
+      if (!openTemporaryMusicPreview(found, input)) setManualSearchNotFound(true);
     } catch {
       if (generation === searchGeneration.current) setManualSearchNotFound(true);
     } finally {
@@ -694,16 +734,12 @@ export default function HomeScreenCompact({ navigation }: any) {
     const generation = ++searchGeneration.current;
     const found = await searchTrackByText(supportedUrl).catch(() => null);
     if (generation !== searchGeneration.current) return false;
-    if (!found) {
+    if (!openTemporaryMusicPreview(found, supportedUrl)) {
       setManualSearchQuery(supportedUrl);
       setManualSearchNotFound(true);
       setManualSearchOpen(true);
       return false;
     }
-    // Imported/copied links only create a dismissible preview, not a session track.
-    setManualSearchResult({ title: found.title, artist: found.artist, track: found });
-    setManualSearchOpen(false);
-    setManualSearchQuery('');
     return true;
   };
 
@@ -788,13 +824,16 @@ export default function HomeScreenCompact({ navigation }: any) {
     } finally {
       setTabTestBusy(false);
       const current = useSessionStore.getState();
-      if (wasActive && !wasPaused && current.isActive && current.micPaused && !current.listenFreeRequired && !current.listenFreeInsufficient) resumeListening();
+      if (wasActive && !wasPaused && !pausedForPreview.current && current.isActive && current.micPaused && !current.listenFreeRequired && !current.listenFreeInsufficient) resumeListening();
     }
   };
 
   // Keep the search modal mounted on the idle home, not only on the active microphone screen.
   const manualSearchModal = (
-      <KeepModal visible={manualSearchOpen} transparent animationType="fade" onRequestClose={closeManualSearchPreview}>
+      <KeepModal visible={manualSearchOpen || manualResultOpen} transparent animationType="fade" onRequestClose={closeManualSearchPreview}>
+        {manualResultOpen ? (
+          <TemporaryMusicPreview visible={manualResultOpen} result={manualSearchResult} onClose={closeManualSearchPreview} />
+        ) : (
         <View style={s.modalOverlay}><View style={s.modalCard}>
           <Text style={s.modalTitle}>Chercher un morceau</Text>
           <Text style={s.modalBody}>Entre l’artiste et le titre, ou colle le lien d’une vidéo YouTube, Spotify, Deezer ou Apple Music. Pour YouTube, Loki Music recherche les informations publiques de la vidéo et les compare aux catalogues musicaux : il ne reconnaît pas directement l’audio à partir d’un simple lien.</Text>
@@ -822,6 +861,7 @@ export default function HomeScreenCompact({ navigation }: any) {
             </TouchableOpacity>
           </View>
         </View></View>
+        )}
       </KeepModal>
   );
 
