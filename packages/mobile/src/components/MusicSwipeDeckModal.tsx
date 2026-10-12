@@ -559,6 +559,14 @@ export default function MusicSwipeDeckModal({
       return () => { alive = false; };
     }
 
+    // Share-linked YouTube videos are their own playback source.
+    // Never substitute a different iTunes song based on loosely parsed titles.
+    if (!current.previewUrl?.trim() && !isSaleStoryTrack(current)
+        && resolveEmbeddedMusicPlayer(current.externalUrls?.source || null)) {
+      setPreviewResolving(false);
+      setResolvedPreviewUrl(null);
+      return () => { alive = false; };
+    }
     setPreviewResolving(!current.previewUrl?.trim());
     void resolveTrackPreviewUrl(current)
       .then(async (previewUrl) => {
@@ -845,7 +853,7 @@ export default function MusicSwipeDeckModal({
   };
 
   const requestKeep = async () => {
-    if (!current || processing) return;
+    if (!current || processing || ownStoryView) return;
     if (previewOnly) {
       actionInFlight.current = true;
       setPreviewInfoOpen(true);
@@ -1158,7 +1166,7 @@ export default function MusicSwipeDeckModal({
                 void advance().finally(() => { actionInFlight.current = false; });
               }}
               leftLabel="PASSER"
-              rightLabel={currentAlreadyKept ? 'DÉJÀ' : 'GARDER'}
+              rightLabel={ownStoryView ? 'DÉJÀ EN STORY' : currentAlreadyKept ? 'DÉJÀ' : 'GARDER'}
               upLabel="SUIVANT"
               hint={swipeHint}
               fill
@@ -1230,10 +1238,10 @@ export default function MusicSwipeDeckModal({
               <TouchableOpacity
                 style={[s.decisionButton, s.keepButton, currentAlreadyKept && s.keepButtonAlready]}
                 onPress={() => { void requestKeep(); }}
-                disabled={controlsLocked}
-                accessibilityLabel={currentAlreadyKept ? 'Déjà dans ta collection' : 'Garder cette musique'}
+                disabled={controlsLocked || ownStoryView}
+                accessibilityLabel={ownStoryView ? 'Musique déjà dans ta Story' : currentAlreadyKept ? 'Déjà dans ta collection' : 'Garder cette musique'}
               >
-                {processing ? <ActivityIndicator color={currentAlreadyKept ? '#B9B0C3' : colors.black} size="small" /> : <Text style={[s.keepButtonText, currentAlreadyKept && s.keepButtonTextAlready]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{currentAlreadyKept ? '✓ DÉJÀ' : '♡ GARDER'}</Text>}
+                {processing ? <ActivityIndicator color={currentAlreadyKept ? '#B9B0C3' : colors.black} size="small" /> : <Text style={[s.keepButtonText, currentAlreadyKept && s.keepButtonTextAlready]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{ownStoryView ? '✓ EN STORY' : currentAlreadyKept ? '✓ DÉJÀ' : '♡ GARDER'}</Text>}
               </TouchableOpacity>
             </View>
           </View>
