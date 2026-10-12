@@ -195,7 +195,7 @@ interface SessionStore {
   resumeListening: () => void;
   useFreeForNextListen: () => void;
   dismissListenFreePrompt: () => void;
-  startSession: () => void;
+  startSession: (options?: { captureMode?: 'microphone' | 'tab' }) => void;
   requestEndSession: (title?: string) => string | null;
   dismissEndPrompt: () => void;
   keepTrack: (entryId: string, playlistId?: string, visibility?: KeepVisibility) => Promise<void>;
@@ -480,18 +480,21 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     set({ listenFreeRequired: false, listenFreeInsufficient: false });
   },
 
-  startSession: () => {
+  startSession: (options) => {
     if (isProtectedStoryPlaybackActive()) return;
+    const fromSharedTab = options?.captureMode === 'tab';
     clearTimers();
     // Nettoyer l'ancienne capture AVANT de préparer le nouvel AudioContext.
     // Sur web, l'ancien ordre faisait exactement l'inverse : on débloquait
     // WebAudio dans le geste utilisateur puis cancelAudioCapture() refermait
     // immédiatement ce contexte. Le tick suivant recréait un AudioContext
     // hors geste utilisateur, que Safari/iOS peut laisser suspendu.
-    void cancelAudioCapture();
-    // Doit rester dans le geste tactile d'origine pour Samsung Internet /
-    // Chrome Android / Safari iOS.
-    prepareAudioCaptureFromUserGesture();
+    if (!fromSharedTab) {
+      void cancelAudioCapture();
+      // Le micro normal exige son propre geste tactile utilisateur ; un onglet
+      // partagé ne doit JAMAIS ouvrir le micro après la reconnaissance.
+      prepareAudioCaptureFromUserGesture();
+    }
     void prepareRecognitionNotifications();
     // Une écoute lancée normalement ne doit jamais reprendre une ancienne URL
     // TikTok/Instagram. Le handoff social pose sa nouvelle source juste après.
@@ -514,7 +517,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       recognizing: false,
       micLevel: 0,
       musicPresence: 'unknown',
-      micPaused: false,
+      micPaused: fromSharedTab,
       error: null,
       signalHint: null,
       listenFreeRequired: false,
