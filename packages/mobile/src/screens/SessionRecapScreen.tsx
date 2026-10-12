@@ -306,7 +306,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
           <Text style={styles.statsDot}>·</Text>
           <Text style={[styles.statsText, styles.statsKept]}>{t('session.kept', { count: keptCount })}</Text>
         </View>
-        {pendingCount > 0 ? <TouchableOpacity style={styles.pendingPill} onPress={openSwipe} accessibilityRole="button" accessibilityLabel={`Swiper ${pendingCount} musiques`}><Text style={styles.pendingPillText}>SWIPER · {pendingCount}</Text></TouchableOpacity> : null}
+        {pendingCount > 0 ? <TouchableOpacity style={styles.pendingPill} onPress={openSwipe} accessibilityRole="button" accessibilityLabel={`Swiper ${pendingCount} musiques`}><Text style={styles.pendingPillText}>SWIPER TOUTES · {pendingCount}</Text></TouchableOpacity> : null}
       </View>
 
       {lockedCount > 0 ? (
@@ -316,6 +316,11 @@ export default function SessionRecapScreen({ route, navigation }: any) {
         </TouchableOpacity>
       ) : null}
 
+      {pendingCount > 0 ? (
+        <Text testID="session-recap-pending-total" style={[styles.visibilityHint, { color: colors.textPrimary, fontWeight: '800' }]}>
+          {pendingCount} musique{pendingCount > 1 ? 's' : ''} en attente · SWIPER TOUTES pour décider sans perdre ta session.
+        </Text>
+      ) : null}
       <Text style={styles.visibilityHint}>À swiper en premier · Public = visible sur ton profil Loki Music · Privé = visible seulement par toi.</Text>
 
       <FlatList
@@ -356,7 +361,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
       <View style={styles.sessionActionsRow}>
         {pendingCount > 0 ? (
           <TouchableOpacity style={[styles.compactAction, styles.swipeAction]} onPress={openSwipe} accessibilityRole="button" accessibilityLabel="Swiper la session">
-            <Text style={styles.swipeActionText}>↔ SWIPER · {pendingCount}</Text>
+            <Text style={styles.swipeActionText}>↔ SWIPER TOUTES · {pendingCount}</Text>
           </TouchableOpacity>
         ) : null}
         {pendingCount > 0 ? (
