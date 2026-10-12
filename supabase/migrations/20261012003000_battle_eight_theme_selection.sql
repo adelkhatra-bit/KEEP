@@ -113,7 +113,9 @@ begin
   ),
   pool as (
     select t.id,t.title,t.artist,t.artwork_url,t.preview_url,t.release_year, chosen.theme_code, chosen.theme_ord,
-      case when t.id=any(v_recent_tracks) then 1 else 0 end as recent_penalty, random() as rnd
+      case when t.id=any(v_recent_tracks) then 1 else 0 end as recent_penalty,
+       case when lower(trim(t.artist))=any(v_recent_artists) then 1 else 0 end as recent_artist_penalty,
+       random() as rnd
     from (select t0.* from public.tracks t0 where t0.id = any(coalesce(v_pool_ids, array[]::uuid[]))
         and nullif(trim(t0.preview_url),'') is not null and nullif(trim(t0.title),'') is not null and nullif(trim(t0.artist),'') is not null) t
     left join lateral (select tl.code as theme_code,tl.theme_ord from theme_list tl
@@ -121,16 +123,16 @@ begin
     where (v_themes is null or chosen.theme_code is not null)
       and (v_uid is null or not exists (select 1 from public.playlists pl join public.playlist_tracks pt on pt.playlist_id=pl.id where pl.owner_id=v_uid and pt.track_id=t.id))
   ),
-  artist_dedup as (select * from (select p.*, row_number() over(partition by lower(trim(p.artist)) order by p.recent_penalty,p.rnd) as artist_rn from pool p) x where x.artist_rn=1),
-  ranked as (select d.*, case when v_themes is null then 1 else row_number() over(partition by d.theme_code order by d.recent_penalty,d.rnd) end as theme_rank from artist_dedup d),
-  candidates as (select * from ranked order by case when v_themes is null then recent_penalty else theme_rank end, case when v_themes is null then 1 else theme_ord end, recent_penalty, rnd limit v_round_count),
-  packed as (select row_number() over(order by case when v_themes is null then recent_penalty else theme_rank end, case when v_themes is null then 1 else theme_ord end, rnd)::integer as position,
+  artist_dedup as (select * from (select p.*, row_number() over(partition by lower(trim(p.artist)) order by p.recent_penalty,p.recent_artist_penalty,p.rnd) as artist_rn from pool p) x where x.artist_rn=1),
+  ranked as (select d.*, case when v_themes is null then 1 else row_number() over(partition by d.theme_code order by d.recent_penalty,d.recent_artist_penalty,d.rnd) end as theme_rank from artist_dedup d),
+  candidates as (select * from ranked order by case when v_themes is null then recent_penalty else theme_rank end, case when v_themes is null then 1 else theme_ord end, recent_penalty, recent_artist_penalty, rnd limit v_round_count),
+  packed as (select row_number() over(order by case when v_themes is null then recent_penalty else theme_rank end, case when v_themes is null then 1 else theme_ord end, recent_artist_penalty, rnd)::integer as position,
       c.id,c.title,c.artist,c.artwork_url,c.preview_url,c.release_year, coalesce(c.theme_code,'MIX') as theme_code from candidates c),
   global_sample as (select unnest(coalesce(v_sample_artists, array[]::text[])) as artist),
-  distractors as (select distinct on (lower(trim(artist))) trim(artist) as artist,prio,release_year from (select artist,release_year,0 as prio from pool union all select artist,null::smallint as release_year,1 as prio from global_sample) x order by lower(trim(artist)),prio),
+  distractors as (select distinct on (lower(trim(artist))) trim(artist) as artist,prio,release_year,theme_code from (select artist,release_year,theme_code,0 as prio from pool union all select artist,null::smallint as release_year,null::text as theme_code,1 as prio from global_sample) x order by lower(trim(artist)),prio),
   with_choices as (select p.*, coalesce((select jsonb_agg(value order by random()) from (select p.artist::text as value union all
           select d.artist from (select artist from distractors where lower(artist)<>lower(trim(p.artist))
-            order by prio, case when p.release_year is not null and release_year is not null and abs(p.release_year::integer - release_year::integer) <= 10 then 0 else 1 end, case when lower(artist)=any(v_recent_artists) then 1 else 0 end, random() limit 3) d) options),'[]'::jsonb) as choices from packed p)
+            order by case when d.theme_code = p.theme_code then 0 else 1 end, prio, case when p.release_year is not null and release_year is not null and abs(p.release_year::integer - release_year::integer) <= 10 then 0 else 1 end, case when lower(artist)=any(v_recent_artists) then 1 else 0 end, random() limit 3) d) options),'[]'::jsonb) as choices from packed p)
   select jsonb_agg(jsonb_build_object('position',x.position,'trackId',x.id,'title',x.title,'artist',x.artist,'artworkUrl',x.artwork_url,
       'previewUrl',x.preview_url,'releaseYear',x.release_year,'themeCode',x.theme_code,'choices',x.choices,'correctAnswer',x.artist) order by x.position)
   into v_rounds from with_choices x where jsonb_array_length(x.choices)=4;
@@ -139,7 +141,7 @@ begin
   end if;
   if v_uid is not null then
     perform public.keep_battle_remember_content(array[v_uid], array(select (r->>'trackId')::uuid from jsonb_array_elements(v_rounds) r),
-      array(select c.choice_value from jsonb_array_elements(v_rounds) r cross join lateral jsonb_array_elements_text(r->'choices') c(choice_value)));
+      array(select r->>'artist' from jsonb_array_elements(v_rounds) r));
   end if;
   return jsonb_build_object('mode','SOLO_TRAINING','themeCode',v_label,'themeCodes',to_jsonb(coalesce(v_themes,array['MIX']::text[])),
     'roundCount',jsonb_array_length(v_rounds),'stakeFree',0,'rewardFree',0,'rounds',v_rounds);
