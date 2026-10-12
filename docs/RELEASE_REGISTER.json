@@ -1,5 +1,14 @@
 [
   {
+    "commit": "49910c15e0e3b69847621d41aa3d2234e7604781",
+    "web": "49910c15e0e3b69847621d41aa3d2234e7604781",
+    "testflight": "iOS #229 success (release a18e390)",
+    "ota": "OTA #1020 success (release a18e390)",
+    "date": "2026-10-12 18:37",
+    "tests": "pass",
+    "changes": "fix(keep): honor Public/Private once without a redundant second confirmation"
+  },
+  {
     "commit": "0a928516fec00bf93bb416fa6b3aa3cfce74a59c",
     "web": "0a928516fec00bf93bb416fa6b3aa3cfce74a59c",
     "testflight": "iOS #229 success (release a18e390)",
