@@ -111,6 +111,8 @@ type SuccessProps = {
   trackLabel?: string | null;
   costFree?: number | null;
   visibility?: 'PUBLIC' | 'PRIVATE' | null;
+  /** True only after the Story RPC really succeeded. */
+  storyPublished?: boolean;
   continueLabel?: string;
   onContinue: () => void | Promise<void>;
   /** Gardé en Privé : propose de le rendre public ET de le mettre en story (anti-doublon géré par l'appelant). */
@@ -122,6 +124,7 @@ export function KeepSuccessModal({
   trackLabel,
   costFree,
   visibility,
+  storyPublished = false,
   continueLabel = 'PARFAIT',
   onContinue,
   onMakePublicStory,
@@ -150,8 +153,8 @@ export function KeepSuccessModal({
             </TouchableOpacity>
           ) : null}
           {visibility === 'PUBLIC' ? (
-            <View style={s.successStoryPill} accessibilityRole="text" accessibilityLabel="Tu viens de l’ajouter à ta story, visible pendant 24 heures">
-              <Text style={s.successStoryPillText}>✅ TU VIENS DE L’AJOUTER À TA STORY · 24 h</Text>
+            <View style={s.successStoryPill} accessibilityRole="text" accessibilityLabel={storyPublished ? 'Story musicale publiée pour 24 heures' : 'Morceau public : publication en Story à confirmer'}>
+              <Text style={s.successStoryPillText}>{storyPublished ? '✓ PUBLIÉ DANS TA STORY · 24 h' : 'STORY À PUBLIER DEPUIS TON PROFIL'}</Text>
             </View>
           ) : null}
         </View>
