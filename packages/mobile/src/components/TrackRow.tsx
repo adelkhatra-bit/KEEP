@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { pinStoryTrack } from '../services/musicStoriesService';
+import { resolveKeptTrackId } from '../services/keepTrackAction';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useTranslation } from 'react-i18next';
 import { ProviderPlaylist } from '@keep/music';
@@ -41,6 +42,7 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
   const [keepSubmitting, setKeepSubmitting] = useState(false);
   const [keepCost, setKeepCost] = useState(3);
   const [keepSuccessOpen, setKeepSuccessOpen] = useState(false);
+  const [keepStoryPublished, setKeepStoryPublished] = useState(false);
   const [storyBusy, setStoryBusy] = useState(false);
   const [keepSuccessVisibility, setKeepSuccessVisibility] = useState<KeepVisibility>('PRIVATE');
 
@@ -77,6 +79,21 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
         else Alert.alert('Morceau non gardé', 'Vérifie tes FREE ou ta connexion puis réessaie.');
         return;
       }
+      // Same rule as microphone, tab and link preview: GARDER Public only
+      // publishes Story after the server confirmed the kept decision.
+      let published = false;
+      if (nextVisibility === 'PUBLIC' && savedEntry?.status === 'kept' && savedEntry.visibility === 'PUBLIC') {
+        try {
+          await pinStoryTrack(resolveKeptTrackId(track.id), {
+            title: track.title, artist: track.artist, album: track.album,
+            artworkUrl: track.artworkUrl, previewUrl: track.previewUrl, isrc: track.isrc,
+          });
+          published = true;
+        } catch {
+          // GARDER succeeded, but Story did not: never display a false badge.
+        }
+      }
+      setKeepStoryPublished(published);
       setKeepSuccessVisibility(nextVisibility);
       setKeepPromptOpen(false);
       setKeepSuccessOpen(true);
@@ -171,6 +188,7 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
         trackLabel={`${track.title} · ${track.artist}`}
         costFree={keepCost}
         visibility={keepSuccessVisibility}
+        storyPublished={keepStoryPublished}
         onContinue={() => setKeepSuccessOpen(false)}
       />
     </>
