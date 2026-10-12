@@ -1179,7 +1179,7 @@ export default function MusicSwipeDeckModal({
                 {priceBadge ? <View pointerEvents="none" testID="deck-price-badge" style={[s.priceBadge, priceBadge.paid ? s.priceBadgePaid : s.priceBadgeFree, { top: currentSourceUsername ? 48 : 12 }]}><Text style={[s.priceBadgeText, priceBadge.paid ? s.priceBadgeTextPaid : s.priceBadgeTextFree]} numberOfLines={1}>{priceBadge.label}</Text></View> : null}
                 <View style={[s.gradientFake, compactDeck && s.gradientCompact]}>
                   <View style={s.autoRow}><View style={[s.dot,resolvedPreviewUrl ? s.dotOn : s.dotOff]} /><Text style={s.autoText}>{previewLabel}</Text></View>
-                  {!resolvedPreviewUrl && sourcePlayer && !sourcePlayerOpen ? (
+                  {!trackAddedAt && !resolvedPreviewUrl && sourcePlayer && !sourcePlayerOpen ? (
                     <TouchableOpacity testID="story-open-source-player" style={s.manualPlayButton} accessibilityRole="button" accessibilityLabel="Écouter la vidéo originale dans Loki Music" onPress={() => { stopTrackPreviewFast(); setSourcePlayerOpen(true); }}>
                       <Text style={s.manualPlayText}>▶ ÉCOUTER DANS LOKI</Text>
                     </TouchableOpacity>
@@ -1193,7 +1193,7 @@ export default function MusicSwipeDeckModal({
                   <Text style={s.artist} numberOfLines={1}>{ownerMasked ? 'Ta boutique' : current.artist}</Text>
                   {current.album && !ownerMasked ? <Text style={s.album} numberOfLines={1}>{current.album}</Text> : null}
                 </View>
-                {sourcePlayerOpen && !resolvedPreviewUrl && sourcePlayer ? (
+                {!trackAddedAt && sourcePlayerOpen && !resolvedPreviewUrl && sourcePlayer ? (
                   <View testID="story-source-player" style={s.sourcePlayerOverlay}>
                     <TouchableOpacity style={s.sourcePlayerClose} accessibilityRole="button" accessibilityLabel="Arrêter la vidéo sans quitter la Story" onPress={() => setSourcePlayerOpen(false)}>
                       <Text style={s.sourcePlayerCloseText}>✕ FERMER LA VIDÉO</Text>
