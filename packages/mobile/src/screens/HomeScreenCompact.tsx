@@ -482,9 +482,13 @@ export default function HomeScreenCompact({ navigation }: any) {
     const sourceOnly = Boolean(found && String(found.recognitionProviderTrackId ?? '').startsWith('source:'));
     const originalEmbed = resolveEmbeddedMusicPlayer(pasted);
     const verifiedEmbed = resolveEmbeddedMusicPlayer(found?.externalUrls?.source);
-    const exactYouTube = Boolean(originalEmbed?.provider === 'YOUTUBE'
-      && verifiedEmbed?.provider === 'YOUTUBE' && originalEmbed.url === verifiedEmbed.url);
-    const sourceQueueable = sourceOnly && exactYouTube;
+    // The actual platform player identity must agree with the exact link
+    // verified by Supabase. Accept Spotify/Deezer too, but never a guessed
+    // catalogue match, an unrelated search URL or an opaque redirect.
+    const sameVerifiedPlayer = Boolean(originalEmbed && verifiedEmbed
+      && originalEmbed.provider === verifiedEmbed.provider
+      && originalEmbed.url === verifiedEmbed.url);
+    const sourceQueueable = sourceOnly && sameVerifiedPlayer;
     const resolvedTrack: CanonicalTrack = found
       ? musicEngine.trackResolver.resolveFromRecognition(found)
       : { id: 'temporary-unidentified', title: 'Vidéo musicale partagée',
