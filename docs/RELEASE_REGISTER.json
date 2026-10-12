@@ -1,5 +1,14 @@
 [
   {
+    "commit": "d8e54f1cc9e36b7bfedebc681824637e0c56ecc2",
+    "web": "d8e54f1cc9e36b7bfedebc681824637e0c56ecc2",
+    "testflight": "iOS #230 success (release 1f44ee1)",
+    "ota": "OTA #1021 success (release 1f44ee1)",
+    "date": "2026-10-12 19:47",
+    "tests": "pass",
+    "changes": "fix(listen): monitor successive PC tab songs into real session with preview and FREE KEEP"
+  },
+  {
     "commit": "a487e407ccf44890a3ecc2bac6848957575f63ce",
     "web": "a487e407ccf44890a3ecc2bac6848957575f63ce",
     "testflight": "iOS #230 success (release 1f44ee1)",
