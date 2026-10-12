@@ -1,5 +1,14 @@
 [
   {
+    "commit": "326173cf83e1f60518e269b9a04deddd5ecaa4b8",
+    "web": "326173cf83e1f60518e269b9a04deddd5ecaa4b8",
+    "testflight": "iOS #228 success (release f8dbd60)",
+    "ota": "OTA #1019 success (release f8dbd60)",
+    "date": "2026-10-12 11:29",
+    "tests": "pass",
+    "changes": "fix(listen): YouTube PC — capture d'onglet intégrée et liens reconnus (#136)"
+  },
+  {
     "commit": "62591695bddc06cc5826040423cee35dd0823760",
     "web": "62591695bddc06cc5826040423cee35dd0823760",
     "testflight": "iOS #228 success (release f8dbd60)",

@@ -143,6 +143,7 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
+| `326173c` | `326173c` | iOS #228 success (release f8dbd60) | OTA #1019 success (release f8dbd60) | 2026-10-12 11:29 | pass | fix(listen): YouTube PC — capture d'onglet intégrée et liens reconnus (#136) |
 | `6259169` | `6259169` | iOS #228 success (release f8dbd60) | OTA #1019 success (release f8dbd60) | 2026-10-12 11:22 | pass | feat(events): vente lisible, Story automatique validée, Pulse social et cockpit créateur PC (#116) |
 | `58dacb5` | `58dacb5` | iOS #228 success (release f8dbd60) | OTA #1019 success (release f8dbd60) | 2026-10-12 11:03 | pass | Merge pull request #135 from adelkhatra-bit/fix/story-viewer-detail-sync-20261012 |
 | `43f1f94` | `43f1f94` | iOS #228 success (release f8dbd60) | OTA #1019 success (release f8dbd60) | 2026-10-12 01:55 | pass | fix(mobile/web): ouvrir réellement Swipe depuis les sessions et centrer les fenêtres (#120) |
