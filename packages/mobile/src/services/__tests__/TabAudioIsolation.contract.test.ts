@@ -29,6 +29,8 @@ describe('Browser tab audio remains independent from the microphone (regression)
     const action = home.slice(home.indexOf('const testTabCapture = async () => {'), home.indexOf('// Keep the search modal mounted'));
     expect(action).toContain('const monitor = await startTabAudioMonitor(');
     expect(action).toContain("current.startSession({ captureMode: 'tab' })");
-    expect(action.slice(0, action.indexOf('const monitor = await startTabAudioMonitor('))).not.toContain('startSession(');
+    const beforeCapture = action.slice(0, action.indexOf('const monitor = await startTabAudioMonitor('))
+      .split('\n').filter((line) => !line.trim().startsWith('//')).join('\n');
+    expect(beforeCapture).not.toMatch(/\bstartSession\s*\(/);
   });
 });
