@@ -673,9 +673,9 @@ export default function HomeScreenCompact({ navigation }: any) {
     if (tabTestBusy || musicEngine.isDemoMode) return;
     // L’action est aussi disponible dès l’accueil PC, avant de lancer le micro.
     // Lancer la session dans le geste utilisateur, puis la mettre en pause avant de capter le son partagé.
-    if (!useSessionStore.getState().isActive) useSessionStore.getState().startSession();
+    const wasActive = useSessionStore.getState().isActive;
     const wasPaused = useSessionStore.getState().micPaused;
-    useSessionStore.getState().pauseListening();
+    if (wasActive) useSessionStore.getState().pauseListening();
     setTabTestBusy(true);
     try {
       // getDisplayMedia doit partir directement du clic, sans await préalable.
@@ -686,6 +686,8 @@ export default function HomeScreenCompact({ navigation }: any) {
         Alert.alert('Musique non identifiée', 'Le son de l’onglet a été capté, mais le catalogue ne reconnaît pas cet extrait. Essaie un autre passage ou colle le lien YouTube dans « Chercher un morceau ».');
         return;
       }
+      // N'active le micro/session qu'après la capture ; le partage d'onglet doit démarrer dans le geste utilisateur.
+      if (!useSessionStore.getState().isActive) useSessionStore.getState().startSession();
       // Même carte GARDER/PASSER, quota FREE et anti-doublon que le micro.
       const result = await submitCapturedAudioRecognition(recognition);
       if (result === 'added') Alert.alert('Morceau trouvé', `${recognition.title} — ${recognition.artist}. Retrouve-le dans cette session.`);
@@ -699,7 +701,7 @@ export default function HomeScreenCompact({ navigation }: any) {
     } finally {
       setTabTestBusy(false);
       const current = useSessionStore.getState();
-      if (!wasPaused && current.isActive && current.micPaused && !current.listenFreeRequired && !current.listenFreeInsufficient) resumeListening();
+      if (wasActive && !wasPaused && current.isActive && current.micPaused && !current.listenFreeRequired && !current.listenFreeInsufficient) resumeListening();
     }
   };
 
@@ -801,10 +803,12 @@ export default function HomeScreenCompact({ navigation }: any) {
               </MotionActionButton>
             </View>
             {Platform.OS === 'web' && !musicEngine.isDemoMode ? (
+              <React.Fragment>
               <TouchableOpacity testID="home-tab-audio-option" style={s.tabTest} onPress={testTabCapture} disabled={tabTestBusy} accessibilityRole="button" accessibilityLabel="Reconnaître le son d’un onglet YouTube ou TikTok sur PC">
                 <Text style={s.tabTestText}>{tabTestBusy ? 'Analyse de l’onglet…' : '♫ Son d’un onglet PC'}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setTabAudioHelpOpen(true)} accessibilityRole="button" accessibilityLabel="Comment fonctionne le son d’un onglet PC ?" style={{ alignSelf: "center", padding: 8 }}><Text style={{ color: C.text, fontSize: 12 }}>ⓘ Comment ça marche ?</Text></TouchableOpacity>
+              </React.Fragment>
             ) : null}
             <MotionActionButton
               variant="ghost"
