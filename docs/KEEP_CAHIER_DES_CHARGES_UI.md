@@ -121,6 +121,8 @@ Décision d’Adel (04/10/2026), valable sur toute l’application Mobile et Web
 4. Ces règles se contrôlent par test de contrat (ex. `NotificationsReadableActions.contract.test.ts`) et par `scripts/verify-mobile-text-contrast.cjs`.
 5. À étendre au reste de l'interface écran par écran, sans casser le design validé.
 
+Décision du 12/10/2026 — accueil Écouter : aucun compteur « RESTANTES » ni mini-statistique « Restantes » visibles ; quotas conservés côté service, aide dans « En savoir plus ». Bandeau défilant lisible sur mobile, texte de 14 px maximum.
+
 ## 12. Règle permanente des espaces (décision d'Adel, 05/10/2026 — valable partout)
 
 Respecter les espaces dans tout le système : aucun élément collé à un autre ni rogné par lui. Une jaquette ou une carte ne touche jamais l'en-tête ni le sous-titre ; un texte d'aide ne recouvre jamais un bouton.
