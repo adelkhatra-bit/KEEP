@@ -434,7 +434,7 @@ export default function HomeScreenCompact({ navigation }: any) {
       const found = await searchTrackByText(manualSearchQuery);
       if (generation !== searchGeneration.current) return;
       if (!found) { setManualSearchNotFound(true); return; }
-      // No startSession(), submitManualSearch(), KEEP, GARDER or history write.
+      // Preview-only lookup. Never alter any live or saved session.
       setManualSearchResult({ title: found.title, artist: found.artist, track: found });
       setManualSearchOpen(false);
       setManualSearchQuery('');
