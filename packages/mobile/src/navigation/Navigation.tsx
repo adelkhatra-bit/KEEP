@@ -25,6 +25,7 @@ import OffersScreen from '../screens/OffersScreen';
 import PlaylistSalePanel from '../components/PlaylistSalePanel';
 import PlaylistSaleHistoryScreen from '../screens/PlaylistSaleHistoryScreen';
 import { useGameSessionStore } from '../store/useGameSessionStore';
+import { useSessionStore } from '../store/useSessionStore';
 import { confirmLeaveGame } from '../services/gameExitGuard';
 import { useLayoutMode, DESKTOP_CONTENT_MAX_WIDTH } from '../layout/layoutMode';
 import DesktopSidebar from './DesktopSidebar';
@@ -105,6 +106,19 @@ const TAB = {
   inactive: '#FFFFFF',
 };
 
+// Les deux barres de navigation (mobile et PC) partagent une intention « accueil de rubrique ».
+// Remonter le composant d'écran réinitialise UNIQUEMENT sa navigation locale ;
+// sessions, favoris, quota et profil restent dans les stores / Supabase.
+type HomeTabName = 'Listen' | 'Discover' | 'MyMusic' | 'Parties' | 'Profile';
+const tabHomeSubscribers = new Set<(name: HomeTabName) => void>();
+function requestTabHome(name: string) {
+  if (!['Listen', 'Discover', 'MyMusic', 'Parties', 'Profile'].includes(name)) return;
+  // Ne jamais détruire une partie ni une écoute active par un simple clic de menu.
+  if (useGameSessionStore.getState().isGameInProgress && name === 'Parties') return;
+  if (useSessionStore.getState().isActive && name === 'Listen') return;
+  for (const notify of tabHomeSubscribers) notify(name as HomeTabName);
+}
+
 function MainTabs() {
   // Bug reel signale par Adel (16/09/2026, test TestFlight sur iPhone reel) :
   // "la barre elle est trop basse elle est un peu cachee avec les rebords de
@@ -115,6 +129,14 @@ function MainTabs() {
   const insets = useSafeAreaInsets();
   // Bureau (11/10/2026) : la navigation passe dans DesktopSidebar ; la barre du bas n'existe que sur téléphone et tablette.
   const { isDesktop } = useLayoutMode();
+  const [tabEpoch, setTabEpoch] = React.useState<Record<HomeTabName, number>>({
+    Listen: 0, Discover: 0, MyMusic: 0, Parties: 0, Profile: 0,
+  });
+  React.useEffect(() => {
+    const reset = (name: HomeTabName) => setTabEpoch((previous) => ({ ...previous, [name]: previous[name] + 1 }));
+    tabHomeSubscribers.add(reset);
+    return () => { tabHomeSubscribers.delete(reset); };
+  }, []);
   return (
     <Tab.Navigator
       initialRouteName="Listen"
@@ -122,9 +144,13 @@ function MainTabs() {
       // -> popup « Quitter la partie ? » (la partie est déjà décomptée).
       screenListeners={({ navigation, route }) => ({
         tabPress: (e) => {
-          if (!useGameSessionStore.getState().isGameInProgress || route.name === 'Parties') return;
+          if (!useGameSessionStore.getState().isGameInProgress) {
+            requestTabHome(route.name);
+            return;
+          }
+          if (route.name === 'Parties') return; // garder la partie active
           e.preventDefault();
-          confirmLeaveGame(() => navigation.navigate(route.name));
+          confirmLeaveGame(() => { requestTabHome(route.name); navigation.navigate(route.name); });
         },
       })}
       screenOptions={{
@@ -145,16 +171,15 @@ function MainTabs() {
     >
       <Tab.Screen
         name="Listen"
-        component={HomeScreenCompact}
         options={{
           tabBarLabel: 'Loki Music',
           tabBarIcon: ({ color }) => <TabIcon icon="◉" color={color} />,
         }}
-      />
-      <Tab.Screen name="Discover" component={DiscoverScreen} options={{ tabBarLabel: 'Découvertes', tabBarIcon: ({ color }) => <TabIcon icon="♫" color={color} /> }} />
-      <Tab.Screen name="MyMusic" component={MyMusicScreen} options={{ tabBarLabel: 'Playlists', tabBarIcon: ({ color }) => <TabIcon icon="☷" color={color} /> }} />
-      <Tab.Screen name="Parties" component={PartiesScreen} options={{ tabBarLabel: 'Soirées', tabBarIcon: ({ color }) => <TabIcon icon="♬" color={color} /> }} />
-      <Tab.Screen name="Profile" component={ProfilePublicScreen} options={{ tabBarLabel: 'Profil', tabBarIcon: ({ color }) => <TabIcon icon="◯" color={color} /> }} />
+      >{(props) => <HomeScreenCompact key={`Listen-${tabEpoch.Listen}`} {...props} />}</Tab.Screen>
+      <Tab.Screen name="Discover" options={{ tabBarLabel: 'Découvertes', tabBarIcon: ({ color }) => <TabIcon icon="♫" color={color} /> }}>{(props) => <DiscoverScreen key={`Discover-${tabEpoch.Discover}`} {...props} />}</Tab.Screen>
+      <Tab.Screen name="MyMusic" options={{ tabBarLabel: 'Playlists', tabBarIcon: ({ color }) => <TabIcon icon="☷" color={color} /> }}>{(props) => <MyMusicScreen key={`MyMusic-${tabEpoch.MyMusic}`} {...props} />}</Tab.Screen>
+      <Tab.Screen name="Parties" options={{ tabBarLabel: 'Soirées', tabBarIcon: ({ color }) => <TabIcon icon="♬" color={color} /> }}>{(props) => <PartiesScreen key={`Parties-${tabEpoch.Parties}`} {...props} />}</Tab.Screen>
+      <Tab.Screen name="Profile" options={{ tabBarLabel: 'Profil', tabBarIcon: ({ color }) => <TabIcon icon="◯" color={color} /> }}>{(props) => <ProfilePublicScreen key={`Profile-${tabEpoch.Profile}`} {...props} />}</Tab.Screen>
     </Tab.Navigator>
   );
 }
@@ -198,7 +223,10 @@ function goToTab(name: string) {
   if (!navigationRef.isReady()) return;
   // Visiteur web d'un lien partagé : même navigation que connecté, mais les onglets demandent un compte (fonction bloquée).
   if (isWebShareVisit() && useUserStore.getState().isLocalGuest) { useAccountGateStore.getState().requestAccount('create', webShareVisitUsername()); return; }
-  const go = () => (navigationRef.navigate as any)('Main', { screen: name });
+  const go = () => {
+    requestTabHome(name);
+    (navigationRef.navigate as any)('Main', { screen: name });
+  };
   if (useGameSessionStore.getState().isGameInProgress && name !== 'Parties') confirmLeaveGame(go);
   else go();
 }
