@@ -7,12 +7,14 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Image, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import TrackCover from '../components/TrackCover';
 import TemporaryMusicPreview, { type TemporaryMusicResult } from '../components/TemporaryMusicPreview';
+import type { CanonicalTrack } from '@keep/music';
 import { resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from '../utils/keepAlert';
 import { useTranslation } from 'react-i18next';
 import { KeepVisibility } from '../types';
 import { SILENCE_PROMPT_GRACE_MS, useSessionStore } from '../store/useSessionStore';
+import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { usePlaylistStore } from '../store/usePlaylistStore';
 import { useUserStore } from '../store/useUserStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
@@ -409,7 +411,9 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [manualSearchBusy, setManualSearchBusy] = useState(false);
   const [manualSearchNotFound, setManualSearchNotFound] = useState(false);
   // Éphémère : aucune recherche par lien n'est ajoutée aux sessions ou playlists.
-  const [manualSearchResult, setManualSearchResult] = useState<(TemporaryMusicResult & { track: { title: string; artist: string; artworkUrl?: string } }) | null>(null);
+  const [manualSearchResult, setManualSearchResult] = useState<(TemporaryMusicResult & { track: CanonicalTrack }) | null>(null);
+  const [manualResultSaved, setManualResultSaved] = useState(false);
+  const [manualSaveBusy, setManualSaveBusy] = useState(false);
   const [manualResultOpen, setManualResultOpen] = useState(false);
   const searchGeneration = useRef(0);
   const pausedForPreview = useRef(false);
@@ -421,6 +425,8 @@ export default function HomeScreenCompact({ navigation }: any) {
     setManualSearchQuery('');
     setManualSearchNotFound(false);
     setManualSearchResult(null);
+    setManualResultSaved(false);
+    setManualSaveBusy(false);
     setManualSearchBusy(false);
     if (pausedForPreview.current) {
       pausedForPreview.current = false;
@@ -445,11 +451,14 @@ export default function HomeScreenCompact({ navigation }: any) {
     ].find((url) => resolveEmbeddedMusicPlayer(url)) || pasted || null;
     const embed = resolveEmbeddedMusicPlayer(sourceUrl);
     if (!found && !embed) return false;
-    const result: TemporaryMusicResult & { track: { title: string; artist: string; artworkUrl?: string } } = {
+    const result: TemporaryMusicResult & { track: CanonicalTrack } = {
       title: found?.title || 'Vidéo musicale partagée',
       artist: found?.artist || 'Lien affiché · titre non identifié',
       artworkUrl: found?.artworkUrl,
-      track: { title: found?.title || 'Vidéo musicale partagée', artist: found?.artist || 'Lien partagé', artworkUrl: found?.artworkUrl },
+      track: found ? musicEngine.trackResolver.resolveFromRecognition(found) : {
+        id: 'temporary-unidentified', title: 'Vidéo musicale partagée', artist: 'Titre non identifié',
+        artworkUrl: undefined, providerIds: {},
+      },
       sourceUrl,
       identified: Boolean(found),
     };
@@ -459,12 +468,53 @@ export default function HomeScreenCompact({ navigation }: any) {
       pauseListening(); // Prevent the in-app video from being captured by the mic.
     }
     setManualSearchResult(result);
+    setManualResultSaved(false);
+    setManualSaveBusy(false);
     // Keep the SAME RN modal mounted: native iOS cannot display two root Modals
     // simultaneously while the search sheet is being dismissed.
     setManualSearchOpen(false);
     setManualResultOpen(true);
     setManualSearchNotFound(false);
     return true;
+  };
+
+  const nextManualSearch = () => {
+    // Destroy the current embedded iframe/WebView before opening another link.
+    searchGeneration.current += 1;
+    setManualSearchResult(null);
+    setManualResultSaved(false);
+    setManualSaveBusy(false);
+    setManualSearchNotFound(false);
+    setManualSearchBusy(false);
+    setManualSearchQuery('');
+    setManualResultOpen(false);
+    setManualSearchOpen(true);
+    // The mic stays paused while the visitor chooses another in-app preview.
+  };
+
+  const saveManualPreviewToSessions = () => {
+    if (!manualSearchResult?.identified || manualResultSaved || manualSaveBusy) return;
+    setManualSaveBusy(true);
+    try {
+      const owner = user && !isDemoMode ? user.id : undefined;
+      const saved = useSessionHistoryStore.getState().addSharedLinkTrack(
+        manualSearchResult.track, manualSearchResult.sourceUrl ?? undefined, owner,
+      );
+      if (!saved.sessionId) {
+        Alert.alert('Session indisponible', 'Le morceau n’a pas pu être enregistré. Réessaie.');
+        return;
+      }
+      setManualResultSaved(true);
+    } catch {
+      Alert.alert('Session indisponible', 'Le morceau n’a pas pu être enregistré. Réessaie.');
+    } finally {
+      setManualSaveBusy(false);
+    }
+  };
+
+  const viewSavedManualSessions = () => {
+    closeManualSearchPreview();
+    openSessionHistorySafely();
   };
 
   const runManualSearch = async () => {
@@ -832,7 +882,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   const manualSearchModal = (
       <KeepModal visible={manualSearchOpen || manualResultOpen} transparent animationType="fade" onRequestClose={closeManualSearchPreview}>
         {manualResultOpen ? (
-          <TemporaryMusicPreview visible={manualResultOpen} result={manualSearchResult} onClose={closeManualSearchPreview} />
+          <TemporaryMusicPreview visible={manualResultOpen} result={manualSearchResult} onClose={closeManualSearchPreview} onNext={nextManualSearch} onSave={saveManualPreviewToSessions} onSeeSessions={viewSavedManualSessions} saved={manualResultSaved} saving={manualSaveBusy} />
         ) : (
         <View style={s.modalOverlay}><View style={s.modalCard}>
           <Text style={s.modalTitle}>Chercher un morceau</Text>
@@ -870,7 +920,7 @@ export default function HomeScreenCompact({ navigation }: any) {
       <TrackCover track={manualSearchResult.track} style={{ width: 52, height: 52, borderRadius: 9 }} fallbackStyle={{ width: 52, height: 52, borderRadius: 9 }} fallbackTextStyle={{ fontSize: 18 }} />
       <View style={{ flexShrink: 1 }}>
         <Text style={{ color: C.text, fontSize: 14, fontWeight: '700' }} numberOfLines={2}>{manualSearchResult.title}</Text>
-        <Text style={{ color: C.muted, fontSize: 12 }} numberOfLines={1}>{manualSearchResult.artist} · Aperçu non enregistré</Text>
+        <Text style={{ color: C.muted, fontSize: 12 }} numberOfLines={1}>{manualSearchResult.artist} · {manualResultSaved ? 'Dans Mes Sessions' : 'Aperçu non enregistré'}</Text>
       </View>
       <TouchableOpacity testID="close-manual-search-preview" onPress={closeManualSearchPreview} accessibilityRole="button" accessibilityLabel="Fermer l’aperçu sans enregistrer" style={{ minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' }}>
         <Text style={{ color: C.text, fontSize: 20 }}>×</Text>
