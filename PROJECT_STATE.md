@@ -143,6 +143,7 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
+| `0a92851` | `0a92851` | iOS #229 success (release a18e390) | OTA #1020 success (release a18e390) | 2026-10-12 18:31 | pass | fix(listen): show server-backed identifications consumed instead of duplicate detected counter, surface tab audio on PC home |
 | `3357ca7` | `3357ca7` | iOS #229 success (release a18e390) | OTA #1020 success (release a18e390) | 2026-10-12 18:19 | pass | feat(desktop): cockpit Battle 16:9 sans espaces inutiles, rebasé sur version officielle (#150) |
 | `97b3d1a` | `97b3d1a` | iOS #229 success (release a18e390) | OTA #1020 success (release a18e390) | 2026-10-12 18:12 | pass | fix(soirées): rendre Story automatique et Loki Pulse visibles aux organisateurs (#151) |
 | `0e903ad` | `0e903ad` | iOS #229 in_progress (release a18e390) | OTA #1020 in_progress (release a18e390) | 2026-10-12 12:50 | pass | fix(web): afficher les corrections publiées sans quitter l’onglet PC (#148) |
