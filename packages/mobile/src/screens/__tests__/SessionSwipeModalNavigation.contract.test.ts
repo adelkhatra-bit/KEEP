@@ -15,6 +15,7 @@ describe('Session Swipe navigation and popup visibility (390×844 / PC)', () => 
     expect(home).toContain('onDismiss={showQueuedSessionSwipe}');
     expect(home).toContain("navigation.navigate('SessionRecap', { sessionId, openSwipe: true });");
     expect(home).toContain('ARRÊTER ET SWIPER');
+    expect(home).toContain('unlockWebAudioForGesture();');
   });
 
   it('prevents the transparent sessions stack from covering the Swipe modal', () => {
