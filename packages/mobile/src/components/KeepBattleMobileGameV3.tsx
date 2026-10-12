@@ -382,7 +382,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // DESIGN UNIQUE : le gabarit validé sur iPhone est la source de vérité.
   // Desktop ne reçoit plus des dimensions de manche différentes : on garde
   // la même composition carrée/4 réponses et on centre simplement l'ensemble.
-  const battleDesignWidth = Math.min(windowWidth, 430);
+  const battleDesignWidth = Math.min(windowWidth, isDesktopBattle ? 650 : 430);
   const roundCardMinHeight = Math.max(520, Math.min(650, windowHeight - 124));
   const arenaVisualMax = Math.max(260, Math.min(battleDesignWidth - 10, roundCardMinHeight - 214));
   const soloRoundCardMinHeight = Math.max(500, Math.min(650, windowHeight - 248));
@@ -441,8 +441,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     setMyPreferredThemes((rows) => {
       if (code === 'MIX') return ['MIX'];
       const real = rows.filter((item) => item !== 'MIX');
-      if (!real.includes(code) && real.length >= 3) {
-        Alert.alert('3 styles maximum', 'Choisis jusqu’à 3 styles : le Solo et les Battles les mélangeront réellement pendant la partie.');
+      if (!real.includes(code) && real.length >= 8) {
+        Alert.alert('8 styles maximum', 'Choisis jusqu’à 8 styles : le Solo et les Battles les mélangeront réellement pendant la partie.');
         return rows;
       }
       const has = rows.includes(code);
@@ -2314,7 +2314,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     <>
       <TouchableOpacity style={s.prefsSummaryButton} onPress={() => setPrefsPickerOpen(true)} accessibilityRole="button" accessibilityLabel="Modifier mes styles Battle">
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={s.prefsSummaryLabel}>STYLES BATTLE · 3 MAX</Text>
+          <Text style={s.prefsSummaryLabel}>STYLES BATTLE · 8 MAX</Text>
           <Text numberOfLines={1} style={s.prefsSummaryValue}>{prefsSaving ? 'Enregistrement…' : myPreferredThemesLabel()}</Text>
           {myPreferredThemes.filter((c) => c !== 'MIX').length > 1 ? (
             <Text numberOfLines={1} style={s.prefsSummaryHint}>Mix aléatoire de tes styles sélectionnés</Text>
@@ -2347,7 +2347,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           <View style={s.statsCard}>
             <TouchableOpacity hitSlop={A11Y_TOUCH_HIT_SLOP} style={s.statsClose} onPress={() => setPrefsPickerOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={s.statsCloseText}>×</Text></TouchableOpacity>
             <Text style={s.statsUsername}>Styles Battle</Text>
-            <Text style={s.prefsPickerHint}>Ton profil peut afficher tous tes styles musicaux. Ici seulement, choisis jusqu’à 3 styles acceptés pour les Battles. Mix remplace les styles précis.</Text>
+            <Text style={s.prefsPickerHint}>Ton profil peut afficher tous tes styles musicaux. Ici seulement, choisis jusqu’à 8 styles acceptés pour les Battles. Mix remplace les styles précis.</Text>
             <ScrollView style={s.prefsPickerScroll}>
               {themes.map((t) => {
                 const checked = myPreferredThemes.includes(t.code);
@@ -3648,7 +3648,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
 
 const s = StyleSheet.create({
   root: { width: '100%', flex: 1, paddingBottom: 0, position: 'relative' },
-  rootDesktop: { maxWidth: 430, alignSelf: 'center' },
+  rootDesktop: { width: '100%', maxWidth: 1024, alignSelf: 'center', paddingHorizontal: 16 },
   soloSaveBackdrop: { flex: 1, backgroundColor: 'rgba(5,4,10,.76)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
   soloSaveCard: { width: '100%', maxWidth: 390, borderRadius: 24, borderWidth: 1, borderColor: colors.primary, backgroundColor: colors.backgroundElevated, paddingHorizontal: 16, paddingTop: 18, paddingBottom: 14 },
   soloSaveEyebrow: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 1.4, textAlign: 'center' },

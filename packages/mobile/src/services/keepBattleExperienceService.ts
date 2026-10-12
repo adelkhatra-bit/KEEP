@@ -207,7 +207,7 @@ export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8, 
   // A catalogue/network failure must never burn one of the user's Solo slots.
   const selectedThemes = Array.from(new Set((themeCodes || [])
     .map((code) => code.trim().toUpperCase())
-    .filter((code) => code && code !== 'MIX'))).slice(0, 3);
+    .filter((code) => code && code !== 'MIX'))).slice(0, 8);
   const { data, error } = await client().rpc('keep_battle_solo_pack', {
     p_theme_code: selectedThemes[0] || themeCode.toUpperCase(),
     p_round_count: Math.max(5, Math.min(roundCount, 30)),
