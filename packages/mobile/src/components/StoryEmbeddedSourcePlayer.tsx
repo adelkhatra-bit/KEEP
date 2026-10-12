@@ -1,39 +1,33 @@
 import React, { useState } from 'react';
-import { Platform, Text, TouchableOpacity, View } from 'react-native';
+import { Platform, Text, View } from 'react-native';
 import { resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
 
 /**
- * Licensed/provider-owned player: the video/audio never passes through Loki's
- * servers or Supabase Storage. The URL is validated against known music
- * providers before it reaches an iframe/WebView.
+ * Official provider player displayed INSIDE a public Loki story.
  *
- * IMPORTANT: never mount this player for a song on sale. Provider embeds reveal
- * their own title, artist and artwork, so sale teasers must remain masked.
+ * Prefer the licensed audio preview upstream. This is a fallback only when
+ * there is no catalogue preview; provider ads and browser autoplay restrictions
+ * cannot be removed by Loki. Never embed a track hidden in a paid collection.
  */
 export default function StoryEmbeddedSourcePlayer({ sourceUrl }: { sourceUrl: string }) {
   const player = resolveEmbeddedMusicPlayer(sourceUrl);
-  const [opened, setOpened] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
   if (!player) return null;
-  // Une Story n'est pas une sortie vers YouTube : le lecteur officiel reste
-  // dans Loki et commence l'extrait après le seul tap de l'utilisateur.
-  // Aucun fichier audio/vidéo n'est extrait ni hébergé par Loki.
-  const excerptUrl = player.provider === 'YOUTUBE'
-    ? `${player.url}&start=0&end=20&autoplay=1`
-    : player.url;
 
-  const message = player.provider === 'YOUTUBE' ? 'Voir et écouter la vidéo dans Loki' : 'Écouter depuis Loki Music';
+  // A story must not require an extra "voir/écouter la vidéo" action.
+  // On YouTube keep the provider's official embed, inside Loki, and stop it
+  // at 30 seconds. A browser may still require a gesture to enable sound.
+  const excerptUrl = player.provider === 'YOUTUBE'
+    ? `${player.url}&start=0&end=30&autoplay=1&playsinline=1`
+    : player.provider === 'SPOTIFY'
+      ? `${player.url}?autoplay=1`
+      : player.url;
+
   return (
     <View testID="story-official-embedded-player" style={{ marginHorizontal: 4, marginBottom: 8, padding: 8, borderRadius: 14, borderWidth: 1, borderColor: '#6956BB', backgroundColor: '#171020' }}>
-      {!opened ? (
-        <TouchableOpacity testID="story-embedded-play" onPress={() => { setUnavailable(false); setOpened(true); }}
-          accessibilityRole="button" accessibilityLabel={message}
-          style={{ minHeight: 48, borderRadius: 10, borderWidth: 1, borderColor: '#2DE1C2', justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ color: '#2DE1C2', fontSize: 12, fontWeight: '900' }}>▶ {message}</Text>
-        </TouchableOpacity>
-      ) : unavailable ? (
+      {unavailable ? (
         <Text testID="story-embedded-unavailable" style={{ color: '#F5CE87', fontSize: 12, textAlign: 'center', padding: 10 }}>
-          Le fournisseur bloque l’intégration de ce morceau. Aucun autre titre n’a été substitué.
+          Le fournisseur empêche la lecture intégrée. Tu restes sur ta Story Loki Music.
         </Text>
       ) : (
         <View testID="story-embedded-frame" style={{ width: '100%', height: player.provider === 'YOUTUBE' ? 160 : 125, overflow: 'hidden', borderRadius: 10, backgroundColor: '#090713' }}>
@@ -45,8 +39,7 @@ export default function StoryEmbeddedSourcePlayer({ sourceUrl }: { sourceUrl: st
               width: '100%',
               height: '100%',
               style: { border: 0, backgroundColor: '#090713' },
-              allow: 'autoplay; encrypted-media; picture-in-picture; fullscreen',
-              allowFullScreen: true,
+              allow: 'autoplay; encrypted-media; picture-in-picture',
               referrerPolicy: 'strict-origin-when-cross-origin',
             })
           ) : (
@@ -68,11 +61,6 @@ export default function StoryEmbeddedSourcePlayer({ sourceUrl }: { sourceUrl: st
           )}
         </View>
       )}
-      {opened && !unavailable ? (
-        <Text style={{ color: '#D1CBE5', fontSize: 11, paddingTop: 5, textAlign: 'center' }}>
-          L’extrait est limité à 20 secondes pour YouTube. Si le navigateur bloque le son automatique, appuie sur ▶ dans le lecteur.
-        </Text>
-      ) : null}
     </View>
   );
 }
