@@ -60,6 +60,8 @@ Tailles de contrôle minimales : 390×844, 430×932, 768×700, 900×700, 1440×9
 
 Source : `HomeScreenCompact.tsx`.
 
+- Décision du 12/10/2026 : sur l'accueil Écouter, ne jamais afficher le compteur « RESTANTES · N/N JOUR » ; pendant l'écoute, ne pas afficher la mini-statistique « Restantes ». Les quotas et alertes de dépassement restent actifs, leur aide est accessible dans « En savoir plus ».
+
 - démarrer le micro ;
 - animation visible pendant l'écoute ;
 - Arrêter/Terminer coupe immédiatement `Audio.Recording` ;
