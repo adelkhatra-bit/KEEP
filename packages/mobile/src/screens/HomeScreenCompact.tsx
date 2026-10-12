@@ -523,10 +523,14 @@ export default function HomeScreenCompact({ navigation }: any) {
           (sourceUrl && item.track.externalUrls?.source === sourceUrl)
           || (item.track.id === result.track.id && item.track.title === result.track.title && item.track.artist === result.track.artist));
         if (entry) queued = { sessionId: saved.sessionId, entryId: entry.id };
+        // A pasted song already kept from another source must NOT prompt a
+        // second GARDER purchase. Show the saved public/private decision.
+        setManualKeptVisibility(entry?.status === 'kept' ? entry.visibility ?? 'PRIVATE' : null);
       } catch { /* Preview still works offline; never charge FREE for an unconfirmed save. */ }
+    } else {
+      setManualKeptVisibility(null);
     }
     setManualKeepTarget(queued);
-    setManualKeptVisibility(null);
     setManualStoryPublished(false);
     setManualKeepChoiceOpen(false);
     setManualSearchResult(result);
@@ -617,7 +621,16 @@ export default function HomeScreenCompact({ navigation }: any) {
         Alert.alert('Session indisponible', 'Le morceau n’a pas pu être enregistré. Réessaie.');
         return;
       }
-      setManualResultSaved(true);
+      const entry = useSessionHistoryStore.getState().getSession(saved.sessionId)?.tracks.find((item) =>
+        (Boolean(manualSearchResult.sourceUrl) && item.track.externalUrls?.source === manualSearchResult.sourceUrl)
+        || (item.track.id === manualSearchResult.track.id
+          && item.track.title === manualSearchResult.track.title
+          && item.track.artist === manualSearchResult.track.artist));
+      if (entry) {
+        setManualKeepTarget({ sessionId: saved.sessionId, entryId: entry.id });
+        if (entry.status === 'kept') setManualKeptVisibility(entry.visibility ?? 'PRIVATE');
+      }
+      setManualResultSaved(Boolean(entry));
     } catch {
       Alert.alert('Session indisponible', 'Le morceau n’a pas pu être enregistré. Réessaie.');
     } finally {
