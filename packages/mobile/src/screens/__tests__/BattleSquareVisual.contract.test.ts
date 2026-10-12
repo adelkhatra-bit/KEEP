@@ -13,6 +13,6 @@ describe('Solo / Battle : la jaquette reste un CARRÉ qui descend jusqu\'aux 4 r
     expect(styleLine('soloVisual')).toContain('aspectRatio: 1');
     expect(styleLine('arenaVisualActive')).toContain('aspectRatio: 1');
     expect(src).toContain('battle-solo-artwork-square');
-    expect(src).toContain('const battleDesignWidth = Math.min(windowWidth, 430);');
+    expect(src).toContain('const battleDesignWidth = Math.min(windowWidth, isDesktopBattle ? 560 : 430);');
   });
 });
