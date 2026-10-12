@@ -97,7 +97,20 @@ export default function WebCompanionSessionsPanel({ buttonOnly = false }: { butt
         return;
       }
       if (online.length > 1) {
-        Alert.alert('Partager sur mon PC', 'Choisis un ordinateur et un onglet dans la liste ci-dessous.');
+        // Let the user choose the PC; never silently select one of two sessions.
+        if (online.length === 2) {
+          const route = navigationRef.isReady() ? navigationRef.getCurrentRoute()?.name : null;
+          const screen = isPcTargetScreen(route) ? route : 'Profile';
+          Alert.alert('Choisir un ordinateur', 'Sur quel PC ouvrir cet écran ?', [
+            { text: 'Annuler', style: 'cancel' },
+            ...online.map((session, index) => ({
+              text: `${label(session)} ${index + 1}`,
+              onPress: () => { void sendScreen(session, screen); },
+            })),
+          ]);
+        } else {
+          Alert.alert('Partager sur mon PC', 'Choisis un PC et un écran dans la liste ci-dessous.');
+        }
         return;
       }
       const cost = await loadPcShareFreeCost();
