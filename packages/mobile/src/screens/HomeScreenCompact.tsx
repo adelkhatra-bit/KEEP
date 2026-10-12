@@ -807,10 +807,26 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [tabMonitoring, setTabMonitoring] = useState(false);
   const tabMonitorRef = useRef<TabAudioMonitorHandle | null>(null);
   const tabResumeMicRef = useRef(false);
+  const tabSessionCreatedRef = useRef(false);
+  const tabMonitorEpoch = useRef(0);
   const stopTabAudio = () => {
+    // Ignore late recognition responses from an already stopped tab.
+    tabMonitorEpoch.current += 1;
     tabMonitorRef.current?.stop();
     tabMonitorRef.current = null;
     setTabMonitoring(false);
+    if (tabSessionCreatedRef.current) {
+      // A tab-only capture is a real session. Finalize it so it can be opened
+      // immediately in Mes Sessions, unlike the formerly blocked live card.
+      tabSessionCreatedRef.current = false;
+      if (useSessionStore.getState().isActive) useSessionStore.getState().requestEndSession();
+    }
+    const current = useSessionStore.getState();
+    if (tabResumeMicRef.current && current.isActive && current.micPaused
+      && !pausedForPreview.current && !current.listenFreeRequired && !current.listenFreeInsufficient) {
+      current.resumeListening();
+    }
+    tabResumeMicRef.current = false;
   };
   useEffect(() => {
     // Le navigateur doit libérer le flux dès que l'utilisateur quitte Écouter.
@@ -865,6 +881,7 @@ export default function HomeScreenCompact({ navigation }: any) {
     // Suspendre le micro actif avant la capture d'onglet sans attendre une
     // permission ou annuler le contexte audio isolé du navigateur.
     if (tabResumeMicRef.current) initial.pauseListening();
+    const captureEpoch = ++tabMonitorEpoch.current;
     // Le partage d'onglet doit démarrer DIRECTEMENT dans le clic utilisateur.
     // Ne jamais appeler startSession(), getUserMedia() ou await avant ce geste.
     setTabTestBusy(true);
@@ -875,10 +892,11 @@ export default function HomeScreenCompact({ navigation }: any) {
         // Cette signature audio provient du flux courant, jamais d'une ancienne
         // URL collée. Le moteur ne doit pas rester bloqué sur le premier titre.
         const recognition = await recognizeFreshTabAudio(sample);
-        if (!recognition) return;
+        if (captureEpoch !== tabMonitorEpoch.current || !recognition) return;
         const current = useSessionStore.getState();
         if (!current.isActive) {
           current.startSession({ captureMode: 'tab' });
+          tabSessionCreatedRef.current = true;
         }
         const result = await useSessionStore.getState().submitCapturedAudioRecognition(recognition);
         if (result === 'added') {
@@ -891,9 +909,15 @@ export default function HomeScreenCompact({ navigation }: any) {
           throw new Error('LISTEN_FREE_REQUIRED');
         }
       }, (error) => {
+        if (captureEpoch !== tabMonitorEpoch.current) return;
+        tabMonitorEpoch.current += 1;
         tabMonitorRef.current = null;
         setTabMonitoring(false);
         setTabTestBusy(false);
+        if (tabSessionCreatedRef.current) {
+          tabSessionCreatedRef.current = false;
+          if (useSessionStore.getState().isActive) useSessionStore.getState().requestEndSession();
+        }
         const current = useSessionStore.getState();
         if (tabResumeMicRef.current && current.isActive && current.micPaused && !current.listenFreeRequired && !current.listenFreeInsufficient) {
           current.resumeListening();
@@ -905,6 +929,7 @@ export default function HomeScreenCompact({ navigation }: any) {
           Alert.alert('Capture de l’onglet arrêtée', error.message);
         }
       });
+      if (captureEpoch !== tabMonitorEpoch.current) { monitor.stop(); return; }
       tabMonitorRef.current = monitor;
       setTabMonitoring(true);
     } catch (error: any) {
