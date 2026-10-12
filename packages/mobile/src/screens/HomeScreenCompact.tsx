@@ -700,14 +700,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   };
   const openSessionHistorySafely = () => {
     setSessionPeekOpen(false);
-    // PC tab listening is NOT a live microphone: closing the share also
-    // finalizes the detected tracks before opening the session list.
-    if (tabMonitorRef.current || tabMonitoring) {
-      tabResumeMicRef.current = false;
-      stopTabAudio();
-      navigation.navigate('SessionHistory');
-      return;
-    }
+    // Browse existing sessions without unexpectedly stopping a shared PC tab.
     openSessionHistoryGuarded(() => navigation.navigate('SessionHistory'));
   };
   const showQueuedSessionSwipe = () => {
