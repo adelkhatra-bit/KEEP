@@ -48,6 +48,18 @@ describe('Loki events: seller checkout, moderation and Pulse visibility', () => 
     expect(ranking).toContain('s.created_at>=now()');
   });
 
+  it('shows pulse events to other users in Discover, once, and navigates to actual booking', () => {
+    const discover = read('packages/mobile/src/screens/DiscoverScreen.tsx');
+    expect(discover).toContain('loadEventStories(12)');
+    expect(discover).toContain('event.creatorId !== user.id');
+    expect(discover).toContain('regularEvents.length ? regularEvents.map');
+    expect(discover).toContain('!pulseEventIds.has(event.id)');
+    expect(discover).toContain('testID="discover-event-loki-pulse"');
+    expect(discover).toContain("navigation.navigate('Parties', { openEventId: event.eventId })");
+    expect(discover).toContain('event.goingCount');
+    expect(discover).toContain('event.pulseScore');
+  });
+
   it('shows real seller history and separate ticket stats on the desktop without inventing payment verification', () => {
     const dashboard = read('packages/mobile/src/components/CreatorSalesCockpit.tsx');
     expect(dashboard).toContain('loadMySalesHistory()');
