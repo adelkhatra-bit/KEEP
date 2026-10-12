@@ -1,5 +1,7 @@
 # ERROR LEDGER — mémoire anti-régression Loki Music
 
+- **ERR-NOTIFICATIONS-MORE-CI-20261012 · FIXED_UNVERIFIED** | PR #114 : `Mobile CI` run 38188509677 échoue dans `NotificationsReadableActions.contract.test.ts` car le lien de texte long affichait `Plus ›` au lieu de `En savoir plus ›` (§11 cahier UI). Correction minimale sur la branche de PR, aucun changement de navigation, de design structurel, de base ou de contenu utilisateur. Prévention : test contractuel existant. Preuve finale requise : nouvelle CI Mobile verte, navigateur 390×844 et publication du SHA. |
+
 Date de référence : 24/09/2026
 
 ## Revue parent — 07/10/2026
