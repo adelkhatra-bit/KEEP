@@ -207,6 +207,7 @@ interface SessionStore {
   submitManualSearch: (query: string) => Promise<'added' | 'duplicate' | 'not_found'>;
   /** Même chemin anti-doublon et quota FREE que la reconnaissance micro. */
   submitCapturedAudioRecognition: (recognition: RecognitionResult) => Promise<'added' | 'duplicate' | 'inactive'>;
+  submitSharedLinkRecognition: (recognition: RecognitionResult) => Promise<'added' | 'duplicate' | 'inactive'>;
 }
 
 function persistLiveSession(state: SessionStore) {
@@ -727,6 +728,12 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   submitCapturedAudioRecognition: async (recognition) => {
     if (!get().isActive) return 'inactive';
     return applyDetectedTrack(set, get, recognition, 'listen');
+  },
+  // Un lien partagé fournit des métadonnées, pas une empreinte audio : il ne
+  // débite jamais le quota de reconnaissance microphone.
+  submitSharedLinkRecognition: async (recognition) => {
+    if (!get().isActive) return 'inactive';
+    return applyDetectedTrack(set, get, recognition, 'manual-search');
   },
   submitManualSearch: async (query) => {
     const trimmed = query.trim();
