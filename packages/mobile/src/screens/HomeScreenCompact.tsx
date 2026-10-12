@@ -696,16 +696,6 @@ export default function HomeScreenCompact({ navigation }: any) {
   }, [canGoOlder, currentIndex, tracks]);
 
   const detected = tracks.length;
-  // Counter shared by PC and mobile: ALL undecided tracks across persisted
-  // sessions, not every track ever recognized in this live screen.
-  // The live session is already mirrored into history by persistLiveSession().
-  const savedSessions = useSessionHistoryStore((state) => state.sessions);
-  const pendingInSessions = savedSessions
-    .filter((session) => session.id !== '__keep-cloud-profile-recovery__' && (!session.ownerUserId || session.ownerUserId === user?.id))
-    .reduce((total, session) => total + session.tracks.filter((entry) => entry.status === 'pending').length, 0);
-  const pendingLiveUnmirrored = isActive && !savedSessions.some((session) => session.id === useSessionStore.getState().sessionId)
-    ? tracks.filter((entry) => entry.status === 'pending').length : 0;
-  const readyToSwipe = pendingInSessions + pendingLiveUnmirrored;
   // La consommation est enregistrée par Supabase, pas déduite du nombre de cartes de la session.
   // Un doublon ou un essai sans résultat ne consomme aucune identification.
   const consumedIdentifications = isDemoMode
