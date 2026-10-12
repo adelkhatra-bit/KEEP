@@ -1,3 +1,4 @@
+import { notificationIsCurrent } from './notificationExpiryPolicy';
 import { supabase } from './supabaseClient';
 import { APP_NAME } from '../config/brand';
 
@@ -235,7 +236,7 @@ export async function loadNotifications(
   if (options.unreadOnly) query = query.is('read_at', null);
   const { data, error } = await query;
   if (error) throw error;
-  const visible = (data ?? []).map(mapNotificationRow).filter((item) => !shouldSuppressNotificationPresentation(item) && !isStoryRoutedNotification(item));
+  const visible = (data ?? []).map(mapNotificationRow).filter((item) => !shouldSuppressNotificationPresentation(item) && !isStoryRoutedNotification(item) && notificationIsCurrent(item));
   return options.dedupe === false ? visible : dedupeNotifications(visible);
 }
 
@@ -249,7 +250,7 @@ export async function loadUnreadNotificationCount(profileId: string): Promise<nu
     .order('created_at', { ascending: false })
     .limit(200);
   if (error) throw error;
-  return dedupeNotifications((data ?? []).map(mapNotificationRow).filter((item) => !isStoryRoutedNotification(item))).length;
+  return dedupeNotifications((data ?? []).map(mapNotificationRow).filter((item) => !isStoryRoutedNotification(item) && notificationIsCurrent(item))).length;
 }
 
 export async function loadLatestUnreadPlanGift(profileId: string): Promise<KeepNotification | null> {
@@ -292,7 +293,7 @@ export function subscribeToNotifications(
       (payload) => {
         if (!payload?.new) return;
         const notification = mapNotificationRow(payload.new);
-        if (shouldSuppressNotificationPresentation(notification)) return;
+        if (shouldSuppressNotificationPresentation(notification) || !notificationIsCurrent(notification)) return;
         onInsert(notification);
       },
     )
