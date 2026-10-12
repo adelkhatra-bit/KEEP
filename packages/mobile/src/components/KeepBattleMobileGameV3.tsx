@@ -2314,7 +2314,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     <>
       <TouchableOpacity style={s.prefsSummaryButton} onPress={() => setPrefsPickerOpen(true)} accessibilityRole="button" accessibilityLabel="Modifier mes styles Battle">
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={s.prefsSummaryLabel}>STYLES BATTLE · 3 MAX</Text>
+          <Text style={s.prefsSummaryLabel}>STYLES BATTLE · 8 MAX</Text>
           <Text numberOfLines={1} style={s.prefsSummaryValue}>{prefsSaving ? 'Enregistrement…' : myPreferredThemesLabel()}</Text>
           {myPreferredThemes.filter((c) => c !== 'MIX').length > 1 ? (
             <Text numberOfLines={1} style={s.prefsSummaryHint}>Mix aléatoire de tes styles sélectionnés</Text>
@@ -2347,7 +2347,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           <View style={s.statsCard}>
             <TouchableOpacity hitSlop={A11Y_TOUCH_HIT_SLOP} style={s.statsClose} onPress={() => setPrefsPickerOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={s.statsCloseText}>×</Text></TouchableOpacity>
             <Text style={s.statsUsername}>Styles Battle</Text>
-            <Text style={s.prefsPickerHint}>Ton profil peut afficher tous tes styles musicaux. Ici seulement, choisis jusqu’à 3 styles acceptés pour les Battles. Mix remplace les styles précis.</Text>
+            <Text style={s.prefsPickerHint}>Ton profil peut afficher tous tes styles musicaux. Ici seulement, choisis jusqu’à 8 styles acceptés pour les Battles. Mix remplace les styles précis.</Text>
             <ScrollView style={s.prefsPickerScroll}>
               {themes.map((t) => {
                 const checked = myPreferredThemes.includes(t.code);
