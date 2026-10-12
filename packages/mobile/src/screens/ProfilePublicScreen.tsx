@@ -77,6 +77,7 @@ import KeepModal from '../components/KeepModal';
 import EarReportModal from '../components/EarReportModal';
 import { needsTasteOnboarding } from '../services/tasteOnboarding';
 import { useCollapsedSection } from '../services/useCollapsedSection';
+import { useLayoutMode } from '../layout/layoutMode';
 
 type ProfileTab = 'TRACKS' | 'PLAYLISTS' | 'ARTISTS';
 type SocialPlatform = SocialLink['platform'];
@@ -153,6 +154,7 @@ const PROFILE_KIND_LABELS: Record<ProfileKind, string> = {
 };
 
 export default function ProfilePublicScreen({ navigation }: any) {
+  const { isDesktop: desktopProfile } = useLayoutMode();
   const user = useUserStore((s) => s.user);
   const setUser = useUserStore((s) => s.setUser);
   const enterDemoMode = useUserStore((s) => s.enterDemoMode);
@@ -725,7 +727,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     const refreshMyEvents = () => {
       if (!user?.id || accountRequired) { if (live) setMyPulseEventStories([]); return; }
       void loadEventStories(30).then((items) => {
-        if (live) setMyPulseEventStories(items.filter((item) => item.creatorId === user.id));
+        if (live) setMyPulseEventStories(items.slice(0, 6));
       }).catch(() => {});
     };
     refreshMyEvents();
@@ -2187,15 +2189,29 @@ export default function ProfilePublicScreen({ navigation }: any) {
                 }
                 navigation.navigate('PlaylistSale');
               }}
-              accessibilityLabel={accountRequired ? 'Comprendre comment publier une Pépite' : 'Gérer pépites'}
+              accessibilityLabel={accountRequired ? 'Comprendre comment publier une Pépite' : 'Vendre mes musiques ou gérer ma boutique'}
             >
-              ◆ PÉPITES
+              ◆ VENDRE
             </MotionActionButton>
             {ownerBoutiqueOffers.length ? <View pointerEvents="none" style={s.ownerQuickActionBadge} accessibilityLabel={`${ownerBoutiqueOffers.length} collection${ownerBoutiqueOffers.length > 1 ? 's' : ''} publiée${ownerBoutiqueOffers.length > 1 ? 's' : ''}`}><Text style={s.ownerQuickActionBadgeText}>{ownerBoutiqueOffers.length}</Text></View> : null}
           </View>
           <MotionActionButton variant="outline" size="medium" containerStyle={s.ownerQuickActionFull} onPress={() => navigation.navigate('Parties', { openBattle: true, source: 'profile-solo' })} accessibilityLabel="Jouer Battle">
             ⚡ BATTLE
           </MotionActionButton>
+          {desktopProfile && !accountRequired ? (
+            <>
+              <MotionActionButton variant="outline" size="medium" containerStyle={s.ownerQuickActionFull}
+                onPress={() => navigation.navigate('Main', { screen: 'Parties', params: { openCreateEvent: true } })}
+                accessibilityLabel="Créer une soirée ou un événement avec billetterie">
+                ＋ SOIRÉE
+              </MotionActionButton>
+              <MotionActionButton variant="outline" size="medium" containerStyle={s.ownerQuickActionFull}
+                onPress={() => navigation.navigate('PlaylistSale', { openPaymentHistory: true })}
+                accessibilityLabel="Afficher mes ventes de musique et mes transactions">
+                VENTES
+              </MotionActionButton>
+            </>
+          ) : null}
         </View>
 
       </ProfileMotionReveal>
@@ -2516,12 +2532,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
             <Text style={s.lokiPulseCost}>Musiques · collection</Text>
           </View>
           {myPulseEventStories.length ? <View style={{ gap: 7, paddingHorizontal: 12, paddingTop: 10 }}>
-            <Text style={{ color: colors.keep, fontWeight: '900', fontSize: 12 }}>MES SOIRÉES · POINTS PULSE</Text>
+            <Text style={{ color: colors.keep, fontWeight: '900', fontSize: 12 }}>SOIRÉES À DÉCOUVRIR · LOKI PULSE</Text>
             {myPulseEventStories.map((event) => (
               <TouchableOpacity key={event.eventId} style={{ borderRadius: 14, borderWidth: 1, borderColor: colors.primaryLight, paddingHorizontal: 12, paddingVertical: 10, minHeight: 48, flexDirection: 'row', gap: 10, alignItems: 'center' }}
                 onPress={() => navigation.navigate('Parties', { openEventId: event.eventId })} accessibilityRole="button"
                 accessibilityLabel={`Ouvrir la soirée ${event.name} et son score Loki Pulse`} testID={`loki-pulse-event-${event.eventId}`}>
-                <Text style={{ color: colors.textPrimary, fontSize: 12, fontWeight: '800', flex: 1 }} numberOfLines={1}>{event.name}</Text>
+                <Text style={{ color: colors.textPrimary, fontSize: 12, fontWeight: '800', flex: 1 }} numberOfLines={1}>{event.creatorId === user.id ? 'MA SOIRÉE · ' : 'SOIRÉE · '}{event.name}</Text>
                 <Text style={{ color: colors.keep, fontSize: 12, fontWeight: '900' }}>{event.pulseScore} PTS</Text>
               </TouchableOpacity>
             ))}
