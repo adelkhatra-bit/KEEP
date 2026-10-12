@@ -247,6 +247,12 @@ export default function SessionRecapScreen({ route, navigation }: any) {
       await openUnlock();
       return false;
     }
+    // A failed/free-refused KEEP must NOT advance Swipe or claim that the
+    // track reached the profile. Server confirmation is the source of truth.
+    if (refreshed?.status !== 'kept') {
+      Alert.alert('Morceau non gardé', 'Le serveur n’a pas confirmé ce GARDER. Aucun succès affiché et le morceau reste dans ta session.');
+      return false;
+    }
     return true;
   };
 
