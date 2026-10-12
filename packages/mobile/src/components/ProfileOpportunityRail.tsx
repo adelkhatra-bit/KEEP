@@ -144,6 +144,11 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
           <Text style={s.position}>{index + 1}/{suggestions.length}</Text>
         </View>
 
+        <View style={s.curatorRow}>
+          <Text style={s.curatorLabel}>DÉCOUVERTE POUR TOI</Text>
+          <Text style={s.curatorMeta}>Sélection selon tes goûts</Text>
+        </View>
+
         <View style={s.playerMain}>
           <View style={s.creator}>
             {suggestion.sellerAvatarUrl
@@ -247,6 +252,9 @@ const s=StyleSheet.create({
   liveDot:{width:6,height:6,borderRadius:3,backgroundColor:colors.keep},
   liveBadgeText:{color:colors.keep,fontSize:11,fontWeight:'900',letterSpacing:1.1},
   position:{color:colors.textMuted,fontSize:11,fontWeight:'800'},
+  curatorRow:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',gap:8,marginTop:12},
+  curatorLabel:{color:colors.keep,fontSize:11,fontWeight:'900',letterSpacing:1},
+  curatorMeta:{color:colors.textMutedGrey,fontSize:11,fontWeight:'700'},
   playerMain:{flexDirection:'row',alignItems:'center',gap:11,marginTop:12},
   creator:{width:54,height:54,alignItems:'center',justifyContent:'center'},
   avatar:{width:48,height:48,borderRadius:24,backgroundColor:colors.backgroundCard,zIndex:2},
