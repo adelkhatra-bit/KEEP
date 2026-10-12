@@ -29,6 +29,14 @@ describe('Battle / Solo eight-style mix contract', () => {
     expect(migration).toContain('create or replace function public.keep_battle_arena_seed_rounds');
   });
 
+  it('uses the same-theme distractor in SQL without an out-of-scope alias', () => {
+    const next = read(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261012003000_battle_eight_theme_selection.sql');
+    expect(next).toContain('order by case when theme_code = p.theme_code then 0 else 1 end, prio');
+    expect(next).not.toContain('order by case when d.theme_code = p.theme_code');
+    expect(next).toContain('recent_artist_penalty');
+    expect(next).toContain("array(select r->>'artist'");
+  });
+
   it('locks the product rule', () => {
     expect(contract.battlePreferences.maxSelectedStyles).toBe(8);
     expect(contract.battlePreferences.soloMustMixAllSelectedStyles).toBe(true);
