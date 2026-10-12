@@ -18,6 +18,16 @@ export default function AppUpdateBanner({ authReady = true }: { authReady?: bool
   const webReloadingRef = useRef(false);
   const lastInteractionRef = useRef(Date.now());
 
+  // Observer les gestes AVANT la détection d'un nouveau SHA : sinon un onglet
+  // utilisé activement pourrait recharger immédiatement à la première alerte.
+  useEffect(() => {
+    if (!authReady || Platform.OS !== 'web' || typeof document === 'undefined') return undefined;
+    const markActivity = () => { lastInteractionRef.current = Date.now(); };
+    const activityEvents = ['pointerdown', 'keydown', 'touchstart', 'wheel'];
+    activityEvents.forEach((event) => document.addEventListener(event, markActivity, { passive: true }));
+    return () => activityEvents.forEach((event) => document.removeEventListener(event, markActivity));
+  }, [authReady]);
+
   useEffect(() => {
     if (!authReady || Platform.OS !== 'web') return undefined;
     void checkNow();
@@ -40,7 +50,6 @@ export default function AppUpdateBanner({ authReady = true }: { authReady?: bool
     // devoir changer d'onglet. Attendre 30 s sans geste empêche de couper une
     // saisie, un clic ou une navigation active. Solo/Battle restent protégés.
     const VISIBLE_IDLE_MS = 30_000;
-    const markActivity = () => { lastInteractionRef.current = Date.now(); };
     let cancelGameWait: () => void = () => {};
     let queuedForGame = false;
 
@@ -68,8 +77,6 @@ export default function AppUpdateBanner({ authReady = true }: { authReady?: bool
       return () => cancelGameWait();
     }
 
-    const activityEvents = ['pointerdown', 'keydown', 'touchstart', 'wheel'];
-    activityEvents.forEach((event) => document.addEventListener(event, markActivity, { passive: true }));
     const onHidden = () => { if (document.visibilityState === 'hidden') applyUpdate(); };
     document.addEventListener('visibilitychange', onHidden);
     // La détection SHA est séparée (15 s). Dès qu'elle signale un changement,
@@ -80,7 +87,6 @@ export default function AppUpdateBanner({ authReady = true }: { authReady?: bool
     return () => {
       clearInterval(visibleIdleCheck);
       document.removeEventListener('visibilitychange', onHidden);
-      activityEvents.forEach((event) => document.removeEventListener(event, markActivity));
       cancelGameWait();
     };
   }, [authReady, latestSha]);
