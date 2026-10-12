@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList, TextInput, InteractionManager } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import { Alert } from '../utils/keepAlert';
 import type { CanonicalTrack } from '@keep/music';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +18,7 @@ import { getDownloadCreditStatus } from '../services/creditService';
 
 export default function SessionRecapScreen({ route, navigation }: any) {
   const { t } = useTranslation();
+  const isFocused = useIsFocused();
   const sessionId: string = route.params?.sessionId;
   const session = useSessionHistoryStore((s) => s.sessions.find((x) => x.id === sessionId));
   const {
@@ -123,10 +125,19 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   };
 
   useEffect(() => {
-    if (!route.params?.openSwipe || !pendingSwipeTracks.length || swipeOpen) return;
-    openSwipe();
-    navigation?.setParams?.({ openSwipe: false });
-  }, [route.params?.openSwipe, pendingSwipeTracks.length, swipeOpen]);
+    if (!isFocused || !route.params?.openSwipe || !pendingSwipeTracks.length || swipeOpen) return;
+    // iOS : ne pas monter une deuxième Modal ni lancer l'audio tant que le changement de route n'est pas achevé.
+    let cancelled = false;
+    const task = InteractionManager.runAfterInteractions(() => {
+      if (cancelled) return;
+      openSwipe();
+      navigation?.setParams?.({ openSwipe: false });
+    });
+    return () => {
+      cancelled = true;
+      task.cancel?.();
+    };
+  }, [isFocused, route.params?.openSwipe, pendingSwipeTracks.length, swipeOpen]);
 
   if (!session) {
     return (

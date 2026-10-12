@@ -1,5 +1,9 @@
 # ERROR LEDGER — mémoire anti-régression Loki Music
 
+- **ERR-SESSION-SWIPE-CI-CONTRACT-20261012 · FIXED_UNVERIFIED** | PR #120, run Mobile CI 38192466899 : 1501 tests OK / 1 test KO. `ChatMobileLiftAndPulseAudio.contract.test.ts` interdisait globalement le déverrouillage audio de l'accueil, une garde obsolète relative à la suppression des anciennes bulles Loki Pulse. Le nouveau geste « Arrêter et swiper » nécessite ce déverrouillage ; garde resserrée sur la non-réintroduction des bulles (assertions historiques conservées) + exigence explicite d'autorisation audio uniquement dans `openSessionSwipeSafely`. Tests et livraison à revérifier sur nouveau SHA.
+
+- **ERR-SESSION-SWIPE-MODAL-20261012 · FIXED_UNVERIFIED** | Sur mobile, « Trouver le morceau → hamburger → Swipe » : la fenêtre de session en direct ne proposait pas l'accès direct ; le parcours via `SessionHistory` (écran `transparentModal`) empilait `SessionRecap` puis un `KeepModal` Swipe, avec démarrage de l'audio potentiellement avant la présentation visible. Correction ciblée : arrêt micro explicite et conservation session avant navigation Swipe différée après fermeture de la première Modal ; remplacement de l'écran Sessions au lieu d'empilement ; ouverture Swipe à route focalisée après interactions ; fenêtres Sessions centrées sur 390×844 et PC. Aucun fichier App/Navigation, barre d'onglets, serveur ou historique supprimé. Vérification requise : CI + vrai navigateur 390×844 et 1440×900 + TestFlight iPhone, fenêtre visible et micro libéré.
+
 Date de référence : 24/09/2026
 
 ## Revue parent — 07/10/2026

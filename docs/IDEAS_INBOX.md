@@ -1,5 +1,9 @@
 # IDEAS INBOX — boîte à idées d'Adel (source unique)
 
+## Demande du 12/10/2026 — fenêtres musicales mobile et PC
+- **IDÉE · EN COURS D'AUDIT** : audit comparatif de tous les popups/fenêtres iPhone (390×844) et ordinateur (1440×900). Fenêtres centrées dans la zone visible, largeurs et hauteurs limitées par l'écran, contraste/lisibilité, boutons présents et fonctionnels, aucune musique jouée derrière un dialogue non visible, sans création de nouvel HTML ni modification d'App.tsx/Navigation.tsx/onglets. Lot P1 : sessions + Swipe ; les autres fenêtres restent à inventorier/tester individuellement (Stories, notifications, boutique, profil, soirées, Battle, paiements).
+
+
 ## Demande du 10/10/2026 — véritable espace ordinateur pour DJ et établissements
 - **IDÉE · EN COURS D'AUDIT** : sur ordinateur, exploiter la largeur utile (pas de téléphone simplement zoomé) pour un tableau de bord lisible et cohérent avec les cinq onglets existants ; DJ, restaurant et organisateur doivent pouvoir écouter/enregistrer une session, retrouver les morceaux, préparer une soirée ou un événement, inviter par QR code, consulter les participants et retrouver les mêmes données sur téléphone. Réutiliser le composant `DesktopMusicWorkspaceRail`, les services de sessions, événements, invitations et QR existants ; ne créer aucune seconde application, ne pas modifier `App.tsx`, `Navigation.tsx` ou les cinq onglets. **Audit code 10/10** : rail desktop présent uniquement sur Écouter et à partir de 1100 px ; accueil central limité (`idleHero` maxWidth 692, `topBar` maxWidth 720), Soirées `content` maxWidth 1180 ; appareil Desktop Commander hors ligne, rendu réel 1440×900 et parcours DJ→événement→QR non vérifiés. Ne pas déclarer LIVRÉE sans captures 390×844/1440×900, parcours complet, CI et SHA déployé.
 
