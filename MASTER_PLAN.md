@@ -3,6 +3,33 @@
 > Complète `STATE.md` (ce qui est fait). **Règle de travail : plan écrit → validation d'Adel → code.** Une étape à la fois. Aucune IA ne touche `main`, ni au design validé sans accord. Chaque étape finit par : tests + 7 gardes + preuve mobile 390 / ordinateur 1440 + ligne dans `STATE.md`. Audit **ciblé** (seulement le module touché).
 > Statuts : ✅ fait · 🟡 partiel · ⛔ pas fait · ❓ cause non établie. Tout ce qui n'est pas vérifié sur iPhone est marqué « non vérifié iPhone ».
 
+## Audit transversal du 12/10/2026 — fusion ≠ publication ≠ affichage
+
+**Sources revérifiées le 12/10** : GitHub branche `reconcile/claude-main-20260825`, historique PR, workflow `web-preview-pages.yml`, `docs/RELEASE_REGISTER.json`, migrations Supabase réelles `rrhqsqzcplvmwxizqnla`, conversations de demandes récentes. Une PR ouverte, un commit fusionné, un workflow vert, une version servie et un iPhone mis à jour sont **cinq étapes différentes**.
+
+**Publication / écart concret**
+- GitHub Pages : workflow vert pour `cff41f48` (#143, 12/10 11:44 UTC), avec vérification HTTP et Chromium ; des builds ultérieurs sont possibles, mais **le SHA actuellement servi n'a pas pu être récupéré de l'environnement d'audit**. Ne pas déclarer le dernier HEAD visible par déduction.
+- iOS : registre de releases = TestFlight `#228` et OTA `#1019`, tous deux rattachés à la release `f8dbd60` ; le registre ne prouve pas le bundle actuellement installé sur chaque iPhone. Les modifications postérieures doivent passer par le circuit `.eas-build-trigger`/build/OTA compatible.
+- Onglet PC : **cause démontrée dans le code** : `AppUpdateBanner` vérifiait toutes les 60 s puis n'appliquait la nouvelle version que lors du masquage de l'onglet. PR #148 : détection 15 s et application après 30 s d'inactivité visible, hors saisie et hors Solo/Battle ; **non déployée tant que CI et fusion non terminées**.
+- Supabase : migrations `event_moderation_owner_guard`, `auto_story_on_approved_event`, `personalized_event_pulse_ranking` présentes en historique. La table `events` a **un événement passé (8 septembre), aucun futur** : aucun nouvel événement recommandé ne peut apparaître à partir de ces données.
+
+| Module / demande confirmée | Codé / fusionné observé | Restant / preuve manquante |
+|---|---|---|
+| Boutique vitrine PC + mobile | PR #116 cockpit ventes ; PR #143 boutique lisible, Web publié selon le workflow | Vérifier parcours vendeur/visiteur FREE/PayPal et rendu réel sur l'iPhone ayant le nouveau bundle |
+| Soirées terminées + modération + Story / Pulse | PR #116 + migrations appliquées ; PR #141 « TERMINÉE » Web ; logique d'événement expiré | Valider écran PC/iPhone sur donnée du 8 septembre ; #142 encore ouverte, ne pas superposer sans analyse |
+| Navigation et barre PC sans swipe, jamais mobile simulé sur souris | Menu/rail existants | PR #108 (desktop 640 px), PR #140 (retour à l'accueil rubrique) encore ouvertes ; démonstration 712/1440 et iPhone |
+| Bibliothèque, playlists, recherche Desktop, compteur Solo | Version en service partielle | PR #147 (rebase de #132) non fusionnée ; UI 390/1440 non démontrée en production |
+| Partage depuis un compte sur plusieurs ordinateurs | QR et session PC existants | PR #146 (rebase #133) encore ouverte ; test scan→validation→session→déconnexion/expiration réel manquant |
+| Battle PC 16:9, Solo/Battle 8 styles | Jeu actuel déployé, catalogue/règles de base présents | PR #118 (cockpit PC), #115 (8 styles et migration additive) ouvertes ; vérifier parité des questions, 4 choix, FREE, audio, latence |
+| Reconnaissance YouTube / micro | PR #136 : capture d'onglet PC, publiée Web selon journal GitHub | PR #119 priorité au micro sur métadonnées YouTube toujours ouverte ; essais réels audio YouTube mobile et iPhone non prouvés |
+| Story musiques + vues + événements | RPC vues, stories et PR #116 disponibles | Comparaison PC/iOS, droits, son, événements à venir et achat depuis Story non exhaustivement prouvés |
+| Loki Pulse / styles / artistes | Personnalisation goût et classement événement déjà en base | Catalogue « millions », variété/absence de répétitions et usage de tous styles non démontrés ; aucune soirée future dans `events` |
+| Chat / robot / push / son | Plusieurs correctifs antérieurs existent | Reprendre tests d'ancrage dernier message, clavier, réponse WhatsApp, partage privé, son après ouverture, push app fermée, bot secoué |
+| Quotas FREE, recharges, Super Admin | Contrats et migrations périodiques déjà présents | Contrôler périodicité jour/semaine/mois, quotas du bon compte et offre affichée dans les deux interfaces ; sans modifier les crédits réels |
+| Mise à jour automatique ordinateur | PR #148 code écrit | Attendre test de contrat/CI et vérifier `version.json` en direct après publication ; ne pas confondre Web et TestFlight |
+
+**Ordre de réparation** : (1) publication et rafraîchissement visible / preuve SHA ; (2) UI ordinateur/boutique/rail/navigation ; (3) QR + sessions ; (4) Soirées/Stories/Pulse ; (5) écoute réelle/Battle/son ; (6) chat/notifications ; (7) Super Admin et quotas ; (8) livraison iOS et preuve même contrat fonctionnel. Conserver toutes les données, les gardes et la seule application `packages/mobile`, sans supprimer les anciennes fonctions.
+
 ## Les 5 missions de gouvernance — état réel au 06/10/2026
 
 ### Plan validé par Adel — IDEA-189 (06/10/2026)
