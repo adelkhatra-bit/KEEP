@@ -103,6 +103,32 @@ jobs:
           if (Number(payload.recognition.confidence || 0) < 0.68) throw new Error(`metadata-only confidence too low: ${payload.recognition.confidence}`);
           console.log('KEYLESS METADATA ONLY OK', { strategy: payload.strategy, title: payload.recognition.title, artist: payload.recognition.artist, confidence: payload.recognition.confidence });
           JS
+      - name: YouTube partagé — même vidéo depuis PC, iPhone et Shorts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'JS'
+          const base = process.env.KEEP_SUPABASE_URL;
+          const key = process.env.KEEP_SUPABASE_ANON_KEY;
+          const variants = [
+            'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+            'https://youtu.be/dQw4w9WgXcQ?si=iosshare',
+            'https://music.youtube.com/watch?v=dQw4w9WgXcQ',
+            'https://www.youtube.com/shorts/dQw4w9WgXcQ',
+          ];
+          for (const [i,url] of variants.entries()) {
+            const r = await fetch(`${base}/functions/v1/keep-music-keyless-source`, {
+              method:'POST',headers:{
+                apikey:key,Authorization:`Bearer ${key}`,
+                'Content-Type':'application/json','x-keep-device-id':'github-keyless-youtube-'+i,
+              },body:JSON.stringify({url,platform:'YOUTUBE'}),signal:AbortSignal.timeout(45000),
+            });
+            const p = await r.json();
+            if(!r.ok || !p?.recognition?.title || !p?.recognition?.artist)
+              throw new Error('No real YouTube title for '+url+': '+JSON.stringify(p));
+            console.log('LIVE YOUTUBE SHARE OK', {url,track:p.recognition.title,artist:p.recognition.artist,strategy:p.strategy});
+          }
+          JS
       - name: Contrat mobile — fallback sans clé reste branché
         run: |
           grep -q "keep-music-keyless-source" packages/mobile/src/services/keepMusicCoreRecognition.ts
