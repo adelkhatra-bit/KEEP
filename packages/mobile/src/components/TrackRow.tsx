@@ -75,7 +75,7 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
         .flatMap((session) => session.tracks)
         .find((candidate) => candidate.id === entry.id);
       if (!savedEntry || savedEntry.status !== 'kept') {
-        if (savedEntry.creditLocked) onUnlock?.();
+        if (savedEntry?.creditLocked) onUnlock?.();
         else Alert.alert('Morceau non gardé', 'Vérifie tes FREE ou ta connexion puis réessaie.');
         return;
       }
