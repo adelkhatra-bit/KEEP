@@ -120,6 +120,12 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const [openStory, setOpenStory] = useState<MusicStory | null>(null);
   const [viewers, setViewers] = useState<StoryViewer[] | null>(null);
   const [viewersOpen, setViewersOpen] = useState(false);
+  const [viewersError, setViewersError] = useState(false);
+  const refreshViewers = useCallback(() => {
+    void loadMyStoryViewers()
+      .then((rows) => { setViewers(rows); setViewersError(false); })
+      .catch(() => { setViewersError(true); }); // conserver la dernière liste, ne jamais fabriquer « 0 vue »
+  }, []);
   // « En savoir plus » d'un spectateur : musique par musique (temps, ❤, endroit où il est parti).
   const [detailFor, setDetailFor] = useState<string | null>(null);
   const [detailLikes, setDetailLikes] = useState<Record<string, Set<string>>>({});
@@ -322,9 +328,10 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   // Liste des vues ouverte : on la rafraîchit toutes les 8 s pour voir « regarde maintenant » puis « parti il y a … » sans quitter l'écran.
   useEffect(() => {
     if (!viewersOpen) return;
-    const timer = setInterval(() => { loadMyStoryViewers().then(setViewers).catch(() => {}); }, 8000);
+    refreshViewers();
+    const timer = setInterval(refreshViewers, 8000);
     return () => clearInterval(timer);
-  }, [viewersOpen]);
+  }, [viewersOpen, refreshViewers]);
 
   // Départ : fermeture de la story, app mise en arrière-plan ou écran quitté -> le propriétaire voit tout de suite « parti ».
   const stopWatch = useCallback(() => { watchRef.current?.stop(); watchRef.current = null; }, []);
@@ -351,7 +358,10 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     watchRef.current = null;
     if (story.profileId === viewer.id) {
       setViewers(null);
-      loadMyStoryViewers().then(setViewers).catch(() => setViewers([]));
+      setViewersError(false);
+      setDetailFor(null);
+      setDetailLikes({});
+      refreshViewers();
     } else {
       // Façon Instagram : la vue ne compte qu'après quelques secondes de présence réelle ; durée, musiques vues, écoute et départ sont suivis.
       watchRef.current = watchStoryOf(story.profileId, ordered.length);
@@ -641,7 +651,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         onTitlePress={!isOwnOpen && openStory ? () => { const username = openStory.username; setOpenStory(null); setTimeout(() => setQuickUsername(username), 350); } : undefined}
         // Adel 05/10/2026 : « tu écris trop » -- plus de phrase d'accroche sur la story d'un autre (elle nommait à tort le diffuseur comme crédité).
         headerExtra={isOwnOpen ? (
-          <TouchableOpacity style={styles.viewsChip} onPress={() => setViewersOpen(true)} accessibilityRole="button" accessibilityLabel="Voir qui a vu ta story" testID="story-views-chip">
+          <TouchableOpacity style={styles.viewsChip} onPress={() => { setViewersOpen(true); refreshViewers(); }} accessibilityRole="button" accessibilityLabel="Voir qui a vu ta story" testID="story-views-chip">
             <Text style={styles.viewsChipText}>👁 {viewers ? `${viewers.length} vue${viewers.length > 1 ? 's' : ''}` : '… vues'} {ownLikeTotal !== null ? ` · ❤️ ${ownLikeTotal}` : ''} · Voir qui ›</Text>
           </TouchableOpacity>
         ) : null}
@@ -652,7 +662,13 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
                 <Text style={styles.sheetTitle}>Vues de ta story</Text>
                 <TouchableOpacity onPress={() => setViewersOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer la liste" style={styles.sheetClose}><Text style={styles.sheetCloseText}>✕</Text></TouchableOpacity>
               </View>
-              {viewers && viewers.length === 0 ? <Text style={styles.viewsEmpty}>Aucune vue</Text> : null}
+              {viewers === null && !viewersError ? <Text style={styles.viewsEmpty}>Chargement des vues…</Text> : null}
+              {viewersError ? (
+                <TouchableOpacity onPress={refreshViewers} accessibilityRole="button" accessibilityLabel="Réessayer le chargement des vues" testID="story-viewers-retry">
+                  <Text style={styles.viewsEmpty}>Synchronisation des vues indisponible · Réessayer</Text>
+                </TouchableOpacity>
+              ) : null}
+              {!viewersError && viewers && viewers.length === 0 ? <Text style={styles.viewsEmpty}>Aucune vue enregistrée</Text> : null}
               {/* Vues façon Instagram (Adel, 06/10/2026) : une bulle par spectateur, indépendante ; on touche une bulle → ce qu'il a vu.
                   Pastille : ✓ = toute la story, sinon « vues / total ». Aucun texte long, aucune durée. */}
               <ScrollView contentContainerStyle={styles.viewerGrid}>
@@ -686,7 +702,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
                       </TouchableOpacity>
                     </View>
                     <ScrollView style={{ maxHeight: 260 }}>
-                      {detail.rows.length === 0 ? <Text style={styles.detailMeta}>Rien vu</Text> : null}
+                      {detail.rows.length === 0 ? <Text style={styles.detailMeta}>{v.tracksSeen > 0 ? 'Vue enregistrée · détail musical indisponible pour cette visite' : 'Aucun morceau suivi'}</Text> : null}
                       {detail.rows.map((r) => (
                         <View key={`${v.viewerId}-${r.trackId}`} style={[styles.detailRow, (r.outcome === 'LEFT_HERE' || r.outcome === 'WATCHING') && styles.detailRowLeft]} testID={`story-viewer-track-${v.viewerId}-${r.index}`}>
                           <Text style={styles.detailIcon} accessibilityLabel={r.label}>{r.outcome === 'FULL' ? '✓' : r.outcome === 'SKIPPED' ? '⏭' : r.outcome === 'WATCHING' ? '●' : '■'}</Text>
