@@ -1,5 +1,14 @@
 [
   {
+    "commit": "82d6a0032075815111a5e2e23f552e2aec20bfd7",
+    "web": "82d6a0032075815111a5e2e23f552e2aec20bfd7",
+    "testflight": "iOS #230 success (release 1f44ee1)",
+    "ota": "OTA #1021 success (release 1f44ee1)",
+    "date": "2026-10-12 20:24",
+    "tests": "pass",
+    "changes": "fix(ci): remove duplicate pending-session counter declaration blocking mobile typecheck"
+  },
+  {
     "commit": "48c651cd7e6a73b7ab405d00f723adae2b2179ad",
     "web": "48c651cd7e6a73b7ab405d00f723adae2b2179ad",
     "testflight": "iOS #230 success (release 1f44ee1)",
