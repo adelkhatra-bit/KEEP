@@ -99,6 +99,10 @@ export function normalizeStoryViewerPlayback(row: any): {
   return {
     chapters,
     trackViews: [...byTrack].map(([trackId, seconds]) => ({ trackId, seconds })),
-    lastTrackId: row?.last_track_id ? String(row.last_track_id) : last?.t ? String(last.t) : null,
+    // Production v4 returns the authoritative final track inside playback_progress.
+    // Highest index is only a legacy fallback: users may swipe BACK from #10 to #3.
+    lastTrackId: row?.last_track_id ? String(row.last_track_id)
+      : row?.playback_progress?.lastTrackId ? String(row.playback_progress.lastTrackId)
+      : last?.t ? String(last.t) : null,
   };
 }
