@@ -852,8 +852,7 @@ export default function HomeScreenCompact({ navigation }: any) {
         if (!recognition) return;
         const current = useSessionStore.getState();
         if (!current.isActive) {
-          current.startSession();
-          useSessionStore.getState().pauseListening();
+          current.startSession({ captureMode: 'tab' });
         }
         const result = await useSessionStore.getState().submitCapturedAudioRecognition(recognition);
         if (result === 'added') {
@@ -1189,7 +1188,7 @@ export default function HomeScreenCompact({ navigation }: any) {
                   <Text style={s.destination} numberOfLines={1}>→ {destination}</Text>
                 </View>
               </View>
-              <TrackListenControls track={current.track} previewKey={`current:${current.id}`} onPreviewFinished={canGoOlder ? goOlder : undefined} autoPlay />
+              <TrackListenControls track={current.track} previewKey={`current:${current.id}`} onPreviewFinished={canGoOlder ? goOlder : undefined} autoPlay={!tabMonitoring} />
               {alreadySaved ? (
                 <View style={s.saved}><Text style={s.savedText}>✓ Déjà dans ta playlist</Text></View>
               ) : current.status === 'kept' ? (
