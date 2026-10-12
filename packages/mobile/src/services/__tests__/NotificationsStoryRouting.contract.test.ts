@@ -8,7 +8,7 @@ describe('cloche désencombrée par les stories', () => {
   it('hides NEW_PUBLIC_KEEP from the list and from the unread counter, without deleting rows', () => {
     expect(source).toContain("new Set(['NEW_PUBLIC_KEEP'])");
     expect(source).toContain('!shouldSuppressNotificationPresentation(item) && !isStoryRoutedNotification(item)');
-    expect(source).toContain('.filter((item) => !isStoryRoutedNotification(item))).length');
+    expect(source).toContain('.filter((item) => !isStoryRoutedNotification(item) && notificationIsCurrent(item))).length');
     expect(source).not.toMatch(/\.delete\(\)[^;]*NEW_PUBLIC_KEEP/);
   });
 });
