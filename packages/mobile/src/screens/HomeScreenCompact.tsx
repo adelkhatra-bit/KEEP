@@ -875,9 +875,28 @@ export default function HomeScreenCompact({ navigation }: any) {
     setKeepBusy(true);
     setKeepChoiceOpen(false);
     setKeepEditId(null);
-    await keepTrack(entryId, playlistId, visibility);
-    await refreshCreditBadge();
-    setKeepBusy(false);
+    try {
+      await keepTrack(entryId, playlistId, visibility);
+      // Same post-GARDER rule as shared-link preview and Session Swipe:
+      // only a confirmed server KEEP in PUBLIC can enter the 24h Story.
+      const confirmed = useSessionStore.getState().tracks.find((item) => item.id === entryId);
+      if (visibility === 'PUBLIC' && confirmed?.status === 'kept' && confirmed.visibility === 'PUBLIC') {
+        try {
+          await pinStoryTrack(resolveKeptTrackId(confirmed.track.id), {
+            title: confirmed.track.title, artist: confirmed.track.artist,
+            album: confirmed.track.album, artworkUrl: confirmed.track.artworkUrl,
+            previewUrl: confirmed.track.previewUrl, isrc: confirmed.track.isrc,
+          });
+        } catch {
+          Alert.alert('Profil enregistré', 'Le morceau est gardé en public. La Story n’a pas pu être confirmée ; tu peux la publier depuis ton profil.');
+        }
+      }
+    } catch {
+      Alert.alert('GARDER non confirmé', 'Impossible de confirmer cet ajout. Le morceau reste dans la session ; aucun succès annoncé.');
+    } finally {
+      await refreshCreditBadge().catch(() => {});
+      setKeepBusy(false);
+    }
   };
 
   // Règle produit 24/09/2026 : aucune décision de visibilité implicite.
