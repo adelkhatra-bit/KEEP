@@ -6,10 +6,12 @@ const screen = fs.readFileSync(path.resolve(__dirname, '..', '..', 'screens', 'P
 const service = fs.readFileSync(path.resolve(__dirname, '..', 'profileService.ts'), 'utf8');
 
 describe('Profile explicit save persists the requested state in Supabase', () => {
-  it('allows an explicit user save to clear old links, socials, city, bio and birthday', () => {
-    expect(screen).toContain('saveOwnProfile(nextUser, { allowClearing: true })');
-    expect(service).toContain('const desiredSocialLinks = mergeSocialLinks(existingSocialLinks, user.socialLinks, allowClearing)');
-    expect(service).toContain('if (allowClearing) {');
+  it('allows explicit user edits to clear bio, website, city and birthday while preserving unrelated social links', () => {
+    expect(screen).toContain('saveOwnProfile(nextUser, { allowClearing: true, preserveUneditedCollections: true })');
+    expect(service).toContain('const desiredSocialLinks = mergeSocialLinks(existingSocialLinks, user.socialLinks, collectionClearing)');
+    expect(service).toContain('const collectionClearing = allowClearing && !options.preserveUneditedCollections;');
+    expect(service).toContain('const persistedAvatar = collectionClearing ? uploadedAvatar');
+    expect(service).toContain('if (collectionClearing) {');
     expect(service).toContain('.delete()');
     expect(service).toContain('const birthDate = allowClearing');
     expect(service).toContain('keepTextUnlessExplicitlyCleared(user.bio');

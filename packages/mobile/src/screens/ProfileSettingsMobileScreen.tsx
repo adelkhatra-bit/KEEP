@@ -131,13 +131,13 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
     setError(''); setSaving(true); setSaveSuccess(false);
     try {
       const nextUser = buildUser();
-      // Explicitly saving this screen may also REMOVE a bio, link, photo or
-      // social network. Background sync must remain non-destructive, but this
-      // user-confirmed action must persist the exact desired profile.
+      // Explicit Save may remove editable fields (bio/site/city/birthday), but must
+      // NOT delete social links, musical tastes or the avatar if those fields
+      // were not edited or fully hydrated on this screen.
       if (isLocalGuest) {
         await stageGuestProfileForUpgrade(nextUser);
       } else if (supabase && !isDemoMode) {
-        await createProfileService(supabase).saveOwnProfile(nextUser, { allowClearing: true });
+        await createProfileService(supabase).saveOwnProfile(nextUser, { allowClearing: true, preserveUneditedCollections: true });
         if (locationEdited) {
           const { error: locationError } = await supabase.from('profiles').update({
             city: nextUser.city ?? null,

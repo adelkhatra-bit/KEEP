@@ -13,6 +13,8 @@ export interface SaveProfileOptions {
    * qu'un effacement volontaire soit toujours possible.
    */
   allowClearing?: boolean;
+  /** Profile editor cannot edit social links or musical tastes: preserve those existing remote collections. */
+  preserveUneditedCollections?: boolean;
 }
 
 function fallbackUser(session: KeepAuthSession): User {
@@ -449,6 +451,7 @@ export function createProfileService(client: SupabaseClient) {
       }
 
       const allowClearing = options.allowClearing ?? loadedOwnProfileId !== user.id;
+      const collectionClearing = allowClearing && !options.preserveUneditedCollections;
 
       // Avant toute écriture, relire l'état Supabase. Les sauvegardes automatiques
       // sont déclenchées par plusieurs changements du store (GPS, notifications,
@@ -471,14 +474,14 @@ export function createProfileService(client: SupabaseClient) {
       // Les avatars déjà publics ne sont jamais ré-uploadés.
       const localAvatar = user.avatar || '';
       const uploadedAvatar = localAvatar ? await persistLocalAvatar(client, user.id, localAvatar) : '';
-      const persistedAvatar = allowClearing ? uploadedAvatar : (uploadedAvatar || existingProfile?.avatar_url || '');
+      const persistedAvatar = collectionClearing ? uploadedAvatar : (uploadedAvatar || existingProfile?.avatar_url || '');
 
       const localFavoriteGenres = normalizeProfileTextList(user.favoriteGenres);
       const localFavoriteArtists = normalizeProfileTextList(user.favoriteArtists);
-      const favoriteGenres = allowClearing || localFavoriteGenres.length > 0
+      const favoriteGenres = collectionClearing || localFavoriteGenres.length > 0
         ? localFavoriteGenres
         : normalizeProfileTextList(existingProfile?.favorite_genres);
-      const favoriteArtists = allowClearing || localFavoriteArtists.length > 0
+      const favoriteArtists = collectionClearing || localFavoriteArtists.length > 0
         ? localFavoriteArtists
         : normalizeProfileTextList(existingProfile?.favorite_artists);
 
@@ -493,8 +496,8 @@ export function createProfileService(client: SupabaseClient) {
         avatar_url: persistedAvatar || null,
         country_code: keepTextUnlessExplicitlyCleared(user.countryCode, existingProfile?.country_code, allowClearing),
         city: keepTextUnlessExplicitlyCleared(user.city, existingProfile?.city, allowClearing),
-        preferred_language_tag: keepTextUnlessExplicitlyCleared(user.preferredLanguageTag, existingProfile?.preferred_language_tag, allowClearing),
-        music_country_codes: (user.musicCountryCodes?.length || allowClearing)
+        preferred_language_tag: keepTextUnlessExplicitlyCleared(user.preferredLanguageTag, existingProfile?.preferred_language_tag, collectionClearing),
+        music_country_codes: (user.musicCountryCodes?.length || collectionClearing)
           ? normalizeProfileTextList(user.musicCountryCodes ?? [], 50).map((code) => code.toUpperCase()).filter((code) => /^[A-Z]{2}$/.test(code))
           : normalizeProfileTextList(existingProfile?.music_country_codes, 50).map((code) => code.toUpperCase()),
         kind: user.kind || existingProfile?.kind || 'USER',
@@ -514,7 +517,7 @@ export function createProfileService(client: SupabaseClient) {
       // les deux opérations effaçait tous les réseaux sociaux. On upsert d'abord
       // chaque lien, puis on ne supprime les liens absents que lors d'une action
       // utilisateur explicitement destructive.
-      const desiredSocialLinks = mergeSocialLinks(existingSocialLinks, user.socialLinks, allowClearing);
+      const desiredSocialLinks = mergeSocialLinks(existingSocialLinks, user.socialLinks, collectionClearing);
       const socialKey = (links: Array<{ platform: string; url: string; visibility: string; label?: string | null }>) =>
         JSON.stringify([...links].map((link) => [link.platform, link.url, link.visibility, link.label ?? null]).sort());
       const socialUnchanged = socialKey(desiredSocialLinks as any) === socialKey(existingSocialLinks as any);
@@ -549,7 +552,7 @@ export function createProfileService(client: SupabaseClient) {
         if (socialError) throw socialError;
       }
 
-      if (allowClearing) {
+      if (collectionClearing) {
         const desiredPlatforms = new Set(desiredSocialLinks.map((link) => link.platform));
         for (const existing of existingSocialLinks) {
           if (desiredPlatforms.has(existing.platform)) continue;
