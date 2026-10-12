@@ -10,6 +10,7 @@ import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { useSessionStore } from '../store/useSessionStore';
 import { resolveTrackExternalDestination } from '../services/trackExternalLinkService';
 import KeepModal from './KeepModal';
+import { resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
 
 interface Props {
   track: CanonicalTrack;
@@ -33,6 +34,7 @@ interface Props {
 export default function TrackListenControls({ track, previewKey, onPreviewFinished, autoPlay = false }: Props) {
   const [previewBusy, setPreviewBusy] = useState(false);
   const [embeddedPlayerOpen, setEmbeddedPlayerOpen] = useState(false);
+  const pausedByEmbeddedPlayer = useRef(false);
   // BUG RÉEL (Adel, 01/09/2026 : "j'écoute la musique elle ne part pas, elle
   // se met indisponible") : ce composant affichait "Audio indisponible" dès
   // que le fournisseur de reconnaissance ne renvoyait aucun previewUrl/lien
@@ -44,21 +46,34 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
 
   const externalDestination = resolveTrackExternalDestination(track);
   const externalPlayUrl = externalDestination?.url;
-  // Lecteur officiel intégré (widget Spotify/Deezer, ou IFrame Player API
-  // YouTube) : reste dans Loki au lieu d'ouvrir la plateforme dans un nouvel
-  // onglet. Web uniquement pour l'instant -- une iframe n'a pas d'équivalent
-  // React Native direct sans dépendance WebView côté natif. Priorité Spotify
-  // (widget le plus universellement disponible), Deezer puis YouTube en repli
-  // -- YouTube seulement quand ACRCloud a confirmé un vrai id vidéo (vid),
-  // jamais une simple recherche.
-  const embedUrl = track.providerIds?.spotify
-    ? `https://open.spotify.com/embed/track/${encodeURIComponent(track.providerIds.spotify)}`
-    : track.providerIds?.deezer
-      ? `https://widget.deezer.com/widget/dark/track/${encodeURIComponent(track.providerIds.deezer)}`
-      : track.providerIds?.youtubeMusic
-        ? `https://www.youtube.com/embed/${encodeURIComponent(track.providerIds.youtubeMusic)}`
-        : undefined;
-  const embedProviderLabel = track.providerIds?.spotify ? 'Spotify' : track.providerIds?.deezer ? 'Deezer' : 'YouTube';
+  // A user-shared link keeps its REAL source inside Loki. Never embed a
+  // generic YouTube search URL (which could play another person's music).
+  const embedded = [
+    track.externalUrls?.source,
+    track.externalUrls?.spotify,
+    track.externalUrls?.deezer,
+    track.externalUrls?.youtube,
+    track.providerIds?.spotify ? `https://open.spotify.com/track/${track.providerIds.spotify}` : undefined,
+    track.providerIds?.deezer ? `https://www.deezer.com/track/${track.providerIds.deezer}` : undefined,
+    track.providerIds?.youtubeMusic ? `https://www.youtube.com/watch?v=${track.providerIds.youtubeMusic}` : undefined,
+  ].map((url) => resolveEmbeddedMusicPlayer(url)).find(Boolean) ?? null;
+  const embedUrl = embedded?.url;
+  const embedProviderLabel = embedded?.provider === 'SPOTIFY' ? 'Spotify'
+    : embedded?.provider === 'DEEZER' ? 'Deezer' : 'YouTube';
+  const NativeWebView = Platform.OS === 'web' ? null : require('react-native-webview').WebView;
+
+  const closeEmbeddedPlayer = () => {
+    setEmbeddedPlayerOpen(false);
+    if (pausedByEmbeddedPlayer.current) {
+      pausedByEmbeddedPlayer.current = false;
+      // Unmount the iframe/WebView first: the microphone must never capture
+      // the last frames of the video and identify itself.
+      setTimeout(() => {
+        const current = useSessionStore.getState();
+        if (current.isActive && current.micPaused) current.resumeListening();
+      }, 300);
+    }
+  };
 
   useEffect(() => {
     setResolvedPreviewUrl(track.previewUrl ?? null);
@@ -180,13 +195,24 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
   };
 
   const openExternalNow = () => {
-    if (Platform.OS === 'web' && embedUrl) { setEmbeddedPlayerOpen(true); return; }
+    if (embedUrl) {
+      const current = useSessionStore.getState();
+      if (current.isActive && !current.micPaused) {
+        pausedByEmbeddedPlayer.current = true;
+        current.pauseListening();
+      }
+      setEmbeddedPlayerOpen(true);
+      return;
+    }
     if (!externalPlayUrl) return;
     void Linking.openURL(externalPlayUrl).catch(() => Alert.alert('Lecture indisponible', 'Impossible d’ouvrir ce morceau pour le moment.'));
   };
 
   const openExternal = () => {
     if (!embedUrl && !externalPlayUrl) return;
+    // Exact playable source: stay in Loki instead of stopping the session or
+    // redirecting to YouTube. Only external fallbacks retain confirmation.
+    if (embedUrl) { openExternalNow(); return; }
     if (useSessionStore.getState().isActive) {
       Alert.alert(
         'Écoute Loki Music en cours',
@@ -218,24 +244,36 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
         {(embedUrl || externalPlayUrl) ? <TouchableOpacity style={styles.youtubePill} onPress={openExternal}><Text style={styles.youtubeText}>{embedUrl ? '▶ Écouter ici' : externalDestination?.exact ? '↗ Écouter sur la plateforme' : '↗ Ouvrir la recherche'}</Text></TouchableOpacity> : null}
       </View>
 
-      {Platform.OS === 'web' && embedUrl ? (
-        <KeepModal visible={embeddedPlayerOpen} transparent animationType="fade" onRequestClose={() => setEmbeddedPlayerOpen(false)}>
+      {embedUrl ? (
+        <KeepModal visible={embeddedPlayerOpen} transparent animationType="fade" onRequestClose={closeEmbeddedPlayer}>
           <View style={styles.embedOverlay}>
             <View style={styles.embedCard}>
               <View style={styles.embedHead}>
                 <Text style={styles.embedTitle} numberOfLines={1}>{track.title} · {track.artist}</Text>
-                <TouchableOpacity onPress={() => setEmbeddedPlayerOpen(false)} hitSlop={8} accessibilityLabel="Fermer le lecteur"><Text style={styles.embedClose}>✕</Text></TouchableOpacity>
+                <TouchableOpacity onPress={closeEmbeddedPlayer} hitSlop={8} accessibilityLabel="Fermer le lecteur"><Text style={styles.embedClose}>✕</Text></TouchableOpacity>
               </View>
-              {embeddedPlayerOpen
-                ? React.createElement('iframe', {
-                    src: embedUrl,
-                    width: '100%',
-                    height: 152,
-                    frameBorder: 0,
-                    allow: 'autoplay; encrypted-media; clipboard-write',
-                    style: { border: 0, borderRadius: 12 },
-                  })
-                : null}
+              {embeddedPlayerOpen ? (
+                Platform.OS === 'web'
+                  ? React.createElement('iframe' as any, {
+                      src: embedUrl,
+                      title: `Préécoute ${track.title} dans Loki Music`,
+                      width: '100%', height: embedded?.provider === 'YOUTUBE' ? 230 : 160,
+                      style: { border: 0, borderRadius: 12 },
+                      allow: 'autoplay; encrypted-media; picture-in-picture; fullscreen',
+                      allowFullScreen: true,
+                    })
+                  : NativeWebView ? (
+                    <NativeWebView
+                      source={{ uri: embedUrl }}
+                      style={{ height: embedded?.provider === 'YOUTUBE' ? 230 : 160 }}
+                      javaScriptEnabled domStorageEnabled allowsInlineMediaPlayback
+                      allowsFullscreenVideo mediaPlaybackRequiresUserAction
+                      setSupportMultipleWindows={false}
+                      onShouldStartLoadWithRequest={(request: { url: string; isTopFrame?: boolean }) =>
+                        request.isTopFrame === false || request.url.startsWith(embedUrl.split('?')[0])}
+                    />
+                  ) : null
+              ) : null}
               <Text style={styles.embedHint}>Lecteur officiel {embedProviderLabel} intégré -- reste sur Loki Music.</Text>
             </View>
           </View>
