@@ -432,6 +432,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [manualSaveBusy, setManualSaveBusy] = useState(false);
   const [manualResultOpen, setManualResultOpen] = useState(false);
   const [manualKeepChoiceOpen, setManualKeepChoiceOpen] = useState(false);
+  const [manualKeepPlaylistId, setManualKeepPlaylistId] = useState<string | undefined>(undefined);
   const [manualKeepTarget, setManualKeepTarget] = useState<{ sessionId: string; entryId: string } | null>(null);
   const [manualKeptVisibility, setManualKeptVisibility] = useState<'PUBLIC' | 'PRIVATE' | null>(null);
   const [manualStoryPublished, setManualStoryPublished] = useState(false);
@@ -443,6 +444,7 @@ export default function HomeScreenCompact({ navigation }: any) {
     setManualSearchOpen(false);
     setManualResultOpen(false);
     setManualKeepChoiceOpen(false);
+    setManualKeepPlaylistId(undefined);
     setManualKeepTarget(null);
     setManualKeptVisibility(null);
     setManualStoryPublished(false);
@@ -586,6 +588,7 @@ export default function HomeScreenCompact({ navigation }: any) {
       Alert.alert('Session indisponible', 'Impossible de préparer le morceau dans Mes Sessions. Aucun FREE débité.');
       return;
     }
+    setManualKeepPlaylistId((previous) => previous ?? playlists[0]?.id);
     setManualKeepChoiceOpen(true);
   };
 
@@ -596,7 +599,7 @@ export default function HomeScreenCompact({ navigation }: any) {
     // Même service et même transaction Supabase FREE que Swipe et Écouter.
     setManualSaveBusy(true);
     try {
-      await useSessionHistoryStore.getState().keepTrackInSession(target.sessionId, target.entryId, undefined, visibility);
+      await useSessionHistoryStore.getState().keepTrackInSession(target.sessionId, target.entryId, manualKeepPlaylistId, visibility);
       const committed = useSessionHistoryStore.getState().getSession(target.sessionId)?.tracks.find((entry) => entry.id === target.entryId);
       if (committed?.status !== 'kept') {
         Alert.alert('GARDER non confirmé', 'Ce morceau reste dans Mes Sessions en attente. Aucun succès ni débit annoncé.');
@@ -1009,7 +1012,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   const manualSearchModal = (
       <KeepModal visible={manualSearchOpen || manualResultOpen} transparent animationType="fade" onRequestClose={closeManualSearchPreview}>
         {manualResultOpen ? (
-          <TemporaryMusicPreview visible={manualResultOpen} result={manualSearchResult} onClose={closeManualSearchPreview} onNext={nextManualSearch} onReplaceLink={(link) => { void runManualSearch(link); }} onKeep={requestManualKeep} keepChoiceOpen={manualKeepChoiceOpen} onChooseVisibility={(visibility) => { void confirmManualKeep(visibility); }} onCancelKeep={() => setManualKeepChoiceOpen(false)} keepCostFree={creditCostPerKeep} keptVisibility={manualKeptVisibility} storyPublished={manualStoryPublished} onSeeSessions={viewSavedManualSessions} saved={manualResultSaved} saving={manualSaveBusy} />
+          <TemporaryMusicPreview visible={manualResultOpen} result={manualSearchResult} onClose={closeManualSearchPreview} onNext={nextManualSearch} onReplaceLink={(link) => { void runManualSearch(link); }} onKeep={requestManualKeep} keepChoiceOpen={manualKeepChoiceOpen} onChooseVisibility={(visibility) => { void confirmManualKeep(visibility); }} onCancelKeep={() => setManualKeepChoiceOpen(false)} keepCostFree={creditCostPerKeep} playlists={playlists.map((p) => ({ id: p.id, name: p.name }))} selectedPlaylistId={manualKeepPlaylistId} onSelectPlaylist={setManualKeepPlaylistId} keptVisibility={manualKeptVisibility} storyPublished={manualStoryPublished} onSeeSessions={viewSavedManualSessions} saved={manualResultSaved} saving={manualSaveBusy} />
         ) : (
         <View style={s.modalOverlay}><View style={s.modalCard}>
           <Text style={s.modalTitle}>Chercher un morceau</Text>
