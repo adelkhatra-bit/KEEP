@@ -7,10 +7,12 @@ const read = (relativePath: string) => fs.readFileSync(path.join(mobileRoot, rel
 describe('Loki popup placement on mobile and desktop', () => {
   it('centers the listening hamburger session preview without ending the microphone session', () => {
     const home = read('screens/HomeScreenCompact.tsx');
-    expect(home).toContain('testID="listen-session-peek-overlay"');
-    expect(home).toContain('testID="listen-session-peek-centered"');
+    expect(home).toContain('<KeepModal visible={sessionPeekOpen}');
+    expect(home).toContain('onDismiss={showQueuedSessionSwipe}');
     expect(home).toContain("modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,.72)', alignItems: 'center', justifyContent: 'center'");
-    expect(home).toContain("maxWidth: 480, maxHeight: '78%', borderRadius: 22");
+    expect(home).toContain("maxWidth: desktopHome ? 580 : 400, maxHeight: '78%', borderRadius: 22");
+    expect(home).toContain('onPress={openSessionSwipeSafely}');
+    expect(home).toContain('ARRÊTER ET SWIPER');
     expect(home).not.toContain("s.modalOverlay, { justifyContent: 'flex-end', paddingBottom: 0 }");
     expect(home).toContain('onPress={() => setSessionPeekOpen(false)}');
     expect(home).toContain('onPress={openSessionHistorySafely}');
@@ -34,9 +36,10 @@ describe('Loki popup placement on mobile and desktop', () => {
 
   it('centers Mes Sessions on mobile without changing the desktop side panel', () => {
     const screen = read('screens/SessionHistoryScreen.tsx');
-    expect(screen).toContain('testID="sessions-overlay-centered"');
-    expect(screen).toContain("alignItems: desktop ? 'flex-end' : 'center'");
-    expect(screen).toContain("width: Math.min(480, width - 24)");
-    expect(screen).toContain("width: Math.min(480, width * 0.48)");
+    expect(screen).toContain('<View style={styles.overlay}>');
+    expect(screen).toContain("overlay: { flex: 1, flexDirection: 'column', alignItems: 'center', justifyContent: 'center'");
+    expect(screen).toContain("width: Math.min(560, width - 32)");
+    expect(screen).toContain("width: '100%', height: Math.min(height - 40, Math.round(height * 0.80))");
+    expect(screen).toContain("borderRadius: 22");
   });
 });
