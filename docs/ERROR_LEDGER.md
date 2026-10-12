@@ -36,6 +36,7 @@ Chaque nouvelle entrée doit contenir :
 
 ## Registre actuel
 
+| ERR-WEB-IDLE-REFRESH-20261012 | Web/Publication | Site GitHub Pages fusionné mais onglet PC actif restait sur ancien bundle : `AppUpdateBanner` vérifiait toutes les 60 s et ne rechargeait qu'au passage en arrière-plan. | Contrôle version toutes les 15 s, rechargement silencieux quand onglet visible inactif 30 s et aucune saisie, garde Solo/Battle conservée ; test de contrat actualisé. | PR de réparation en cours : contrôles CI, Web 390/1440 et SHA live à vérifier après fusion. | FIXED_UNVERIFIED |
 | ID | Zone | Symptôme / cause racine | Fix / prévention | Preuve | Statut |
 |---|---|---|---|---|
 | ERR-TS-001 | Parties | `PartiesScreen.tsx` cassait le typecheck : objet optimiste différent de `CreatorEvent`, puis `user` nullable. | Aligner l'objet sur le type du service ; ne jamais ajouter de props inventées ; gérer les nullables sans `any`. Commits de correction : `dc81f626`, `7eeb436`, `3a22bac`. | Refaire `npx tsc --noEmit -p packages/mobile` après chaque refonte Parties. | FIXED_UNVERIFIED |
