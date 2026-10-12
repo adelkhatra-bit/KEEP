@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { pinStoryTrack } from '../services/musicStoriesService';
+import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useTranslation } from 'react-i18next';
 import { ProviderPlaylist } from '@keep/music';
 import { KeepVisibility, SessionTrackEntry } from '../types';
@@ -66,6 +67,16 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
     setKeepSubmitting(true);
     try {
       await Promise.resolve(onKeep(entry.id, selectedPlaylistId, nextVisibility));
+      // A FREE refusal is handled by the session store without throwing.
+      // Do not show "GARDER réussi" if the track is still pending.
+      const savedEntry = useSessionHistoryStore.getState().sessions
+        .flatMap((session) => session.tracks)
+        .find((candidate) => candidate.id === entry.id);
+      if (savedEntry && savedEntry.status !== 'kept') {
+        if (savedEntry.creditLocked) onUnlock?.();
+        else Alert.alert('Morceau non gardé', 'Vérifie tes FREE ou ta connexion puis réessaie.');
+        return;
+      }
       setKeepSuccessVisibility(nextVisibility);
       setKeepPromptOpen(false);
       setKeepSuccessOpen(true);

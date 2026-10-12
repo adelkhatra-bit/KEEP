@@ -35,6 +35,9 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
   const [previewBusy, setPreviewBusy] = useState(false);
   const [embeddedPlayerOpen, setEmbeddedPlayerOpen] = useState(false);
   const pausedByEmbeddedPlayer = useRef(false);
+  // Only the component that paused the microphone may resume it.
+  // Tab-audio monitoring already keeps the microphone paused on purpose.
+  const pausedMicForPreview = useRef(false);
   // BUG RÉEL (Adel, 01/09/2026 : "j'écoute la musique elle ne part pas, elle
   // se met indisponible") : ce composant affichait "Audio indisponible" dès
   // que le fournisseur de reconnaissance ne renvoyait aucun previewUrl/lien
@@ -81,7 +84,7 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
     // jouable dans Loki Music. C'était le bug du mode démo : TrackResolver
     // fournit toujours ces liens de découverte, ce qui empêchait auparavant
     // le repli iTunes de chercher un vrai previewUrl.
-    if (track.previewUrl || embedUrl) return;
+    if (track.previewUrl) return;
     let live = true;
     setResolvingPreview(true);
     resolveTrackPreviewUrl(track)
@@ -113,7 +116,10 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
       // Vue focalisée seulement : pause temporaire du micro d'écoute, puis
       // reprise automatique quand l'extrait se termine.
       const session = useSessionStore.getState();
-      if (session.isActive && !session.micPaused) session.pauseListening();
+      if (session.isActive && !session.micPaused) {
+        pausedMicForPreview.current = true;
+        session.pauseListening();
+      }
 
       for (let attempt = 0; attempt < 3 && live; attempt += 1) {
         try {
@@ -137,7 +143,7 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
       // En autoplay natif on ne montre jamais un popup qui volerait le tap
       // utilisateur. Les boutons manuels restent disponibles en repli.
       const latest = useSessionStore.getState();
-      if (latest.isActive && latest.micPaused) {
+      if (pausedMicForPreview.current && latest.isActive && latest.micPaused) {
         Alert.alert('Reprendre la détection musicale ?', 'La lecture de cet extrait a échoué. Le micro reste en pause.', [
           { text: 'Rester en pause', style: 'cancel' },
           { text: 'Reprendre', onPress: () => useSessionStore.getState().resumeListening() },
@@ -164,14 +170,12 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
   // naturelle ou stop manuel, `onStateChange` étant appelé avec false dans
   // les deux cas.
   const resumeListeningOnStop = (isPlaying: boolean) => {
-    if (isPlaying) return;
+    if (isPlaying || !pausedMicForPreview.current) return;
+    pausedMicForPreview.current = false;
     const session = useSessionStore.getState();
-    if (session.micPaused) {
-      Alert.alert('Reprendre la détection musicale ?', 'Le micro est en pause après cet extrait.', [
-        { text: 'Rester en pause', style: 'cancel' },
-        { text: 'Reprendre', onPress: () => useSessionStore.getState().resumeListening() },
-      ]);
-    }
+    // Never prompt to restart a microphone that was already paused because
+    // the user is following another PC tab. Resume only our own mic pause.
+    if (session.isActive && session.micPaused) session.resumeListening();
   };
 
   const playSnippetNow = async (durationMillis: number) => {
@@ -190,7 +194,10 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
     if (!resolvedPreviewUrl || previewBusy) return;
     unlockWebAudioForGesture();
     const session = useSessionStore.getState();
-    if (session.isActive) session.pauseListening();
+    if (session.isActive && !session.micPaused) {
+      pausedMicForPreview.current = true;
+      session.pauseListening();
+    }
     void playSnippetNow(durationMillis);
   };
 

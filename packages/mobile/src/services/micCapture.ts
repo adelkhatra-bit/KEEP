@@ -567,10 +567,21 @@ export async function startTabAudioMonitor(
           await onSample(sample);
         } catch (error: any) {
           if (abort.signal.aborted || error instanceof MicCaptureCancelledError) break;
-          // Une courte pause YouTube n'arrête pas la surveillance.
-          if (/aucun son|no sound|aucun signal|trop faible/i.test(String(error?.message ?? ''))) continue;
-          terminalError = error instanceof Error ? error : new Error(String(error));
-          break;
+          // Silences, coupures réseau et indisponibilité temporaire d'un
+          // moteur de reconnaissance ne doivent PAS fermer l'onglet partagé.
+          // Chaque prochain extrait pourra identifier le morceau suivant.
+          const message = String(error?.message ?? '');
+          if (/aucun son|no sound|aucun signal|trop faible/i.test(message)) continue;
+          if (/LISTEN_FREE_(REQUIRED|INSUFFICIENT)|GUEST_LISTEN_LIMIT_REACHED/i.test(message)) {
+            terminalError = error instanceof Error ? error : new Error(message);
+            break;
+          }
+          if (ctx.state === 'closed' || captured.getAudioTracks().every((track) => track.readyState !== 'live')) {
+            terminalError = error instanceof Error ? error : new Error(message);
+            break;
+          }
+          console.warn('[Loki tab monitor] transient sample/recognition failure; resuming next sample', message);
+          continue;
         }
       }
     } finally {
