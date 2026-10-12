@@ -1,3 +1,6 @@
+## 12/10/2026 — synchronisation des détails des spectateurs de Story
+- **IDÉE · EN COURS** : le propriétaire doit voir sur mobile et ordinateur, pour chaque spectateur réel, quelle musique de sa story a été vue, celle où il s'est arrêté, si l'écoute a été complète ou passée et si un cœur a été enregistré. Corriger la compatibilité entre la RPC `keep_my_story_viewers_v4` de production et les champs attendus par le client ; ne jamais afficher « aucune vue » sur une erreur réseau ; actualiser les détails sur les deux appareils à partir du serveur. Ne pas inventer de visionnage ni modifier les réactions, historiques ou données réelles.
+
 # IDEAS INBOX — boîte à idées d'Adel (source unique)
 
 ## Demande du 12/10/2026 — fenêtres musicales mobile et PC
