@@ -3582,7 +3582,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             {/* 29/09/2026 : une seule ligne sous les compteurs, Solos à gauche,
                 recharge des Free à droite (« en face de prochaine recharge »). */}
             <View style={s.quotaRow}>
-              {(() => { const q = soloQuotaCopy(soloDailyStatus); return q ? <View style={s.quotaCell}><Text style={[s.soloQuotaText, q.exhausted && s.soloQuotaExhausted]} numberOfLines={1}>🎯 {q.headline}</Text><Text style={s.quotaSub} numberOfLines={1}>{q.detail}</Text></View> : null; })()}
+              {(() => { const q = soloQuotaCopy(soloDailyStatus); return q ? <View style={s.soloQuotaCompactRow}><View style={s.soloQuotaSquare} accessibilityLabel={q.headline}><Text style={[s.soloQuotaSquareValue, q.exhausted && s.soloQuotaExhausted]}>{soloDailyStatus?.unlimited ? '∞' : (soloDailyStatus?.remaining ?? '—')}</Text><Text style={s.soloQuotaSquareLabel}>SOLOS</Text></View><View style={s.soloQuotaCompactCopy}><Text style={[s.soloQuotaText, q.exhausted && s.soloQuotaExhausted]} numberOfLines={1}>{q.headline}</Text><Text style={s.quotaSub} numberOfLines={2}>{q.detail}</Text></View></View> : null; })()}
               {freeRecharge ? <View style={s.quotaCell}><Text style={s.freeRechargeText} numberOfLines={1}>🔄 {freeRecharge}</Text><Text style={s.quotaSub} numberOfLines={1}>prochain crédit de Free</Text></View> : null}
             </View>
 {soloQuotaCopy(soloDailyStatus)?.exhausted ? (
@@ -3689,6 +3689,11 @@ const s = StyleSheet.create({
   quotaInfo: { marginTop: 2, gap: 2, alignItems: 'center' },
   quotaRow: { flexDirection: 'row', gap: 8, alignSelf: 'stretch' },
   quotaCell: { flex: 1, minWidth: 0, alignItems: 'center', paddingVertical: 6, borderRadius: 12, backgroundColor: '#1B1422' },
+  soloQuotaCompactRow: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  soloQuotaSquare: { width: 58, height: 58, borderRadius: 12, borderWidth: 1, borderColor: colors.success, backgroundColor: colors.backgroundCard, alignItems: 'center', justifyContent: 'center' },
+  soloQuotaSquareValue: { color: colors.success, fontSize: 21, fontWeight: '900' },
+  soloQuotaSquareLabel: { color: colors.textPrimary, fontSize: 10, fontWeight: '900' },
+  soloQuotaCompactCopy: { flex: 1, minWidth: 0 },
   quotaSub: { color: colors.textMutedGrey, fontSize: 11, fontWeight: '700', marginTop: 1 },
   soloQuotaText: { color: colors.success, fontSize: 12, lineHeight: 16, fontWeight: '900', textAlign: 'center' },
   modeCardExhausted: { borderColor: colors.border, opacity: .85 },
