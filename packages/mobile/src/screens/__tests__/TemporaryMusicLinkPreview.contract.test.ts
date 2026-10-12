@@ -44,7 +44,8 @@ describe('One KEEP / FREE / story contract for microphone, PC tab, and copied li
   });
 
   it('shows an own PUBLIC kept song in Story through the existing decision, without a duplicate pin', () => {
-    expect(confirm).toContain("if (visibility === 'PUBLIC')");
+    expect(confirm).toContain("if (confirmedVisibility === 'PUBLIC')");
+    expect(confirm).toContain('const confirmedVisibility = committed.visibility ?? visibility;');
     expect(confirm).toContain('notifyOwnStoryChanged()');
     expect(confirm).not.toContain('await pinStoryTrack(');
   });

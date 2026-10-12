@@ -51,9 +51,11 @@ describe('Rangée de stories : ne se vide jamais + garder en public épingle (Ad
     expect(bar).toContain('let degraded = false;');
     expect(bar).toContain('if (!degraded) setStories(Array.from(collected.values()));');
   });
-  it('un GARDER public épingle aussi la musique (même déjà gardée avant) puis rallume le cercle', () => {
-    expect(deck).toContain('void pinStoryTrack(resolveKeptTrackId(keptTrack.id), keptTrack)');
-    expect(deck).toContain('.finally(() => notifyOwnStoryChanged())');
+  it('un nouveau GARDER public rallume le cercle sans seconde épingle (keep_decisions auto), mais garde une action explicite pour les anciennes musiques', () => {
+    const freshKeep = deck.slice(deck.indexOf('const confirmKeep = async ('), deck.indexOf('const continueAfterKeepSuccess = async'));
+    expect(freshKeep).toContain('notifyOwnStoryChanged()');
+    expect(freshKeep).not.toContain('pinStoryTrack(');
+    expect(deck).toContain('await pinStoryTrack(resolveKeptTrackId(track.id), track)');
   });
 });
 
