@@ -751,6 +751,13 @@ export default function HomeScreenCompact({ navigation }: any) {
                 ◉  TROUVER LE MORCEAU
               </MotionActionButton>
             </View>
+            {user && !isDemoMode ? (
+              <TouchableOpacity testID="listen-remaining-quota" accessibilityRole="button"
+                accessibilityLabel={listenEconomyStatus ? `RESTANTES ${listenEconomyStatus.includedRemaining} identifications` : 'Chargement du quota restant'}
+                onPress={explainListenEconomy} style={s.listenRemainingChip}>
+                <Text style={s.listenRemainingText}>RESTANTES {listenEconomyStatus ? listenEconomyStatus.includedRemaining : '—'}</Text>
+              </TouchableOpacity>
+            ) : null}
             {isDemoMode || (musicEngine.isDemoMode && !listenEconomyStatus) ? (
               <View style={s.demoRow}>
                 <Text style={s.demo}>MODE DÉMO{isDemoMode ? ` · ${Math.min(demoListenUsed, demoListenLimit)}/${demoListenLimit} TROUVAILLES` : ''}</Text>
@@ -827,7 +834,7 @@ export default function HomeScreenCompact({ navigation }: any) {
               <View style={s.stats}>
                 <MiniStat value={elapsed} label="Durée" />
                 <MiniStat value={String(detected)} label="Détectés" />
-
+                {user && !isDemoMode ? <MiniStat value={listenEconomyStatus ? String(listenEconomyStatus.includedRemaining) : '—'} label="RESTANTES" highlight /> : null}
               </View>
             </Animated.View>
           </ListenEnergyAura>
@@ -1369,6 +1376,8 @@ const s = StyleSheet.create({
   idleLearnMoreBody: { color: colors.white, fontSize: 11.5, lineHeight: 17, fontWeight: '700', textAlign: 'center' },
   start: { width: '80%', height: 52, borderRadius: 26, backgroundColor: C.purple, alignItems: 'center', justifyContent: 'center', marginTop: 24 },
   startText: { color: colors.white, fontWeight: '900', fontSize: 15, letterSpacing: .6 },
+  listenRemainingChip: { alignSelf: 'center', marginTop: 12, minHeight: 40, minWidth: 126, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(45,225,194,.48)', backgroundColor: 'rgba(45,225,194,.09)', paddingHorizontal: 14, justifyContent: 'center', alignItems: 'center' },
+  listenRemainingText: { color: C.green, fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
   demoRow:{marginTop:14,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:7},
   demo: { color: C.purpleLight, fontSize: 11, fontWeight: '800', letterSpacing: 1 },
   demoHelp:{width:44,height:44,borderRadius:12,borderWidth:1,borderColor:C.purpleLight,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(124,92,252,.10)'},
