@@ -187,11 +187,6 @@ export default function MusicSwipeDeckModal({
   const preparedTracksRef = useRef<CanonicalTrack[]>(tracks);
   tracksRef.current = tracks;
   const current = deckTracks[index];
-  // Legitimate provider-owned players: no video copied or hosted in Loki.
-  // In-sale tracks remain masked, without a full-video preview bypass.
-  const sourcePlayer = current && !isSaleStoryTrack(current) && !(Boolean(saleInfoByTrackId?.[current.id]) || offeredIds.has(current.id))
-    ? resolveEmbeddedMusicPlayer(current.externalUrls?.source || current.externalUrls?.youtube || null)
-    : null;
   // Secousse (06/10/2026) : la fenêtre déclare où on est (titre du lecteur, @source, musique en cours) pour localiser exactement le signalement.
   const reportSurfaceRef = useRef<ReturnType<typeof pushReportSurface> | null>(null);
   useEffect(() => {
@@ -274,6 +269,12 @@ export default function MusicSwipeDeckModal({
   }, [visible]);
   const storyAddContext = !ownStoryView && Boolean(current) && !isSaleStoryTrack(current) && (allowStoryAdd || (!previewOnly && Boolean(askVisibilityOnKeep || currentSourceUsername)));
   const currentOffered = Boolean(current && offeredIds.has(current.id));
+  // Legitimate provider-owned players: no video copied or hosted in Loki.
+  // In-sale tracks remain masked, without a full-video preview bypass.
+  const sourcePlayer = current && !isSaleStoryTrack(current) && !(Boolean(saleInfoByTrackId?.[current.id]) || offeredIds.has(current.id))
+    ? resolveEmbeddedMusicPlayer(current.externalUrls?.source || current.externalUrls?.youtube || null)
+    : null;
+
   const canAddToStory = storyAddContext;
   const justAddedNow = Boolean(current && justAdded.has(current.id));
   // Aperçu propriétaire = exactement ce que voient les abonnés : une musique de MA boutique y est masquée (animation « pochette mystère »), jamais en clair.
