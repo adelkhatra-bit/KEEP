@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import { buildViewerDetail, FULL_LISTEN_SECONDS, normalizeStoryViewerPlayback } from '../storyViewerDetail';
 
 const tracks = [{ id: 'a', title: 'Alpha', artist: 'X' }, { id: 'b', title: 'Beta' }, { id: 'c', title: 'Gamma' }, { id: 'd', title: 'Delta' }];
@@ -61,5 +63,22 @@ describe('production v4 playback contract — PC/iOS', () => {
   it('keeps the highest observed seconds on repeated chapter entries', () => {
     expect(normalizeStoryViewerPlayback({ chapters: [{ i: 0, s: 3, t: 'a' }, { i: 0, s: 11, t: 'a' }] }).trackViews)
       .toEqual([{ trackId: 'a', seconds: 11 }]);
+  });
+});
+
+describe('owner story viewer cross-device integration contract', () => {
+  const component = fs.readFileSync(path.resolve(__dirname, '../../components/ProfileStoryBar.tsx'), 'utf8');
+  const service = fs.readFileSync(path.resolve(__dirname, '../musicStoriesService.ts'), 'utf8');
+  it('uses production v4 chapter playback and the same owner modal on PC and iPhone', () => {
+    expect(service).toContain("client.rpc('keep_my_story_viewers_v4')");
+    expect(service).toContain('...normalizeStoryViewerPlayback(row)');
+    expect(component).toContain('loadMyLikesAmong(');
+    expect(component).toContain('story-viewer-detail-');
+  });
+  it('does not misreport a failed viewer sync as zero views', () => {
+    expect(component).toContain('setViewersError(true)');
+    expect(component).not.toContain('catch(() => setViewers([]))');
+    expect(component).toContain('story-viewers-retry');
+    expect(component).toContain('setInterval(refreshViewers, 8000)');
   });
 });
