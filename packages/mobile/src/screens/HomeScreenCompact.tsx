@@ -683,6 +683,16 @@ export default function HomeScreenCompact({ navigation }: any) {
   }, [canGoOlder, currentIndex, tracks]);
 
   const detected = tracks.length;
+  // Counter shared by PC and mobile: ALL undecided tracks across persisted
+  // sessions, not every track ever recognized in this live screen.
+  // The live session is already mirrored into history by persistLiveSession().
+  const savedSessions = useSessionHistoryStore((state) => state.sessions);
+  const pendingInSessions = savedSessions
+    .filter((session) => session.id !== '__keep-cloud-profile-recovery__' && (!session.ownerUserId || session.ownerUserId === user?.id))
+    .reduce((total, session) => total + session.tracks.filter((entry) => entry.status === 'pending').length, 0);
+  const pendingLiveUnmirrored = isActive && !savedSessions.some((session) => session.id === useSessionStore.getState().sessionId)
+    ? tracks.filter((entry) => entry.status === 'pending').length : 0;
+  const readyToSwipe = pendingInSessions + pendingLiveUnmirrored;
   // La consommation est enregistrée par Supabase, pas déduite du nombre de cartes de la session.
   // Un doublon ou un essai sans résultat ne consomme aucune identification.
   const consumedIdentifications = isDemoMode
@@ -935,7 +945,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   if (!isActive) {
     return (
       <SafeAreaView style={s.container}><PersonalThemeBackdrop />
-        <TopBar navigation={navigation} readyCount={detected} />
+        <TopBar navigation={navigation} readyCount={readyToSwipe} />
         {/* Accueil Écouter (Adel 29/09/2026 : "cette page n'est pas belle") --
             aligné sur la maquette validée docs/mockups/EcouteRedesign.html :
             fond aurora, pastilles micro/veille, grand cercle Loki "L" entouré de
@@ -1050,7 +1060,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   return (
     <SafeAreaView style={s.container}><PersonalThemeBackdrop />
       <AuroraBackground active={isActive && !micIdle} />
-      <TopBar navigation={navigation} readyCount={detected} title="À toi de jouer" onOpenSessions={() => setSessionPeekOpen(true)} />
+      <TopBar navigation={navigation} readyCount={readyToSwipe} title="À toi de jouer" onOpenSessions={() => setSessionPeekOpen(true)} />
 
       <ScrollView
         style={s.main}
