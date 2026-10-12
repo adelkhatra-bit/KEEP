@@ -1688,6 +1688,15 @@ export default function PartiesScreen({ navigation, route }: any) {
                 {!isPendingPreview ? <Text style={styles.meta}>{[currentEvent.venueName,currentEvent.countryCode].filter(Boolean).join(' · ')}</Text> : null}
                 {!isPendingPreview && currentEvent.ticketPriceCents ? <Text style={styles.rsvpCountsText}>🎟 Entrée : {(currentEvent.ticketPriceCents / 100).toFixed(2)}€</Text> : null}
                 {!isPendingPreview && currentEventReviewSummary && currentEventReviewSummary.reviewCount > 0 ? <Text style={styles.reviewSummary}>⭐ {currentEventReviewSummary.averageRating.toFixed(1)} · {currentEventReviewSummary.reviewCount} avis</Text> : null}
+                {isOwnEvent && Boolean(currentEvent.ticketPriceCents) ? <View style={styles.eventSalesDashboard} testID="event-sales-dashboard">
+                  <Text style={styles.eventSalesTitle}>BILLETTERIE · TOUTES MES SOIRÉES</Text>
+                  <View style={styles.eventSalesMetrics}>
+                    <View style={styles.eventSalesMetric}><Text style={styles.eventSalesValue}>{ticketSales.filter((sale) => sale.status === 'COMPLETED').length}</Text><Text style={styles.eventSalesCaption}>Billets confirmés</Text></View>
+                    <View style={styles.eventSalesMetric}><Text style={styles.eventSalesValue}>{(ticketSales.filter((sale) => sale.status === 'COMPLETED' && sale.currencyCode === 'EUR').reduce((sum, sale) => sum + sale.amountCents, 0) / 100).toFixed(2)} €</Text><Text style={styles.eventSalesCaption}>Confirmé sur Loki</Text></View>
+                    <View style={styles.eventSalesMetric}><Text style={styles.eventSalesValue}>{ticketSales.filter((sale) => sale.status === 'PENDING').length}</Text><Text style={styles.eventSalesCaption}>À vérifier</Text></View>
+                  </View>
+                  <Text style={styles.eventSalesNote}>Chiffres déclarés dans Loki, pas un relevé PayPal.</Text>
+                </View> : null}
                 {user?.id === currentEvent.creatorId && rsvpCounts && (rsvpCounts.going + rsvpCounts.maybe + rsvpCounts.notGoing) > 0 ? <Text style={styles.rsvpCountsText}>✓ {rsvpCounts.going} participent · {rsvpCounts.maybe} peut-être · {rsvpCounts.notGoing} ne viennent pas</Text> : null}
                 {!isPendingPreview && currentEvent.moderationStatus === 'APPROVED' && rsvpCounts ? (
                   <Text style={styles.rsvpCountsText}>LOKI PULSE · {rsvpCounts.going * 5 + rsvpCounts.maybe} pts de participation</Text>
@@ -2052,6 +2061,13 @@ export default function PartiesScreen({ navigation, route }: any) {
 }
 
 const styles=StyleSheet.create({
+eventSalesDashboard:{marginTop:14,padding:12,gap:8,borderRadius:16,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundCard},
+eventSalesTitle:{fontSize:12,fontWeight:'900',color:colors.primaryLight},
+eventSalesMetrics:{flexDirection:'row',gap:6,justifyContent:'space-between'},
+eventSalesMetric:{flex:1,minWidth:0,alignItems:'center',justifyContent:'center'},
+eventSalesValue:{fontSize:17,fontWeight:'900',color:colors.white},
+eventSalesCaption:{fontSize:11,fontWeight:'800',color:colors.textPrimary,textAlign:'center'},
+eventSalesNote:{fontSize:11,color:colors.textSecondary},
 eventPayoutCard:{marginTop:10,marginBottom:12,padding:14,gap:10,borderRadius:18,borderWidth:1,borderColor:colors.warning,backgroundColor:colors.backgroundCard},
 eventPayoutTitle:{color:colors.warning,fontSize:14,fontWeight:'900'},
 eventPayoutHint:{color:colors.textPrimary,fontSize:12,lineHeight:17},
