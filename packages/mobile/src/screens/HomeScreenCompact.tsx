@@ -33,8 +33,9 @@ import { useLayoutMode } from '../layout/layoutMode';
 import MotionActionButton from '../components/MotionActionButton';
 import { loadSessionScreenCopy, loadCurrentPlanCode, loadDemoListenLimit } from '../services/planService';
 import { getDownloadCreditStatus } from '../services/creditService';
-import { startTabAudioMonitor, type TabAudioMonitorHandle, getMicPermissionStatus, MicPermissionDeniedError } from '../services/micCapture';
-import { recognizeFreshTabAudio } from '../services/keepMusicCoreRecognition';
+import { getMicPermissionStatus, MicPermissionDeniedError } from '../services/micCapture';
+import { getContinuousTabState, isContinuousTabMusicActive, startContinuousTabMusic, stopContinuousTabMusic, subscribeContinuousTabState } from '../services/continuousTabMusicSession';
+
 import { colors } from '../theme/colors';
 import { minTouchTarget, typography } from '../theme/spacing';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
@@ -692,7 +693,6 @@ export default function HomeScreenCompact({ navigation }: any) {
   const destination = current?.existingMatch?.playlistName || current?.recommendations?.[0]?.playlistName || playlists[0]?.name || 'Mes découvertes';
 
   const finishSession = () => {
-    tabResumeMicRef.current = false;
     stopTabAudio();
     setSessionPeekOpen(false);
     setKeepChoiceOpen(false);
@@ -811,36 +811,17 @@ export default function HomeScreenCompact({ navigation }: any) {
   // du micro évite le pire cas acoustique -- micro + haut-parleurs du même
   // ordinateur (écho, distorsion). Action ponctuelle volontairement séparée
   // de la session normale : ne touche ni son état ni son design validé.
-  const [tabTestBusy, setTabTestBusy] = useState(false);
-  const [tabMonitoring, setTabMonitoring] = useState(false);
-  const tabMonitorRef = useRef<TabAudioMonitorHandle | null>(null);
-  const tabResumeMicRef = useRef(false);
-  const tabSessionCreatedRef = useRef(false);
-  const tabMonitorEpoch = useRef(0);
-  const stopTabAudio = () => {
-    // Ignore late recognition responses from an already stopped tab.
-    tabMonitorEpoch.current += 1;
-    tabMonitorRef.current?.stop();
-    tabMonitorRef.current = null;
-    setTabMonitoring(false);
-    if (tabSessionCreatedRef.current) {
-      // A tab-only capture is a real session. Finalize it so it can be opened
-      // immediately in Mes Sessions, unlike the formerly blocked live card.
-      tabSessionCreatedRef.current = false;
-      if (useSessionStore.getState().isActive) useSessionStore.getState().requestEndSession();
-    }
-    const current = useSessionStore.getState();
-    if (tabResumeMicRef.current && current.isActive && current.micPaused
-      && !pausedForPreview.current && !current.listenFreeRequired && !current.listenFreeInsufficient) {
-      current.resumeListening();
-    }
-    tabResumeMicRef.current = false;
-  };
-  useEffect(() => {
-    // Le navigateur doit libérer le flux dès que l'utilisateur quitte Écouter.
-    const unsubscribe = navigation?.addListener?.('blur', stopTabAudio);
-    return () => { unsubscribe?.(); tabMonitorRef.current?.stop(); };
-  }, [navigation]);
+  const [tabTestBusy, setTabTestBusy] = useState(getContinuousTabState().phase === 'starting');
+  const [tabMonitoring, setTabMonitoring] = useState(getContinuousTabState().phase === 'monitoring');
+  // One browser-tab monitor survives navigation to Sessions/Profile/Stories.
+  // Only explicit STOP, revoked sharing or ending the session closes the stream.
+  useEffect(() => subscribeContinuousTabState(() => {
+    const state = getContinuousTabState();
+    setTabTestBusy(state.phase === 'starting');
+    setTabMonitoring(state.phase === 'monitoring');
+  }), []);
+  const stopTabAudio = () => stopContinuousTabMusic();
+
   const recordSharedLinkResult = async (url: string): Promise<boolean> => {
     const supportedUrl = supportedSharedMusicUrl(url);
     if (!supportedUrl) return false;
@@ -878,84 +859,22 @@ export default function HomeScreenCompact({ navigation }: any) {
     });
   };
 
-  const testTabCapture = async () => {
-    if (tabTestBusy || musicEngine.isDemoMode) return;
-    if (tabMonitorRef.current) {
+  const testTabCapture = () => {
+    if (tabTestBusy) return;
+    if (isContinuousTabMusicActive()) {
       stopTabAudio();
       return;
     }
-    const initial = useSessionStore.getState();
-    tabResumeMicRef.current = initial.isActive && !initial.micPaused;
-    // Suspendre le micro actif avant la capture d'onglet sans attendre une
-    // permission ou annuler le contexte audio isolé du navigateur.
-    if (tabResumeMicRef.current) initial.pauseListening();
-    const captureEpoch = ++tabMonitorEpoch.current;
-    // Le partage d'onglet doit démarrer DIRECTEMENT dans le clic utilisateur.
-    // Ne jamais appeler startSession(), getUserMedia() ou await avant ce geste.
-    setTabTestBusy(true);
-    try {
-      const monitor = await startTabAudioMonitor(async (sample) => {
-        const state = useSessionStore.getState();
-        if (state.isActive && !state.micPaused) state.pauseListening();
-        // Cette signature audio provient du flux courant, jamais d'une ancienne
-        // URL collée. Le moteur ne doit pas rester bloqué sur le premier titre.
-        const recognition = await recognizeFreshTabAudio(sample);
-        if (captureEpoch !== tabMonitorEpoch.current || !recognition) return;
-        const current = useSessionStore.getState();
-        if (!current.isActive) {
-          current.startSession({ captureMode: 'tab' });
-          tabSessionCreatedRef.current = true;
-        }
-        const result = await useSessionStore.getState().submitCapturedAudioRecognition(recognition);
-        if (result === 'added') {
-          // La carte de session reçoit la même préécoute que l'iPhone et le
-          // GARDER existant passe par la vraie validation FREE côté serveur.
-          const track = musicEngine.trackResolver.resolveFromRecognition(recognition);
-          void resolveTrackPreviewUrl(track).catch(() => null);
-        }
-        if (result === 'inactive' && (useSessionStore.getState().listenFreeRequired || useSessionStore.getState().listenFreeInsufficient)) {
-          throw new Error('LISTEN_FREE_REQUIRED');
-        }
-      }, (error) => {
-        if (captureEpoch !== tabMonitorEpoch.current) return;
-        tabMonitorEpoch.current += 1;
-        tabMonitorRef.current = null;
-        setTabMonitoring(false);
-        setTabTestBusy(false);
-        if (tabSessionCreatedRef.current) {
-          tabSessionCreatedRef.current = false;
-          if (useSessionStore.getState().isActive) useSessionStore.getState().requestEndSession();
-        }
-        const current = useSessionStore.getState();
-        if (tabResumeMicRef.current && current.isActive && current.micPaused && !current.listenFreeRequired && !current.listenFreeInsufficient) {
-          current.resumeListening();
-        }
-        tabResumeMicRef.current = false;
-        if (error?.message === 'LISTEN_FREE_REQUIRED' || /LISTEN_FREE_(REQUIRED|INSUFFICIENT)/.test(error?.message || '')) {
-          Alert.alert('Identifications incluses épuisées', 'Autorise les FREE depuis la session avant de reprendre la reconnaissance d’onglet. Aucun débit sans ton accord.');
-        } else if (error) {
-          Alert.alert('Capture de l’onglet arrêtée', error.message);
-        }
-      });
-      if (captureEpoch !== tabMonitorEpoch.current) { monitor.stop(); return; }
-      tabMonitorRef.current = monitor;
-      setTabMonitoring(true);
-    } catch (error: any) {
-      const previousMic = tabResumeMicRef.current;
-      tabResumeMicRef.current = false;
-      if (previousMic && useSessionStore.getState().isActive && useSessionStore.getState().micPaused) {
-        useSessionStore.getState().resumeListening();
-      }
+    // The browser permission prompt is opened directly in this click handler.
+    void startContinuousTabMusic().catch((error: any) => {
       const hint = error instanceof MicPermissionDeniedError
-        ? 'Choisis un onglet YouTube dans Chrome ou Edge et coche « Partager l’audio ».'
+        ? 'Sélectionne un onglet Chrome ou Edge et active « Partager l’audio ».'
         : String(error?.message || 'La capture audio est indisponible.');
       Alert.alert('Partage audio impossible', hint, [
         { text: 'Importer un lien', onPress: importCopiedMusicLink },
         { text: 'Fermer', style: 'cancel' },
       ]);
-    } finally {
-      setTabTestBusy(false);
-    }
+    });
   };
 
   // Keep the search modal mounted on the idle home, not only on the active microphone screen.
@@ -1319,7 +1238,7 @@ export default function HomeScreenCompact({ navigation }: any) {
       <KeepModal visible={sessionPeekOpen} transparent animationType="fade" onRequestClose={() => setSessionPeekOpen(false)} onDismiss={showQueuedSessionSwipe}>
         <View style={s.modalOverlay}><View style={[s.modalCard, { width: '100%', maxWidth: desktopHome ? 580 : 400, maxHeight: '78%', borderRadius: 22 }]}>
           <Text style={s.modalTitle}>Ta session en cours</Text>
-          <Text style={{ color: micPaused ? C.purpleLight : C.green, fontSize: 12, marginTop: 8, fontWeight: '800' }}>{micPaused ? '● Micro en pause pendant la préécoute' : '● Le micro continue d’écouter'}</Text>
+          <Text style={{ color: micPaused ? C.purpleLight : C.green, fontSize: 12, marginTop: 8, fontWeight: '800' }}>{tabMonitoring ? '● Suivi du son de l’onglet PC en cours' : micPaused ? '● Micro en pause pendant la préécoute' : '● Le micro continue d’écouter'}</Text>
           <Text style={s.modalBody}>{tracks.length} morceau{tracks.length > 1 ? 'x' : ''} détecté{tracks.length > 1 ? 's' : ''} · {tracks.filter((x) => x.status === 'pending').length} à swiper</Text>
           {tracks.filter((x) => x.status === 'pending').length >= 10 ? <Text style={{ color: C.purpleLight, fontSize: 12, marginTop: 6, fontWeight: '800' }}>Ta sélection t’attend : ouvre Mes Sessions pour retrouver et swiper tes morceaux, même après avoir quitté cet écran.</Text> : null}
           <ScrollView style={{ maxHeight: 215, marginTop: 10 }}>
