@@ -1,5 +1,14 @@
 [
   {
+    "commit": "0acadc67dca169af471652c4315a3067233ebea2",
+    "web": "0acadc67dca169af471652c4315a3067233ebea2",
+    "testflight": "iOS #229 in_progress (release a18e390)",
+    "ota": "OTA #1020 in_progress (release a18e390)",
+    "date": "2026-10-12 12:43",
+    "tests": "pass",
+    "changes": "fix(listen): supprimer enfin RESTANTES et réduire le bandeau (rebasé) (#145)"
+  },
+  {
     "commit": "a18e3902441335047829572108001fe8decb78c0",
     "web": "a18e3902441335047829572108001fe8decb78c0",
     "testflight": "iOS #229 in_progress (release a18e390)",

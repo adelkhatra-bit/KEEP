@@ -143,6 +143,7 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
+| `0acadc6` | `0acadc6` | iOS #229 in_progress (release a18e390) | OTA #1020 in_progress (release a18e390) | 2026-10-12 12:43 | pass | fix(listen): supprimer enfin RESTANTES et réduire le bandeau (rebasé) (#145) |
 | `a18e390` | `a18e390` | iOS #229 in_progress (release a18e390) | OTA #1020 in_progress (release a18e390) | 2026-10-12 12:34 | pass | release(ios): trigger TestFlight and OTA for merged PR116 web/mobile updates |
 | `5aa0413` | `5aa0413` | iOS #228 success (release f8dbd60) | OTA #1019 success (release f8dbd60) | 2026-10-12 12:16 | pass | build(deps): bump actions/configure-pages from 5.0.0 to 6.0.0 (#130) |
 | `cff41f4` | `cff41f4` | iOS #228 success (release f8dbd60) | OTA #1019 success (release f8dbd60) | 2026-10-12 11:44 | pass | fix(boutique): vitrines lisibles et parcours FREE / PayPal compréhensible PC et mobile (#143) |
