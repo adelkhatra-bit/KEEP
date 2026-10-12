@@ -39,7 +39,7 @@ AS $function$
   join public.profiles p on p.id=s.viewer_id
   order by s.started_at desc
   limit 200;
-$function$
+$function$;
 
 REVOKE ALL ON FUNCTION public.keep_my_story_viewers_v4(text,timestamptz) FROM public, anon;
 GRANT EXECUTE ON FUNCTION public.keep_my_story_viewers_v4(text,timestamptz) TO authenticated, service_role;
