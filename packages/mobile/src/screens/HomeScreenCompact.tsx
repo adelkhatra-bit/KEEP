@@ -15,6 +15,7 @@ import { usePlaylistStore } from '../store/usePlaylistStore';
 import { useUserStore } from '../store/useUserStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import { musicEngine } from '../services/musicEngine';
+import { searchTrackByText } from '../services/keepMusicCoreRecognition';
 import SwipeDeck from '../components/SwipeDeck';
 import TrackListenControls from '../components/TrackListenControls';
 import ListenEnergyAura from '../components/ListenEnergyAura';
@@ -411,14 +412,20 @@ export default function HomeScreenCompact({ navigation }: any) {
     setManualSearchBusy(true);
     setManualSearchNotFound(false);
     try {
-      const outcome = await submitManualSearch(manualSearchQuery);
-      if (outcome === 'not_found') {
-        setManualSearchNotFound(true);
-        return;
+      if (!useSessionStore.getState().isActive) {
+        // Depuis l'accueil : rechercher directement dans le catalogue, sans
+        // démarrer le microphone ni basculer dans l'écran d'écoute.
+        const found = await searchTrackByText(manualSearchQuery);
+        if (!found) { setManualSearchNotFound(true); return; }
+        setManualSearchResult({ title: found.title, artist: found.artist, track: found });
+      } else {
+        const previousIds = new Set(useSessionStore.getState().tracks.map((entry) => entry.id));
+        const outcome = await submitManualSearch(manualSearchQuery);
+        if (outcome === 'not_found') { setManualSearchNotFound(true); return; }
+        const latest = useSessionStore.getState().tracks;
+        const found = latest.find((entry) => !previousIds.has(entry.id))?.track;
+        if (found) setManualSearchResult({ title: found.title, artist: found.artist, track: found });
       }
-      const latest = useSessionStore.getState().tracks;
-      const found = latest[latest.length - 1]?.track;
-      if (found) setManualSearchResult({ title: found.title, artist: found.artist, track: found });
       setManualSearchOpen(false);
       setManualSearchQuery('');
     } finally {
