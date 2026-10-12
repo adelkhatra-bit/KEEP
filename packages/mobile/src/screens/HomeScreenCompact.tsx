@@ -134,6 +134,7 @@ export default function HomeScreenCompact({ navigation }: any) {
     listenEconomyStatus, listenFreeRequired, listenFreeInsufficient, refreshListenEconomyStatus,
     useFreeForNextListen, dismissListenFreePrompt,
     startSession, requestEndSession, dismissEndPrompt, keepTrack, passTrack, setTrackVisibility, submitManualSearch,
+    pauseListening, resumeListening, submitCapturedAudioRecognition,
   } = useSessionStore();
   const { playlists, refresh } = usePlaylistStore();
   const user = useUserStore((s) => s.user);
@@ -659,22 +660,34 @@ export default function HomeScreenCompact({ navigation }: any) {
   // de la session normale : ne touche ni son état ni son design validé.
   const [tabTestBusy, setTabTestBusy] = useState(false);
   const testTabCapture = async () => {
-    if (tabTestBusy || musicEngine.isDemoMode) return;
+    if (tabTestBusy || musicEngine.isDemoMode || !useSessionStore.getState().isActive) return;
+    // Le micro et le partage audio ne doivent jamais enregistrer en même temps.
+    const wasPaused = useSessionStore.getState().micPaused;
+    pauseListening();
     setTabTestBusy(true);
     try {
+      // getDisplayMedia doit partir directement du clic, sans await préalable.
+      // Chrome/Edge : sélectionner l'onglet YouTube et cocher « Partager l'audio ».
       const sample = await captureTabAudioSample();
       const recognition = await musicEngine.recognitionProvider.recognize(sample);
-      if (recognition) {
-        Alert.alert('Reconnu !', `${recognition.title} — ${recognition.artist}`);
-      } else {
-        Alert.alert('Aucun résultat', "L'onglet a bien été capté mais aucun morceau n'a été reconnu sur cet extrait.");
+      if (!recognition) {
+        Alert.alert('Musique non identifiée', 'Le son de l’onglet a été capté, mais le catalogue ne reconnaît pas cet extrait. Essaie un autre passage ou colle le lien YouTube dans « Chercher un morceau ».');
+        return;
       }
+      // Même carte GARDER/PASSER, quota FREE et anti-doublon que le micro.
+      const result = await submitCapturedAudioRecognition(recognition);
+      if (result === 'added') Alert.alert('Morceau trouvé', `${recognition.title} — ${recognition.artist}. Retrouve-le dans cette session.`);
+      if (result === 'duplicate') Alert.alert('Déjà identifié', 'Ce morceau est déjà présent dans ta session.');
     } catch (e: any) {
-      if (!(e instanceof MicPermissionDeniedError)) {
-        Alert.alert('Capture d’onglet', e?.message || 'Impossible de capter le son de cet onglet.');
+      if (e instanceof MicPermissionDeniedError) {
+        Alert.alert('Partage non autorisé', 'Sélectionne l’onglet YouTube dans Chrome ou Edge et autorise le partage de son audio.');
+      } else {
+        Alert.alert('Son de l’onglet indisponible', e?.message || 'Utilise Chrome ou Edge, sélectionne l’onglet YouTube et coche « Partager l’audio de l’onglet ».');
       }
     } finally {
       setTabTestBusy(false);
+      const current = useSessionStore.getState();
+      if (!wasPaused && current.isActive && current.micPaused && !current.listenFreeRequired && !current.listenFreeInsufficient) resumeListening();
     }
   };
 
@@ -758,11 +771,6 @@ export default function HomeScreenCompact({ navigation }: any) {
             ) : null}
             </View>
           </View>
-          {Platform.OS === 'web' && !musicEngine.isDemoMode ? (
-            <TouchableOpacity style={s.tabTest} onPress={testTabCapture} disabled={tabTestBusy} accessibilityLabel="Tester avec le son d'un onglet">
-              <Text style={s.tabTestText}>{tabTestBusy ? 'Capture en cours...' : 'Tester avec le son d’un onglet'}</Text>
-            </TouchableOpacity>
-          ) : null}
         </View>
         <CoachMarks visible={showCoach && !showMicPrimer} onFinish={finishCoach} />
 </SafeAreaView>
@@ -937,6 +945,15 @@ export default function HomeScreenCompact({ navigation }: any) {
           <View style={s.waiting}><Text style={s.waitingText}>♫  {t('session.waitingForMusic')}</Text></View>
         )}
 
+        {Platform.OS === 'web' && !musicEngine.isDemoMode ? (
+          <View testID="listen-tab-audio-option">
+            <TouchableOpacity style={s.tabTest} onPress={testTabCapture} disabled={tabTestBusy} accessibilityRole="button" accessibilityLabel="Reconnaître le son d’un onglet YouTube">
+              <Text style={s.tabTestText}>{tabTestBusy ? 'Reconnaissance du son en cours…' : '♫  Reconnaître le son d’un onglet YouTube (PC)'}</Text>
+            </TouchableOpacity>
+            <Text style={s.keepHint}>Sur le même ordinateur : dans Chrome ou Edge, choisis l’onglet YouTube et active « Partager l’audio ». Le micro sera mis en pause pendant la capture.</Text>
+          </View>
+        ) : null}
+
         <MotionActionButton
           variant="ghost"
           size="medium"
@@ -1022,19 +1039,19 @@ export default function HomeScreenCompact({ navigation }: any) {
       <KeepModal visible={manualSearchOpen} transparent animationType="fade" onRequestClose={() => !manualSearchBusy && setManualSearchOpen(false)}>
         <View style={s.modalOverlay}><View style={s.modalCard}>
           <Text style={s.modalTitle}>Chercher un morceau</Text>
-          <Text style={s.modalBody}>Tape le titre et l'artiste (ex. « Artiste - Titre »). Tu peux aussi coller un lien, mais uniquement depuis la plateforme musicale où le morceau est disponible (Spotify, Deezer, Apple Music) -- pas depuis YouTube ou un réseau social, Loki Music ne peut pas lire ces pages-là.</Text>
+          <Text style={s.modalBody}>Entre l’artiste et le titre, ou colle le lien d’une vidéo YouTube, Spotify, Deezer ou Apple Music. Pour YouTube, Loki Music recherche les informations publiques de la vidéo et les compare aux catalogues musicaux : il ne reconnaît pas directement l’audio à partir d’un simple lien.</Text>
           <TextInput
             style={s.manualSearchInput}
             value={manualSearchQuery}
             onChangeText={(v) => { setManualSearchQuery(v); setManualSearchNotFound(false); }}
-            placeholder="Artiste - Titre, ou lien Spotify/Deezer/Apple Music…"
+            placeholder="Artiste – Titre, ou lien YouTube/Spotify/Deezer…"
             placeholderTextColor={C.muted}
             editable={!manualSearchBusy}
             autoFocus
             returnKeyType="search"
             onSubmitEditing={runManualSearch}
           />
-          {manualSearchNotFound ? <Text style={s.manualSearchNotFound}>Rien trouvé -- ce morceau n'est peut-être disponible sur aucune plateforme officielle, ou réessaie avec un intitulé plus précis.</Text> : null}
+          {manualSearchNotFound ? <Text style={s.manualSearchNotFound}>Aucun titre confirmé à partir de cette recherche. Essaie « Artiste – Titre », une autre vidéo YouTube ou la capture audio de l’onglet sur PC.</Text> : null}
           <View style={s.modalActions}>
             <TouchableOpacity style={s.modalBtn} onPress={() => setManualSearchOpen(false)} disabled={manualSearchBusy}><Text style={s.modalBtnText}>Annuler</Text></TouchableOpacity>
             <TouchableOpacity style={[s.modalBtn, s.modalEnd]} onPress={runManualSearch} disabled={manualSearchBusy || !manualSearchQuery.trim()}>
