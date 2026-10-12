@@ -49,3 +49,4 @@ release: déblocage iPhone — PR 87 à 100 enfin publiées (OTA #1016 bloquée 
 release: PR110 synchronisation PC/iPhone, compteur 24h, story centrée, reconnaissance voix, anti-doublon FREE en base (2026-10-11)
 release: PR112 — iPhone reconnaissance restante + transfert PC QR ; Soirees/Battle PC ; evenements Story RSVP Loki Pulse ; quotas par formule Super Admin (2026-10-11T22:26Z).
 release: PR116 cockpit + Stories approuvées + Loki Pulse + boutique, corrections visuelles PC/mobile et parcours verifie CI (2026-10-12)
+release: 2026-10-12 — Écouter consommations Supabase, quota FREE 10, son onglet PC, liens audio, garde Public une seule fois; validation CI complète SHA 49910c15e0e3b69847621d41aa3d2234e7604781
