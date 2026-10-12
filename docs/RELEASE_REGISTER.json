@@ -1,5 +1,14 @@
 [
   {
+    "commit": "a18e3902441335047829572108001fe8decb78c0",
+    "web": "a18e3902441335047829572108001fe8decb78c0",
+    "testflight": "iOS #229 in_progress (release a18e390)",
+    "ota": "OTA #1020 in_progress (release a18e390)",
+    "date": "2026-10-12 12:34",
+    "tests": "pass",
+    "changes": "release(ios): trigger TestFlight and OTA for merged PR116 web/mobile updates"
+  },
+  {
     "commit": "5aa0413ac18a694532b52c0ccb400b3f82734940",
     "web": "5aa0413ac18a694532b52c0ccb400b3f82734940",
     "testflight": "iOS #228 success (release f8dbd60)",
