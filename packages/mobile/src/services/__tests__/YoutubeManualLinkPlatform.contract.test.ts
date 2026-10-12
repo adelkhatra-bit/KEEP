@@ -6,8 +6,9 @@ const screen = fs.readFileSync(path.resolve(__dirname, '..', '..', 'screens', 'H
 
 describe('YouTube manual recognition and tab capture', () => {
   it('forwards the actual platform to the server resolver', () => {
-    expect(source).toContain("host === 'youtu.be'");
-    expect(source).toContain("host === 'youtube.com'");
+    const classifier = fs.readFileSync(path.resolve(__dirname, '..', 'sharedSourcePlatform.ts'), 'utf8');
+    expect(classifier).toContain("host === 'youtu.be'");
+    expect(classifier).toContain("host === 'youtube.com'");
     expect(source).toContain('platform: sharedSourcePlatformFromUrl(trimmed)');
   });
   it('keeps the tab audio control in active listening rather than idle', () => {
