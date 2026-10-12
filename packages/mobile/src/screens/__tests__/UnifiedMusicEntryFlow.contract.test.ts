@@ -51,5 +51,9 @@ describe('Same music decision workflow for microphone, PC tab and shared link', 
     expect(commit.indexOf('keepTrackInSession(')).toBeGreaterThan(-1);
     expect(commit.indexOf('pinStoryTrack(')).toBeGreaterThan(commit.indexOf('keepTrackInSession('));
     expect(commit).toContain("if (visibility === 'PUBLIC')");
+    const microphoneKeep = home.slice(home.indexOf('const doKeep = async ('), home.indexOf('// Règle produit 24/09/2026'));
+    expect(microphoneKeep).toContain("confirmed?.status === 'kept'");
+    expect(microphoneKeep).toContain("confirmed.visibility === 'PUBLIC'");
+    expect(microphoneKeep.indexOf('pinStoryTrack(')).toBeGreaterThan(microphoneKeep.indexOf('await keepTrack('));
   });
 });
