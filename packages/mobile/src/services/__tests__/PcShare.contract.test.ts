@@ -22,7 +22,7 @@ describe('Partager sur mon PC · 24 h', () => {
   it('le bouton accueil PC est court et répond même sans ordinateur connecté', () => {
     const panel = read('packages/mobile/src/components/WebCompanionSessionsPanel.tsx');
     expect(panel).toContain('<Text style={s.quickShareText}>PC ↗</Text>');
-    expect(panel).toContain("Alert.alert('PC connecté'");
+    expect(panel).toContain("online.length === 1 ? 'PC connecté' : 'Choisir un PC'");
     expect(panel).toContain("Alert.alert('Aucun PC connecté'");
     expect(panel).toContain('requestWebCompanionScreen(session.id, screen)');
     expect(panel).toContain('https://wa.me/?text=');
