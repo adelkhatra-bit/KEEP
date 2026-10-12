@@ -16,11 +16,22 @@ export default function AppUpdateBanner({ authReady = true }: { authReady?: bool
   const latestSha = useAppUpdateStore((state) => state.latestSha);
   const checkNow = useAppUpdateStore((state) => state.checkNow);
   const webReloadingRef = useRef(false);
+  const lastInteractionRef = useRef(Date.now());
+
+  // Observer les gestes AVANT la détection d'un nouveau SHA : sinon un onglet
+  // utilisé activement pourrait recharger immédiatement à la première alerte.
+  useEffect(() => {
+    if (!authReady || Platform.OS !== 'web' || typeof document === 'undefined') return undefined;
+    const markActivity = () => { lastInteractionRef.current = Date.now(); };
+    const activityEvents = ['pointerdown', 'keydown', 'touchstart', 'wheel'];
+    activityEvents.forEach((event) => document.addEventListener(event, markActivity, { passive: true }));
+    return () => activityEvents.forEach((event) => document.removeEventListener(event, markActivity));
+  }, [authReady]);
 
   useEffect(() => {
     if (!authReady || Platform.OS !== 'web') return undefined;
     void checkNow();
-    const interval = setInterval(() => { void checkNow(); }, 60_000);
+    const interval = setInterval(() => { void checkNow(); }, 15_000);
     const onVisible = () => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         void checkNow();
@@ -35,20 +46,28 @@ export default function AppUpdateBanner({ authReady = true }: { authReady?: bool
 
   useEffect(() => {
     if (!authReady || Platform.OS !== 'web' || !latestSha || webReloadingRef.current) return undefined;
-    // Incident 02/10/2026 : la page se rechargeait en pleine utilisation (clic
-    // sur Recherche, profil en cours de chargement) à chaque publication -- et
-    // il y en a eu des dizaines dans la journée. Chaque rechargement relançait
-    // tout le chargement du profil, qui n'aboutissait jamais : profils « vides ».
-    // La mise à jour reste silencieuse et automatique, mais ne s'applique
-    // JAMAIS sous les doigts de l'utilisateur : seulement quand l'onglet passe
-    // en arrière-plan (changement d'onglet, écran verrouillé, fenêtre réduite).
+    // Un utilisateur resté sur l'onglet doit recevoir la version publiée sans
+    // devoir changer d'onglet. Attendre 30 s sans geste empêche de couper une
+    // saisie, un clic ou une navigation active. Solo/Battle restent protégés.
+    const VISIBLE_IDLE_MS = 30_000;
     let cancelGameWait: () => void = () => {};
+    let queuedForGame = false;
+
+    const editing = () => {
+      if (typeof document === 'undefined') return false;
+      const element = document.activeElement;
+      return ['INPUT', 'TEXTAREA', 'SELECT'].includes(element?.tagName || '')
+        || Boolean(element?.closest?.('[contenteditable="true"]'));
+    };
+    const isSafe = () => typeof document === 'undefined'
+      || document.visibilityState === 'hidden'
+      || (Date.now() - lastInteractionRef.current >= VISIBLE_IDLE_MS && !editing());
     const applyUpdate = () => {
-      if (webReloadingRef.current) return;
-      // Jamais pendant un Solo / Battle : on attend la fin de la partie.
-      cancelGameWait();
+      if (webReloadingRef.current || queuedForGame || !isSafe()) return;
+      queuedForGame = true;
       cancelGameWait = runWhenNoGameInProgress(() => {
-        if (webReloadingRef.current) return;
+        queuedForGame = false;
+        if (webReloadingRef.current || !isSafe()) return;
         webReloadingRef.current = true;
         reloadToLatest();
       });
@@ -57,11 +76,16 @@ export default function AppUpdateBanner({ authReady = true }: { authReady?: bool
       applyUpdate();
       return () => cancelGameWait();
     }
-    const onHidden = () => {
-      if (document.visibilityState === 'hidden') applyUpdate();
-    };
+
+    const onHidden = () => { if (document.visibilityState === 'hidden') applyUpdate(); };
     document.addEventListener('visibilitychange', onHidden);
+    // La détection SHA est séparée (15 s). Dès qu'elle signale un changement,
+    // ce contrôle applique la mise à jour sur l'onglet visible au repos.
+    // Contrôle local du temps d'inactivité, sans requête réseau (>= 5 s).
+    const visibleIdleCheck = setInterval(applyUpdate, 5_000);
+    applyUpdate();
     return () => {
+      clearInterval(visibleIdleCheck);
       document.removeEventListener('visibilitychange', onHidden);
       cancelGameWait();
     };

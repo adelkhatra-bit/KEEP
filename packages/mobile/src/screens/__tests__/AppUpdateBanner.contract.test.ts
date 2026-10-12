@@ -25,7 +25,12 @@ describe('silent deployment update contract', () => {
     expect(banner).toContain("if (!authReady || Platform.OS !== 'web') return undefined;");
     expect(banner).toContain("if (!authReady || Platform.OS !== 'web' || !latestSha || webReloadingRef.current) return undefined;");
     expect(banner).toContain("document.addEventListener('visibilitychange', onHidden)");
-    expect(banner).toContain('setInterval(() => { void checkNow(); }, 60_000)');
+    expect(banner).toContain('const VISIBLE_IDLE_MS = 30_000');
+    expect(banner).toContain('setInterval(applyUpdate, 5_000)');
+    expect(banner).toContain('lastInteractionRef.current');
+    expect(banner).toContain("['INPUT', 'TEXTAREA', 'SELECT']");
+    expect(banner).toContain('runWhenNoGameInProgress');
+    expect(banner).toContain('setInterval(() => { void checkNow(); }, 15_000)');
   });
 
   it('keeps automatic cache-busted web refresh available', () => {

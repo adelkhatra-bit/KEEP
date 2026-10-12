@@ -13,6 +13,8 @@ Rapport d'audit externe : `docs/AUDIT_EXTERNE_2026-10-06.md`. Notifications : `d
 - `copilot/*`, `dependabot/*` : références d'audit et mises à jour automatiques, non sources produit.
 
 ## Journal (récent d'abord)
+
+| 12/10/2026 | fix/web-idle-refresh-20261012 (PR en vérification) | 8e829279 (premier commit) | Mise à jour PC automatique lorsque l'onglet reste visible : vérification SHA 15 s, application après 30 s d'inactivité, aucune interruption saisie/Solo/Battle ; un seul bundle canonique | Test de contrat renforcé ; CI, publication GitHub Pages et TestFlight non encore prouvés |
 | Date | Branche | Commit | Fonction | Preuve |
 |---|---|---|---|---|
 | 12/10/2026 | fix/session-swipe-modal-center-20261012 (PR #120) | CI en attente | Affinement du contrat audio accueil : anciennes bulles Pulse toujours absentes, geste Swipe Web explicitement déverrouillé ; audit statique centré/superpositions consigné | Mobile CI précédent 38192466899 : 1501/1502, unique échec de contrat identifié ; nouvelle CI à vérifier |
