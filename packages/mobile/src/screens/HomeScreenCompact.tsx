@@ -33,7 +33,8 @@ import { useLayoutMode } from '../layout/layoutMode';
 import MotionActionButton from '../components/MotionActionButton';
 import { loadSessionScreenCopy, loadCurrentPlanCode, loadDemoListenLimit } from '../services/planService';
 import { getDownloadCreditStatus } from '../services/creditService';
-import { captureTabAudioSample, getMicPermissionStatus, MicPermissionDeniedError } from '../services/micCapture';
+import { startTabAudioMonitor, type TabAudioMonitorHandle, getMicPermissionStatus, MicPermissionDeniedError } from '../services/micCapture';
+import { recognizeFreshTabAudio } from '../services/keepMusicCoreRecognition';
 import { colors } from '../theme/colors';
 import { minTouchTarget, typography } from '../theme/spacing';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
@@ -689,6 +690,8 @@ export default function HomeScreenCompact({ navigation }: any) {
   const destination = current?.existingMatch?.playlistName || current?.recommendations?.[0]?.playlistName || playlists[0]?.name || 'Mes découvertes';
 
   const finishSession = () => {
+    tabResumeMicRef.current = false;
+    stopTabAudio();
     setSessionPeekOpen(false);
     setKeepChoiceOpen(false);
     requestEndSession();
@@ -778,6 +781,19 @@ export default function HomeScreenCompact({ navigation }: any) {
   // ordinateur (écho, distorsion). Action ponctuelle volontairement séparée
   // de la session normale : ne touche ni son état ni son design validé.
   const [tabTestBusy, setTabTestBusy] = useState(false);
+  const [tabMonitoring, setTabMonitoring] = useState(false);
+  const tabMonitorRef = useRef<TabAudioMonitorHandle | null>(null);
+  const tabResumeMicRef = useRef(false);
+  const stopTabAudio = () => {
+    tabMonitorRef.current?.stop();
+    tabMonitorRef.current = null;
+    setTabMonitoring(false);
+  };
+  useEffect(() => {
+    // Le navigateur doit libérer le flux dès que l'utilisateur quitte Écouter.
+    const unsubscribe = navigation?.addListener?.('blur', stopTabAudio);
+    return () => { unsubscribe?.(); tabMonitorRef.current?.stop(); };
+  }, [navigation]);
   const recordSharedLinkResult = async (url: string): Promise<boolean> => {
     const supportedUrl = supportedSharedMusicUrl(url);
     if (!supportedUrl) return false;
@@ -817,64 +833,66 @@ export default function HomeScreenCompact({ navigation }: any) {
 
   const testTabCapture = async () => {
     if (tabTestBusy || musicEngine.isDemoMode) return;
-    // L’action est aussi disponible dès l’accueil PC, avant de lancer le micro.
-    // Lancer la session dans le geste utilisateur, puis la mettre en pause avant de capter le son partagé.
-    const wasActive = useSessionStore.getState().isActive;
-    const wasPaused = useSessionStore.getState().micPaused;
-    if (wasActive) useSessionStore.getState().pauseListening();
+    if (tabMonitorRef.current) {
+      stopTabAudio();
+      return;
+    }
+    const initial = useSessionStore.getState();
+    tabResumeMicRef.current = initial.isActive && !initial.micPaused;
+    // Le partage d'onglet doit démarrer DIRECTEMENT dans le clic utilisateur.
+    // Ne jamais appeler startSession(), getUserMedia() ou await avant ce geste.
     setTabTestBusy(true);
     try {
-      // getDisplayMedia doit partir directement du clic, sans await préalable.
-      // Chrome/Edge : sélectionner l'onglet YouTube et cocher « Partager l'audio ».
-      const sample = await captureTabAudioSample();
-      const recognition = await musicEngine.recognitionProvider.recognize(sample);
-      if (!recognition) {
-        // Le navigateur ne donne jamais l'URL de l'onglet sélectionné par
-        // getDisplayMedia. En revanche, un lien effectivement partagé à Loki
-        // est disponible dans notre file de provenance : recherche automatique.
-        const shared = await getSharedMusicSource();
-        if (shared?.url && await recordSharedLinkResult(shared.url)) return;
-        Alert.alert(
-          'Audio capté, titre non reconnu',
-          'Loki a capté le son, mais aucune empreinte fiable ne correspond. Pour récupérer la musique exacte, importe son lien YouTube ou Spotify.',
-          [
-            { text: 'Importer le lien copié', onPress: importCopiedMusicLink },
-            { text: 'Saisir un lien', onPress: () => { setManualSearchNotFound(false); setManualSearchOpen(true); } },
-            { text: 'Fermer', style: 'cancel' },
-          ],
-        );
-        return;
-      }
-      // N'active le micro/session qu'après la capture ; le partage d'onglet doit démarrer dans le geste utilisateur.
-      if (!useSessionStore.getState().isActive) useSessionStore.getState().startSession();
-      // Même carte GARDER/PASSER, quota FREE et anti-doublon que le micro.
-      const result = await submitCapturedAudioRecognition(recognition);
-      if (result === 'added') Alert.alert('Morceau trouvé', `${recognition.title} — ${recognition.artist}. Retrouve-le dans cette session.`);
-      if (result === 'duplicate') Alert.alert('Déjà identifié', 'Ce morceau est déjà présent dans ta session.');
-    } catch (e: any) {
-      if (e instanceof MicPermissionDeniedError) {
-        Alert.alert('Partage non autorisé', 'Choisis l’onglet YouTube dans Chrome ou Edge et active le partage du son. Sinon, colle son lien directement.', [
-          { text: 'Importer le lien copié', onPress: importCopiedMusicLink },
-          { text: 'Saisir le lien', onPress: () => { setManualSearchNotFound(false); setManualSearchOpen(true); } },
-          { text: 'Fermer', style: 'cancel' },
-        ]);
-      } else {
-        // Ne pas enfermer l'utilisateur dans une erreur : recherche du lien
-        // depuis la même page Loki Music, sans relancer le micro.
-        Alert.alert(
-          'Son de l’onglet indisponible',
-          (e?.message || 'La capture du navigateur a échoué.') + ' Tu peux aussi coller le lien YouTube ou Spotify sans capturer ton écran.',
-          [
-            { text: 'Importer le lien copié', onPress: importCopiedMusicLink },
-          { text: 'Saisir le lien', onPress: () => { setManualSearchNotFound(false); setManualSearchOpen(true); } },
-            { text: 'Fermer', style: 'cancel' },
-          ],
-        );
-      }
+      const monitor = await startTabAudioMonitor(async (sample) => {
+        const state = useSessionStore.getState();
+        if (state.isActive && !state.micPaused) state.pauseListening();
+        // Cette signature audio provient du flux courant, jamais d'une ancienne
+        // URL collée. Le moteur ne doit pas rester bloqué sur le premier titre.
+        const recognition = await recognizeFreshTabAudio(sample);
+        if (!recognition) return;
+        const current = useSessionStore.getState();
+        if (!current.isActive) {
+          current.startSession();
+          useSessionStore.getState().pauseListening();
+        }
+        const result = await useSessionStore.getState().submitCapturedAudioRecognition(recognition);
+        if (result === 'added') {
+          // La carte de session reçoit la même préécoute que l'iPhone et le
+          // GARDER existant passe par la vraie validation FREE côté serveur.
+          const track = musicEngine.trackResolver.resolveFromRecognition(recognition);
+          void resolveTrackPreviewUrl(track).catch(() => null);
+        }
+        if (result === 'inactive' && (useSessionStore.getState().listenFreeRequired || useSessionStore.getState().listenFreeInsufficient)) {
+          throw new Error('LISTEN_FREE_REQUIRED');
+        }
+      }, (error) => {
+        tabMonitorRef.current = null;
+        setTabMonitoring(false);
+        setTabTestBusy(false);
+        const current = useSessionStore.getState();
+        if (tabResumeMicRef.current && current.isActive && current.micPaused && !current.listenFreeRequired && !current.listenFreeInsufficient) {
+          current.resumeListening();
+        }
+        tabResumeMicRef.current = false;
+        if (error?.message === 'LISTEN_FREE_REQUIRED' || /LISTEN_FREE_(REQUIRED|INSUFFICIENT)/.test(error?.message || '')) {
+          Alert.alert('Identifications incluses épuisées', 'Autorise les FREE depuis la session avant de reprendre la reconnaissance d’onglet. Aucun débit sans ton accord.');
+        } else if (error) {
+          Alert.alert('Capture de l’onglet arrêtée', error.message);
+        }
+      });
+      tabMonitorRef.current = monitor;
+      setTabMonitoring(true);
+    } catch (error: any) {
+      tabResumeMicRef.current = false;
+      const hint = error instanceof MicPermissionDeniedError
+        ? 'Choisis un onglet YouTube dans Chrome ou Edge et coche « Partager l’audio ».'
+        : String(error?.message || 'La capture audio est indisponible.');
+      Alert.alert('Partage audio impossible', hint, [
+        { text: 'Importer un lien', onPress: importCopiedMusicLink },
+        { text: 'Fermer', style: 'cancel' },
+      ]);
     } finally {
       setTabTestBusy(false);
-      const current = useSessionStore.getState();
-      if (wasActive && !wasPaused && !pausedForPreview.current && current.isActive && current.micPaused && !current.listenFreeRequired && !current.listenFreeInsufficient) resumeListening();
     }
   };
 
@@ -991,8 +1009,8 @@ export default function HomeScreenCompact({ navigation }: any) {
             </View>
             {desktopHome && Platform.OS === 'web' && !musicEngine.isDemoMode ? (
               <React.Fragment>
-              <TouchableOpacity testID="home-tab-audio-option" style={s.tabTest} onPress={testTabCapture} disabled={tabTestBusy} accessibilityRole="button" accessibilityLabel="Reconnaître le son d’un onglet YouTube ou TikTok sur PC">
-                <Text style={s.tabTestText}>{tabTestBusy ? 'Analyse de l’onglet…' : '♫ Son d’un onglet PC'}</Text>
+              <TouchableOpacity testID="home-tab-audio-option" style={s.tabTest} onPress={testTabCapture} disabled={tabTestBusy} accessibilityRole="button" accessibilityLabel={tabMonitoring ? 'Arrêter le partage audio de l’onglet' : 'Reconnaître le son d’un onglet YouTube ou TikTok sur PC'}>
+                <Text style={s.tabTestText}>{tabTestBusy ? 'Ouverture du partage…' : tabMonitoring ? '■ ARRÊTER LE SON DE L’ONGLET' : '♫ Suivre la musique d’un onglet PC'}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setTabAudioHelpOpen(true)} accessibilityRole="button" accessibilityLabel="Comment fonctionne le son d’un onglet PC ?" style={{ alignSelf: "center", padding: 8 }}><Text style={{ color: C.text, fontSize: 12 }}>ⓘ Comment ça marche ?</Text></TouchableOpacity>
               </React.Fragment>
@@ -1023,7 +1041,7 @@ export default function HomeScreenCompact({ navigation }: any) {
           </View>
         </View>
         {manualSearchModal}
-        <KeepModal visible={tabAudioHelpOpen} transparent animationType="fade" onRequestClose={() => setTabAudioHelpOpen(false)}><View style={s.modalOverlay}><View style={s.modalCard}><Text style={s.modalTitle}>Son d’un onglet PC</Text><Text style={s.modalBody}>Sur ordinateur, ouvre une musique dans Chrome ou Edge, clique sur « Son d’un onglet PC », sélectionne l’onglet qui joue la musique et active « Partager l’audio ». Loki analyse cet extrait pour identifier le titre. Cette fonction ne fonctionne pas sur iPhone ; sur mobile, utilise le micro ou colle un lien.</Text><TouchableOpacity style={s.modalBtn} onPress={() => setTabAudioHelpOpen(false)}><Text style={s.modalBtnText}>Compris</Text></TouchableOpacity></View></View></KeepModal>
+        <KeepModal visible={tabAudioHelpOpen} transparent animationType="fade" onRequestClose={() => setTabAudioHelpOpen(false)}><View style={s.modalOverlay}><View style={s.modalCard}><Text style={s.modalTitle}>Son d’un onglet PC</Text><Text style={s.modalBody}>Sur ordinateur, ouvre YouTube dans Chrome ou Edge, lance « Suivre la musique d’un onglet PC », sélectionne l’onglet YouTube et coche « Partager l’audio ». Loki garde le partage ouvert pour identifier les titres suivants, et ajoute chaque morceau reconnu à la session, avec préécoute et GARDER en FREE. Appuie sur ARRÊTER pour libérer le partage. Cette fonction ne fonctionne pas sur iPhone ; sur mobile, utilise le micro ou colle un lien.</Text><TouchableOpacity style={s.modalBtn} onPress={() => setTabAudioHelpOpen(false)}><Text style={s.modalBtnText}>Compris</Text></TouchableOpacity></View></View></KeepModal>
         <CoachMarks visible={showCoach && !showMicPrimer} onFinish={finishCoach} />
 </SafeAreaView>
     );
@@ -1207,10 +1225,10 @@ export default function HomeScreenCompact({ navigation }: any) {
 
         {desktopHome && Platform.OS === 'web' && !musicEngine.isDemoMode ? (
           <View testID="listen-tab-audio-option">
-            <TouchableOpacity style={s.tabTest} onPress={testTabCapture} disabled={tabTestBusy} accessibilityRole="button" accessibilityLabel="Reconnaître le son d’un onglet YouTube">
-              <Text style={s.tabTestText}>{tabTestBusy ? 'Reconnaissance du son en cours…' : '♫  Reconnaître le son d’un onglet YouTube (PC)'}</Text>
+            <TouchableOpacity style={s.tabTest} onPress={testTabCapture} disabled={tabTestBusy} accessibilityRole="button" accessibilityLabel={tabMonitoring ? 'Arrêter le partage de son de l’onglet' : 'Reconnaître le son d’un onglet YouTube'}>
+              <Text style={s.tabTestText}>{tabTestBusy ? 'Ouverture du partage…' : tabMonitoring ? '■ ARRÊTER LE SON DE L’ONGLET' : '♫  Suivre les morceaux de YouTube (PC)'}</Text>
             </TouchableOpacity>
-            <Text style={s.keepHint}>Sur le même ordinateur : dans Chrome ou Edge, choisis l’onglet YouTube et active « Partager l’audio ». Le micro sera mis en pause pendant la capture.</Text>
+            <Text style={s.keepHint}>Sur le même ordinateur : dans Chrome ou Edge, choisis l’onglet YouTube et active « Partager l’audio ». Le micro est mis en pause pendant le partage. Loki suit les morceaux successifs jusqu’à ARRÊTER.</Text>
           </View>
         ) : null}
 
