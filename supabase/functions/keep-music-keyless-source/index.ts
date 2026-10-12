@@ -566,6 +566,9 @@ Deno.serve(async (req) => {
     const rawText = cleanMusicText(body?.rawText ?? "").slice(0, 1500);
     const suppliedTitle = cleanMusicText(body?.title ?? "").slice(0, 500);
     const platform = linkPlatform(sourceUrl, String(body?.platform ?? "UNKNOWN").toUpperCase());
+    // A copied YouTube URL must be matched against THAT video, never a
+    // similarly named song pulled from the clipboard caption or a broad search.
+    const strictYoutubeLink = Boolean(sourceUrl && platform === "YOUTUBE");
     if (!sourceUrl && !rawText && !suppliedTitle) return json(200, { ok: true, provider: "KEYLESS_SOURCE", recognition: null });
 
     if (sourceUrl?.hostname.toLowerCase().includes("music.apple.com")) {
@@ -626,9 +629,23 @@ Deno.serve(async (req) => {
     const ogDescription = metaContent(page.html, "og:description") || metaContent(page.html, "twitter:description") || metaContent(page.html, "description");
     const embeddedTitle = String(embedded?.title ?? "");
     const embeddedAuthor = String(embedded?.author_name ?? "");
-    const evidence = [explicit?.title, explicit?.artist, embeddedTitle, embeddedAuthor, ogTitle, ogDescription, suppliedTitle, rawText].filter(Boolean).join(" ").slice(0, 5000);
+    const evidence = [explicit?.title, explicit?.artist, embeddedTitle, embeddedAuthor, ogTitle, ogDescription,
+      ...(strictYoutubeLink ? [] : [suppliedTitle, rawText])].filter(Boolean).join(" ").slice(0, 5000);
 
-    const artistTitleCandidates = buildCandidates({ explicit, suppliedTitle, rawText, embeddedTitle, embeddedAuthor, ogTitle });
+    const artistTitleCandidates = buildCandidates({ explicit,
+      suppliedTitle: strictYoutubeLink ? "" : suppliedTitle,
+      rawText: strictYoutubeLink ? "" : rawText,
+      embeddedTitle, embeddedAuthor, ogTitle });
+    // Only metadata obtained from the actual video can prove the title/artist.
+    // A search result with partial tokens must NEVER replace that video.
+    const videoPairs = strictYoutubeLink ? [
+      ...(explicit ? [{ artist: explicit.artist, title: explicit.title }] : []),
+      ...[embeddedTitle, ogTitle].flatMap((title) => {
+        const bySeparator = parseArtistTitle(title);
+        const quoted = parseQuotedTitle(title);
+        return [bySeparator, quoted].filter((x): x is { artist: string; title: string } => Boolean(x));
+      }),
+    ] : [];
 
     const respond = (payload: Record<string, unknown>) => {
       if (cacheKey) cacheSet(cacheKey, payload);
@@ -637,9 +654,11 @@ Deno.serve(async (req) => {
 
     // Repli source verifiee : preparee des maintenant, utilisee seulement si
     // aucun match catalogue suffisamment confiant n'est trouve plus bas.
-    const bestTitleGuess = artistTitleCandidates[0]?.title || cleanMusicText(embeddedTitle || ogTitle || suppliedTitle);
+    const bestTitleGuess = artistTitleCandidates[0]?.title || cleanMusicText(embeddedTitle || ogTitle || (strictYoutubeLink ? "" : suppliedTitle));
     const bestArtistGuess = artistTitleCandidates[0]?.artist || embeddedAuthor;
-    const canSourceVerify = Boolean(page.url && bestTitleGuess);
+    // No trustworthy video metadata -> show the actual embedded video only.
+    // Never invent an artist or publish a different catalogue song.
+    const canSourceVerify = Boolean(page.url && bestTitleGuess && (!strictYoutubeLink || (embeddedTitle || ogTitle || explicit)));
     const sourceVerifiedFallback = () => {
       if (!canSourceVerify) return respond({ ok: true, provider: "KEYLESS_SOURCE", recognition: null, reason: "catalog_no_match" });
       const rec = sourceVerifiedRecognition({
@@ -677,6 +696,18 @@ Deno.serve(async (req) => {
     // sous ce seuil ne renvoie plus null : il tombe sur SOURCE_VERIFIED.
     const threshold = directMusicHost ? 0.58 : 0.68;
     if (confidence < threshold) return sourceVerifiedFallback();
+    if (strictYoutubeLink) {
+      // A generic iTunes/Deezer hit can score highly just by repeating words
+      // in descriptions/captions. Both artist AND title must independently
+      // agree with the metadata of the exact shared YouTube video.
+      const verified = videoPairs.some((pair) =>
+        tokenCoverage(pair.title, best.track.title) >= 0.78
+        && tokenCoverage(best.track.title, pair.title) >= 0.68
+        && tokenCoverage(pair.artist, best.track.artist) >= 0.72
+        && tokenCoverage(best.track.artist, pair.artist) >= 0.72,
+      );
+      if (!verified) return sourceVerifiedFallback();
+    }
 
     const finalRecognition = await recognition(best.track, confidence, page.url?.toString() || rawUrl, corroborating);
     seedInBackground(finalRecognition);
