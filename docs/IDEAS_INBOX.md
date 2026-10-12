@@ -1,3 +1,6 @@
+## Demande du 12/10/2026 — choix du destinataire PC ou messagerie
+- **IDÉE · EN COURS** : popup sur mobile proposant un ordinateur déjà connecté par QR, WhatsApp ou e-mail. Choisir explicitement le PC quand plusieurs sessions existent. Le QR ne doit pas être envoyé en messagerie. Les liens WhatsApp et e-mail concernent seulement les contenus publics. Le transfert de véritables fichiers images est une fonction distincte, non encore implémentée. Conserver les 24 h, la révocation, les contrôles de confidentialité et les interfaces PC/mobile.
+
 # IDEAS INBOX — boîte à idées d'Adel (source unique)
 
 ## Demande du 12/10/2026 — fenêtres musicales mobile et PC
