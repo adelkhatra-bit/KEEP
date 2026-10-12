@@ -28,6 +28,29 @@ function normalizeUrl(value: string) {
   return (match?.[0] ?? trimmed).replace(/[),.;]+$/, '');
 }
 
+/**
+ * N'importe quelle page peut partager du texte avec un lien intégré.
+ * Ne reprendre que les URL des plateformes réellement prises en charge par
+ * keep-music-keyless-source, jamais une adresse arbitraire du presse-papiers.
+ */
+export function supportedSharedMusicUrl(text: string): string | null {
+  const match = String(text || '').match(/https?:\/\/[^\\s<>"']+/i);
+  if (!match) return null;
+  const candidate = match[0].replace(/[),.;!?]+$/, '');
+  try {
+    const url = new URL(candidate);
+    const host = url.hostname.toLowerCase().replace(/^www\\./, '');
+    const platforms = [
+      'youtube.com', 'youtu.be', 'spotify.com', 'deezer.com', 'music.apple.com',
+      'soundcloud.com', 'listen.tidal.com', 'tiktok.com', 'instagram.com',
+      'facebook.com', 'fb.watch', 'snapchat.com', 'snap.com',
+    ];
+    return platforms.some((domain) => host === domain || host.endsWith('.' + domain)) ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 export function detectSharedMusicPlatform(value: string): SharedMusicPlatform {
   const input = value.toLowerCase();
   if (input.includes('tiktok.com') || input.includes('vm.tiktok.com') || input.includes('vt.tiktok.com')) return 'TIKTOK';
