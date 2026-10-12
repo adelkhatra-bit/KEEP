@@ -19,6 +19,7 @@ import { loadMyOfferedTrackIds } from '../services/playlistSaleService';
 import { persistOwnTrackVisibility } from '../services/keepVisibilityService';
 import { isTrackPreviewActive, playTrackPreviewFromGesture, preloadTrackPreview, stopTrackPreview, stopTrackPreviewFast, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
+import StoryEmbeddedSourcePlayer from './StoryEmbeddedSourcePlayer';
 import { resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
 import { resolveTrackExternalDestination } from '../services/trackExternalLinkService';
 import { checkOwnKeepLibrary } from '../services/connectedMusicLibrary';
@@ -279,6 +280,13 @@ export default function MusicSwipeDeckModal({
   const justAddedNow = Boolean(current && justAdded.has(current.id));
   // Aperçu propriétaire = exactement ce que voient les abonnés : une musique de MA boutique y est masquée (animation « pochette mystère »), jamais en clair.
   const ownerMasked = Boolean(previewOnly && currentOffered && current && !isSaleStoryTrack(current));
+  // A sale teaser cannot load a provider iframe: it would expose the hidden
+  // title, artist and cover before purchase. Normal public stories can use
+  // the original verified source when no licensed catalogue snippet exists.
+  const storyEmbeddedSource = visible && Boolean(trackAddedAt) && current
+    && !isSaleStoryTrack(current) && !currentOffered && !ownerMasked
+    && !resolvedPreviewUrl && !previewResolving
+    ? String(current.externalUrls?.source ?? '') : '';
   const alreadyInStory = Boolean(current && storyIds.has(current.id));
   // Gardé en Privé puis « mettre en story » : on le rend public (le serveur l'exige) puis on l'épingle.
   const makeKeptPublicAndStory = async () => {
@@ -423,7 +431,7 @@ export default function MusicSwipeDeckModal({
     const checking = !storyIdsReady && !justAddedNow;
     const label = checking ? '⏳ PATIENTE… VÉRIFICATION DE TA STORY' : justAddedNow ? '✓ EN STORY · 24 H' : alreadyInStory ? '✓ DÉJÀ EN STORY' : (currentOffered ? '＋ METTRE EN STORY (MASQUÉE)' : popup ? '＋ METTRE EN STORY' : '＋ AJOUTER À MA STORY');
     return <View>
-      <TouchableOpacity disabled={checking} style={[buttonStyle, checking || justAddedNow || alreadyInStory ? s.addStoryButtonDone : s.addStoryButtonLit]} onPress={() => { void addCurrentToStory(); }} accessibilityRole="button" accessibilityLabel={checking ? 'Vérification de ta story en cours' : alreadyInStory ? 'Déjà dans ma story' : 'Ajouter ce morceau à ma story'} testID={popup ? 'deck-info-add-story' : 'deck-add-story'}>
+      <TouchableOpacity disabled={checking || alreadyInStory || justAddedNow} style={[buttonStyle, checking || justAddedNow || alreadyInStory ? s.addStoryButtonDone : s.addStoryButtonLit]} onPress={() => { void addCurrentToStory(); }} accessibilityRole="button" accessibilityLabel={checking ? 'Vérification de ta story en cours' : alreadyInStory ? 'Déjà dans ma story' : 'Ajouter ce morceau à ma story'} testID={popup ? 'deck-info-add-story' : 'deck-add-story'}>
         <Text style={[textStyle, (alreadyInStory || checking || justAddedNow) && s.addStoryTextDone]}>{label}</Text>
       </TouchableOpacity>
       {currentOffered && !justAddedNow ? <Text style={s.storySaleNote2} testID="deck-story-sale-note">{alreadyInStory ? '🏷 En vente : elle est déjà dans ta story, jaquette et artiste masqués.' : '🏷 Cette musique est en vente : dans ta story, la jaquette et le nom de l’artiste restent masqués.'}</Text> : null}
@@ -1203,6 +1211,9 @@ export default function MusicSwipeDeckModal({
                 ) : null}
               </View>
             </SwipeDeck>
+            {storyEmbeddedSource ? (
+              <StoryEmbeddedSourcePlayer key={storyEmbeddedSource} sourceUrl={storyEmbeddedSource} />
+            ) : null}
           </View>
 
 
