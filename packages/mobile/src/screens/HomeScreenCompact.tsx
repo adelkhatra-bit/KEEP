@@ -696,7 +696,16 @@ export default function HomeScreenCompact({ navigation }: any) {
       if (e instanceof MicPermissionDeniedError) {
         Alert.alert('Partage non autorisé', 'Sélectionne l’onglet YouTube dans Chrome ou Edge et autorise le partage de son audio.');
       } else {
-        Alert.alert('Son de l’onglet indisponible', e?.message || 'Utilise Chrome ou Edge, sélectionne l’onglet YouTube et coche « Partager l’audio de l’onglet ».');
+        // Ne pas enfermer l'utilisateur dans une erreur : recherche du lien
+        // depuis la même page Loki Music, sans relancer le micro.
+        Alert.alert(
+          'Son de l’onglet indisponible',
+          (e?.message || 'La capture du navigateur a échoué.') + '\\n\\nTu peux aussi coller le lien YouTube ou Spotify sans capturer ton écran.',
+          [
+            { text: 'Coller un lien', onPress: () => { setManualSearchNotFound(false); setManualSearchOpen(true); } },
+            { text: 'Fermer', style: 'cancel' },
+          ],
+        );
       }
     } finally {
       setTabTestBusy(false);
