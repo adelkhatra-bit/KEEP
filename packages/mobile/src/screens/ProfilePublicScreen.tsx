@@ -2197,6 +2197,15 @@ export default function ProfilePublicScreen({ navigation }: any) {
             ⚡ BATTLE
           </MotionActionButton>
         </View>
+        <MotionActionButton
+          variant="outline"
+          size="medium"
+          containerStyle={s.ownerCreateEventAction}
+          onPress={() => navigation.navigate('Parties', { openCreateEvent: true, source: 'profile-event' })}
+          accessibilityLabel="Créer une soirée gratuite ou vendre des billets"
+        >
+          ＋ SOIRÉE · BILLETS
+        </MotionActionButton>
 
       </ProfileMotionReveal>
 
@@ -2899,6 +2908,7 @@ const s=StyleSheet.create({
   ownerPrivateChatHeader:{flexDirection:'row',alignItems:'center',gap:10},
   ownerPrivateChatCollapsedHint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:2},
   ownerPrivateChatToggle:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},
+  ownerCreateEventAction:{width:'100%',marginTop:8},
   ownerBoutiqueHeader:{flexDirection:'row',alignItems:'center',gap:10,minHeight:44},
   ownerBoutiqueToggle:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},
   ownerPrivateChatKicker:{color:colors.textPrimary,fontSize:10,fontWeight:'900',letterSpacing:.7},
