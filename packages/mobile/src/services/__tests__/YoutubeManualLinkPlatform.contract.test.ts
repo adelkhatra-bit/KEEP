@@ -15,7 +15,7 @@ describe('YouTube manual recognition and tab capture', () => {
     expect(screen).toContain('submitCapturedAudioRecognition(recognition)');
     expect(screen).toContain('pauseListening()');
     expect(screen).toContain('resumeListening()');
-    expect(screen).toContain('Reconnaître le son d’un onglet YouTube (PC)');
+    expect(screen).toContain('Suivre les morceaux de YouTube (PC)');
     expect(screen).toContain("desktopHome && Platform.OS === 'web'");
     expect(screen).toContain('testID="home-tab-audio-option"');
     expect(screen).toContain('lien d’une vidéo YouTube');
