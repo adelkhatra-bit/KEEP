@@ -12,7 +12,7 @@
 export function canonicalYouTubeMusicLink(value: string): string {
   try {
     const url = new URL(value);
-    const host = url.hostname.toLowerCase().replace(/^www\\./, '');
+    const host = url.hostname.toLowerCase().replace(/^www\./, '');
     if (host !== 'youtu.be' && host !== 'youtube.com' && !host.endsWith('.youtube.com')) return value;
     const components = url.pathname.split('/').filter(Boolean);
     const videoId = host === 'youtu.be'
