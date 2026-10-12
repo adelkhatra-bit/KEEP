@@ -1,3 +1,6 @@
+## Demande du 12/10/2026 — accueil Écouter sans compteur « RESTANTES »
+- **IDÉE · EN COURS** : supprimer de l'écran d'accueil mobile/ordinateur la ligne « N RESTANTES · N/N JOUR » déjà refusée, sans changer les quotas, le solde FREE ni les alertes de dépassement. Garder l'aide quotas accessible derrière « En savoir plus » ; ne pas afficher « Restantes » dans les mini-statistiques d'écoute. Réduire la typographie du bandeau défilant pour éviter son effet de texte géant/tronqué sur iPhone. Vérifier 390×844 et 1440×900, et ne déclarer visible qu'après fusion, CI verte et publication du SHA canonique.
+
 # IDEAS INBOX — boîte à idées d'Adel (source unique)
 
 ## Demande du 12/10/2026 — fenêtres musicales mobile et PC
