@@ -146,9 +146,9 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(ownerProfile).toContain('sourceUsername={user.username}');
   });
 
-  it('keeps Battle match preferences intentionally compact at three mixed styles', () => {
-    expect(battle).toContain('real.length >= 3');
-    expect(battle).toContain('3 styles maximum');
+  it('keeps Battle match preferences selectable at eight mixed styles', () => {
+    expect(battle).toContain('real.length >= 8');
+    expect(battle).toContain('8 styles maximum');
     expect(battle).toContain('le Solo et les Battles les mélangeront réellement pendant la partie');
   });
 
