@@ -38,6 +38,7 @@ describe('Loki event creation, sale and auto promotion safety', () => {
     expect(ticketGuard).toContain("raise exception 'EVENT_NOT_AVAILABLE'");
     expect(ticketGuard).toContain("raise exception 'EVENT_ADULT_ONLY'");
     expect(ticketGuard).toContain('public.keep_event_request_ticket_purchase(uuid)');
+    expect(ticketGuard).toContain("raise exception 'event_locked_after_approval'");
   });
 
   it('promotes relevant public events in Pulse but never floods it', () => {
