@@ -24,7 +24,7 @@ describe('audioPreviewService -- masked collection preview', () => {
   });
 
   it('protects identity in the UI rather than breaking the listening experience', () => {
-    expect(modal).toContain('PÉPITES À DÉCOUVRIR');
+    expect(modal).toContain('eyebrow}>BOUTIQUE<');
     expect(modal).toContain('Extrait masqué');
     expect(modal).toContain('mysteryLock');
     expect(modal).toContain('DÉBLOQUER LA COLLECTION');

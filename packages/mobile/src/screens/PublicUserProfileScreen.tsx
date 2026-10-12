@@ -294,6 +294,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const [profileSaleSuggestions, setProfileSaleSuggestions] = useState<ProfileSaleSuggestion[]>([]);
   const [marketBannerVisible, setMarketBannerVisible] = useState(true);
   const [marketBannerHasNew, setMarketBannerHasNew] = useState(false);
+  const [unlockNotice, setUnlockNotice] = useState<string | null>(null);
 
   const [marketBannerEventIds, setMarketBannerEventIds] = useState<string[]>([]);
   const [marketBannerPendingEventCount, setMarketBannerPendingEventCount] = useState(0);
@@ -539,26 +540,6 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     }).catch(() => { setMarketBannerVisible(true); setMarketBannerHasNew(false); });
     return () => { live = false; };
   }, [profile?.id, viewer?.id, marketBannerOffersLoaded, marketBannerEventsLoaded, profileBoutiqueOffers, marketBannerEventIds, marketBannerPendingEventCount]);
-
-  const hideMarketBanner = () => {
-    if (!profile?.id) return;
-    const key = `keep:profile-market-banner:${viewer?.id || 'guest'}:${profile.id}`;
-    const playlists = profileBoutiqueOffers.map((row) => row.offerId).sort().join(',');
-    const events = `${marketBannerEventIds.join(',')}|pending:${marketBannerPendingEventCount}`;
-    setMarketBannerVisible(false);
-    setMarketBannerHasNew(false);
-    void AsyncStorage.setItem(key, JSON.stringify({ manuallyClosed: true, playlists, events }));
-  };
-
-  const reopenMarketBanner = () => {
-    if (!profile?.id) return;
-    const key = `keep:profile-market-banner:${viewer?.id || 'guest'}:${profile.id}`;
-    const playlists = profileBoutiqueOffers.map((row) => row.offerId).sort().join(',');
-    const events = `${marketBannerEventIds.join(',')}|pending:${marketBannerPendingEventCount}`;
-    setMarketBannerVisible(true);
-    setMarketBannerHasNew(false);
-    void AsyncStorage.setItem(key, JSON.stringify({ manuallyClosed: false, playlists, events }));
-  };
 
   useEffect(() => {
     if (!profile?.id) { setPublicVibes([]); return undefined; }
@@ -1107,7 +1088,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         .filter((row): row is { offer: PublicPlaylistSaleOffer; preview: { offerId: string; trackId: string; previewUrl: string } } => Boolean(row.preview?.previewUrl));
 
       if (!queue.length || generation !== salePreviewSequenceRef.current) {
-        Alert.alert('Aperçus', 'Aucun extrait protégé n’est disponible pour ces Pépites.');
+        Alert.alert('Aperçus', 'Aucun extrait protégé n’est disponible pour ces collections.');
         return;
       }
 
@@ -1119,7 +1100,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         const item = queue[index];
         if (!item) {
           setInlineListenNotice(startedCount > 0
-            ? `Fin des aperçus · ${startedCount} Pépite${startedCount > 1 ? 's' : ''} écoutée${startedCount > 1 ? 's' : ''}`
+            ? `Fin des aperçus · ${startedCount} collection${startedCount > 1 ? 's' : ''} écoutée${startedCount > 1 ? 's' : ''}`
             : 'Extraits indisponibles pour le moment. Réessaie plus tard.');
           return;
         }
@@ -1328,7 +1309,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         const unlocks = await loadMyPlaylistSaleUnlocks().catch(() => null);
         if (unlocks) setSaleUnlocks(unlocks);
         Alert.alert(
-          'Pépites débloquées',
+          'Collections débloquées',
           `${result.bundleCount} collection${result.bundleCount > 1 ? 's' : ''} ajoutée${result.bundleCount > 1 ? 's' : ''} à ton Loki Music pour ${result.freeSpent} FREE. Il te reste ${result.remainingFree} FREE.`,
         );
       } catch (e: any) {
@@ -1441,12 +1422,10 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           [offer.offerId]: { offerId: offer.offerId, deliveredPlaylistId: result.playlistId },
         }));
         setImmersivePreviewOffer(null);
-        Alert.alert(
-          result.alreadyUnlocked ? 'Déjà débloquée' : 'Collection débloquée',
-          result.alreadyUnlocked
-            ? 'Cette collection est déjà dans ton Loki Music.'
-            : `Les ${result.trackCount} morceaux sont maintenant dans ton Loki Music. Il te reste ${result.remainingFree} FREE.`,
-        );
+        // Lot 5 : l'état « débloqué » vit dans la carte (✓ DÉBLOQUÉE) + une ligne ici, plus d'alerte bloquante.
+        setUnlockNotice(result.alreadyUnlocked
+          ? 'Cette collection est déjà dans ton Loki Music.'
+          : `✓ ${result.trackCount} morceaux ajoutés à ton Loki Music · il te reste ${result.remainingFree} FREE.`);
       } catch (e: any) {
         const message = String(e?.message || '');
         if (handleDuplicatePurchaseBlock(offer, message)) return;
@@ -1866,7 +1845,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   return (
     <SafeAreaView style={styles.container}>
       {followNudgeVisible && profile && !isFollowing ? <View style={styles.followNudge}>
-        <View style={styles.followNudgeCopy}><Text style={styles.followNudgeTitle}>Ne rate pas ses prochaines pépites</Text><Text style={styles.followNudgeText} numberOfLines={1}>Tu viens de reprendre une découverte de @{profile.username}</Text></View>
+        <View style={styles.followNudgeCopy}><Text style={styles.followNudgeTitle}>Ne rate pas ses prochaines collections</Text><Text style={styles.followNudgeText} numberOfLines={1}>Tu viens de reprendre une découverte de @{profile.username}</Text></View>
         <TouchableOpacity style={styles.followNudgeButton} disabled={followBusy} onPress={async () => { await toggleFollow(); setFollowNudgeVisible(false); }}><Text style={styles.followNudgeButtonText}>{followBusy ? '…' : 'S’ABONNER'}</Text></TouchableOpacity>
         <TouchableOpacity style={styles.followNudgeClose} onPress={() => setFollowNudgeVisible(false)} accessibilityLabel="Fermer"><Text style={styles.followNudgeCloseText}>×</Text></TouchableOpacity>
       </View> : null}
@@ -1975,7 +1954,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             <View style={styles.ownerQuickActions}>
               <MotionActionButton variant="outline" size="medium" containerStyle={styles.ownerQuickActionFull} disabled={tracks.length === 0} onPress={() => openBrowseSwipe(null)} accessibilityLabel="Swiper ma musique">▶ SWIPE</MotionActionButton>
               <MotionActionButton variant="outline" size="medium" containerStyle={styles.ownerQuickActionFull} onPress={() => navigation.navigate('ProfileSettings')} accessibilityLabel="Modifier mon profil">✎ MODIFIER</MotionActionButton>
-              <MotionActionButton variant="outline" size="medium" containerStyle={styles.ownerQuickActionFull} onPress={() => navigation.navigate('PlaylistSale')} accessibilityLabel="Gérer mes collections">◆ PÉPITES</MotionActionButton>
+              <MotionActionButton variant="outline" size="medium" containerStyle={styles.ownerQuickActionFull} onPress={() => navigation.navigate('PlaylistSale')} accessibilityLabel="Gérer mes collections">◆ VENDRE</MotionActionButton>
               <MotionActionButton variant="outline" size="medium" containerStyle={styles.ownerQuickActionFull} onPress={() => void shareProfile(profile.username)} accessibilityLabel="Partager mon profil Loki Music">↗ PARTAGER</MotionActionButton>
             </View>
           )}
@@ -1986,42 +1965,32 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
 
 
-        {profileBoutiqueOffers.length > 0 && marketBannerVisible ? (
-          <ProfileMotionReveal motionKey={`visitor-market:${profile.id}:${profileBoutiqueOffers.length}`} compact style={SELLER_BOUTIQUE_SECTION_STYLE}>
-            <View style={styles.marketplaceHeaderRow}>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.marketplaceKicker}>BOUTIQUE MUSICALE · {profile.username.replace(/^@+/, '')}</Text>
-              </View>
-              <View style={styles.marketplaceHeaderActions}>
-                <TouchableOpacity style={styles.marketplaceHideButton} onPress={hideMarketBanner} accessibilityLabel="Masquer les collections de ce profil">
-                  <Text style={styles.marketplaceHideText}>MASQUER</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-            {/* Adel (02/10/2026) : boutique vendeur validée. Drop du moment
-                limité à 3 « à la une », étagère de 10 puis boutique complète
-                filtrable / triable (prête pour 40 collections et plus).
-                Toucher une carte = même parcours qu'avant (openSaleFolder :
-                aperçu anonyme, ou collection si déjà débloquée). */}
-            <SellerBoutique
-              offers={profileBoutiqueOffers}
-              sellerUsername={profile.username}
-              overlaps={saleOfferOverlaps}
-              unlockedOfferIds={new Set(profileBoutiqueOffers.filter((offer) => !isOwner && Boolean(saleUnlocks[offer.offerId]?.deliveredPlaylistId)).map((offer) => offer.offerId))}
-              ownerMode={isOwner}
-              onOpenOffer={(offer) => openSaleFolder(offer)}
-              onOpenAllOffers={(offers) => { void playFeaturedSalePreviews(offers); }}
-              onBuyAllOffers={(offers) => { void buyAllPlaylistOffers(offers); }}
-              buyAllBusy={purchaseBusyId === 'bundle'}
-            />
-          </ProfileMotionReveal>
-        ) : profileBoutiqueOffers.length > 0 ? (
-          <TouchableOpacity style={styles.marketplaceReopenBar} onPress={reopenMarketBanner} accessibilityLabel="Afficher les collections et nouveautés de ce profil">
-            <Text style={styles.marketplaceReopenIcon}>✦</Text>
-            <View style={styles.marketplaceReopenCopy}><Text style={styles.marketplaceReopenTitle}>{marketBannerHasNew ? 'NOUVELLE PÉPITE' : 'BOUTIQUE MUSICALE'}</Text><Text style={styles.marketplaceReopenMeta}>{profileBoutiqueOffers.length} collection{profileBoutiqueOffers.length > 1 ? 's' : ''} · {visiblePublicVibes.length} vibe{visiblePublicVibes.length > 1 ? 's' : ''}</Text></View>
-            <Text style={styles.marketplaceReopenArrow}>›</Text>
-          </TouchableOpacity>
-        ) : null}
+        {/* Lot 5 (12/10/2026) : la Boutique est TOUJOURS présente, avec ou sans offre
+            (propriétaire : « Créer ma boutique » ; visiteur : « n'a rien en vente » + Suivre).
+            Plus de bouton MASQUER : une vitrine qui disparaît ne se découvre jamais. */}
+        <ProfileMotionReveal motionKey={`visitor-market:${profile.id}:${profileBoutiqueOffers.length}`} compact style={SELLER_BOUTIQUE_SECTION_STYLE}>
+          <SellerBoutique
+            offers={profileBoutiqueOffers}
+            sellerUsername={profile.username}
+            overlaps={saleOfferOverlaps}
+            unlockedOfferIds={new Set(profileBoutiqueOffers.filter((offer) => !isOwner && Boolean(saleUnlocks[offer.offerId]?.deliveredPlaylistId)).map((offer) => offer.offerId))}
+            ownerMode={isOwner}
+            followers={followerCount}
+            onCreateBoutique={() => navigation.navigate('PlaylistSale')}
+            onFollow={() => { void toggleFollow(); }}
+            isFollowing={isFollowing}
+            followBusy={followBusy}
+            onOpenOffer={(offer) => openSaleFolder(offer)}
+            onOpenAllOffers={(offers) => { void playFeaturedSalePreviews(offers); }}
+            onBuyAllOffers={(offers) => { void buyAllPlaylistOffers(offers); }}
+            buyAllBusy={purchaseBusyId === 'bundle'}
+          />
+          {unlockNotice ? (
+            <TouchableOpacity onPress={() => setUnlockNotice(null)} accessibilityRole="button" accessibilityLabel="Fermer le message de déblocage" testID="boutique-unlock-notice">
+              <Text style={{ color: colors.keep, fontSize: 13, fontWeight: '800', marginTop: 8 }}>{unlockNotice}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </ProfileMotionReveal>
 
         {/* Les recommandations multi-vendeurs restent uniquement sur le propre profil du viewer. Un profil visité n'affiche jamais la Pépite d'un autre vendeur à la place de sa boutique. */}
         {effectiveViewerId && profileSaleSuggestions.length > 0 && isOwner ? (
@@ -2470,7 +2439,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             Alert.alert(
               signal.alreadyDelivered ? 'Déjà débloquée' : 'Paiement signalé',
               signal.alreadyDelivered
-                ? 'Cette Pépite a déjà été débloquée dans ton Loki Music.'
+                ? 'Cette collection a déjà été débloquée dans ton Loki Music.'
                 : 'Ta preuve a été envoyée au vendeur. Il doit maintenant vérifier son PayPal et confirmer la réception des fonds. Le déblocage se fera automatiquement après sa confirmation.',
             );
           }}

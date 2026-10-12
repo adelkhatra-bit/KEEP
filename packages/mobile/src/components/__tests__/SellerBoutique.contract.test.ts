@@ -22,7 +22,7 @@ describe('seller boutique', () => {
 
   it('keeps euro collections visible but protected on native, with no native money bundle checkout', () => {
     expect(boutique).toContain("offer.paymentMode !== 'FREE' && Platform.OS !== 'web'");
-    expect(boutique).toContain("? 'protégée' : salePriceLabel(offer)");
+    expect(boutique).toContain("? 'euros bientôt' : salePriceLabel(offer)");
     expect(boutique).toContain("Platform.OS === 'web' ? bundleOffers.filter((offer) => offer.paymentMode !== 'BOTH') : bundleOffers.filter((offer) => offer.paymentMode === 'FREE')");
     expect(boutique).not.toContain("Platform.OS === 'ios' ? offers.filter((offer) => offer.paymentMode === 'FREE') : offers");
   });
@@ -47,26 +47,31 @@ describe('seller boutique', () => {
     expect(popup).toContain('const currentTrackOwned = ownerMode ||');
   });
 
-  it('shows the Boutique musicale with a featured Pépite and a full searchable store', () => {
+  it('shows the Boutique with a single featured offer, a shelf and a full searchable store', () => {
     expect(boutique).toContain("ownerMode ? 'MA BOUTIQUE' : `BOUTIQUE · @${sellerName}`");
     expect(boutique).toContain('★ À LA UNE');
     expect(boutique).toContain('▶ ÉCOUTER LES APERÇUS');
     expect(boutique).toContain('Tout voir · {visibleOffers.length} ›');
-    expect(boutique).toContain('Pour publier ou modifier une collection, appuie sur Vendre dans ton profil.');
-    expect(boutique).toContain('<Text style={s.dropKicker}>SÉLECTION</Text>');
     expect(boutique).not.toContain('TOUCHE POUR ÉCOUTER · TITRES PROTÉGÉS');
     expect(boutique).not.toContain('<Image');
     expect(boutique).not.toContain('useNativeDriver: true');
   });
-});
 
-import { offerDisplayName } from '../../services/offerDisplayName';
+  it('Lot 5 : removes the redundant texts and labels from the Boutique', () => {
+    expect(boutique).not.toContain('COMMENT ACHETER');
+    expect(boutique).not.toContain('COMMENT VENDRE');
+    expect(boutique).not.toContain('Merci pour ta visite');
+    expect(boutique).not.toContain('>SÉLECTION<');
+    expect(boutique).not.toContain('PROTÉGÉE');
+    expect(boutique).not.toContain('PÉPITES LOKI');
+    expect(boutique).not.toContain('MASQUER');
+  });
 
-describe('Nom d\'offre : nombre de titres toujours réel', () => {
-  it('remplace le nombre figé dans le nom par le vrai', () => {
-    expect(offerDisplayName({ playlistName: 'Ma collection · 8 titres', trackCount: 10 })).toBe('Ma collection · 10 titres');
-    expect(offerDisplayName({ playlistName: 'Ma collection · 5 titres', trackCount: 1 })).toBe('Ma collection · 1 titre');
-    expect(offerDisplayName({ playlistName: 'Été 2026', trackCount: 12 })).toBe('Été 2026');
-    expect(offerDisplayName({ playlistName: '', trackCount: 0 })).toBe('Collection');
+  it('Lot 5 : the Boutique is always present, even without any offer', () => {
+    expect(boutique).not.toContain('if (!visibleOffers.length) return null');
+    expect(boutique).toContain('boutique-vitrine-vide');
+    expect(boutique).toContain('CRÉER MA BOUTIQUE');
+    expect(boutique).toContain('+ SUIVRE');
+    expect(boutique).toContain('boutiqueVitrineMode');
   });
 });

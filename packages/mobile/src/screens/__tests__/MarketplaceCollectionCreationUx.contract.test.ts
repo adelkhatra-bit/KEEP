@@ -9,7 +9,7 @@ describe('Pépites collection creation UX', () => {
   it('keeps the creation flow inside Pépites', () => {
     expect(panel).toContain('PANIER PÉPITES');
     expect(panel).toContain('collectionCartOpen');
-    expect(panel).toContain('Tu es resté dans Pépites.');
+    expect(panel).toContain('Collection publiée');
     expect(panel).not.toContain("screen: 'MyMusic', params: { createSaleCollection: true");
     expect(contract.marketplacePurchases.collectionCreationMustRemainInPepites).toBe(true);
   });

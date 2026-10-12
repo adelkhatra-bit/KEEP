@@ -30,7 +30,8 @@ describe('PublicUserProfileScreen redesign (24/09/2026 : identité > collections
   it('separates exclusive collections from public Styles and keeps locked products visually distinct', () => {
     expect(source).toContain('offers={profileBoutiqueOffers}');
     // 02/10/2026 : boutique vendeur validée par Adel (SellerBoutique : Drop du moment 3 max + étagère + boutique).
-    expect(source).toContain('pépite');
+    // Lot 5 (12/10/2026) : un seul vocabulaire « Boutique / collections », plus de « pépite » utilisateur.
+    expect(source).toContain('ses prochaines collections');
     expect(source).toContain('<SellerBoutique');
     expect(source).not.toContain('sale-style:');
   });

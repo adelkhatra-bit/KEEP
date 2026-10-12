@@ -10,7 +10,7 @@ import { colors } from '../theme/colors';
 import SwipeDeck from './SwipeDeck';
 import { loadPlaylistSaleOfferOverlap, loadPlaylistSaleOfferPreviewTracks, PlaylistSaleOverlap, PlaylistSalePreviewTrack, PublicPlaylistSaleOffer } from '../services/playlistSaleService';
 import { playAntiShazamPreviewSegment, playTrackPreviewFromGesture, stopAntiShazamPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
-import { acceptMarketplacePaymentTerms } from '../services/musicAgoraService';
+import { acceptMarketplacePaymentTerms, loadMarketplacePaymentTermsAccepted } from '../services/musicAgoraService';
 import KeepModal from './KeepModal';
 
 /**
@@ -81,6 +81,8 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
   const [selectedPaymentMode, setSelectedPaymentMode] = useState<'FREE' | 'MONEY'>(offer.paymentMode === 'MONEY' ? 'MONEY' : 'FREE');
   const [termsBusy, setTermsBusy] = useState(false);
   const [termsError, setTermsError] = useState<string | null>(null);
+  // Lot 5 : conditions déjà acceptées sur ce compte (état serveur) -> plus de case à recocher en FREE.
+  const [termsRemembered, setTermsRemembered] = useState(false);
   const [tracks, setTracks] = useState<PlaylistSalePreviewTrack[] | null>(null);
   const [overlap, setOverlap] = useState<PlaylistSaleOverlap | null>(null);
   const [trackIndex, setTrackIndex] = useState(0);
@@ -247,6 +249,15 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
   const trackCountLabel = offer.trackCount || tracks?.length || 0;
   const dualAccess = offer.paymentMode === 'BOTH';
   const freeAccess = selectedPaymentMode === 'FREE';
+  useEffect(() => {
+    if (!visible) return undefined;
+    let active = true;
+    void loadMarketplacePaymentTermsAccepted().then((ok) => { if (active) setTermsRemembered(ok); }, () => { /* Serveur injoignable : la case reste demandée. */ });
+    return () => { active = false; };
+  }, [visible]);
+  useEffect(() => {
+    if (visible && termsRemembered && freeAccess) setWaiverAccepted(true);
+  }, [visible, termsRemembered, freeAccess]);
   const priceLabel = freeAccess
     ? `${offer.freePrice ?? 0} FREE`
     : `${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`;
@@ -297,7 +308,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
             <View style={[s.secretHero, compact && s.secretHeroCompact]}>
               <View style={s.secretVinyl}><Text style={s.secretVinylNote}>♪</Text></View>
               <View style={s.secretHeroCopy}>
-                <Text style={s.eyebrow}>PÉPITES À DÉCOUVRIR</Text>
+                <Text style={s.eyebrow}>BOUTIQUE</Text>
                 <Text style={s.playlistName} numberOfLines={1}>{offer.playlistName}</Text>
               </View>
             </View>
@@ -338,7 +349,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
             onSwipeRight={() => { unlockWebAudioForGesture(); playTrackAt(trackIndex + 1); }}
             leftLabel="◀ EXTRAIT PRÉCÉDENT"
             rightLabel="EXTRAIT SUIVANT ▶"
-            hint={tracksUnavailable ? '' : 'Glisse pour changer de pépite'}
+            hint={tracksUnavailable ? '' : 'Glisse pour changer d’extrait'}
           >
             <TouchableOpacity
               style={s.swipeCard}
@@ -477,6 +488,12 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
                 </View>
               ) : null}
 
+              {freeAccess && termsRemembered ? (
+                <TouchableOpacity style={s.termsLink} onPress={() => { void Linking.openURL(MARKETPLACE_TERMS_URL); }} accessibilityRole="link" accessibilityLabel="Lire les Conditions générales Loki Music">
+                  <Text style={s.termsLinkText}>✓ Conditions déjà acceptées · lire</Text>
+                </TouchableOpacity>
+              ) : (
+              <>
               <TouchableOpacity
                 style={[s.waiverRow, waiverAccepted ? s.waiverRowAccepted : s.waiverRowPending]}
                 onPress={() => { if (!waiverAccepted && !termsBusy) void acceptTerms(); }}
@@ -508,6 +525,8 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
               >
                 <Text style={s.termsLinkText}>LIRE LES CONDITIONS GÉNÉRALES</Text>
               </TouchableOpacity>
+              </>
+              )}
               {termsError ? <Text style={s.termsError}>{termsError}</Text> : null}
 
               <Animated.View style={[s.buyGlowShell,{ borderColor: ctaGlow.interpolate({inputRange:[0,1],outputRange:[colors.primary,colors.success]}), transform: [{ scale: waiverAccepted ? revealGlow.interpolate({ inputRange: [0, 1], outputRange: [1, 1.018] }) : 1 }] }]}>

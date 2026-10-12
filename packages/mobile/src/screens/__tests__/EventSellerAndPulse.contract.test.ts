@@ -73,7 +73,7 @@ describe('Loki events: seller checkout, moderation and Pulse visibility', () => 
     expect(discover).toContain('event.pulseScore');
   });
 
-  it('shows real seller history and separate ticket stats on the desktop without inventing payment verification', () => {
+  it('shows real seller history and separate ticket stats (cockpit shared by mobile and desktop) without inventing payment verification', () => {
     const dashboard = read('packages/mobile/src/components/CreatorSalesCockpit.tsx');
     expect(dashboard).toContain('loadMySalesHistory()');
     expect(dashboard).toContain('loadMyEventTicketSales()');
@@ -82,6 +82,7 @@ describe('Loki events: seller checkout, moderation and Pulse visibility', () => 
     expect(dashboard).toContain("sale.currencyCode === 'EUR'");
     expect(dashboard).toContain('non vérifiés auprès des prestataires');
     expect(profile).toContain('<CreatorSalesCockpit');
+    expect(profile).toContain("navigation.navigate('PlaylistSaleHistory')");
     expect(profile).toContain('desktopProfile && !accountRequired');
     expect(parties).toContain('route?.params?.openMyEvents');
   });

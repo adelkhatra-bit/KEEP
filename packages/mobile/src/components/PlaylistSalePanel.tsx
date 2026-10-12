@@ -500,7 +500,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
       await loadData();
       resetCollectionCart();
       const publishedTrackCount = Number(created.trackCount ?? collectionCartIds.size);
-      Alert.alert('Pépite publiée', `« ${created.playlistName} » est en ligne avec ${publishedTrackCount} morceau${publishedTrackCount > 1 ? 'x' : ''}. Tu es resté dans Pépites.`);
+      Alert.alert('Collection publiée', `« ${created.playlistName} » est en ligne avec ${publishedTrackCount} morceau${publishedTrackCount > 1 ? 'x' : ''}.`);
     } catch (e: any) {
       const raw = String(e?.message || e || '');
       if (raw.includes('SELLER_PAYOUT_NOT_CONFIGURED')) {
