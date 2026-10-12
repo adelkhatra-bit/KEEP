@@ -205,6 +205,7 @@ interface SessionStore {
   setSilenceTimeoutMin: (minutes: number) => void;
   attachLocation: (label: string, lat?: number, lng?: number) => void;
   submitManualSearch: (query: string) => Promise<'added' | 'duplicate' | 'not_found'>;
+  submitCapturedRecognition: (recognition: RecognitionResult) => Promise<'added' | 'duplicate' | 'inactive'>;
   /** Même chemin anti-doublon et quota FREE que la reconnaissance micro. */
   submitCapturedAudioRecognition: (recognition: RecognitionResult) => Promise<'added' | 'duplicate' | 'inactive'>;
 }
@@ -728,6 +729,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     if (!get().isActive) return 'inactive';
     return applyDetectedTrack(set, get, recognition, 'listen');
   },
+  // Une capture d'onglet doit suivre le MÊME chemin que le micro (carte,
+  // anti-doublon et quota FREE), pas seulement afficher une alerte « Reconnu ».
+  submitCapturedRecognition: async (recognition) => applyDetectedTrack(set, get, recognition, 'listen'),
+
   submitManualSearch: async (query) => {
     const trimmed = query.trim();
     if (!trimmed || !get().isActive) return 'not_found';
