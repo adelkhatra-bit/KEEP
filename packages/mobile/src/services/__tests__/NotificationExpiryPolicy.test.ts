@@ -1,4 +1,4 @@
-import { notificationIsCurrent } from '../notificationService';
+import { notificationIsCurrent } from '../notificationExpiryPolicy';
 
 describe('notification retention in the user bell', () => {
   const now = new Date('2026-10-12T15:00:00');
