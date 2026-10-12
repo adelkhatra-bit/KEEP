@@ -800,10 +800,8 @@ export default function MusicSwipeDeckModal({
           // ancienne date et n'entrait donc jamais en story. On l'épingle aussi (date = maintenant) ; sans effet si déjà en story.
           if (!isSaleStoryTrack(keptTrack)) void pinStoryTrack(resolveKeptTrackId(keptTrack.id), keptTrack).catch(() => {}).finally(() => notifyOwnStoryChanged());
         }
-        if (keepDebitAmount != null && keepDebitAmount > 0) {
-          setKeepSuccess({ title: keptTrack.title, artist: keptTrack.artist, visibility });
-          return;
-        }
+        // Le choix Public/Privé constitue déjà l'accord explicite pour GARDER.
+        // Ne pas ouvrir une deuxième confirmation : passer au morceau suivant.
         await advance();
       }
     } finally {
