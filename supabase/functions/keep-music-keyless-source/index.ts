@@ -121,17 +121,17 @@ function safeUrl(value: string, base?: URL): URL | null {
 // Une action "Partager -> Copier le lien" peut produire un message entier :
 // « Écoute ce titre : https://spotify.link/... ». L'URL n'était jamais extraite.
 function sharedUrl(value: unknown): URL | null {
-  const text = String(value ?? "").replace(/[\\u200B-\\u200D\\uFEFF]/g, "").trim();
-  const spotifyUri = text.match(/(?:^|\\s)spotify:(track|album|playlist|artist):([a-z0-9]{10,40})(?=$|\\s|[),;.!?])/i);
+  const text = String(value ?? "").replace(/[\u200B-\u200D\uFEFF]/g, "").trim();
+  const spotifyUri = text.match(/(?:^|\s)spotify:(track|album|playlist|artist):([a-z0-9]{10,40})(?=$|\s|[),;.!?])/i);
   if (spotifyUri) return safeUrl(`https://open.spotify.com/${spotifyUri[1]}/${spotifyUri[2]}`);
-  const match = text.match(/https?:\\/\\/[^\\s<>"'«»]+/i);
-  const raw = match?.[0]?.replace(/[)\\]},;.!?]+$/g, "").replace(/&amp;/gi, "&");
+  const match = text.match(/https?:\/\/[^\s<>"'«»]+/i);
+  const raw = match?.[0]?.replace(/[)\]},;.!?]+$/g, "").replace(/&amp;/gi, "&");
   return raw ? safeUrl(raw) : null;
 }
 
 function linkPlatform(url: URL | null, fallback: string): string {
   if (!url) return fallback;
-  const host = url.hostname.toLowerCase().replace(/^www\\./, "");
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
   if (host === "youtu.be" || host === "youtube.com" || host.endsWith(".youtube.com")) return "YOUTUBE";
   if (host === "tiktok.com" || host.endsWith(".tiktok.com")) return "TIKTOK";
   if (host === "instagram.com" || host.endsWith(".instagram.com")) return "INSTAGRAM";
@@ -569,7 +569,7 @@ Deno.serve(async (req) => {
     // les redirections, pas uniquement celui de l'URL collée.
     if (page.url && page.url.toString() !== sourceUrl?.toString()) {
       const resolvedHost = page.url.hostname.toLowerCase();
-      const deezerId = resolvedHost.includes("deezer.com") ? page.url.pathname.match(/\\/track\\/(\\d+)/i)?.[1] : null;
+      const deezerId = resolvedHost.includes("deezer.com") ? page.url.pathname.match(/\/track\/(\d+)/i)?.[1] : null;
       if (deezerId) {
         const exact = await deezerLookup(deezerId);
         if (exact) {
