@@ -9,6 +9,7 @@ import { Alert } from '../utils/keepAlert';
 import { createCreatorEvent, loadMyRsvps, loadUpcomingEvents, loadMyEventInvitationIds, loadPendingEventInvitePreviews, setEventRsvp, CreatorEvent, EventAudienceMode, EventRsvpStatus, loadMyPendingEventReviews, submitEventReview, loadEventReviewSummary, PendingEventReview, EventReviewSummary, loadEventRsvpCounts, EventRsvpCounts, updateCreatorEvent, disableCreatorEvent, loadEventParticipants, EventParticipant, pickAndUploadEventImage, loadMyEventTicket, EventTicket, checkinEventTicketByCode, toggleEventCheckin, buildGoogleCalendarUrl, buildEventIcs, loadMyEventOrganizerContact, EVENT_TICKET_PRESET_PRICES_CENTS, setEventTicketPrice, requestEventTicketPurchase, EventTicketPurchaseRequest, markEventTicketPaid, loadMyEventTicketSales, EventTicketTransaction, loadEventPlaylist, EventTrack } from '../services/creatorEventService';
 import { shareEvent } from '../services/sharingService';
 import { publishEventStory } from '../services/eventStoryService';
+import { getMyPayoutMethods, normalizePayoutLinkInput, setMyPayoutLink } from '../services/payoutLinkService';
 import { eventNotFinished } from '../services/creatorEventService';
 import { getCommercialRules, getEventCreationAccess, getGrowthRewardStatus, QuotaAccess } from '../services/growthAccessService';
 import { useUserStore } from '../store/useUserStore';
@@ -559,10 +560,24 @@ export default function PartiesScreen({ navigation, route }: any) {
   // Adel (17-18/09/2026) : "construis tout ce qui manque ... entrée
   // payante" -- null = gratuit, sinon un montant fixe de la liste.
   const [ticketPriceCents, setTicketPriceCents] = useState<number | null>(null);
+  const [eventPayoutLink, setEventPayoutLink] = useState('');
+  const [eventPayoutQrConfigured, setEventPayoutQrConfigured] = useState(false);
   // Adel (08/09/2026) : "un numero de telephone ... je souhaite montrer mon
   // numero de telephone ou pas" -- optionnel, masque par defaut.
   const [organizerPhone, setOrganizerPhone] = useState('');
   const [showOrganizerPhone, setShowOrganizerPhone] = useState(false);
+  // Load the existing PayPal.Me/QR setup directly inside event creation.
+  useEffect(() => {
+    if (!createOpen || !user?.id) return undefined;
+    let live = true;
+    void getMyPayoutMethods().then((methods) => {
+      if (live) {
+        setEventPayoutLink(methods.link);
+        setEventPayoutQrConfigured(Boolean(methods.qrUrl));
+      }
+    }).catch(() => {});
+    return () => { live = false; };
+  }, [createOpen, user?.id]);
   const [myTicket, setMyTicket] = useState<EventTicket | null>(null);
   const [ticketModalOpen, setTicketModalOpen] = useState(false);
   const [ticketLoading, setTicketLoading] = useState(false);
@@ -1059,18 +1074,26 @@ export default function PartiesScreen({ navigation, route }: any) {
     const iso = parseDate();
     if (name.trim().length < 3) return Alert.alert('Événement', 'Indique un nom pour l’événement.');
     if (!iso) return Alert.alert('Événement', 'Indique la date au format AAAA-MM-JJTHH:MM.');
+    if (ticketPriceCents !== null && !normalizePayoutLinkInput(eventPayoutLink) && !eventPayoutQrConfigured) {
+      Alert.alert('Paiement requis', 'Entre ton PayPal.Me ci-dessous avant de vendre des billets. Si tu as déjà un QR PayPal, vérifie sa configuration.');
+      return;
+    }
     setCreateBusy(true);
     try {
+      // The seller's own payout link is saved before event creation; Loki never holds funds.
+      if (ticketPriceCents !== null && eventPayoutLink.trim()) {
+        await setMyPayoutLink(eventPayoutLink);
+      }
       const payload = { name: name.trim(), description: description.trim(), venueName: venueName.trim(), startsAt: iso, endsAt: new Date(Date.parse(iso) + eventDurationHours * 3600000).toISOString(), countryCode: countryCode.trim().toUpperCase().slice(0,2), imageUrls: eventImageUrls, requireQrCode, audienceMode, organizerPhone: organizerPhone.trim() || undefined, showOrganizerPhone, lat: venueCoords?.lat, lng: venueCoords?.lng };
       if (editingEventId) {
         await updateCreatorEvent(editingEventId, payload);
-        await setEventTicketPrice(editingEventId, ticketPriceCents).catch(() => {});
+        await setEventTicketPrice(editingEventId, ticketPriceCents);
         resetEventForm();
         await reload();
         Alert.alert('Événement modifié', 'Envoyé au Super Admin pour validation — il redevient visible dès l’approbation.');
       } else {
         const created = await createCreatorEvent({ ...payload, djArtistNames: user?.username ? [user.username] : [], includeRsvpButtons });
-        await setEventTicketPrice(created.id, ticketPriceCents).catch(() => {});
+        await setEventTicketPrice(created.id, ticketPriceCents);
         resetEventForm();
         // La lecture serveur peut avoir un très court délai après l'Edge
         // Function. Injecter immédiatement la soirée créée évite l'état
@@ -1857,7 +1880,25 @@ export default function PartiesScreen({ navigation, route }: any) {
           </TouchableOpacity>
         ))}
       </View>
-      {ticketPriceCents !== null ? <Text style={styles.rsvpToggleHint}>L'acheteur paiera directement sur ton lien de paiement personnel (menu ☰ &gt; Type de profil &amp; outils créateur). Loki Music ne touche jamais cet argent.</Text> : null}
+      {ticketPriceCents !== null ? (
+        <View style={{ borderRadius: 16, borderWidth: 1, borderColor: colors.primaryLight, backgroundColor: 'rgba(124,92,252,.10)', padding: 12, gap: 8, marginBottom: 12 }} testID="event-ticket-seller-onboarding">
+          <Text style={{ color: colors.white, fontSize: 15, fontWeight: '900' }}>Vendre des billets</Text>
+          <Text style={{ color: colors.textPrimary, fontSize: 12, lineHeight: 19 }}>1. Fixe le prix · 2. Entre ton PayPal.Me · 3. Confirme le paiement reçu pour délivrer le billet.</Text>
+          <TextInput
+            style={styles.input}
+            value={eventPayoutLink}
+            onChangeText={setEventPayoutLink}
+            placeholder="Ton pseudo PayPal.Me ou lien https://"
+            placeholderTextColor={colors.textMuted}
+            accessibilityLabel="Compte PayPal.Me pour recevoir le prix de l'événement"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <Text style={{ color: colors.keep, fontSize: 11, fontWeight: '800' }}>
+            {eventPayoutQrConfigured ? '✓ QR PayPal déjà configuré' : 'Paiement direct à ton compte · aucun encaissement par Loki'}
+          </Text>
+        </View>
+      ) : null}
 
       {/* Adel (08/09/2026) : "les trucs à cocher tu les mets ensemble en
           dessous, à la fin ... que tu comprends l'idée" -- les trois
