@@ -267,13 +267,21 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
           <Text style={s.bannerKicker} numberOfLines={1}>{ownerMode ? 'MA BOUTIQUE' : `BOUTIQUE · @${sellerName}`}</Text>
         </View>
         <Text style={s.bannerTitle}>{`${visibleOffers.length} collection${visibleOffers.length > 1 ? 's' : ''} à découvrir`}</Text>
-        <Text style={s.bannerPersonal} numberOfLines={2}>
+        <Text style={s.bannerPersonal} numberOfLines={3}>
           {ownerMode
             ? 'Écoute tes collections ou ouvre Vendre pour les gérer.'
             : viewerName
               ? `${viewerName}, découvre la sélection de ${sellerName}.`
               : `Découvre la sélection de ${sellerName}.`}
         </Text>
+        <View style={s.buyerGuide}>
+          <Text style={s.buyerGuideTitle}>{ownerMode ? 'COMMENT VENDRE MES COLLECTIONS' : 'COMMENT ACHETER UNE COLLECTION'}</Text>
+          <Text style={s.buyerGuideText}>{ownerMode
+            ? '1. Ouvre Vendre dans ton profil · 2. Publie tes titres · 3. Configure ton PayPal pour recevoir les achats en euros.'
+            : Platform.OS === 'web'
+              ? '1. Écoute un extrait · 2. Choisis ta collection · 3. Débloque en FREE ou suis le paiement PayPal et la confirmation du vendeur.'
+              : '1. Écoute un extrait · 2. Choisis ta collection · 3. Débloque en FREE ou consulte les conditions de vente.'}</Text>
+        </View>
         <View style={s.bannerPills}>
           {freeCount > 0 ? <View style={[s.bannerPill, s.tokenFree]}><Text style={[s.bannerPillText, s.tokenTextFree]}>✦ {freeCount} en FREE</Text></View> : null}
           {moneyCount > 0 ? <View style={[s.bannerPill, s.tokenMoney]}><Text style={[s.bannerPillText, s.tokenTextMoney]}>{Platform.OS === 'web' ? `€ ${moneyCount}` : `${moneyCount} PROTÉGÉE${moneyCount > 1 ? 'S' : ''}`}</Text></View> : null}
@@ -449,8 +457,11 @@ const s = StyleSheet.create({
   bannerHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.keep },
   bannerKicker: { flex: 1, color: colors.primaryLight, fontSize: 11, fontWeight: '900', letterSpacing: 1.3 },
-  bannerTitle: { color: colors.textPrimary, fontSize: 20, lineHeight: 26, fontWeight: '900' },
-  bannerPersonal: { color: colors.textSecondary, fontSize: 12, lineHeight: 17, fontWeight: '700' },
+  bannerTitle: { color: '#FFFFFF', fontSize: 21, lineHeight: 28, fontWeight: '900' },
+  bannerPersonal: { color: '#F2EDFF', fontSize: 13, lineHeight: 19, fontWeight: '700' },
+  buyerGuide: { backgroundColor: 'rgba(255,255,255,.08)', borderColor: 'rgba(255,255,255,.28)', borderWidth: 1, borderRadius: 14, padding: 12, gap: 5 },
+  buyerGuideTitle: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
+  buyerGuideText: { color: '#F2EDFF', fontSize: 13, lineHeight: 19, fontWeight: '700' },
   bubbleGenre: { fontWeight: '900', textAlign: 'center' },
   bannerPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   bannerPill: { minHeight: 28, paddingHorizontal: 10, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
@@ -470,16 +481,16 @@ const s = StyleSheet.create({
   dropLive: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dropLiveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.keep },
   dropMain: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
-  dropCopy: { flex: 1, minWidth: 0 },
+  dropCopy: { flex: 1, minWidth: 0, padding: 10, borderRadius: 12, backgroundColor: 'rgba(0,0,0,.72)' },
   dropPlay: { width: 42, height: 42, borderRadius: 21, borderWidth: 1, borderColor: 'rgba(255,255,255,.55)', backgroundColor: 'rgba(255,255,255,.13)', alignItems: 'center', justifyContent: 'center' },
   dropPlayText: { color: '#FFFFFF', fontSize: 18, fontWeight: '900', marginLeft: 2 },
   dropListenStrip: { minHeight: 34, marginTop: 12, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,.28)', backgroundColor: 'rgba(0,0,0,.18)', flexDirection: 'row', alignItems: 'center', gap: 8 },
-  dropListenText: { flex: 1, color: '#FFFFFF', fontSize: 9, fontWeight: '900', letterSpacing: .45 },
+  dropListenText: { flex: 1, color: '#FFFFFF', fontSize: 12, fontWeight: '900', letterSpacing: .45 },
   dropListenArrow: { color: '#FFFFFF', fontSize: 21, fontWeight: '900', lineHeight: 23 },
-  dropKicker: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
-  dropFeatured: { color: GOLD, fontSize: 10, fontWeight: '900', letterSpacing: .8, marginTop: 6 },
-  dropTitle: { color: colors.textPrimary, fontSize: 19, fontWeight: '900', marginTop: 4 },
-  dropMeta: { color: colors.textSecondary, fontSize: 12, fontWeight: '700', marginTop: 4 },
+  dropKicker: { color: '#FFFFFF', fontSize: 11, fontWeight: '900', letterSpacing: 1.2 },
+  dropFeatured: { color: GOLD, fontSize: 11, fontWeight: '900', letterSpacing: .8, marginTop: 6 },
+  dropTitle: { color: '#FFFFFF', fontSize: 19, fontWeight: '900', marginTop: 4 },
+  dropMeta: { color: '#F2EDFF', fontSize: 12, fontWeight: '700', marginTop: 4 },
   dropFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
   shelfHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 4 },
   shelfTitle: { flex: 1, color: colors.textPrimary, fontSize: 16, fontWeight: '900' },
@@ -496,7 +507,7 @@ const s = StyleSheet.create({
   bundleCopy: { minWidth: 0 },
   bundleTitle: { color: colors.textPrimary, fontSize: 11, fontWeight: '900', letterSpacing: .55 },
   bundleTotal: { color: GOLD, fontSize: 17, fontWeight: '900', marginTop: 3 },
-  bundleHint: { color: colors.textSecondary, fontSize: 9, fontWeight: '700', marginTop: 3 },
+  bundleHint: { color: '#F2EDFF', fontSize: 11, fontWeight: '700', marginTop: 3 },
   bundleButton: { minHeight: 44, borderRadius: 14, backgroundColor: GOLD, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
   bundleButtonDisabled: { opacity: .55 },
   bundleButtonText: { color: GOLD_DARK, fontSize: 12, fontWeight: '900', letterSpacing: .5 },
@@ -506,7 +517,7 @@ const s = StyleSheet.create({
   coverNew: { alignSelf: 'flex-end', color: '#FFFFFF', fontSize: 10, fontWeight: '900', backgroundColor: 'rgba(0,0,0,.35)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, overflow: 'hidden' },
   coverOwned: { alignSelf: 'flex-end', color: colors.keep, fontSize: 10, fontWeight: '900', backgroundColor: 'rgba(0,0,0,.45)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, overflow: 'hidden' },
   cardTitle: { color: colors.textPrimary, fontSize: 13, lineHeight: 17, fontWeight: '900', minHeight: 34 },
-  cardMeta: { color: colors.textSecondary, fontSize: 11, fontWeight: '700' },
+  cardMeta: { color: '#F2EDFF', fontSize: 12, fontWeight: '700' },
   token: { alignSelf: 'flex-start', minHeight: 26, paddingHorizontal: 10, borderRadius: 13, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   tokenFree: { backgroundColor: colors.primary, borderColor: colors.primaryLight },
   tokenMoney: { backgroundColor: GOLD, borderColor: '#F5DA97', borderStyle: 'dashed' },
@@ -515,11 +526,11 @@ const s = StyleSheet.create({
   tokenTextFree: { color: '#FFFFFF' },
   tokenTextMoney: { color: GOLD_DARK },
   tokenTextUnlocked: { color: colors.keep },
-  hint: { color: colors.textSecondary, fontSize: 11, fontWeight: '600' },
+  hint: { color: '#F2EDFF', fontSize: 12, fontWeight: '600' },
   storeBackdrop: { flex: 1, backgroundColor: 'rgba(3,2,7,.86)', justifyContent: 'flex-end', alignItems: 'center' },
   store: { width: '100%', maxWidth: 640, maxHeight: '92%', flexShrink: 1, backgroundColor: colors.backgroundElevated, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderColor: colors.border, padding: 16, gap: 10 },
   storeHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  storeKicker: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
+  storeKicker: { color: colors.primaryLight, fontSize: 11, fontWeight: '900', letterSpacing: 1.2 },
   storeTitle: { color: colors.textPrimary, fontSize: 18, fontWeight: '900', marginTop: 2 },
   storeClose: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.backgroundCard },
   storeCloseText: { color: colors.textPrimary, fontSize: 22, fontWeight: '900', lineHeight: 24 },
