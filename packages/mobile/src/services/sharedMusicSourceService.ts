@@ -26,6 +26,25 @@ function normalizeUrl(value: string) {
   return extractMusicShareLink(value) ?? '';
 }
 
+/** Supported destinations for explicitly pasted / shared music links (no arbitrary clipboard URLs). */
+export function supportedSharedMusicUrl(value: string): string | null {
+  const candidate = extractMusicShareLink(value);
+  if (!candidate) return null;
+  try {
+    const parsed = new URL(candidate);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null;
+    const host = parsed.hostname.toLowerCase().replace(/^www\\./, '');
+    const hosts = [
+      'youtube.com', 'youtu.be', 'spotify.com', 'deezer.com', 'music.apple.com',
+      'soundcloud.com', 'listen.tidal.com', 'tiktok.com', 'instagram.com',
+      'facebook.com', 'fb.watch', 'snapchat.com', 'snap.com',
+    ];
+    return hosts.some((known) => host === known || host.endsWith('.' + known)) ? parsed.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 export function detectSharedMusicPlatform(value: string): SharedMusicPlatform {
   const input = value.toLowerCase();
   if (input.includes('tiktok.com') || input.includes('vm.tiktok.com') || input.includes('vt.tiktok.com')) return 'TIKTOK';
