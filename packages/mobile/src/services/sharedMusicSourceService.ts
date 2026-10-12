@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { extractMusicShareLink } from './musicShareLink';
 
 const STORAGE_KEY = '@keep/shared-music-source-v1';
 const SOURCE_TTL_MS = 5 * 60 * 1000;
@@ -22,33 +23,7 @@ function enqueueStorage(operation: () => Promise<void>) {
 }
 
 function normalizeUrl(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) return '';
-  const match = trimmed.match(/https?:\/\/[^\s]+/i);
-  return (match?.[0] ?? trimmed).replace(/[),.;]+$/, '');
-}
-
-/**
- * N'importe quelle page peut partager du texte avec un lien intégré.
- * Ne reprendre que les URL des plateformes réellement prises en charge par
- * keep-music-keyless-source, jamais une adresse arbitraire du presse-papiers.
- */
-export function supportedSharedMusicUrl(text: string): string | null {
-  const match = String(text || '').match(/https?:\/\/[^\\s<>"']+/i);
-  if (!match) return null;
-  const candidate = match[0].replace(/[),.;!?]+$/, '');
-  try {
-    const url = new URL(candidate);
-    const host = url.hostname.toLowerCase().replace(/^www\\./, '');
-    const platforms = [
-      'youtube.com', 'youtu.be', 'spotify.com', 'deezer.com', 'music.apple.com',
-      'soundcloud.com', 'listen.tidal.com', 'tiktok.com', 'instagram.com',
-      'facebook.com', 'fb.watch', 'snapchat.com', 'snap.com',
-    ];
-    return platforms.some((domain) => host === domain || host.endsWith('.' + domain)) ? url.toString() : null;
-  } catch {
-    return null;
-  }
+  return extractMusicShareLink(value) ?? '';
 }
 
 export function detectSharedMusicPlatform(value: string): SharedMusicPlatform {
@@ -64,7 +39,7 @@ export function detectSharedMusicPlatform(value: string): SharedMusicPlatform {
 
 export function buildSharedMusicSource(input: { webUrl?: string | null; text?: string | null; title?: string | null }): SharedMusicSource | null {
   const rawText = String(input.text ?? '').trim();
-  const url = normalizeUrl(String(input.webUrl ?? rawText));
+  const url = normalizeUrl(String(input.webUrl ?? '')) || normalizeUrl(rawText);
   if (!url) return null;
   return {
     url,
