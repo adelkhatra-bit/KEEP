@@ -39,18 +39,18 @@ async function check(viewport,label,browser) {
     const preview=page.getByTestId('home-manual-search-result');
     if (await preview.count()!==1) throw new Error(label+': duplicate search preview');
     await page.getByTestId('close-manual-search-preview').click();
-    if (await preview.count()) throw new Error(label+': result still present after close');
+    await preview.waitFor({state:'detached',timeout:10000});
 
     await open();
     await page.getByText('Découvertes',{exact:true}).filter({visible:true}).last().click();
     await page.getByText('Loki Music',{exact:true}).filter({visible:true}).last().click();
-    if (await preview.count()) throw new Error(label+': result remained after changing tabs');
+    await preview.waitFor({state:'detached',timeout:10000});
 
     await open();
     await page.reload({waitUntil:'domcontentloaded',timeout:60000});
     const trial=page.getByText('ESSAYER GRATUITEMENT',{exact:true}).last();
     if (await trial.isVisible().catch(()=>false)) await trial.click({force:true,timeout:2000}).catch(()=>{});
-    if (await preview.count()) throw new Error(label+': pasted link result was persisted');
+    await preview.waitFor({state:'detached',timeout:10000});
     fs.mkdirSync('artifacts/dual-viewport',{recursive:true});
     await page.screenshot({path:'artifacts/dual-viewport/temporary-link-'+label+'.png'});
     console.log(label+' PASS: link is a one-off preview, closes, clears on tab change, clears on reload');
