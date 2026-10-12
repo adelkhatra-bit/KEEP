@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { Alert } from '../utils/keepAlert';
+import { pinStoryTrack } from '../services/musicStoriesService';
 import { useTranslation } from 'react-i18next';
 import { ProviderPlaylist } from '@keep/music';
 import { KeepVisibility, SessionTrackEntry } from '../types';
@@ -38,6 +40,7 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
   const [keepSubmitting, setKeepSubmitting] = useState(false);
   const [keepCost, setKeepCost] = useState(3);
   const [keepSuccessOpen, setKeepSuccessOpen] = useState(false);
+  const [storyBusy, setStoryBusy] = useState(false);
   const [keepSuccessVisibility, setKeepSuccessVisibility] = useState<KeepVisibility>('PRIVATE');
 
   const destinationOptions = useMemo(() => playlists ?? [], [playlists]);
@@ -71,6 +74,24 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
     }
   };
 
+  const publishStory = async () => {
+    // A Story is always an explicit action. The FREE keep decision must have
+    // succeeded and been made Public beforehand, never from a mere preview.
+    if (status !== 'kept' || visibility !== 'PUBLIC' || storyBusy) return;
+    setStoryBusy(true);
+    try {
+      await pinStoryTrack(track.id, {
+        title: track.title, artist: track.artist, album: track.album,
+        artworkUrl: track.artworkUrl, previewUrl: track.previewUrl, isrc: track.isrc,
+      });
+      Alert.alert('Story publiée', 'Ce morceau est visible dans ta Story musicale pendant 24 h.');
+    } catch (error: any) {
+      Alert.alert('Story non publiée', error?.message || 'Cette musique ne peut pas être mise en Story pour le moment.');
+    } finally {
+      setStoryBusy(false);
+    }
+  };
+
   const availableLabel = track.availableOn?.length ? `Disponible : ${track.availableOn.join(' · ')}` : '';
   // Adel (02/09/2026) : "il faut bien donner la provenance ... si ça vient de
   // Spotify bien dire que c'est Spotify, si ça vient de Deezer bien dire que
@@ -89,6 +110,13 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
           {importedFromLabel ? <View style={styles.importedPill}><Text style={styles.importedPillText}>{importedFromLabel}</Text></View> : null}
           {availableLabel ? <Text style={styles.platforms} numberOfLines={1}>{availableLabel}</Text> : null}
           <TrackListenControls track={track} previewKey={`session:${entry.id}`} />
+          {status === 'kept' && visibility === 'PUBLIC' ? (
+            <TouchableOpacity testID={`session-story-${entry.id}`} onPress={() => { void publishStory(); }} disabled={storyBusy} accessibilityRole="button" accessibilityLabel="Publier cette musique gardée dans ma Story" style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start', marginTop: 3 }}>
+              <Text style={{ color: colors.keep, fontSize: 12, fontWeight: '800' }}>
+                {storyBusy ? 'Publication…' : '+ METTRE EN STORY · 24 H'}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
           {entry.creditLocked ? <Text style={styles.lockedText}>🔒 En attente · l’écoute reste disponible</Text> : null}
         </View>
 
