@@ -46,6 +46,17 @@ describe('suivi de vue de story façon Instagram', () => {
     expect(calls[calls.length - 1][1].p_last_track_id).toBeNull();
   });
 
+  it('conserve le vrai identifiant d’une musique en vente dans la vue synchronisée', async () => {
+    const { tracker, calls, advance } = make();
+    await advance(STORY_WATCH_MIN_MS + 10);
+    tracker.event({ type: 'shown', trackId: `sale:${UUID}`, index: 0, total: 5 });
+    await advance(3000);
+    tracker.stop();
+    const last = calls[calls.length - 1][1];
+    expect(last.p_last_track_id).toBe(UUID);
+    expect(last.p_chapters).toEqual([{ i: 0, s: 3, t: UUID }]);
+  });
+
   it('départ pendant la création de la session : la session est tout de même clôturée', async () => {
     let t = 0;
     let release: (v: any) => void = () => {};
