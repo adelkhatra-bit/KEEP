@@ -821,7 +821,7 @@ export default function HomeScreenCompact({ navigation }: any) {
                 ◉  TROUVER LE MORCEAU
               </MotionActionButton>
             </View>
-            {Platform.OS === 'web' && !musicEngine.isDemoMode ? (
+            {desktopHome && Platform.OS === 'web' && !musicEngine.isDemoMode ? (
               <React.Fragment>
               <TouchableOpacity testID="home-tab-audio-option" style={s.tabTest} onPress={testTabCapture} disabled={tabTestBusy} accessibilityRole="button" accessibilityLabel="Reconnaître le son d’un onglet YouTube ou TikTok sur PC">
                 <Text style={s.tabTestText}>{tabTestBusy ? 'Analyse de l’onglet…' : '♫ Son d’un onglet PC'}</Text>
@@ -1036,7 +1036,7 @@ export default function HomeScreenCompact({ navigation }: any) {
           <View style={s.waiting}><Text style={s.waitingText}>♫  {t('session.waitingForMusic')}</Text></View>
         )}
 
-        {Platform.OS === 'web' && !musicEngine.isDemoMode ? (
+        {desktopHome && Platform.OS === 'web' && !musicEngine.isDemoMode ? (
           <View testID="listen-tab-audio-option">
             <TouchableOpacity style={s.tabTest} onPress={testTabCapture} disabled={tabTestBusy} accessibilityRole="button" accessibilityLabel="Reconnaître le son d’un onglet YouTube">
               <Text style={s.tabTestText}>{tabTestBusy ? 'Reconnaissance du son en cours…' : '♫  Reconnaître le son d’un onglet YouTube (PC)'}</Text>
