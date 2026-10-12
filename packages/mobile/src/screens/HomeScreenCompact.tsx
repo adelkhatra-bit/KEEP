@@ -457,6 +457,7 @@ export default function HomeScreenCompact({ navigation }: any) {
       title: found?.title || 'Vidéo musicale partagée',
       artist: found?.artist || 'Lien affiché · titre non identifié',
       artworkUrl: found?.artworkUrl,
+      previewUrl: found?.previewUrl,
       track: found ? musicEngine.trackResolver.resolveFromRecognition(found) : {
         id: 'temporary-unidentified', title: 'Vidéo musicale partagée', artist: 'Titre non identifié',
         artworkUrl: undefined, providerIds: {},
