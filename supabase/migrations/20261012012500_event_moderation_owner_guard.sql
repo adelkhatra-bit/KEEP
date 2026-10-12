@@ -22,7 +22,7 @@ begin
       if (new.moderation_status::text = 'APPROVED' and old.moderation_status::text is distinct from 'APPROVED')
         or (new.photo_status::text = 'APPROVED' and old.photo_status::text is distinct from 'APPROVED')
         or (new.text_status::text = 'APPROVED' and old.text_status::text is distinct from 'APPROVED')
-        or (new.moderated_by is distinct from old.moderated_by)
+        or (new.moderated_by is not null and new.moderated_by is distinct from old.moderated_by)
       then
         raise exception 'EVENT_ADMIN_APPROVAL_REQUIRED' using errcode='42501';
       end if;
