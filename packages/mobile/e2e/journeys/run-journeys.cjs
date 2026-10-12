@@ -916,7 +916,7 @@ const desktopHomeStoryJourney = {
 
 const listenPcAndEventStoryJourney = {
   id: 'mobile-pc-quotas-event-story',
-  titre: 'Transfert PC, quota restant, Story de soirée avec réponse et points Pulse',
+  titre: 'Transfert PC, accueil sans RESTANTES, Story de soirée avec réponse et points Pulse',
   devices: [
     ['PC compact 1098x620', { width: 1098, height: 620 }],
     ['iPhone simulé 390x844', { width: 390, height: 844 }],
@@ -937,7 +937,7 @@ const listenPcAndEventStoryJourney = {
     } else {
       const transfer = page.locator('[data-testid="home-transfer-to-pc"]');
       checks.push(['transfert PC visible depuis accueil iPhone', await transfer.isVisible()]);
-      checks.push(['quota restant renseigné', (await page.locator('body').innerText()).includes('RESTANTES')]);
+      checks.push(['ancien compteur RESTANTES absent de l’accueil', !(await page.locator('body').innerText()).includes('RESTANTES')]);
       const shareErrors = [];
       page.on('pageerror', (error) => { shareErrors.push(String(error.message)); });
       page.on('dialog', (dialog) => { void dialog.dismiss(); });
