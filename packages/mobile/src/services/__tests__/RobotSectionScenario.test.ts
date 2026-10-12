@@ -23,7 +23,7 @@ describe('Robot : scénario par rubrique', () => {
       expect(out.actions.at(-1)?.key).toBe('REPORT');
       expect(out.actions.length).toBeGreaterThanOrEqual(3);
       expect(out.text.length).toBeLessThan(100);
-      expect(out.actions.map((action) => action.key)).toEqual(['PULSE', 'COMMUNITY', 'PLAYLISTS', 'SEARCH', 'STORY', 'SOLO', 'REPORT']);
+      expect(out.actions.map((action) => action.key)).toEqual([...scenario.keys, 'REPORT']);
     }
   });
   it('le profil propose playlist / soirée / story / partage PC', () => {
