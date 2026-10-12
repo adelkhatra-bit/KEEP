@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import TrackCover from './TrackCover';
 import { resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
@@ -19,12 +19,13 @@ export type TemporaryMusicResult = {
  * Closing this Loki-branded modal destroys the embedded player and its result.
  */
 export default function TemporaryMusicPreview({
-  visible, result, onClose, onNext, onSave, onSeeSessions, saved = false, saving = false,
+  visible, result, onClose, onNext, onReplaceLink, onSave, onSeeSessions, saved = false, saving = false,
 }: {
   visible: boolean;
   result: TemporaryMusicResult | null;
   onClose: () => void;
   onNext?: () => void;
+  onReplaceLink?: (link: string) => void;
   onSave?: () => void;
   onSeeSessions?: () => void;
   saved?: boolean;
@@ -34,6 +35,7 @@ export default function TemporaryMusicPreview({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewPlaying, setPreviewPlaying] = useState(false);
   const [previewError, setPreviewError] = useState(false);
+  const [nextLink, setNextLink] = useState('');
   // A provider may refuse to embed on iOS or inside a browser. The legally
   // available catalogue excerpt is the in-Loki fallback, with no external navigation.
   useEffect(() => {
@@ -42,6 +44,7 @@ export default function TemporaryMusicPreview({
     setPreviewPlaying(false);
     setPreviewError(false);
     setPreviewUrl(null);
+    setNextLink('');
     if (visible && result?.identified && result.title && result.artist) {
       void resolveTrackPreviewUrl({ title: result.title, artist: result.artist,
         id: 'temporary-preview', providerIds: {}, artworkUrl: result.artworkUrl,
@@ -80,6 +83,21 @@ export default function TemporaryMusicPreview({
               {!result.identified ? <Text style={{ color: '#F5CE87', fontSize: 11, marginTop: 5 }}>Lien affiché, morceau non identifié</Text> : null}
             </View>
           </View>
+          {onReplaceLink ? (
+            <View testID="temporary-music-replace-link" style={{ marginBottom: 12 }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700', marginBottom: 6 }}>Une autre musique ? Colle son lien ici</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <TextInput testID="temporary-music-next-link-input" value={nextLink} onChangeText={setNextLink}
+                  placeholder="Nouveau lien YouTube, Spotify…" placeholderTextColor="#C9C3E0"
+                  autoCapitalize="none" autoCorrect={false} selectTextOnFocus keyboardType="url" returnKeyType="search"
+                  onSubmitEditing={() => { if (nextLink.trim()) onReplaceLink(nextLink.trim()); }}
+                  style={{ flex: 1, minWidth: 0, minHeight: 46, borderRadius: 10, paddingHorizontal: 10, borderWidth: 1, borderColor: '#6956BB', backgroundColor: '#090713', color: '#FFFFFF', fontSize: 13 }} />
+                <TouchableOpacity testID="temporary-music-next-link-search" disabled={!nextLink.trim()} onPress={() => { if (nextLink.trim()) onReplaceLink(nextLink.trim()); }} accessibilityRole="button" accessibilityLabel="Rechercher le nouveau lien musical" style={{ minWidth: 92, minHeight: 46, backgroundColor: nextLink.trim() ? '#2DE1C2' : '#6956BB', borderRadius: 10, justifyContent: 'center', alignItems: 'center' }}>
+                  <Text style={{ color: '#10101A', fontSize: 12, fontWeight: '800' }}>Chercher</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : null}
           {embed ? (
             <View key={embed.url} testID="temporary-music-embedded-player" style={{ width: '100%', height: embed.provider === 'YOUTUBE' ? 280 : 185, minHeight: 170, borderRadius: 12, overflow: 'hidden', backgroundColor: '#090713' }}>
               {Platform.OS === 'web' ?
