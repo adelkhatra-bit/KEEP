@@ -41,6 +41,7 @@ import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import KeepVisibilityChoiceModal from '../components/KeepVisibilityChoiceModal';
 import { preloadTrackPreview, preloadTrackPreviewSegment, stopTrackPreview, stopTrackPreviewFast, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
+import { pinStoryTrack } from '../services/musicStoriesService';
 import KeepModal from '../components/KeepModal';
 import { openSessionHistoryGuarded } from '../services/sessionHistoryGuard';
 
@@ -768,6 +769,27 @@ export default function HomeScreenCompact({ navigation }: any) {
     showKeepSnackbar(entryId, visibility);
   };
 
+  const [storyPinBusy, setStoryPinBusy] = useState(false);
+  const pinCurrentInStory = async () => {
+    const entry = useSessionStore.getState().tracks.find((item) => item.id === current?.id);
+    if (!entry || entry.status !== 'kept' || entry.visibility !== 'PUBLIC' || storyPinBusy) return;
+    setStoryPinBusy(true);
+    try {
+      // Le RPC applique la certification, l'anti-doublon et la protection des
+      // morceaux en vente : aucun achat FREE ni publication automatique ici.
+      await pinStoryTrack(entry.track.id, {
+        title: entry.track.title, artist: entry.track.artist,
+        album: entry.track.album, artworkUrl: entry.track.artworkUrl,
+        previewUrl: entry.track.previewUrl, isrc: entry.track.isrc,
+      });
+      Alert.alert('Story publiée', 'Ce morceau est dans ta Story musicale pendant 24 h.');
+    } catch (error: any) {
+      Alert.alert('Story non publiée', error?.message || 'Vérifie la visibilité publique du morceau.');
+    } finally {
+      setStoryPinBusy(false);
+    }
+  };
+
   const toggleCurrentVisibility = async () => {
     if (!current || current.status !== 'kept' || privacyBusy) return;
     setPrivacyBusy(true);
@@ -1203,6 +1225,11 @@ export default function HomeScreenCompact({ navigation }: any) {
                       {privacyBusy ? '…' : currentVisibility === 'PUBLIC' ? 'Public sur mon profil' : 'Privé'}
                     </Text>
                   </TouchableOpacity>
+                  {currentVisibility === 'PUBLIC' ? (
+                    <TouchableOpacity testID="listen-publish-story" onPress={() => { void pinCurrentInStory(); }} disabled={storyPinBusy} accessibilityRole="button" accessibilityLabel="Mettre ce morceau gardé dans ma Story" style={{ marginTop: 8, minHeight: 44, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ color: C.text, fontSize: 12, fontWeight: '700' }}>{storyPinBusy ? 'Publication de la Story…' : '+ METTRE EN STORY · 24 H'}</Text>
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
               ) : current.status === 'passed' ? (
                 <View style={s.passedState}><Text style={s.passedStateText}>✕ Passé</Text></View>
