@@ -43,7 +43,7 @@ interface SessionHistoryStore {
   dismissedSessionIds: string[];
   addSession: (session: KeepSession) => void;
   upsertSession: (session: KeepSession) => void;
-  addSharedLinkTrack: (track: CanonicalTrack, sourceUrl?: string, ownerUserId?: string) => { sessionId: string; added: boolean };
+  addSharedLinkTrack: (track: CanonicalTrack, sourceUrl?: string, ownerUserId?: string) => { sessionId: string; entryId?: string; added: boolean };
   deleteSession: (sessionId: string) => void;
   clearSessions: () => void;
   renameSession: (sessionId: string, title: string) => void;
@@ -331,10 +331,9 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
         const exists = s.sessions.some((item) => item.id === session.id);
         return { sessions: exists ? s.sessions.map((item) => item.id === session.id ? session : item) : [session, ...s.sessions] };
       }),
-      // Une recherche par lien est une PRE-ECOUTE par défaut. Seul l'appui
-      // explicite sur « Ajouter à Mes Sessions » crée cette entrée : sans
-      // démarrer le microphone, sans consommer de FREE, sans publier de story.
-      // Garder depuis le récap utilise ensuite le contrôle FREE existant.
+      // Chaque lien musical identifié est enregistré EN ATTENTE, sans aucun
+      // débit FREE. Seul GARDER dans la même fenêtre déclenche le coût serveur
+      // et le choix Public/Privé, comme dans Swipe sur mobile et PC.
       addSharedLinkTrack: (track, sourceUrl, ownerUserId) => {
         const now = new Date().toISOString();
         const day = now.slice(0, 10);
@@ -345,7 +344,7 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
           ...track,
           externalUrls: { ...(track.externalUrls ?? {}), ...(normalizedSource ? { source: normalizedSource } : {}) },
         };
-        let outcome: { sessionId: string; added: boolean } | null = null;
+        let outcome: { sessionId: string; entryId?: string; added: boolean } | null = null;
         set((state) => {
           // Un seul groupe journalier par profil, sans mélanger deux comptes
           // sur le même PC. Une session micro existante reste inchangée.
@@ -353,12 +352,12 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
             && item.startedAt.startsWith(day) && (item.ownerUserId ?? '') === (ownerUserId ?? '')
             && !state.dismissedSessionIds.includes(item.id));
           const id = existing?.id ?? `shared-${day}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-          const duplicate = existing?.tracks.some((item) =>
+          const duplicate = existing?.tracks.find((item) =>
             Boolean(normalizedSource && item.track.externalUrls?.source === normalizedSource)
             || (normalized(item.track.title) === normalized(enrichedTrack.title)
               && normalized(item.track.artist) === normalized(enrichedTrack.artist))
           );
-          if (duplicate) { outcome = { sessionId: id, added: false }; return state; }
+          if (duplicate) { outcome = { sessionId: id, entryId: duplicate.id, added: false }; return state; }
           const entry: SessionTrackEntry = {
             id: `shared-track-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             track: enrichedTrack, recommendations: [], status: 'pending', detectedAt: now,
@@ -366,7 +365,7 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
           const session: KeepSession = existing
             ? { ...existing, endedAt: now, tracks: [entry, ...existing.tracks] }
             : { id, ownerUserId, title, startedAt: now, endedAt: now, tracks: [entry] };
-          outcome = { sessionId: id, added: true };
+          outcome = { sessionId: id, entryId: entry.id, added: true };
           return { sessions: [session, ...state.sessions.filter((item) => item.id !== id)] };
         });
         return outcome ?? { sessionId: '', added: false };
