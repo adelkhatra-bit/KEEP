@@ -143,6 +143,7 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
+| `134632f` | `134632f` | iOS #231 success (release 5447724) | OTA #1022 success (release 5447724) | 2026-10-12 23:58 | pass | fix(stories): keep paid/free labels in layout flow outside cover |
 | `9c59676` | `9c59676` | iOS #231 in_progress (release 5447724) | OTA #1022 in_progress (release 5447724) | 2026-10-12 22:28 | pass | fix(guard): compare newline escapes correctly in exact story SQL syntax exception |
 | `c0c5a77` | `c0c5a77` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 22:22 | pass | test(story): verify real last viewed title after backward navigation |
 | `364b927` | `364b927` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 22:15 | pass | fix(stories): label unique viewers separately from tracks actually visited |
@@ -182,7 +183,6 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 | `d678e56` | `d678e56` | iOS #227 success (release a1d7ac3) | OTA #1018 success (release a1d7ac3) | 2026-10-11 19:06 | pass | fix(desktop): accueil et Stories cadrés, sans contrôles superposés (#111) |
 | `a1d7ac3` | `a1d7ac3` | iOS #227 in_progress (release a1d7ac3) | OTA #1018 in_progress (release a1d7ac3) | 2026-10-11 18:24 | pass | release(ios+web): publish verified PR110 on unified TestFlight and desktop source |
 | `d13e0f1` | `d13e0f1` | iOS #226 success (release bcd5711) | OTA #1017 success (release bcd5711) | 2026-10-11 18:17 | pass | release: Loki web/iOS sync, PC countdown, stories and atomic FREE dedup (#110) |
-| `d8b1fa9` | `d8b1fa9` | iOS #226 success (release bcd5711) | OTA #1017 success (release bcd5711) | 2026-10-11 13:07 | pass | fix(ci): garde-fou navigateur sur PR servi avec repli SPA (comme GitHub Pages) — reload sans 404 |
 <!-- AUTO:RELEASE-REGISTER:END -->
 
 

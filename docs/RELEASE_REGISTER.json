@@ -1,5 +1,14 @@
 [
   {
+    "commit": "134632f136bae2e7009ab192eb3ba35e02606ca6",
+    "web": "134632f136bae2e7009ab192eb3ba35e02606ca6",
+    "testflight": "iOS #231 success (release 5447724)",
+    "ota": "OTA #1022 success (release 5447724)",
+    "date": "2026-10-12 23:58",
+    "tests": "pass",
+    "changes": "fix(stories): keep paid/free labels in layout flow outside cover"
+  },
+  {
     "commit": "9c59676be777f3346202e97030c5e6ba31fd6520",
     "web": "9c59676be777f3346202e97030c5e6ba31fd6520",
     "testflight": "iOS #231 in_progress (release 5447724)",
@@ -349,14 +358,5 @@
     "date": "2026-10-11 18:17",
     "tests": "pass",
     "changes": "release: Loki web/iOS sync, PC countdown, stories and atomic FREE dedup (#110)"
-  },
-  {
-    "commit": "d8b1fa9f96cdc4539f660c3747296003ad221561",
-    "web": "d8b1fa9f96cdc4539f660c3747296003ad221561",
-    "testflight": "iOS #226 success (release bcd5711)",
-    "ota": "OTA #1017 success (release bcd5711)",
-    "date": "2026-10-11 13:07",
-    "tests": "pass",
-    "changes": "fix(ci): garde-fou navigateur sur PR servi avec repli SPA (comme GitHub Pages) — reload sans 404"
   }
 ]
