@@ -72,8 +72,24 @@ export const SECTION_SCENARIOS: Record<Exclude<RobotSection, 'OTHER'>, Scenario>
 /** Message et propositions du robot quand on le secoue (ou qu'on le touche 5 fois) sur une rubrique donnée. */
 export function scenarioForRoute(routeName: string | null | undefined, username: string, seed = 0): { text: string; actions: RobotAction[] } {
   const name = String(username || '').trim().replace(/^@+/, '');
-  // The same seven actions and short prompt are used on every screen.
-  // Section-specific tips remain defined above for contextual coaching.
-  const compactText = `Qu'est-ce que je peux faire pour toi${name ? `, ${name}` : ''} ?`;
-  return { text: compactText, actions: SHAKE_ACTIONS };
+  const section = sectionOfRoute(routeName);
+  // Une aide courte et différente selon la rubrique ; chaque bouton garde
+  // le routage existant puis affiche l'explication de sa destination.
+  if (section !== 'OTHER') {
+    const labels: Record<Exclude<RobotSection, 'OTHER'>, string> = {
+      PULSE: 'Écouter', DISCOVER: 'Découvertes', PLAYLISTS: 'Playlists',
+      PARTIES: 'Soirées / Battle', PROFILE: 'Profil',
+    };
+    const keys: HelpActionKey[] = [...SECTION_SCENARIOS[section].keys, 'REPORT'];
+    const actions = keys.map((key) => SHAKE_ACTIONS.find((item) => item.key === key))
+      .filter((item): item is RobotAction => Boolean(item));
+    return {
+      text: `${labels[section]} : je t’aide sur quoi${name ? `, ${name}` : ''} ?`,
+      actions,
+    };
+  }
+  return {
+    text: `Qu'est-ce que je peux faire pour toi${name ? `, ${name}` : ''} ?`,
+    actions: SHAKE_ACTIONS,
+  };
 }
