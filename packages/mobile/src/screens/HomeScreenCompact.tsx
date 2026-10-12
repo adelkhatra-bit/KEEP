@@ -694,13 +694,16 @@ export default function HomeScreenCompact({ navigation }: any) {
       if (result === 'duplicate') Alert.alert('Déjà identifié', 'Ce morceau est déjà présent dans ta session.');
     } catch (e: any) {
       if (e instanceof MicPermissionDeniedError) {
-        Alert.alert('Partage non autorisé', 'Sélectionne l’onglet YouTube dans Chrome ou Edge et autorise le partage de son audio.');
+        Alert.alert('Partage non autorisé', 'Choisis l’onglet YouTube dans Chrome ou Edge et active le partage du son. Sinon, colle son lien directement.', [
+          { text: 'Coller un lien', onPress: () => { setManualSearchNotFound(false); setManualSearchOpen(true); } },
+          { text: 'Fermer', style: 'cancel' },
+        ]);
       } else {
         // Ne pas enfermer l'utilisateur dans une erreur : recherche du lien
         // depuis la même page Loki Music, sans relancer le micro.
         Alert.alert(
           'Son de l’onglet indisponible',
-          (e?.message || 'La capture du navigateur a échoué.') + '\\n\\nTu peux aussi coller le lien YouTube ou Spotify sans capturer ton écran.',
+          (e?.message || 'La capture du navigateur a échoué.') + ' Tu peux aussi coller le lien YouTube ou Spotify sans capturer ton écran.',
           [
             { text: 'Coller un lien', onPress: () => { setManualSearchNotFound(false); setManualSearchOpen(true); } },
             { text: 'Fermer', style: 'cancel' },
