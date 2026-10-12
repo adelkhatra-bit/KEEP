@@ -440,7 +440,13 @@ export function createProfileService(client: SupabaseClient) {
       // plus provoquer une violation profiles_id_fkey.
       const { data: authState, error: authError } = await client.auth.getUser();
       const authenticatedId = authState.user?.id;
-      if (authError || !authenticatedId || authenticatedId !== user.id) return;
+      if (authError || !authenticatedId || authenticatedId !== user.id) {
+        // Automatic background refresh remains best-effort; an explicit
+        // Enregistrer action must report auth failure instead of showing a
+        // false "Profil enregistré" after an uncommitted change.
+        if (options.allowClearing) throw new Error('Session expirée : reconnecte-toi avant d’enregistrer ton profil.');
+        return;
+      }
 
       const allowClearing = options.allowClearing ?? loadedOwnProfileId !== user.id;
 

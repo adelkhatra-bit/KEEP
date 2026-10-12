@@ -131,11 +131,13 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
     setError(''); setSaving(true); setSaveSuccess(false);
     try {
       const nextUser = buildUser();
-      setUser(nextUser);
+      // Explicitly saving this screen may also REMOVE a bio, link, photo or
+      // social network. Background sync must remain non-destructive, but this
+      // user-confirmed action must persist the exact desired profile.
       if (isLocalGuest) {
         await stageGuestProfileForUpgrade(nextUser);
       } else if (supabase && !isDemoMode) {
-        await createProfileService(supabase).saveOwnProfile(nextUser);
+        await createProfileService(supabase).saveOwnProfile(nextUser, { allowClearing: true });
         if (locationEdited) {
           const { error: locationError } = await supabase.from('profiles').update({
             city: nextUser.city ?? null,
@@ -147,6 +149,9 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
           if (locationError) throw locationError;
         }
       }
+      // Never show optimistic profile changes as saved when Supabase refused
+      // the update: the store reflects the confirmed save only.
+      setUser(nextUser);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
     } catch (e: any) {
