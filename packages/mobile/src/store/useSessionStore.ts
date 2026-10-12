@@ -195,7 +195,7 @@ interface SessionStore {
   resumeListening: () => void;
   useFreeForNextListen: () => void;
   dismissListenFreePrompt: () => void;
-  startSession: () => void;
+  startSession: (options?: { startPaused?: boolean }) => void;
   requestEndSession: (title?: string) => string | null;
   dismissEndPrompt: () => void;
   keepTrack: (entryId: string, playlistId?: string, visibility?: KeepVisibility) => Promise<void>;
@@ -300,18 +300,24 @@ async function applyDetectedTrack(
   // quota inclus était déjà épuisé. En cas de refus serveur, le morceau n'est
   // pas ajouté localement : aucun résultat gratuit ne contourne le quota.
   if (source === 'listen' && !musicEngine.isDemoMode) {
+    // Les réponses déjà validées par l'Edge Function ne sont jamais débitées deux fois.
+    const serverRecorded = Boolean((recognition as any)?.__listenEconomyRecorded);
     try {
-      // Les Edge Functions marquent les reconnaissances payantes déjà
-      // comptabilisées côté serveur. Les fast-paths gratuits (ShazamKit,
-      // mémoire Loki, source partagée) passent ici par le même RPC idempotent.
-      const serverRecorded = Boolean((recognition as any)?.__listenEconomyRecorded);
+      // Les autres reconnaissances passent obligatoirement par le RPC idempotent.
+      // Aucun morceau réussi non comptabilisé ne doit contourner le quota.
       const economy = serverRecorded
         ? await loadListenEconomyStatus()
         : await recordListenSuccess('listen:' + sessionIdAtDetection + ':' + entry.id, listenFreeAuthorizedForNextSuccess);
+      if (!economy && !serverRecorded) {
+        listenFreeAuthorizedForNextSuccess = false;
+        clearNextPaidListenFreeAuthorization();
+        set({ recognizing: false, micLevel: 0, micPaused: true, error: 'Comptabilisation des écoutes indisponible. Réessaie quand la connexion est rétablie.' });
+        return 'inactive';
+      }
       if (economy) {
         set({ listenEconomyStatus: economy });
         if (economy.ok === false) {
-          const insufficient = economy.reason === 'FREE_REQUIRED' && !economy.canPayWithFree;
+          const insufficient = economy.reason === 'INSUFFICIENT_FREE' || (economy.overQuota && !economy.canPayWithFree);
           listenFreeAuthorizedForNextSuccess = false;
           clearNextPaidListenFreeAuthorization();
           set({
@@ -329,8 +335,14 @@ async function applyDetectedTrack(
       listenFreeAuthorizedForNextSuccess = false;
       clearNextPaidListenFreeAuthorization();
     } catch {
-      // Une panne temporaire de comptage ne transforme pas une reconnaissance
-      // valide en perte de morceau. Le prochain focus rafraîchira le compteur.
+      if (!serverRecorded) {
+        listenFreeAuthorizedForNextSuccess = false;
+        clearNextPaidListenFreeAuthorization();
+        set({ recognizing: false, micLevel: 0, micPaused: true, error: 'Comptabilisation des écoutes indisponible. Aucun crédit n’a été consommé : réessaie.' });
+        return 'inactive';
+      }
+      // Le fournisseur a confirmé le débit serveur : ne jamais le refaire.
+      // Le solde est rafraîchi dès que Supabase redevient disponible.
     }
   }
 
@@ -479,7 +491,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     set({ listenFreeRequired: false, listenFreeInsufficient: false });
   },
 
-  startSession: () => {
+  startSession: (options) => {
     if (isProtectedStoryPlaybackActive()) return;
     clearTimers();
     // Nettoyer l'ancienne capture AVANT de préparer le nouvel AudioContext.
@@ -490,7 +502,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     void cancelAudioCapture();
     // Doit rester dans le geste tactile d'origine pour Samsung Internet /
     // Chrome Android / Safari iOS.
-    prepareAudioCaptureFromUserGesture();
+    if (!options?.startPaused) prepareAudioCaptureFromUserGesture();
     void prepareRecognitionNotifications();
     // Une écoute lancée normalement ne doit jamais reprendre une ancienne URL
     // TikTok/Instagram. Le handoff social pose sa nouvelle source juste après.
@@ -513,7 +525,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       recognizing: false,
       micLevel: 0,
       musicPresence: 'unknown',
-      micPaused: false,
+      micPaused: Boolean(options?.startPaused),
       error: null,
       signalHint: null,
       listenFreeRequired: false,

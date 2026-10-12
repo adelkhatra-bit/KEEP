@@ -187,6 +187,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   useEffect(() => () => { if (snackTimer.current) clearTimeout(snackTimer.current); }, []);
   const [privacyBusy, setPrivacyBusy] = useState(false);
   const [manualSearchOpen, setManualSearchOpen] = useState(false);
+  const manualSearchStartedFromHome = useRef(false);
   const [sessionPeekOpen, setSessionPeekOpen] = useState(false);
   // Navigation différée : le lecteur Swipe ne doit jamais s'ouvrir derrière une Modal iOS encore en train de se fermer.
   const queuedSwipeSessionId = useRef<string | null>(null);
@@ -246,6 +247,24 @@ export default function HomeScreenCompact({ navigation }: any) {
         { text: 'PASSER PREMIUM', onPress: premium },
       ],
     );
+  };
+
+  // Recherche depuis l'accueil : ouvrir la vraie session, sans activer le micro.
+  // Le résultat se range dans la session habituelle et conserve ses actions.
+  const openManualSearchFromHome = () => {
+    startSession({ startPaused: true });
+    if (!useSessionStore.getState().isActive) return;
+    manualSearchStartedFromHome.current = true;
+    setManualSearchNotFound(false);
+    setManualSearchOpen(true);
+  };
+  const closeManualSearch = () => {
+    if (manualSearchBusy) return;
+    setManualSearchOpen(false);
+    if (manualSearchStartedFromHome.current && useSessionStore.getState().tracks.length === 0) {
+      requestEndSession();
+    }
+    manualSearchStartedFromHome.current = false;
   };
 
   const startListening = () => {
@@ -414,6 +433,7 @@ export default function HomeScreenCompact({ navigation }: any) {
         setManualSearchNotFound(true);
         return;
       }
+      manualSearchStartedFromHome.current = false;
       setManualSearchOpen(false);
       setManualSearchQuery('');
     } finally {
@@ -668,7 +688,7 @@ export default function HomeScreenCompact({ navigation }: any) {
     if (tabTestBusy || musicEngine.isDemoMode) return;
     // L’action est aussi disponible dès l’accueil PC, avant de lancer le micro.
     // Lancer la session dans le geste utilisateur, puis la mettre en pause avant de capter le son partagé.
-    if (!useSessionStore.getState().isActive) useSessionStore.getState().startSession();
+    if (!useSessionStore.getState().isActive) useSessionStore.getState().startSession({ startPaused: true });
     const wasPaused = useSessionStore.getState().micPaused;
     useSessionStore.getState().pauseListening();
     setTabTestBusy(true);
@@ -758,6 +778,15 @@ export default function HomeScreenCompact({ navigation }: any) {
                 ◉  TROUVER LE MORCEAU
               </MotionActionButton>
             </View>
+            <TouchableOpacity
+              testID="home-manual-search"
+              style={s.idleManualSearch}
+              onPress={openManualSearchFromHome}
+              accessibilityRole="button"
+              accessibilityLabel="Tu connais le titre ? Cherche-le toi-même"
+            >
+              <Text style={s.idleManualSearchText}>Tu connais le titre ? Cherche-le toi-même</Text>
+            </TouchableOpacity>
             {Platform.OS === 'web' && !musicEngine.isDemoMode ? (
               <TouchableOpacity testID="home-tab-audio-option" style={s.tabTest} onPress={testTabCapture} disabled={tabTestBusy} accessibilityRole="button" accessibilityLabel="Reconnaître le son d’un onglet YouTube ou TikTok sur PC">
                 <Text style={s.tabTestText}>{tabTestBusy ? 'Analyse de l’onglet…' : '♫ Son d’un onglet PC'}</Text>
@@ -959,24 +988,7 @@ export default function HomeScreenCompact({ navigation }: any) {
           <View style={s.waiting}><Text style={s.waitingText}>♫  {t('session.waitingForMusic')}</Text></View>
         )}
 
-        {Platform.OS === 'web' && !musicEngine.isDemoMode ? (
-          <View testID="listen-tab-audio-option">
-            <TouchableOpacity style={s.tabTest} onPress={testTabCapture} disabled={tabTestBusy} accessibilityRole="button" accessibilityLabel="Reconnaître le son d’un onglet YouTube">
-              <Text style={s.tabTestText}>{tabTestBusy ? 'Reconnaissance du son en cours…' : '♫  Reconnaître le son d’un onglet YouTube (PC)'}</Text>
-            </TouchableOpacity>
-            <Text style={s.keepHint}>Sur le même ordinateur : dans Chrome ou Edge, choisis l’onglet YouTube et active « Partager l’audio ». Le micro sera mis en pause pendant la capture.</Text>
-          </View>
-        ) : null}
 
-        <MotionActionButton
-          variant="ghost"
-          size="medium"
-          onPress={() => { setManualSearchNotFound(false); setManualSearchOpen(true); }}
-          accessibilityLabel="Chercher un morceau par son titre"
-          accessibilityHint="Ouvre un formulaire de recherche par titre"
-        >
-          Tu connais le titre ? Cherche-le toi-même
-        </MotionActionButton>
       </ScrollView>
 
       {keepSnackbar ? (
@@ -1050,7 +1062,7 @@ export default function HomeScreenCompact({ navigation }: any) {
         }}
       />
 
-      <KeepModal visible={manualSearchOpen} transparent animationType="fade" onRequestClose={() => !manualSearchBusy && setManualSearchOpen(false)}>
+      <KeepModal visible={manualSearchOpen} transparent animationType="fade" onRequestClose={closeManualSearch}>
         <View style={s.modalOverlay}><View style={s.modalCard}>
           <Text style={s.modalTitle}>Chercher un morceau</Text>
           <Text style={s.modalBody}>Entre l’artiste et le titre, ou colle le lien d’une vidéo YouTube, Spotify, Deezer ou Apple Music. Pour YouTube, Loki Music recherche les informations publiques de la vidéo et les compare aux catalogues musicaux : il ne reconnaît pas directement l’audio à partir d’un simple lien.</Text>
@@ -1067,7 +1079,7 @@ export default function HomeScreenCompact({ navigation }: any) {
           />
           {manualSearchNotFound ? <Text style={s.manualSearchNotFound}>Aucun titre confirmé à partir de cette recherche. Essaie « Artiste – Titre », une autre vidéo YouTube ou la capture audio de l’onglet sur PC.</Text> : null}
           <View style={s.modalActions}>
-            <TouchableOpacity style={s.modalBtn} onPress={() => setManualSearchOpen(false)} disabled={manualSearchBusy}><Text style={s.modalBtnText}>Annuler</Text></TouchableOpacity>
+            <TouchableOpacity style={s.modalBtn} onPress={closeManualSearch} disabled={manualSearchBusy}><Text style={s.modalBtnText}>Annuler</Text></TouchableOpacity>
             <TouchableOpacity style={[s.modalBtn, s.modalEnd]} onPress={runManualSearch} disabled={manualSearchBusy || !manualSearchQuery.trim()}>
               <Text style={s.modalEndText}>{manualSearchBusy ? 'Recherche…' : 'Chercher'}</Text>
             </TouchableOpacity>
@@ -1322,6 +1334,8 @@ const s = StyleSheet.create({
   idleWave: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   idleWaveBar: { width: 4, borderRadius: 3, backgroundColor: C.purpleLight, opacity: 0.55 },
   idleCta: { marginTop: 20, alignItems: 'center' },
+  idleManualSearch: { minHeight: 44, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center', marginTop: 2 },
+  idleManualSearchText: { color: C.purpleLight, fontSize: 12, fontWeight: '800', textDecorationLine: 'underline', textAlign: 'center' },
   loki3dWrap: { position: 'relative', minHeight: 38, minWidth: 220, alignItems: 'center', justifyContent: 'center', marginTop: -2, marginBottom: 5 },
   loki3dDepth: { position: 'absolute', color: 'rgba(45,225,194,0.28)', fontSize: 26, lineHeight: 34, fontWeight: '900', letterSpacing: 4.2, transform: [{ translateX: 2 }, { translateY: 3 }] },
   loki3dFace: { color: C.text, fontSize: 26, lineHeight: 34, fontWeight: '900', letterSpacing: 4.2, textShadowColor: 'rgba(124,92,252,0.72)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 10 },
