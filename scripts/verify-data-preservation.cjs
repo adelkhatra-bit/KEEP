@@ -109,8 +109,8 @@ function isExactUnappliedStoryTerminatorRepair(file, range) {
   const base = String(range || '').split('..')[0];
   if (!/^[0-9a-f]{40}$/i.test(base)) return false;
   const oldContent = git(['show', base + ':' + file]);
-  if (!oldContent || !oldContent.includes('$function$\\n\\nREVOKE ALL ON FUNCTION')) return false;
-  const repaired = oldContent.replace('$function$\\n\\nREVOKE ALL ON FUNCTION', '$function$;\\n\\nREVOKE ALL ON FUNCTION');
+  if (!oldContent || !oldContent.includes('$function$\n\nREVOKE ALL ON FUNCTION')) return false;
+  const repaired = oldContent.replace('$function$\n\nREVOKE ALL ON FUNCTION', '$function$;\n\nREVOKE ALL ON FUNCTION');
   try { return fs.readFileSync(path.join(ROOT, file), 'utf8') === repaired; } catch { return false; }
 }
 
