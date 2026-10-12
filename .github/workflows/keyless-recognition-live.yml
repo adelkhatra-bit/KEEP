@@ -147,6 +147,34 @@ jobs:
           if(!spoof.ok || !text.includes('rick astley') || !text.includes('never gonna give you up'))
             throw new Error('Copied caption changed YouTube video identity: '+JSON.stringify(suspect));
           JS
+      - name: Deux liens YouTube différents — jamais le même titre par erreur
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'JS'
+          const base = process.env.KEEP_SUPABASE_URL;
+          const key = process.env.KEEP_SUPABASE_ANON_KEY;
+          async function recognize(videoId, device) {
+            const url = 'https://www.youtube.com/watch?v=' + videoId;
+            const response = await fetch(base + '/functions/v1/keep-music-keyless-source', {
+              method: 'POST',
+              headers: { apikey: key, Authorization: 'Bearer ' + key, 'content-type': 'application/json', 'x-keep-device-id': device },
+              body: JSON.stringify({ url, platform: 'YOUTUBE' }),
+              signal: AbortSignal.timeout(45000),
+            });
+            const body = await response.json();
+            if (!response.ok || !body?.recognition?.title) throw Error('YouTube recognition missing for ' + videoId + ': ' + JSON.stringify(body));
+            return { ...body, videoId };
+          }
+          const first = await recognize('dQw4w9WgXcQ', 'github-two-links-first');
+          const second = await recognize('9bZkp7q19f0', 'github-two-links-second');
+          const a = first.recognition;
+          const b = second.recognition;
+          if (!/rick astley/i.test(a.artist) || !/never gonna give you up/i.test(a.title)) throw Error('First YouTube link matched wrong song: ' + JSON.stringify(a));
+          if (!/psy/i.test(b.artist) || !/gangnam style/i.test(b.title)) throw Error('Second YouTube link kept the first song or matched wrong music: ' + JSON.stringify(b));
+          if (a.title === b.title && a.artist === b.artist) throw Error('Two different videos produced identical song');
+          console.log('TWO DISTINCT YOUTUBE LINKS OK', { first: a.artist + ' — ' + a.title, second: b.artist + ' — ' + b.title });
+          JS
       - name: Spotify et Deezer partagés — vraie recherche musicale
         shell: bash
         run: |
