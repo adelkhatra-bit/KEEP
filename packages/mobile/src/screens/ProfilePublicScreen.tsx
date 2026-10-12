@@ -67,6 +67,7 @@ import { loadProfileSaleSuggestions, ProfileSaleSuggestion } from '../services/p
 import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
 import PublicProfilePanel from '../components/PublicProfilePanel';
 import CreatorToolsPanel from '../components/CreatorToolsPanel';
+import CreatorSalesCockpit from '../components/CreatorSalesCockpit';
 import HelpLegalPanel from '../components/HelpLegalPanel';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import MusicStyleBubbles from '../components/MusicStyleBubbles';
@@ -2217,6 +2218,13 @@ export default function ProfilePublicScreen({ navigation }: any) {
         ) : null}
 
       </ProfileMotionReveal>
+
+      {desktopProfile && !accountRequired ? (
+        <CreatorSalesCockpit
+          onMusicSales={() => navigation.navigate('PlaylistSale', { openPaymentHistory: true })}
+          onEventSales={() => navigation.navigate('Main', { screen: 'Parties', params: { openMyEvents: true } })}
+        />
+      ) : null}
 
       {!accountRequired && ownerBoutiqueOffers.length ? (
         <ProfileMotionReveal motionKey={`owner-drop:${user.id}:${ownerBoutiqueOffers.length}`} compact style={SELLER_BOUTIQUE_SECTION_STYLE}>
