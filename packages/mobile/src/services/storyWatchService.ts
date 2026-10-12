@@ -21,7 +21,7 @@ export function startStoryWatch(ownerId: string, tracksTotal: number, rpc: Rpc, 
   let sessionId: string | null = null;
   let stopped = false;
   let tracksSeen = 0;
-  let maxIndex = -1;
+  const seenTrackKeys = new Set<string>();
   let lastTrackId: string | null = null;
   let listened = false;
   // Chapitres : chaque musique de la story est un chapitre ; on mesure le temps passé dans chacun, de son arrivée jusqu'à la musique suivante.
@@ -69,7 +69,11 @@ export function startStoryWatch(ownerId: string, tracksTotal: number, rpc: Rpc, 
           chapterStartedAt = now();
           const canonical = canonicalTrackId(event.trackId);
           if (canonical) chapterTrack[event.index] = canonical;
-          if (event.index > maxIndex) { maxIndex = event.index; tracksSeen = maxIndex + 1; }
+          // Une visite directe au 10e titre représente UNE musique vue, pas dix.
+          // Un même titre revu/rouvert ne gonfle pas le total non plus.
+          const viewedKey = canonical ?? String(event.trackId || `position:${event.index}`);
+          seenTrackKeys.add(viewedKey);
+          tracksSeen = Math.min(Math.max(0, tracksTotal), seenTrackKeys.size);
         }
         lastTrackId = canonicalTrackId(event.trackId) ?? lastTrackId;
       } else {
