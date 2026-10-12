@@ -15,6 +15,8 @@ if (process.env.GITHUB_REPOSITORY && process.env.GITHUB_REPOSITORY !== expectedR
 // Une branche d'agent (Copilot, Claude) est une branche de revue, jamais une source de publication.
 // Elle doit contenir la référence produit récupérée avant toute validation.
 const agentBranchPrefixes = ['copilot/', 'claude/', 'fix/', 'feat/', 'design/'];
+// Dependabot n'est autorisé que pour les PR de revue, jamais comme branche produit ou de publication.
+const reviewBranchPrefixes = [...agentBranchPrefixes, 'dependabot/'];
 let verifiedAgentBranch = '';
 let verifiedAgentPullRef = '';
 // CI sur pull_request : GITHUB_REF_NAME vaut « <n>/merge » (jamais le nom de la branche).
@@ -24,7 +26,7 @@ let verifiedAgentPullRef = '';
 if (
   process.env.GITHUB_EVENT_NAME === 'pull_request'
   && process.env.GITHUB_BASE_REF === expectedBranch
-  && agentBranchPrefixes.some((prefix) => String(process.env.GITHUB_HEAD_REF || '').startsWith(prefix))
+  && reviewBranchPrefixes.some((prefix) => String(process.env.GITHUB_HEAD_REF || '').startsWith(prefix))
 ) {
   verifiedAgentPullRef = process.env.GITHUB_REF_NAME || '';
 }
