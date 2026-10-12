@@ -565,6 +565,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [selectionSwipe, setSelectionSwipe] = useState<{ title: string; subtitle: string; tracks: CanonicalTrack[]; sourceByTrack?: Record<string, { profileId?: string; username?: string; avatarUrl?: string | null }> } | null>(null);
   const [lokiPulseItems, setLokiPulseItems] = useState<LokiPulseItem[]>([]);
   const [myPulseEventStories, setMyPulseEventStories] = useState<EventStoryCard[]>([]);
+  const [recommendedEventStories, setRecommendedEventStories] = useState<EventStoryCard[]>([]);
   const [lokiPulseSwipeOpen, setLokiPulseSwipeOpen] = useState(false);
   const [lokiPulseSelectedTrackId, setLokiPulseSelectedTrackId] = useState<string | null>(null);
   const [pulseTasteOpen, setPulseTasteOpen] = useState(false);
@@ -723,9 +724,15 @@ export default function ProfilePublicScreen({ navigation }: any) {
     };
     void refreshPulse();
     const refreshMyEvents = () => {
-      if (!user?.id || accountRequired) { if (live) setMyPulseEventStories([]); return; }
+      if (!user?.id || accountRequired) {
+        if (live) { setMyPulseEventStories([]); setRecommendedEventStories([]); }
+        return;
+      }
       void loadEventStories(30).then((items) => {
-        if (live) setMyPulseEventStories(items.filter((item) => item.creatorId === user.id));
+        if (!live) return;
+        setMyPulseEventStories(items.filter((item) => item.creatorId === user.id).slice(0, 3));
+        // Safety and visibility filters (age, review, 24h expiry) live in the RPC.
+        setRecommendedEventStories(items.filter((item) => item.creatorId !== user.id).slice(0, 2));
       }).catch(() => {});
     };
     refreshMyEvents();
@@ -2515,12 +2522,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
       ) : null}
 
 
-      {!accountRequired && (visibleLokiPulseItems.length > 0 || myPulseEventStories.length > 0) ? (
+      {!accountRequired && (visibleLokiPulseItems.length > 0 || myPulseEventStories.length > 0 || recommendedEventStories.length > 0) ? (
         <View style={s.lokiPulseSection} testID="profile-loki-pulse-track-bubbles">
           <View style={s.lokiPulseHeader}>
             <View style={s.lokiPulseHeaderCopy}>
               <Text style={s.lokiPulseEyebrow}>LOKI PULSE</Text>
-              <Text style={s.lokiPulseTitle}>Des sons qui te ressemblent</Text>
+              <Text style={s.lokiPulseTitle}>Des sons et soirées pour toi</Text>
             </View>
             <Text style={s.lokiPulseCost}>Musiques · collection</Text>
           </View>
@@ -2535,7 +2542,28 @@ export default function ProfilePublicScreen({ navigation }: any) {
               </TouchableOpacity>
             ))}
           </View> : null}
-          <Text style={s.lokiPulseHint}>Appris par Loki à partir de tes écoutes et adapté à tes goûts. Appuie sur une bulle pour écouter.</Text>
+          {recommendedEventStories.length > 0 ? <View style={s.pulseRecommendedEvents} testID="loki-pulse-events-for-you">
+            <Text style={s.pulseRecommendedTitle}>SOIRÉES POUR TOI · CRÉATEURS</Text>
+            {recommendedEventStories.map((event) => (
+              <TouchableOpacity
+                key={event.eventId}
+                accessibilityRole="button"
+                accessibilityLabel={`Voir la soirée ${event.name} de ${event.username} et participer`}
+                onPress={() => navigation.navigate('Parties', { openEventId: event.eventId, source: 'loki-pulse' })}
+                style={s.pulseRecommendedCard}
+                testID={`loki-pulse-recommended-event-${event.eventId}`}
+              >
+                {event.imageUrl ? <Image source={{ uri: event.imageUrl }} style={s.pulseRecommendedImage} /> : <View style={s.pulseRecommendedImagePlaceholder}><Text style={s.pulseRecommendedImageFallback}>♫</Text></View>}
+                <View style={s.pulseRecommendedCopy}>
+                  <Text style={s.pulseRecommendedEventName} numberOfLines={1}>{event.name}</Text>
+                  <Text style={s.pulseRecommendedMeta} numberOfLines={1}>@{event.username} · {event.venueName || 'Soirée musicale'}</Text>
+                  <Text style={s.pulseRecommendedMeta} numberOfLines={1}>{new Date(event.startsAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} · {event.ticketPriceCents != null ? `${(event.ticketPriceCents / 100).toFixed(2)} €` : 'Gratuit'}</Text>
+                </View>
+                <View style={s.pulseRecommendedAction}><Text style={s.pulseRecommendedActionText}>VOIR ›</Text></View>
+              </TouchableOpacity>
+            ))}
+          </View> : null}
+          {visibleLokiPulseItems.length > 0 ? <Text style={s.lokiPulseHint}>Musiques choisies à partir de tes écoutes. Appuie pour écouter.</Text> : null}
           <ScrollView
             ref={lokiPulseScrollRef}
             horizontal
@@ -2908,6 +2936,17 @@ const s=StyleSheet.create({
   ownerPrivateChatHeader:{flexDirection:'row',alignItems:'center',gap:10},
   ownerPrivateChatCollapsedHint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:2},
   ownerPrivateChatToggle:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},
+  pulseRecommendedEvents:{paddingHorizontal:12,paddingVertical:12,gap:8},
+  pulseRecommendedTitle:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:.4},
+  pulseRecommendedCard:{minHeight:76,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,flexDirection:'row',alignItems:'center',padding:9,gap:10},
+  pulseRecommendedImage:{width:58,height:58,borderRadius:12},
+  pulseRecommendedImagePlaceholder:{width:58,height:58,borderRadius:12,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center'},
+  pulseRecommendedImageFallback:{fontSize:24,color:colors.primaryLight},
+  pulseRecommendedCopy:{flex:1,minWidth:0,gap:3},
+  pulseRecommendedEventName:{color:colors.textPrimary,fontWeight:'900',fontSize:13},
+  pulseRecommendedMeta:{color:colors.textSecondary,fontWeight:'700',fontSize:11},
+  pulseRecommendedAction:{minHeight:40,paddingHorizontal:10,borderRadius:11,backgroundColor:colors.primary,justifyContent:'center'},
+  pulseRecommendedActionText:{fontSize:11,fontWeight:'900',color:colors.white},
   ownerCreateEventAction:{width:'100%',marginTop:8},
   ownerBoutiqueHeader:{flexDirection:'row',alignItems:'center',gap:10,minHeight:44},
   ownerBoutiqueToggle:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},
