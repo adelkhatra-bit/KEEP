@@ -63,6 +63,16 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
   const embedUrl = embedded?.url;
   const embedProviderLabel = embedded?.provider === 'SPOTIFY' ? 'Spotify'
     : embedded?.provider === 'DEEZER' ? 'Deezer' : 'YouTube';
+  // YouTube source-only discoveries are exact provider videos, not equivalent
+  // Apple catalogue recordings. Playing a guessed iTunes result here could
+  // produce a DIFFERENT song than the user's shared video.
+  const sourceOnlyVideo = embedded?.provider === 'YOUTUBE'
+    && Boolean(track.externalUrls?.source)
+    && !track.previewUrl
+    && !track.isrc
+    && !track.providerIds?.appleMusic
+    && !track.providerIds?.deezer
+    && !track.providerIds?.spotify;
   const NativeWebView = Platform.OS === 'web' ? null : require('react-native-webview').WebView;
 
   const closeEmbeddedPlayer = () => {
@@ -84,7 +94,7 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
     // jouable dans Loki Music. C'était le bug du mode démo : TrackResolver
     // fournit toujours ces liens de découverte, ce qui empêchait auparavant
     // le repli iTunes de chercher un vrai previewUrl.
-    if (track.previewUrl) return;
+    if (track.previewUrl || sourceOnlyVideo) return;
     let live = true;
     setResolvingPreview(true);
     resolveTrackPreviewUrl(track)
@@ -92,7 +102,7 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
       .finally(() => { if (live) setResolvingPreview(false); });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [track.title, track.artist, track.previewUrl, embedUrl]);
+  }, [track.title, track.artist, track.previewUrl, embedUrl, sourceOnlyVideo]);
 
   useEffect(() => () => {
     // PASSER / changement de carte : couper instantanément l'ancien extrait.
