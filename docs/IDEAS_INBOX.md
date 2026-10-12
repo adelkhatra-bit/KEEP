@@ -1,3 +1,6 @@
+## Demande du 12/10/2026 — compactage réel PC/mobile de Battle, Découvertes et Playlists (captures utilisateur)
+- **IDÉE · EN COURS** : Battle : afficher les 40 Solos restants dans un petit compteur carré, réduire la répétition des informations et utiliser mieux la largeur ordinateur sans étirer le jeu iPhone ; coordination avec la PR #118 déjà ouverte sur le cockpit PC. Découvertes : champ de recherche pseudo limité à une largeur lisible sur PC, sans rétrécir la saisie mobile. Playlists : remplacer le titre « Mes morceaux » par « Toute ma musique », enlever le bandeau vert « Tous mes morceaux » lorsqu'il répète le filtre « Tout », réduire la hauteur des cartes d'accueil, ouvrir directement les commandes de visibilité et les connexions musicales ; conserver tous les filtres, morceaux, fonctions et les deux tailles d'écran. Vérifier sur 390×844 et 1440×900, CI et publication SHA avant de dire « livré ».
+
 # IDEAS INBOX — boîte à idées d'Adel (source unique)
 
 ## Demande du 12/10/2026 — fenêtres musicales mobile et PC
