@@ -1095,13 +1095,15 @@ export default function PartiesScreen({ navigation, route }: any) {
       const payload = { name: name.trim(), description: description.trim(), venueName: venueName.trim(), startsAt: iso, endsAt: new Date(Date.parse(iso) + eventDurationHours * 3600000).toISOString(), countryCode: countryCode.trim().toUpperCase().slice(0,2), imageUrls: eventImageUrls, requireQrCode, audienceMode, organizerPhone: organizerPhone.trim() || undefined, showOrganizerPhone, lat: venueCoords?.lat, lng: venueCoords?.lng };
       if (editingEventId) {
         await updateCreatorEvent(editingEventId, payload);
-        await setEventTicketPrice(editingEventId, ticketPriceCents).catch(() => {});
+        const priceSaved = await setEventTicketPrice(editingEventId, ticketPriceCents).then(() => true).catch(() => false);
         resetEventForm();
         await reload();
-        Alert.alert('Événement modifié', 'Envoyé au Super Admin pour validation — il redevient visible dès l’approbation.');
+        Alert.alert(priceSaved ? 'Événement modifié' : 'Tarif à vérifier', priceSaved
+          ? 'Modifications envoyées au Super Admin pour validation.'
+          : 'La soirée est enregistrée, mais le prix du billet n’a pas pu être confirmé. Rouvre Mes soirées pour réessayer.');
       } else {
         const created = await createCreatorEvent({ ...payload, djArtistNames: user?.username ? [user.username] : [], includeRsvpButtons });
-        await setEventTicketPrice(created.id, ticketPriceCents).catch(() => {});
+        const priceSaved = await setEventTicketPrice(created.id, ticketPriceCents).then(() => true).catch(() => false);
         resetEventForm();
         // La lecture serveur peut avoir un très court délai après l'Edge
         // Function. Injecter immédiatement la soirée créée évite l'état
@@ -1123,7 +1125,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           requireQrCode: payload.requireQrCode,
           audienceMode: payload.audienceMode,
           organizerPhone: payload.showOrganizerPhone ? (payload.organizerPhone || null) : null,
-          ticketPriceCents,
+          ticketPriceCents: priceSaved ? ticketPriceCents : null,
           moderationStatus: 'PENDING',
           photoStatus: 'PENDING',
           photoNote: null,
@@ -1135,7 +1137,10 @@ export default function PartiesScreen({ navigation, route }: any) {
         setPartyHome(false);
         setEventIndex(0);
         void reload();
-        Alert.alert('Envoyé pour validation', 'Loki doit valider la photo et le texte. En attendant, seule une jaquette et un descriptif sans coordonnées peuvent apparaître aux personnes concernées ; aucune action n’est débloquée.');
+        Alert.alert(priceSaved ? 'Envoyé pour validation' : 'Soirée créée · tarif à revoir',
+          priceSaved
+            ? 'Loki valide photo et texte avant de publier. La Story 24 h se crée ensuite automatiquement.'
+            : 'La soirée est enregistrée, mais le tarif n’a pas pu être confirmé. Ouvre Mes soirées puis Modifier avant validation.');
       }
     } catch (e: any) {
       const code = String(e?.message || '');
