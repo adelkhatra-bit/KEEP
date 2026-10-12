@@ -486,8 +486,21 @@ export default function HomeScreenCompact({ navigation }: any) {
       pausedForPreview.current = true;
       pauseListening(); // Prevent the in-app video from being captured by the mic.
     }
+    // A verified music link is collected as PENDING automatically, free of
+    // charge. Only an explicit GARDER decision later can debit FREE or publish
+    // the song to the member's profile/Story. Repeated shares are idempotent.
+    let queued = false;
+    if (result.identified && found) {
+      try {
+        const owner = user && !isDemoMode ? user.id : undefined;
+        const saved = useSessionHistoryStore.getState().addSharedLinkTrack(
+          result.track, sourceUrl ?? undefined, owner,
+        );
+        queued = Boolean(saved.sessionId);
+      } catch { /* Preview still works offline; the explicit retry remains. */ }
+    }
     setManualSearchResult(result);
-    setManualResultSaved(false);
+    setManualResultSaved(queued);
     setManualSaveBusy(false);
     // Keep the SAME RN modal mounted: native iOS cannot display two root Modals
     // simultaneously while the search sheet is being dismissed.
@@ -852,25 +865,18 @@ export default function HomeScreenCompact({ navigation }: any) {
   };
 
   const importCopiedMusicLink = () => {
-    // Lecture du presse-papiers UNIQUEMENT après le clic explicite de l'utilisateur.
-    if (Platform.OS !== 'web' || typeof navigator === 'undefined' || !navigator.clipboard?.readText) {
-      setManualSearchNotFound(false);
-      setManualSearchOpen(true);
-      return;
-    }
-    void navigator.clipboard.readText().then(async (raw) => {
+    // ONE gesture in Loki. Browsers never reveal the chosen YouTube tab URL
+    // through getDisplayMedia; the copy-link clipboard is the safe, consented
+    // route. Do not navigate to YouTube or start capture without an explicit opt-in.
+    setManualSearchNotFound(false);
+    setManualSearchOpen(true);
+    if (Platform.OS !== 'web' || typeof navigator === 'undefined' || !navigator.clipboard?.readText) return;
+    // Must be issued within the click gesture; browsers may deny clipboard
+    // access and then the ordinary paste field remains usable.
+    void navigator.clipboard.readText().then((raw) => {
       const url = supportedSharedMusicUrl(raw);
-      if (!url) {
-        setManualSearchNotFound(false);
-        setManualSearchOpen(true);
-        return;
-      }
-      setManualSearchQuery(url);
-      await recordSharedLinkResult(url);
-    }).catch(() => {
-      // Un navigateur peut refuser l'accès au presse-papiers ; saisie manuelle sûre.
-      setManualSearchOpen(true);
-    });
+      if (url) void runManualSearch(url);
+    }).catch(() => { /* User can paste manually; never redirect or show an error popup. */ });
   };
 
   const testTabCapture = () => {
@@ -899,7 +905,7 @@ export default function HomeScreenCompact({ navigation }: any) {
         ) : (
         <View style={s.modalOverlay}><View style={s.modalCard}>
           <Text style={s.modalTitle}>Chercher un morceau</Text>
-          <Text style={s.modalBody}>Entre l’artiste et le titre, ou colle le lien d’une vidéo YouTube, Spotify, Deezer ou Apple Music. Pour YouTube, Loki Music recherche les informations publiques de la vidéo et les compare aux catalogues musicaux : il ne reconnaît pas directement l’audio à partir d’un simple lien.</Text>
+          <Text style={s.modalBody}>Colle un lien musical ou saisis « Artiste – Titre ». Loki recherche le morceau et, s’il est confirmé, le met en attente dans Mes Sessions sans débiter de FREE. Les lecteurs autorisés restent dans Loki.</Text>
           <TextInput
             style={s.manualSearchInput}
             value={manualSearchQuery}
@@ -912,8 +918,13 @@ export default function HomeScreenCompact({ navigation }: any) {
             onSubmitEditing={() => { void runManualSearch(); }}
           />
           {Platform.OS === 'web' ? (
-            <TouchableOpacity onPress={importCopiedMusicLink} accessibilityRole="button" accessibilityLabel="Importer le lien YouTube ou Spotify copié" style={{ paddingVertical: 10 }}>
-              <Text style={{ color: C.text, fontSize: 12, fontWeight: '700' }}>Importer le lien musical copié</Text>
+            <TouchableOpacity onPress={importCopiedMusicLink} accessibilityRole="button" accessibilityLabel="Récupérer le lien copié" style={{ paddingVertical: 10 }}>
+              <Text style={{ color: C.text, fontSize: 12, fontWeight: '700' }}>↳ Récupérer le lien copié</Text>
+            </TouchableOpacity>
+          ) : null}
+          {desktopHome && Platform.OS === 'web' && !musicEngine.isDemoMode ? (
+            <TouchableOpacity testID="music-advanced-tab-capture" onPress={() => { closeManualSearchPreview(); testTabCapture(); }} accessibilityRole="button" accessibilityLabel="Suivi audio continu de plusieurs morceaux avec autorisation navigateur" style={{ paddingVertical: 6 }}>
+              <Text style={{ color: C.muted, fontSize: 11 }}>Suivre plusieurs morceaux sans lien ? Partager le son de l’onglet PC (autorisation du navigateur)</Text>
             </TouchableOpacity>
           ) : null}
           {manualSearchNotFound ? <Text style={s.manualSearchNotFound}>Aucun titre confirmé à partir de cette recherche. Essaie « Artiste – Titre », une autre vidéo YouTube ou la capture audio de l’onglet sur PC.</Text> : null}
@@ -1003,22 +1014,17 @@ export default function HomeScreenCompact({ navigation }: any) {
               </MotionActionButton>
             </View>
             {desktopHome && Platform.OS === 'web' && !musicEngine.isDemoMode ? (
-              <React.Fragment>
-              <TouchableOpacity testID="home-tab-audio-option" style={s.tabTest} onPress={testTabCapture} disabled={tabTestBusy} accessibilityRole="button" accessibilityLabel={tabMonitoring ? 'Arrêter le partage audio de l’onglet' : 'Reconnaître le son d’un onglet YouTube ou TikTok sur PC'}>
-                <Text style={s.tabTestText}>{tabTestBusy ? 'Ouverture du partage…' : tabMonitoring ? '■ ARRÊTER LE SON DE L’ONGLET' : '♫ Suivre la musique d’un onglet PC'}</Text>
+              <TouchableOpacity testID="home-tab-audio-option" style={s.tabTest} onPress={tabMonitoring ? stopTabAudio : importCopiedMusicLink}
+                accessibilityRole="button" accessibilityLabel={tabMonitoring ? 'Arrêter le suivi audio' : 'Trouver le morceau avec le lien musical copié'}>
+                <Text style={s.tabTestText}>{tabMonitoring ? '■ ARRÊTER LE SUIVI AUDIO' : '♫ Trouve ta musique en un clic'}</Text>
               </TouchableOpacity>
-              
-              </React.Fragment>
-            ) : null}
-            <MotionActionButton
-              variant="ghost"
-              size="medium"
-              onPress={() => { setManualSearchNotFound(false); setManualSearchOpen(true); }}
-              accessibilityLabel="Chercher un morceau par son titre ou son lien"
-              accessibilityHint="Ouvre la recherche par titre, artiste ou lien musical"
-            >
-              ♫  Trouve ta musique en un clic
-            </MotionActionButton>
+            ) : (
+              <MotionActionButton variant="ghost" size="medium" onPress={importCopiedMusicLink}
+                accessibilityLabel="Chercher un morceau par son titre ou son lien"
+                accessibilityHint="Ouvre la recherche par titre, artiste ou lien musical">
+                ♫  Trouve ta musique en un clic
+              </MotionActionButton>
+            )}
             {isDemoMode || (musicEngine.isDemoMode && !listenEconomyStatus) ? (
               <View style={s.demoRow}>
                 <Text style={s.demo}>MODE DÉMO{isDemoMode ? ` · ${Math.min(demoListenUsed, demoListenLimit)}/${demoListenLimit} TROUVAILLES` : ''}</Text>
@@ -1224,10 +1230,10 @@ export default function HomeScreenCompact({ navigation }: any) {
 
         {desktopHome && Platform.OS === 'web' && !musicEngine.isDemoMode ? (
           <View testID="listen-tab-audio-option">
-            <TouchableOpacity style={s.tabTest} onPress={testTabCapture} disabled={tabTestBusy} accessibilityRole="button" accessibilityLabel={tabMonitoring ? 'Arrêter le partage de son de l’onglet' : 'Reconnaître le son d’un onglet YouTube'}>
-              <Text style={s.tabTestText}>{tabTestBusy ? 'Ouverture du partage…' : tabMonitoring ? '■ ARRÊTER LE SON DE L’ONGLET' : '♫  Suivre les morceaux de YouTube (PC)'}</Text>
+            <TouchableOpacity style={s.tabTest} onPress={tabMonitoring ? stopTabAudio : importCopiedMusicLink} disabled={tabTestBusy} accessibilityRole="button" accessibilityLabel={tabMonitoring ? 'Arrêter le partage audio continu' : 'Importer un lien musical sans quitter Loki Music'}>
+              <Text style={s.tabTestText}>{tabTestBusy ? 'Ouverture du partage…' : tabMonitoring ? '■ ARRÊTER LE SON DE L’ONGLET' : '♫  Trouver une musique par son lien'}</Text>
             </TouchableOpacity>
-            <Text style={s.keepHint}>Sur le même ordinateur : dans Chrome ou Edge, choisis l’onglet YouTube et active « Partager l’audio ». Le micro est mis en pause pendant le partage. Loki suit les morceaux successifs jusqu’à ARRÊTER.</Text>
+            <Text style={s.keepHint}>Colle un lien YouTube ou Spotify sans quitter Loki. Si tu veux suivre plusieurs vidéos à la suite, active « Partager le son de l’onglet PC » depuis la recherche.</Text>
           </View>
         ) : null}
 
