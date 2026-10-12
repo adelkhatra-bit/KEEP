@@ -1,5 +1,14 @@
 [
   {
+    "commit": "1b02f9ac1850bda212458089cbdba297265a93da",
+    "web": "1b02f9ac1850bda212458089cbdba297265a93da",
+    "testflight": "iOS #230 success (release 1f44ee1)",
+    "ota": "OTA #1021 success (release 1f44ee1)",
+    "date": "2026-10-12 20:01",
+    "tests": "pass",
+    "changes": "fix(listen): keep PC tab monitoring through song changes, preserve previews and honest FREE keeps"
+  },
+  {
     "commit": "e1bad17e8d32e5f00132eccf4a5deab242f123e3",
     "web": "e1bad17e8d32e5f00132eccf4a5deab242f123e3",
     "testflight": "iOS #230 success (release 1f44ee1)",

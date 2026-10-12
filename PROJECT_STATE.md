@@ -143,6 +143,7 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
+| `1b02f9a` | `1b02f9a` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 20:01 | pass | fix(listen): keep PC tab monitoring through song changes, preserve previews and honest FREE keeps |
 | `e1bad17` | `e1bad17` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 19:53 | pass | test(music): require explicit saved link sessions while keeping searches read-only |
 | `d8e54f1` | `d8e54f1` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 19:47 | pass | fix(listen): monitor successive PC tab songs into real session with preview and FREE KEEP |
 | `a487e40` | `a487e40` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 19:39 | pass | test(music): PC and iPhone YouTube link parity and ephemeral in-app preview contract |
