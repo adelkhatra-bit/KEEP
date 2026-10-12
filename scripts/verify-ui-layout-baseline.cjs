@@ -61,6 +61,15 @@ must(!profile.includes("AccountActionsPanel"), 'duplicate account/session panel 
 must(settings.includes("Se déconnecter de Loki Music ?"), 'canonical logout control missing from profile settings');
 
 must(home.includes('<View style={s.idleLearnMoreSlot}>'), 'Listen home must keep the learn-more slot');
+// 12/10/2026 : compteur « RESTANTES » retiré à la demande, quotas métier inchangés.
+must(baseline.listenHome?.remainingQuotaCounterVisible === false, 'Listen home counter must remain hidden');
+must(baseline.listenHome?.remainingQuotaMiniStatVisible === false, 'Listen live remaining mini-stat must remain hidden');
+must(!home.includes(' RESTANTES · ') && !home.includes('label="Restantes"'), 'Listen must not show unwanted remaining quotas');
+must(home.includes('onPress={explainListenEconomy}'), 'Listen quota help must remain accessible');
+must(home.includes('listenEconomyStatus.overQuotaFreeCost'), 'Listen FREE economy must remain active');
+const ticker = fs.readFileSync(path.join(root, 'packages/mobile/src/components/LedTicker.tsx'), 'utf8');
+must(baseline.listenHome?.tickerMaxFontSizePx === 14 && ticker.includes("fontSize: 14, lineHeight: 20"), 'ticker must stay legible on iPhone');
+
 // 05/10/2026 (Adel : « écran Écouter sans défilement sur iPhone ») : l'aide s'ouvre
 // PAR-DESSUS (surimpression) au lieu de réserver 108 px. Le but d'origine reste
 // verrouillé : ouvrir l'aide ne déplace JAMAIS le bouton principal.
