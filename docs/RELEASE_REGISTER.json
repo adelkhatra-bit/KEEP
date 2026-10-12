@@ -1,5 +1,14 @@
 [
   {
+    "commit": "0e903ad923b36c8d8fe0346acc043ff1a8c8c590",
+    "web": "0e903ad923b36c8d8fe0346acc043ff1a8c8c590",
+    "testflight": "iOS #229 in_progress (release a18e390)",
+    "ota": "OTA #1020 in_progress (release a18e390)",
+    "date": "2026-10-12 12:50",
+    "tests": "pass",
+    "changes": "fix(web): afficher les corrections publiées sans quitter l’onglet PC (#148)"
+  },
+  {
     "commit": "0acadc67dca169af471652c4315a3067233ebea2",
     "web": "0acadc67dca169af471652c4315a3067233ebea2",
     "testflight": "iOS #229 in_progress (release a18e390)",
