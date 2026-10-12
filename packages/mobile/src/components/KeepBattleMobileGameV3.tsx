@@ -379,10 +379,9 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // libre (réponses en bas, sous le pouce) ; sur ordinateur, plafonné.
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isDesktopBattle = windowWidth >= 900;
-  // DESIGN UNIQUE : le gabarit validé sur iPhone est la source de vérité.
-  // Desktop ne reçoit plus des dimensions de manche différentes : on garde
-  // la même composition carrée/4 réponses et on centre simplement l'ensemble.
-  const battleDesignWidth = Math.min(windowWidth, 430);
+  // Même logique de jeu et quatre réponses sur iPhone et PC ; sur bureau,
+  // exploiter vraiment l'espace disponible sans rogner la hauteur des manches.
+  const battleDesignWidth = Math.min(windowWidth, isDesktopBattle ? 560 : 430);
   const roundCardMinHeight = Math.max(520, Math.min(650, windowHeight - 124));
   const arenaVisualMax = Math.max(260, Math.min(battleDesignWidth - 10, roundCardMinHeight - 214));
   const soloRoundCardMinHeight = Math.max(500, Math.min(650, windowHeight - 248));
@@ -3648,7 +3647,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
 
 const s = StyleSheet.create({
   root: { width: '100%', flex: 1, paddingBottom: 0, position: 'relative' },
-  rootDesktop: { maxWidth: 430, alignSelf: 'center' },
+  rootDesktop: { maxWidth: 560, alignSelf: 'center' }
   soloSaveBackdrop: { flex: 1, backgroundColor: 'rgba(5,4,10,.76)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
   soloSaveCard: { width: '100%', maxWidth: 390, borderRadius: 24, borderWidth: 1, borderColor: colors.primary, backgroundColor: colors.backgroundElevated, paddingHorizontal: 16, paddingTop: 18, paddingBottom: 14 },
   soloSaveEyebrow: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 1.4, textAlign: 'center' },
