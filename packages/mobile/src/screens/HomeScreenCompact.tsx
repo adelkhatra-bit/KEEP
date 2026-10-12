@@ -14,7 +14,7 @@ import { Alert } from '../utils/keepAlert';
 import { useTranslation } from 'react-i18next';
 import { KeepVisibility } from '../types';
 import { SILENCE_PROMPT_GRACE_MS, useSessionStore } from '../store/useSessionStore';
-import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
+import { isCloudProfileRecoverySession, useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { usePlaylistStore } from '../store/usePlaylistStore';
 import { useUserStore } from '../store/useUserStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
@@ -139,13 +139,26 @@ export default function HomeScreenCompact({ navigation }: any) {
   const listenTicker = useTickerMessages('listen');
   const { t } = useTranslation();
   const {
-    isActive, tracks, showEndPrompt, startedAt, error, signalHint, recognizing, micLevel, musicPresence, micPaused, silenceTimeoutMin, noMusicSince,
+    isActive, sessionId, tracks, showEndPrompt, startedAt, error, signalHint, recognizing, micLevel, musicPresence, micPaused, silenceTimeoutMin, noMusicSince,
     listenEconomyStatus, listenFreeRequired, listenFreeInsufficient, refreshListenEconomyStatus,
     useFreeForNextListen, dismissListenFreePrompt,
     startSession, requestEndSession, dismissEndPrompt, keepTrack, passTrack, setTrackVisibility,
     pauseListening, resumeListening, submitCapturedAudioRecognition,
   } = useSessionStore();
   const { playlists, refresh } = usePlaylistStore();
+  // The home badge reflects ALL the real pending decisions in Mes Sessions,
+  // not just the currently active microphone/tab capture. Rehydration updates
+  // it automatically on web and iOS, including after ending an audio session.
+  const persistedSessions = useSessionHistoryStore((state) => state.sessions);
+  const readyToSwipe = useMemo(() => {
+    const eligible = persistedSessions.filter((item) => !isCloudProfileRecoverySession(item));
+    const storedPending = eligible.reduce((count, item) =>
+      count + item.tracks.filter((entry) => entry.status === 'pending').length, 0);
+    const liveMissing = isActive && sessionId && !eligible.some((item) => item.id === sessionId)
+      ? tracks.filter((entry) => entry.status === 'pending').length
+      : 0;
+    return storedPending + liveMissing;
+  }, [persistedSessions, isActive, sessionId, tracks]);
   const user = useUserStore((s) => s.user);
   // Adel 05/10/2026 : le petit message vert du robot sur l'accueil « ne sert à rien » -> plus de bulle NO_FREE ici (le solde reste visible ailleurs).
   const isDemoMode = useUserStore((s) => s.isDemoMode);
@@ -1060,7 +1073,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   return (
     <SafeAreaView style={s.container}><PersonalThemeBackdrop />
       <AuroraBackground active={isActive && !micIdle} />
-      <TopBar navigation={navigation} readyCount={readyToSwipe} title="À toi de jouer" onOpenSessions={() => setSessionPeekOpen(true)} />
+      <TopBar navigation={navigation} readyCount={readyToSwipe} title="À toi de jouer" onOpenSessions={openSessionHistorySafely} />
 
       <ScrollView
         style={s.main}
