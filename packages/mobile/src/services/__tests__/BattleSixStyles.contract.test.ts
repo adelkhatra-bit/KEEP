@@ -27,7 +27,7 @@ describe('6 styles Solo/Battle, no hidden truncation', () => {
     expect(migration).toContain('exactly four choices');
     expect(migration).toContain('SECURITY DEFINER');
     expect(migration).toContain('pg_get_functiondef(v_oid)');
-    expect(migration).not.toMatch(/\\bDELETE\\s+FROM\\b/i);
+    expect(migration).not.toMatch(/\bDELETE\s+FROM\b/i);
     expect(migration).not.toContain('DROP TABLE');
   });
 });
