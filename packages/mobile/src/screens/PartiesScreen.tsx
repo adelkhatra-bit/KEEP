@@ -1148,7 +1148,7 @@ export default function PartiesScreen({ navigation, route }: any) {
         setPartyHome(false);
         setEventIndex(0);
         void reload();
-        Alert.alert('Envoyé pour validation', 'Loki doit valider la photo et le texte. En attendant, seule une jaquette et un descriptif sans coordonnées peuvent apparaître aux personnes concernées ; aucune action n’est débloquée.');
+        Alert.alert('Envoyé pour validation', 'La photo et le texte passent au Super Admin. Après approbation, ta soirée à venir sera automatiquement en Story 24 h et dans Loki Pulse. Retrouve-la dans Mes soirées.');
       }
     } catch (e: any) {
       const code = String(e?.message || '');
@@ -1523,7 +1523,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           { title: 'Attendre la validation', text: 'Le Super Admin vérifie la soirée. Tant qu’elle n’est pas approuvée, elle reste marquée En attente.' },
           { title: 'Retrouver tes soirées', text: 'Mes soirées regroupe les événements que tu as créés et ceux auxquels tu participes.' },
           { title: 'Répondre aux invitations', text: 'Tu peux accepter, répondre Peut-être ou refuser une invitation directement dans Loki Music.' },
-          { title: 'Prévenir ta communauté', text: 'Après approbation, Loki envoie les invitations à l’audience prévue, sans créer de doublons.' },
+          { title: 'Story et Loki Pulse', text: 'Après validation du Super Admin, la soirée à venir entre automatiquement en Story pour 24 h et dans Loki Pulse. Tu peux renouveler avec + Story 24 h dans Mes soirées.' },
         ]}
         footer={canCreate ? `Tu peux publier · ${eventAccess?.unlimited ? 'illimité' : `${eventAccess?.remaining ?? 0} restante(s) ce mois`} · ${followers} abonnés` : createLabel}
         onClose={() => setEventAccessInfoOpen(false)}
@@ -1610,6 +1610,10 @@ export default function PartiesScreen({ navigation, route }: any) {
           <TouchableOpacity style={[styles.partyHomeChoice, styles.partyHomeChoicePrimary, desktopParties && styles.desktopPartyHomeChoice]} onPress={() => void openCreate()} accessibilityRole="button" accessibilityLabel="Créer une soirée"><View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>＋</Text></View><View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Créer</Text></View><Text style={styles.partyHomeArrow}>›</Text></TouchableOpacity>
           <TouchableOpacity style={[styles.partyHomeChoice, desktopParties && styles.desktopPartyHomeChoice]} onPress={() => { setEventViewMode('MY'); setEventIndex(0); setPartyHome(false); setPartySection('EVENT'); setEventTab('LOBBY'); }} accessibilityRole="button" accessibilityLabel="Voir mes soirées"><View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>▣</Text></View><View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Mes soirées</Text></View><Text style={styles.partyHomeArrow}>›</Text></TouchableOpacity>
           <TouchableOpacity style={[styles.partyHomeChoice, desktopParties && styles.desktopPartyHomeChoice]} onPress={() => { setEventViewMode('INVITES'); setEventIndex(0); setPartyHome(false); setPartySection('EVENT'); setEventTab('LOBBY'); }} accessibilityRole="button" accessibilityLabel="Voir mes invitations"><View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>✓</Text></View><View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Invitations</Text></View><Text style={styles.partyHomeArrow}>›</Text></TouchableOpacity>
+          <View style={styles.eventStoryInfo} testID="event-story-how-it-works">
+            <Text style={styles.eventStoryInfoTitle}>STORY + LOKI PULSE · AUTOMATIQUE</Text>
+            <Text style={styles.eventStoryInfoText}>Après validation de la photo et du texte, ta soirée à venir apparaît en Story pendant 24 h et dans Loki Pulse. Pour la repartager : Mes soirées → ta soirée → + Story 24 h.</Text>
+          </View>
           {/* Adel (02/10/2026) : le Classement Battle n'a rien à faire dans
               Soirées ; il est dans l'écran Battle (bouton 🏆 CLASSEMENT). */}
         </View> : <>
@@ -2068,6 +2072,9 @@ const styles=StyleSheet.create({
 desktopContent:{flexGrow:1,width:'100%',maxWidth:'100%',alignSelf:'stretch',paddingHorizontal:24,paddingTop:14,paddingBottom:24,backgroundColor:'rgba(32,20,52,.84)'},
 desktopPartyHome:{flexDirection:'row',flexWrap:'wrap',justifyContent:'center',alignItems:'stretch',flexGrow:1,paddingVertical:14,gap:14},
 desktopPartyHomeChoice:{flexGrow:1,flexBasis:208,minWidth:190,minHeight:174,flexDirection:'column',alignItems:'flex-start',justifyContent:'space-between',paddingHorizontal:22,paddingVertical:20},
+eventStoryInfo:{width:'100%',flexBasis:'100%',minHeight:72,paddingHorizontal:14,paddingVertical:11,borderRadius:14,borderWidth:1,borderColor:'rgba(167,139,250,.6)',backgroundColor:'rgba(35,23,63,.92)',justifyContent:'center',gap:4},
+eventStoryInfoTitle:{color:colors.primaryLight,fontWeight:'900',fontSize:12,letterSpacing:.4},
+eventStoryInfoText:{color:colors.textPrimary,fontWeight:'600',fontSize:12,lineHeight:18},
 desktopBattleFullscreen:{flex:1,width:'100%',minHeight:0,overflow:'hidden',borderRadius:0,borderWidth:0,margin:0,padding:0,backgroundColor:'#251736',alignItems:'center',justifyContent:'center'},
 desktopBattleSide:{position:'absolute',top:52,width:'18%',maxWidth:250,borderRadius:18,borderWidth:1,borderColor:'rgba(167,139,250,.35)',backgroundColor:'rgba(20,13,36,.82)',padding:12,gap:8},
 desktopBattleLeft:{left:14},
