@@ -478,12 +478,18 @@ export function createProfileService(client: SupabaseClient) {
 
       const localFavoriteGenres = normalizeProfileTextList(user.favoriteGenres);
       const localFavoriteArtists = normalizeProfileTextList(user.favoriteArtists);
-      const favoriteGenres = collectionClearing || localFavoriteGenres.length > 0
-        ? localFavoriteGenres
-        : normalizeProfileTextList(existingProfile?.favorite_genres);
-      const favoriteArtists = collectionClearing || localFavoriteArtists.length > 0
-        ? localFavoriteArtists
-        : normalizeProfileTextList(existingProfile?.favorite_artists);
+      // The settings screen does not edit musical tastes. Even a stale
+      // non-empty local array must not overwrite newer remote preferences.
+      const favoriteGenres = options.preserveUneditedCollections
+        ? normalizeProfileTextList(existingProfile?.favorite_genres)
+        : collectionClearing || localFavoriteGenres.length > 0
+          ? localFavoriteGenres
+          : normalizeProfileTextList(existingProfile?.favorite_genres);
+      const favoriteArtists = options.preserveUneditedCollections
+        ? normalizeProfileTextList(existingProfile?.favorite_artists)
+        : collectionClearing || localFavoriteArtists.length > 0
+          ? localFavoriteArtists
+          : normalizeProfileTextList(existingProfile?.favorite_artists);
 
       const safeUsername = user.username.trim() || existingProfile?.username;
       if (!safeUsername) throw new Error('missing_keep_username');
@@ -497,9 +503,11 @@ export function createProfileService(client: SupabaseClient) {
         country_code: keepTextUnlessExplicitlyCleared(user.countryCode, existingProfile?.country_code, allowClearing),
         city: keepTextUnlessExplicitlyCleared(user.city, existingProfile?.city, allowClearing),
         preferred_language_tag: keepTextUnlessExplicitlyCleared(user.preferredLanguageTag, existingProfile?.preferred_language_tag, collectionClearing),
-        music_country_codes: (user.musicCountryCodes?.length || collectionClearing)
-          ? normalizeProfileTextList(user.musicCountryCodes ?? [], 50).map((code) => code.toUpperCase()).filter((code) => /^[A-Z]{2}$/.test(code))
-          : normalizeProfileTextList(existingProfile?.music_country_codes, 50).map((code) => code.toUpperCase()),
+        music_country_codes: options.preserveUneditedCollections
+          ? normalizeProfileTextList(existingProfile?.music_country_codes, 50).map((code) => code.toUpperCase())
+          : (user.musicCountryCodes?.length || collectionClearing)
+            ? normalizeProfileTextList(user.musicCountryCodes ?? [], 50).map((code) => code.toUpperCase()).filter((code) => /^[A-Z]{2}$/.test(code))
+            : normalizeProfileTextList(existingProfile?.music_country_codes, 50).map((code) => code.toUpperCase()),
         kind: user.kind || existingProfile?.kind || 'USER',
         is_public: user.isPublic,
         location_opt_in: user.locationOptIn,
@@ -517,7 +525,11 @@ export function createProfileService(client: SupabaseClient) {
       // les deux opérations effaçait tous les réseaux sociaux. On upsert d'abord
       // chaque lien, puis on ne supprime les liens absents que lors d'une action
       // utilisateur explicitement destructive.
-      const desiredSocialLinks = mergeSocialLinks(existingSocialLinks, user.socialLinks, collectionClearing);
+      // This screen never edits socials. Do not even merge a stale local
+      // copy over newer links in Supabase when saving unrelated profile fields.
+      const desiredSocialLinks = options.preserveUneditedCollections
+        ? existingSocialLinks
+        : mergeSocialLinks(existingSocialLinks, user.socialLinks, collectionClearing);
       const socialKey = (links: Array<{ platform: string; url: string; visibility: string; label?: string | null }>) =>
         JSON.stringify([...links].map((link) => [link.platform, link.url, link.visibility, link.label ?? null]).sort());
       const socialUnchanged = socialKey(desiredSocialLinks as any) === socialKey(existingSocialLinks as any);
