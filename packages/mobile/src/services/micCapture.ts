@@ -373,7 +373,8 @@ async function captureStreamToWav(
   onLevel?: (level: number) => void,
   durationMs = DEFAULT_SAMPLE_DURATION_MS,
   onPeak?: (peak: number) => void,
-  isolatedAudioCtx?: AudioContext
+  isolatedAudioCtx?: AudioContext,
+  abortSignal?: AbortSignal,
 ): Promise<Blob> {
   const audioCtx = isolatedAudioCtx ?? getWebAudioCtx();
   if (audioCtx.state === 'suspended') await audioCtx.resume().catch(() => {});
@@ -412,17 +413,24 @@ async function captureStreamToWav(
   processor.connect(muteGain);
   muteGain.connect(audioCtx.destination);
 
-  if (versionAtStart === null) {
-    // Capture d'onglet indépendante : ne pas partager le jeton d'annulation
-    // du micro, sinon pauseListening() annule le flux YouTube.
-    await new Promise<void>((resolve) => setTimeout(resolve, safeSampleDuration(durationMs)));
-  } else {
-    await waitForSampleOrCancel(safeSampleDuration(durationMs), versionAtStart);
+  try {
+    if (versionAtStart === null) {
+      // Onglet indépendant du jeton micro. Pendant une surveillance continue,
+      // stop() interrompt aussi immédiatement l'attente de l'échantillon.
+      await new Promise<void>((resolve, reject) => {
+        if (abortSignal?.aborted) { reject(new MicCaptureCancelledError()); return; }
+        const onAbort = () => { clearTimeout(timer); reject(new MicCaptureCancelledError()); };
+        const timer = setTimeout(() => { abortSignal?.removeEventListener('abort', onAbort); resolve(); }, safeSampleDuration(durationMs));
+        abortSignal?.addEventListener('abort', onAbort, { once: true });
+      });
+    } else {
+      await waitForSampleOrCancel(safeSampleDuration(durationMs), versionAtStart);
+    }
+  } finally {
+    processor.disconnect();
+    source.disconnect();
+    muteGain.disconnect();
   }
-
-  processor.disconnect();
-  source.disconnect();
-  muteGain.disconnect();
 
   if (versionAtStart !== null && versionAtStart !== cancellationVersion) throw new MicCaptureCancelledError();
 
@@ -505,6 +513,72 @@ export async function captureTabAudioSample(onLevel?: (level: number) => void, d
     display?.getTracks().forEach((track) => track.stop());
     if (tabAudioCtx.state !== 'closed') await tabAudioCtx.close().catch(() => {});
   }
+}
+
+/**
+ * Garde UN SEUL partage d'onglet ouvert et échantillonne plusieurs morceaux.
+ * L'ancien bouton capturait huit secondes puis fermait le partage : la musique
+ * suivante ne pouvait jamais arriver dans la session.
+ * Toutes les pistes sont libérées à ARRÊTER, à la fermeture de l'onglet source,
+ * ou en quittant Écouter. Aucune image vidéo n'est traitée.
+ */
+export type TabAudioMonitorHandle = { stop: () => void; done: Promise<void> };
+
+export async function startTabAudioMonitor(
+  onSample: (sample: Blob) => Promise<void>,
+  onFinished?: (error?: Error) => void,
+): Promise<TabAudioMonitorHandle> {
+  if (Platform.OS !== 'web' || typeof navigator === 'undefined' || !navigator.mediaDevices?.getDisplayMedia) {
+    throw new Error('Sur PC, utilise Chrome ou Edge pour partager le son d’un onglet.');
+  }
+  const AudioCtxCtor: typeof AudioContext = (window as any).AudioContext ?? (window as any).webkitAudioContext;
+  if (!AudioCtxCtor) throw new Error('Capture audio indisponible dans ce navigateur.');
+  const ctx = new AudioCtxCtor();
+  const abort = new AbortController();
+  let display: MediaStream | null = null;
+  let stopped = false;
+  const stop = () => {
+    if (stopped) return;
+    stopped = true;
+    abort.abort();
+    display?.getTracks().forEach((track) => track.stop());
+    if (ctx.state !== 'closed') void ctx.close().catch(() => {});
+  };
+  try {
+    // Doit être appelé directement dans le geste utilisateur : PAS d'await
+    // ni de demande micro avant la fenêtre de sélection de l'onglet.
+    display = await ensureTabAudioStream();
+    if (abort.signal.aborted) { stop(); throw new MicCaptureCancelledError(); }
+    if (ctx.state === 'suspended') await ctx.resume();
+  } catch (error) {
+    stop();
+    throw error;
+  }
+  const captured = display;
+  captured.getVideoTracks().forEach((track) => { track.addEventListener('ended', stop, { once: true }); });
+  const audioOnly = new MediaStream(captured.getAudioTracks());
+  const done = (async () => {
+    let terminalError: Error | undefined;
+    try {
+      while (!abort.signal.aborted && captured.getAudioTracks().some((track) => track.readyState === 'live')) {
+        try {
+          const sample = await captureStreamToWav(audioOnly, null, undefined, 8000, undefined, ctx, abort.signal);
+          if (abort.signal.aborted) break;
+          await onSample(sample);
+        } catch (error: any) {
+          if (abort.signal.aborted || error instanceof MicCaptureCancelledError) break;
+          // Une courte pause YouTube n'arrête pas la surveillance.
+          if (/aucun son|no sound|aucun signal|trop faible/i.test(String(error?.message ?? ''))) continue;
+          terminalError = error instanceof Error ? error : new Error(String(error));
+          break;
+        }
+      }
+    } finally {
+      stop();
+      onFinished?.(terminalError);
+    }
+  })();
+  return { stop, done };
 }
 
 export function releaseCaptureResources(): void {
