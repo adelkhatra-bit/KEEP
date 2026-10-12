@@ -6,6 +6,7 @@ const source = (name: string) => fs.readFileSync(path.resolve(__dirname, '..', n
 describe('Loki Music — compact desktop / mobile without feature loss', () => {
   const music = source('MyMusicScreen.tsx');
   const discover = source('DiscoverScreen.tsx');
+  const battle = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'KeepBattleMobileGameV3.tsx'), 'utf8');
 
   it('opens the real music library and keeps every source filter', () => {
     expect(music).toContain('Toute ma musique · {localKeptEntries.length}');
@@ -22,6 +23,14 @@ describe('Loki Music — compact desktop / mobile without feature loss', () => {
     expect(music).toContain("onPress={() => navigation.navigate('MusicConnections')}");
     expect(music).toContain('setVisibilityIntroOpen(true)');
     expect(music).toContain('setWholeLibraryVisibility');
+  });
+
+  it('keeps the actual Solo quota in a small square without changing the quota source', () => {
+    expect(battle).toContain('soloQuotaSquare: { width: 58, height: 58');
+    expect(battle).toContain("soloDailyStatus?.remaining ?? '—'");
+    expect(battle).toContain('soloQuotaCopy(soloDailyStatus)');
+    expect(battle).toContain('q.detail');
+    expect(battle).toContain('consumeKeepBattleSoloDailyStart');
   });
 
   it('only applies wide compact styling in desktop layout', () => {
