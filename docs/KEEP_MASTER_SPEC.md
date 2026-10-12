@@ -56,6 +56,9 @@ Tailles de contrôle minimales : 390×844, 430×932, 768×700, 900×700, 1440×9
 - La restauration de session concurrente est dédupliquée : `getCurrentSession()` et `onAuthStateChange()` ne doivent pas hydrater deux fois le même compte en parallèle.
 - Le premier écran authentifié apparaît dès que le vrai profil Supabase est hydraté ; synchronisation historique, verrous de crédits, push et autres tâches secondaires ne bloquent pas ce premier rendu.
 
+### Écoute PC YouTube — décision du 12/10/2026
+Sur ordinateur, l'utilisateur démarre « Trouver le morceau » puis choisit dans la session soit le microphone, soit « Reconnaître le son d'un onglet YouTube (PC) » (Chrome/Edge, onglet YouTube et partage audio). La capture de l'onglet met le micro en pause, utilise le même flux de reconnaissance, le même anti-doublon et les mêmes règles FREE, puis reprend le micro si permis. La recherche manuelle accepte artiste/titre et URL YouTube ; une URL est analysée via les métadonnées publiques et ne vaut jamais preuve d'une empreinte audio. Aucun lecteur HTML parallèle. Tests réels requis avant validation de livraison.
+
 ## 5. Écouter
 
 Source : `HomeScreenCompact.tsx`.
