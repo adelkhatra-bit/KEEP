@@ -1,4 +1,4 @@
-import { buildViewerDetail, FULL_LISTEN_SECONDS } from '../storyViewerDetail';
+import { buildViewerDetail, FULL_LISTEN_SECONDS, normalizeStoryViewerPlayback } from '../storyViewerDetail';
 
 const tracks = [{ id: 'a', title: 'Alpha', artist: 'X' }, { id: 'b', title: 'Beta' }, { id: 'c', title: 'Gamma' }, { id: 'd', title: 'Delta' }];
 const base = { chapters: [], tracksSeen: 0, tracksTotal: 4, watching: false };
@@ -35,5 +35,31 @@ describe('détail d’un spectateur façon Instagram (Adel 06/10/2026)', () => {
   it('clé de ❤ avec préfixe sale: gérée par keyOf', () => {
     const d = buildViewerDetail([{ id: 'sale:z', title: 'Z' }], { ...base, trackViews: [{ trackId: 'z', seconds: 9 }], lastTrackId: 'z' }, new Set(['z']), (id) => id.replace(/^sale:/, ''));
     expect(d.rows[0].liked).toBe(true);
+  });
+});
+
+describe('production v4 playback contract — PC/iOS', () => {
+  it('reconstructs real track IDs and the stop position from chapters when v4 omits track_views', () => {
+    const playback = normalizeStoryViewerPlayback({
+      chapters: [{ i: 2, s: 8, t: 'c' }, { i: 0, s: 30, t: 'a' }, { i: 1, s: 3, t: 'b' }],
+      playback_progress: {},
+    });
+    expect(playback.lastTrackId).toBe('c');
+    expect(playback.trackViews).toEqual([
+      { trackId: 'c', seconds: 8 }, { trackId: 'a', seconds: 30 }, { trackId: 'b', seconds: 3 },
+    ]);
+    const detail = buildViewerDetail(tracks, { ...base, ...playback }, new Set(['a']));
+    expect(detail.rows.map((r) => [r.title, r.outcome, r.liked])).toEqual([
+      ['Alpha', 'FULL', true], ['Beta', 'SKIPPED', false], ['Gamma', 'LEFT_HERE', false],
+    ]);
+  });
+  it('does not erase old v4 track_views or fabricate missing progress', () => {
+    expect(normalizeStoryViewerPlayback({ chapters: [{ i: 0, s: 4 }], track_views: [{ t: 'b', s: 12 }], last_track_id: 'b' }))
+      .toMatchObject({ trackViews: [{ trackId: 'b', seconds: 12 }], lastTrackId: 'b' });
+    expect(normalizeStoryViewerPlayback({ chapters: [] })).toEqual({ chapters: [], trackViews: [], lastTrackId: null });
+  });
+  it('keeps the highest observed seconds on repeated chapter entries', () => {
+    expect(normalizeStoryViewerPlayback({ chapters: [{ i: 0, s: 3, t: 'a' }, { i: 0, s: 11, t: 'a' }] }).trackViews)
+      .toEqual([{ trackId: 'a', seconds: 11 }]);
   });
 });
