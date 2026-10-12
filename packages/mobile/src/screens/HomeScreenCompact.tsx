@@ -605,10 +605,11 @@ export default function HomeScreenCompact({ navigation }: any) {
         Alert.alert('GARDER non confirmé', 'Ce morceau reste dans Mes Sessions en attente. Aucun succès ni débit annoncé.');
         return;
       }
-      setManualKeptVisibility(visibility);
+      const confirmedVisibility = committed.visibility ?? visibility;
+      setManualKeptVisibility(confirmedVisibility);
       setManualKeepChoiceOpen(false);
       await refreshCreditBadge().catch(() => {});
-      if (visibility === 'PUBLIC') {
+      if (confirmedVisibility === 'PUBLIC') {
         // Same rule as microphone/Swipe: a confirmed PUBLIC keep decision is
         // already part of the 24h personal Story via loadProfileStory(). Do not
         // create a second story_pins row or demand another publication click.
@@ -662,7 +663,9 @@ export default function HomeScreenCompact({ navigation }: any) {
 
   const runManualSearch = async (inputOverride?: string) => {
     const input = (typeof inputOverride === 'string' ? inputOverride : manualSearchQuery).trim();
-    if (manualSearchBusy || !input) return;
+    if (!input) return;
+    // A new URL is allowed to supersede an in-flight request; the generation
+    // guard below prevents an older result from restoring the first video.
     const generation = ++searchGeneration.current;
     // A second link must immediately invalidate the first preview and its player.
     setManualSearchResult(null);
