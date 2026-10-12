@@ -43,6 +43,7 @@ import KeepVisibilityChoiceModal from '../components/KeepVisibilityChoiceModal';
 import { preloadTrackPreview, preloadTrackPreviewSegment, stopTrackPreview, stopTrackPreviewFast, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { pinStoryTrack } from '../services/musicStoriesService';
+import { resolveKeptTrackId } from '../services/keepTrackAction';
 import KeepModal from '../components/KeepModal';
 import { openSessionHistoryGuarded } from '../services/sessionHistoryGuard';
 
@@ -430,6 +431,10 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [manualResultSaved, setManualResultSaved] = useState(false);
   const [manualSaveBusy, setManualSaveBusy] = useState(false);
   const [manualResultOpen, setManualResultOpen] = useState(false);
+  const [manualKeepChoiceOpen, setManualKeepChoiceOpen] = useState(false);
+  const [manualKeepTarget, setManualKeepTarget] = useState<{ sessionId: string; entryId: string } | null>(null);
+  const [manualKeptVisibility, setManualKeptVisibility] = useState<'PUBLIC' | 'PRIVATE' | null>(null);
+  const [manualStoryPublished, setManualStoryPublished] = useState(false);
   const searchGeneration = useRef(0);
   const pausedForPreview = useRef(false);
 
@@ -437,6 +442,10 @@ export default function HomeScreenCompact({ navigation }: any) {
     searchGeneration.current += 1; // Ignore an in-flight result after closing.
     setManualSearchOpen(false);
     setManualResultOpen(false);
+    setManualKeepChoiceOpen(false);
+    setManualKeepTarget(null);
+    setManualKeptVisibility(null);
+    setManualStoryPublished(false);
     setManualSearchQuery('');
     setManualSearchNotFound(false);
     setManualSearchResult(null);
@@ -489,18 +498,24 @@ export default function HomeScreenCompact({ navigation }: any) {
     // A verified music link is collected as PENDING automatically, free of
     // charge. Only an explicit GARDER decision later can debit FREE or publish
     // the song to the member's profile/Story. Repeated shares are idempotent.
-    let queued = false;
+    let queued: { sessionId: string; entryId: string } | null = null;
     if (result.identified && found) {
       try {
+        const history = useSessionHistoryStore.getState();
         const owner = user && !isDemoMode ? user.id : undefined;
-        const saved = useSessionHistoryStore.getState().addSharedLinkTrack(
-          result.track, sourceUrl ?? undefined, owner,
-        );
-        queued = Boolean(saved.sessionId);
-      } catch { /* Preview still works offline; the explicit retry remains. */ }
+        const saved = history.addSharedLinkTrack(result.track, sourceUrl ?? undefined, owner);
+        const entry = useSessionHistoryStore.getState().getSession(saved.sessionId)?.tracks.find((item) =>
+          (sourceUrl && item.track.externalUrls?.source === sourceUrl)
+          || (item.track.id === result.track.id && item.track.title === result.track.title && item.track.artist === result.track.artist));
+        if (entry) queued = { sessionId: saved.sessionId, entryId: entry.id };
+      } catch { /* Preview still works offline; never charge FREE for an unconfirmed save. */ }
     }
+    setManualKeepTarget(queued);
+    setManualKeptVisibility(null);
+    setManualStoryPublished(false);
+    setManualKeepChoiceOpen(false);
     setManualSearchResult(result);
-    setManualResultSaved(queued);
+    setManualResultSaved(Boolean(queued));
     setManualSaveBusy(false);
     // Keep the SAME RN modal mounted: native iOS cannot display two root Modals
     // simultaneously while the search sheet is being dismissed.
@@ -515,6 +530,10 @@ export default function HomeScreenCompact({ navigation }: any) {
     searchGeneration.current += 1;
     setManualSearchResult(null);
     setManualResultSaved(false);
+    setManualKeepTarget(null);
+    setManualKeepChoiceOpen(false);
+    setManualKeptVisibility(null);
+    setManualStoryPublished(false);
     setManualSaveBusy(false);
     setManualSearchNotFound(false);
     setManualSearchBusy(false);
@@ -522,6 +541,57 @@ export default function HomeScreenCompact({ navigation }: any) {
     setManualResultOpen(false);
     setManualSearchOpen(true);
     // The mic stays paused while the visitor chooses another in-app preview.
+  };
+
+  const requestManualKeep = () => {
+    if (!manualSearchResult?.identified || manualSaveBusy || manualKeptVisibility) return;
+    if (!user || isDemoMode || useUserStore.getState().isLocalGuest) {
+      useAccountGateStore.getState().requestAccount('create');
+      return;
+    }
+    if (!manualKeepTarget) {
+      Alert.alert('Session indisponible', 'Impossible de préparer le morceau dans Mes Sessions. Aucun FREE débité.');
+      return;
+    }
+    setManualKeepChoiceOpen(true);
+  };
+
+  const confirmManualKeep = async (visibility: 'PUBLIC' | 'PRIVATE') => {
+    const target = manualKeepTarget;
+    const result = manualSearchResult;
+    if (!target || !result?.identified || manualSaveBusy) return;
+    // Même service et même transaction Supabase FREE que Swipe et Écouter.
+    setManualSaveBusy(true);
+    try {
+      await useSessionHistoryStore.getState().keepTrackInSession(target.sessionId, target.entryId, undefined, visibility);
+      const committed = useSessionHistoryStore.getState().getSession(target.sessionId)?.tracks.find((entry) => entry.id === target.entryId);
+      if (committed?.status !== 'kept') {
+        Alert.alert('GARDER non confirmé', 'Ce morceau reste dans Mes Sessions en attente. Aucun succès ni débit annoncé.');
+        return;
+      }
+      setManualKeptVisibility(visibility);
+      setManualKeepChoiceOpen(false);
+      await refreshCreditBadge().catch(() => {});
+      if (visibility === 'PUBLIC') {
+        try {
+          await pinStoryTrack(resolveKeptTrackId(result.track.id), {
+            title: result.track.title, artist: result.track.artist, album: result.track.album,
+            artworkUrl: result.track.artworkUrl, previewUrl: result.track.previewUrl, isrc: result.track.isrc,
+          });
+          setManualStoryPublished(true);
+        } catch {
+          setManualStoryPublished(false);
+          Alert.alert('Profil enregistré', 'Morceau gardé en public, mais sa publication Story n’a pas été confirmée. Tu peux la publier depuis ton profil.');
+        }
+      }
+    } catch (error: any) {
+      const insufficient = /CREDITS_EXHAUSTED|insufficient|free/i.test(String(error?.message || ''));
+      Alert.alert(insufficient ? 'FREE insuffisants' : 'GARDER impossible', insufficient
+        ? 'Solde FREE insuffisant. Le morceau reste en attente dans Mes Sessions.'
+        : 'Le serveur n’a pas confirmé cet ajout. Le morceau reste en attente dans Mes Sessions.');
+    } finally {
+      setManualSaveBusy(false);
+    }
   };
 
   const saveManualPreviewToSessions = () => {
@@ -901,7 +971,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   const manualSearchModal = (
       <KeepModal visible={manualSearchOpen || manualResultOpen} transparent animationType="fade" onRequestClose={closeManualSearchPreview}>
         {manualResultOpen ? (
-          <TemporaryMusicPreview visible={manualResultOpen} result={manualSearchResult} onClose={closeManualSearchPreview} onNext={nextManualSearch} onReplaceLink={(link) => { void runManualSearch(link); }} onSave={saveManualPreviewToSessions} onSeeSessions={viewSavedManualSessions} saved={manualResultSaved} saving={manualSaveBusy} />
+          <TemporaryMusicPreview visible={manualResultOpen} result={manualSearchResult} onClose={closeManualSearchPreview} onNext={nextManualSearch} onReplaceLink={(link) => { void runManualSearch(link); }} onKeep={requestManualKeep} keepChoiceOpen={manualKeepChoiceOpen} onChooseVisibility={(visibility) => { void confirmManualKeep(visibility); }} onCancelKeep={() => setManualKeepChoiceOpen(false)} keepCostFree={creditCostPerKeep} keptVisibility={manualKeptVisibility} storyPublished={manualStoryPublished} onSeeSessions={viewSavedManualSessions} saved={manualResultSaved} saving={manualSaveBusy} />
         ) : (
         <View style={s.modalOverlay}><View style={s.modalCard}>
           <Text style={s.modalTitle}>Chercher un morceau</Text>
