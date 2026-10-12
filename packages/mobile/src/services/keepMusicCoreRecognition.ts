@@ -546,9 +546,11 @@ export async function searchTrackByText(query: string): Promise<RecognitionResul
       const extractVideoId = (value: string): string | null => {
         try {
           const u = new URL(value);
-          const host = u.hostname.toLowerCase().replace(/^www\\./, '');
-          const id = host === 'youtu.be' ? u.pathname.split('/')[1]
-            : u.searchParams.get('v') || u.pathname.match(/\\/(?:shorts|live|embed)\\/([A-Za-z0-9_-]{11})/)?.[1];
+          const host = u.hostname.toLowerCase().replace(/^www[.]/, '');
+          if (!(host === 'youtu.be' || host === 'youtube.com' || host.endsWith('.youtube.com'))) return null;
+          const parts = u.pathname.split('/').filter(Boolean);
+          const id = host === 'youtu.be' ? parts[0]
+            : u.searchParams.get('v') || (['shorts', 'live', 'embed'].includes(parts[0]) ? parts[1] : null);
           return id && /^[A-Za-z0-9_-]{11}$/.test(id) ? id : null;
         } catch { return null; }
       };
