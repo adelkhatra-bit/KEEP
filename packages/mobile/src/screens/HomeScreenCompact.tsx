@@ -135,8 +135,8 @@ export default function HomeScreenCompact({ navigation }: any) {
     isActive, tracks, showEndPrompt, startedAt, error, signalHint, recognizing, micLevel, musicPresence, micPaused, silenceTimeoutMin, noMusicSince,
     listenEconomyStatus, listenFreeRequired, listenFreeInsufficient, refreshListenEconomyStatus,
     useFreeForNextListen, dismissListenFreePrompt,
-    startSession, requestEndSession, dismissEndPrompt, keepTrack, passTrack, setTrackVisibility, submitManualSearch,
-    pauseListening, resumeListening, submitCapturedAudioRecognition, submitSharedLinkRecognition,
+    startSession, requestEndSession, dismissEndPrompt, keepTrack, passTrack, setTrackVisibility,
+    pauseListening, resumeListening, submitCapturedAudioRecognition,
   } = useSessionStore();
   const { playlists, refresh } = usePlaylistStore();
   const user = useUserStore((s) => s.user);
@@ -406,31 +406,42 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [manualSearchQuery, setManualSearchQuery] = useState('');
   const [manualSearchBusy, setManualSearchBusy] = useState(false);
   const [manualSearchNotFound, setManualSearchNotFound] = useState(false);
+  // Preview only: pasted links are NEVER written to sessions, playlists or Supabase.
   const [manualSearchResult, setManualSearchResult] = useState<{ title: string; artist: string; track: any } | null>(null);
+  const searchGeneration = useRef(0);
+
+  const closeManualSearchPreview = () => {
+    searchGeneration.current += 1; // Ignore an older in-flight lookup after closing.
+    setManualSearchOpen(false);
+    setManualSearchQuery('');
+    setManualSearchNotFound(false);
+    setManualSearchResult(null);
+    setManualSearchBusy(false);
+  };
+
+  // The same shared behavior runs on PC and TestFlight; only layout differs.
+  useEffect(() => {
+    const unsubscribe = navigation?.addListener?.('blur', closeManualSearchPreview);
+    return () => { unsubscribe?.(); searchGeneration.current += 1; };
+  }, [navigation]);
 
   const runManualSearch = async () => {
     if (manualSearchBusy || !manualSearchQuery.trim()) return;
+    const generation = ++searchGeneration.current;
     setManualSearchBusy(true);
     setManualSearchNotFound(false);
     try {
-      if (!useSessionStore.getState().isActive) {
-        // Depuis l'accueil : rechercher directement dans le catalogue, sans
-        // démarrer le microphone ni basculer dans l'écran d'écoute.
-        const found = await searchTrackByText(manualSearchQuery);
-        if (!found) { setManualSearchNotFound(true); return; }
-        setManualSearchResult({ title: found.title, artist: found.artist, track: found });
-      } else {
-        const previousIds = new Set(useSessionStore.getState().tracks.map((entry) => entry.id));
-        const outcome = await submitManualSearch(manualSearchQuery);
-        if (outcome === 'not_found') { setManualSearchNotFound(true); return; }
-        const latest = useSessionStore.getState().tracks;
-        const found = latest.find((entry) => !previousIds.has(entry.id))?.track;
-        if (found) setManualSearchResult({ title: found.title, artist: found.artist, track: found });
-      }
+      const found = await searchTrackByText(manualSearchQuery);
+      if (generation !== searchGeneration.current) return;
+      if (!found) { setManualSearchNotFound(true); return; }
+      // No startSession(), submitManualSearch(), KEEP, GARDER or history write.
+      setManualSearchResult({ title: found.title, artist: found.artist, track: found });
       setManualSearchOpen(false);
       setManualSearchQuery('');
+    } catch {
+      if (generation === searchGeneration.current) setManualSearchNotFound(true);
     } finally {
-      setManualSearchBusy(false);
+      if (generation === searchGeneration.current) setManualSearchBusy(false);
     }
   };
 
@@ -680,21 +691,19 @@ export default function HomeScreenCompact({ navigation }: any) {
   const recordSharedLinkResult = async (url: string): Promise<boolean> => {
     const supportedUrl = supportedSharedMusicUrl(url);
     if (!supportedUrl) return false;
-    const found = await searchTrackByText(supportedUrl);
+    const generation = ++searchGeneration.current;
+    const found = await searchTrackByText(supportedUrl).catch(() => null);
+    if (generation !== searchGeneration.current) return false;
     if (!found) {
       setManualSearchQuery(supportedUrl);
       setManualSearchNotFound(true);
       setManualSearchOpen(true);
       return false;
     }
-    const track = musicEngine.trackResolver.resolveFromRecognition(found);
-    setManualSearchResult({ title: track.title, artist: track.artist, track });
-    if (useSessionStore.getState().isActive) {
-      // Le lien n'est pas une reconnaissance audio : pas de débit de quota micro.
-      await submitSharedLinkRecognition(found);
-      Alert.alert('Musique retrouvée grâce au lien', found.artist + ' — ' + found.title);
-    }
+    // Imported/copied links only create a dismissible preview, not a session track.
+    setManualSearchResult({ title: found.title, artist: found.artist, track: found });
     setManualSearchOpen(false);
+    setManualSearchQuery('');
     return true;
   };
 
@@ -785,7 +794,7 @@ export default function HomeScreenCompact({ navigation }: any) {
 
   // Keep the search modal mounted on the idle home, not only on the active microphone screen.
   const manualSearchModal = (
-      <KeepModal visible={manualSearchOpen} transparent animationType="fade" onRequestClose={() => !manualSearchBusy && setManualSearchOpen(false)}>
+      <KeepModal visible={manualSearchOpen} transparent animationType="fade" onRequestClose={closeManualSearchPreview}>
         <View style={s.modalOverlay}><View style={s.modalCard}>
           <Text style={s.modalTitle}>Chercher un morceau</Text>
           <Text style={s.modalBody}>Entre l’artiste et le titre, ou colle le lien d’une vidéo YouTube, Spotify, Deezer ou Apple Music. Pour YouTube, Loki Music recherche les informations publiques de la vidéo et les compare aux catalogues musicaux : il ne reconnaît pas directement l’audio à partir d’un simple lien.</Text>
@@ -807,7 +816,7 @@ export default function HomeScreenCompact({ navigation }: any) {
           ) : null}
           {manualSearchNotFound ? <Text style={s.manualSearchNotFound}>Aucun titre confirmé à partir de cette recherche. Essaie « Artiste – Titre », une autre vidéo YouTube ou la capture audio de l’onglet sur PC.</Text> : null}
           <View style={s.modalActions}>
-            <TouchableOpacity style={s.modalBtn} onPress={() => setManualSearchOpen(false)} disabled={manualSearchBusy}><Text style={s.modalBtnText}>Annuler</Text></TouchableOpacity>
+            <TouchableOpacity style={s.modalBtn} onPress={closeManualSearchPreview}><Text style={s.modalBtnText}>Annuler</Text></TouchableOpacity>
             <TouchableOpacity style={[s.modalBtn, s.modalEnd]} onPress={runManualSearch} disabled={manualSearchBusy || !manualSearchQuery.trim()}>
               <Text style={s.modalEndText}>{manualSearchBusy ? 'Recherche…' : 'Chercher'}</Text>
             </TouchableOpacity>
@@ -815,6 +824,19 @@ export default function HomeScreenCompact({ navigation }: any) {
         </View></View>
       </KeepModal>
   );
+
+  const manualResultPreview = manualSearchResult ? (
+    <View testID="home-manual-search-result" style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'center', maxWidth: 320, paddingVertical: 8, gap: 10 }} accessibilityLiveRegion="polite">
+      <TrackCover track={manualSearchResult.track} style={{ width: 52, height: 52, borderRadius: 9 }} fallbackStyle={{ width: 52, height: 52, borderRadius: 9 }} fallbackTextStyle={{ fontSize: 18 }} />
+      <View style={{ flexShrink: 1 }}>
+        <Text style={{ color: C.text, fontSize: 14, fontWeight: '700' }} numberOfLines={2}>{manualSearchResult.title}</Text>
+        <Text style={{ color: C.muted, fontSize: 12 }} numberOfLines={1}>{manualSearchResult.artist} · Aperçu non enregistré</Text>
+      </View>
+      <TouchableOpacity testID="close-manual-search-preview" onPress={closeManualSearchPreview} accessibilityRole="button" accessibilityLabel="Fermer l’aperçu sans enregistrer" style={{ minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ color: C.text, fontSize: 20 }}>×</Text>
+      </TouchableOpacity>
+    </View>
+  ) : null;
 
   if (showMicPrimer) {
     return <MicPermissionPrimerScreen onAuthorized={dismissMicPrimer} onLater={dismissMicPrimer} />;
@@ -837,15 +859,7 @@ export default function HomeScreenCompact({ navigation }: any) {
             <View style={desktopHome ? s.desktopIdleIdentity : undefined}>
               <LokiIdleOrb />
               <LokiMusic3DTitle />
-              {manualSearchResult ? (
-                <View testID="home-manual-search-result" style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'center', maxWidth: 290, paddingVertical: 8, gap: 10 }} accessibilityLiveRegion="polite">
-                  <TrackCover track={manualSearchResult.track} style={{ width: 52, height: 52, borderRadius: 9 }} fallbackStyle={{ width: 52, height: 52, borderRadius: 9 }} fallbackTextStyle={{ fontSize: 18 }} />
-                  <View style={{ flexShrink: 1 }}>
-                    <Text style={{ color: C.text, fontSize: 14, fontWeight: '700' }} numberOfLines={2}>{manualSearchResult.title}</Text>
-                    <Text style={{ color: C.muted, fontSize: 12 }} numberOfLines={1}>{manualSearchResult.artist}</Text>
-                  </View>
-                </View>
-              ) : null}
+              {manualResultPreview}
             </View>
             <View style={desktopHome ? s.desktopIdleActions : s.mobileIdleActions}>
             <Text numberOfLines={2} ellipsizeMode="tail" style={s.idleSubtitle}>{homeSubtitleLead}</Text>
@@ -1017,6 +1031,7 @@ export default function HomeScreenCompact({ navigation }: any) {
         {error ? <View style={s.errorBanner}><Text style={s.errorBannerText}>{error}</Text>{micBlocked && micPermissionFixHint() ? <Text style={s.micFixHintInBanner}>{micPermissionFixHint()}</Text> : null}</View> : null}
         {!error && signalHint ? <Text style={s.signalHint}>{signalHint}</Text> : null}
 
+        {manualResultPreview}
         <View style={s.sectionHeader}><Text style={s.sectionTitle}>MUSIQUE DÉTECTÉE</Text></View>
 
         {tracks.length > 1 ? (
