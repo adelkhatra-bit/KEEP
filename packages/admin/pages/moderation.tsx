@@ -43,6 +43,7 @@ function StatusPill({ status }: { status: FieldStatus }) {
 
 export default function Moderation() {
   const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [history, setHistory] = useState<Array<{id:string;name:string;starts_at:string;ends_at:string|null;created_at:string;moderation_status:string;is_disabled:boolean;venue_name:string|null}>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -58,8 +59,12 @@ export default function Moderation() {
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const data = await invokeControl({ action: 'moderation.events_pending' });
-      setQueue((data?.data ?? []) as QueueItem[]);
+      const [pending, past] = await Promise.all([
+        invokeControl({ action: 'moderation.events_pending' }),
+        invokeControl({ action: 'moderation.events_history' }),
+      ]);
+      setQueue((pending?.data ?? []) as QueueItem[]);
+      setHistory((past?.data ?? []) as typeof history);
     } catch (e: any) {
       setError(e?.message ?? 'Impossible de charger la file de modération.');
     } finally {
@@ -104,6 +109,28 @@ export default function Moderation() {
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
       {loading ? <p style={{ color: 'var(--text-muted)' }}>Chargement…</p> : null}
       {!loading && !queue.length ? <div className="card"><p style={{ margin: 0, color: 'var(--text-muted)' }}>Rien à approuver ✓</p></div> : null}
+
+      <section className="card" style={{ marginBottom: 18 }}>
+        <h2 style={{ fontSize: 17, marginTop: 0 }}>Historique des soirées · {history.length} dernières</h2>
+        <p style={{ color: 'var(--text-muted)', fontSize: 12 }}>Les soirées déjà approuvées ou terminées ne sont plus dans « À approuver ». Elles restent consultables ici sans réactiver leur diffusion.</p>
+        <div style={{ display: 'grid', gap: 8, maxHeight: 380, overflowY: 'auto' }}>
+          {history.map((event) => {
+            const start = Date.parse(event.starts_at);
+            const end = event.ends_at ? Date.parse(event.ends_at) : start + 6 * 3600000;
+            const expired = Number.isFinite(end) && end <= Date.now();
+            return <div key={event.id} style={{ padding: 10, border: '1px solid var(--border)', borderRadius: 10, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ minWidth: 0 }}>
+                <strong>{event.name}</strong>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{new Date(event.starts_at).toLocaleString('fr-FR')} · {event.venue_name || 'Lieu non précisé'}</div>
+              </div>
+              <strong style={{ fontSize: 12, color: expired || event.is_disabled ? '#FF5F83' : event.moderation_status === 'APPROVED' ? '#38D990' : '#FFD166' }}>
+                {event.is_disabled ? 'DÉSACTIVÉE' : expired ? 'TERMINÉE' : event.moderation_status === 'APPROVED' ? 'APPROUVÉE' : event.moderation_status}
+              </strong>
+            </div>;
+          })}
+          {!history.length ? <p style={{ color: 'var(--text-muted)' }}>Aucune soirée enregistrée.</p> : null}
+        </div>
+      </section>
 
       <div style={{ display: 'grid', gap: 18 }}>
         {queue.map((item) => (
