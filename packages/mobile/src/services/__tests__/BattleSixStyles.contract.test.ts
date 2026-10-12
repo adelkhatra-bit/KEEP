@@ -19,13 +19,15 @@ describe('6 styles Solo/Battle, no hidden truncation', () => {
   });
 
   it('preserves four answer choices while increasing styles at each server entry point', () => {
-    expect(migration).toContain('CREATE OR REPLACE FUNCTION public.keep_battle_solo_pack(');
-    expect(migration).toContain('CREATE OR REPLACE FUNCTION public.keep_battle_save_match_preferences(');
-    expect(migration).toContain('CREATE OR REPLACE FUNCTION public.keep_battle_arena_seed_rounds(');
-    expect(migration).toContain('limit 6');
-    expect(migration).toContain('and u.ord <= 6');
-    expect(migration).toContain('limit 3) d');
-    expect(migration).toContain('keep_battle_remember_content(');
+    expect(migration).toContain('keep_battle_solo_pack(text,integer,text[])');
+    expect(migration).toContain('keep_battle_save_match_preferences(text[],integer)');
+    expect(migration).toContain('keep_battle_arena_seed_rounds(uuid,integer)');
+    expect(migration).toContain("'\\1limit 6'");
+    expect(migration).toContain("'and u.ord <= 6'");
+    expect(migration).toContain('exactly four choices');
+    expect(migration).toContain('SECURITY DEFINER');
+    expect(migration).toContain('pg_get_functiondef(v_oid)');
+    expect(migration).not.toMatch(/\\bDELETE\\s+FROM\\b/i);
     expect(migration).not.toContain('DROP TABLE');
   });
 });
