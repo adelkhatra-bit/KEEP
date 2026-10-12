@@ -33,7 +33,7 @@ describe('Loki bottom tabs contract', () => {
       ['MyMusic', 'MyMusicScreen'], ['Parties', 'PartiesScreen'],
       ['Profile', 'ProfilePublicScreen'],
     ]) {
-      expect(navigation).toContain(`<${screen} key={\`${tab}-\\${tabEpoch.${tab}}\`}`);
+      expect(navigation).toContain('<' + screen + ' key={`' + tab + '-${tabEpoch.' + tab + '}`}');
     }
   });
 
