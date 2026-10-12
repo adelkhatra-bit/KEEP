@@ -1,5 +1,14 @@
 [
   {
+    "commit": "58dacb5626cffa3af6ef719dcf2e26303ebbd8dc",
+    "web": "58dacb5626cffa3af6ef719dcf2e26303ebbd8dc",
+    "testflight": "iOS #228 success (release f8dbd60)",
+    "ota": "OTA #1019 success (release f8dbd60)",
+    "date": "2026-10-12 11:03",
+    "tests": "pass",
+    "changes": "Merge pull request #135 from adelkhatra-bit/fix/story-viewer-detail-sync-20261012"
+  },
+  {
     "commit": "43f1f945748ccfc2498ab3b8775a47d47279eee5",
     "web": "43f1f945748ccfc2498ab3b8775a47d47279eee5",
     "testflight": "iOS #228 success (release f8dbd60)",
