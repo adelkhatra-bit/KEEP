@@ -475,20 +475,31 @@ export default function HomeScreenCompact({ navigation }: any) {
     ].find((url) => resolveEmbeddedMusicPlayer(url)) || pasted || null;
     const embed = resolveEmbeddedMusicPlayer(sourceUrl);
     if (!found && !embed) return false;
+    // Exact video metadata (verified server-side against the pasted video ID)
+    // is enough to keep a source link pending, without pretending it is an
+    // independently fingerprinted catalogue song. NEVER use a guessed iTunes
+    // preview for this source-only case.
+    const sourceOnly = Boolean(found && String(found.recognitionProviderTrackId ?? '').startsWith('source:'));
+    const originalEmbed = resolveEmbeddedMusicPlayer(pasted);
+    const verifiedEmbed = resolveEmbeddedMusicPlayer(found?.externalUrls?.source);
+    const exactYouTube = Boolean(originalEmbed?.provider === 'YOUTUBE'
+      && verifiedEmbed?.provider === 'YOUTUBE' && originalEmbed.url === verifiedEmbed.url);
+    const sourceQueueable = sourceOnly && exactYouTube;
+    const resolvedTrack: CanonicalTrack = found
+      ? musicEngine.trackResolver.resolveFromRecognition(found)
+      : { id: 'temporary-unidentified', title: 'Vidéo musicale partagée',
+          artist: 'Titre non identifié', artworkUrl: undefined, providerIds: {} } as CanonicalTrack;
     const result: TemporaryMusicResult & { track: CanonicalTrack } = {
       title: found?.title || 'Vidéo musicale partagée',
       artist: found?.artist || 'Lien affiché · titre non identifié',
       artworkUrl: found?.artworkUrl,
-      previewUrl: found?.previewUrl,
-      track: found ? musicEngine.trackResolver.resolveFromRecognition(found) : {
-        id: 'temporary-unidentified', title: 'Vidéo musicale partagée', artist: 'Titre non identifié',
-        artworkUrl: undefined, providerIds: {},
-      },
+      previewUrl: sourceOnly ? undefined : found?.previewUrl,
+      track: sourceOnly ? { ...resolvedTrack, previewUrl: undefined } : resolvedTrack,
       sourceUrl,
-      // SOURCE_VERIFIED is metadata of the video, NOT a confirmed catalogue
-      // match. Show the exact shared player; do not enable KEEP/Story based
-      // on an approximate catalogue result or uploader credit.
-      identified: Boolean(found && !String(found.recognitionProviderTrackId ?? '').startsWith('source:')),
+      sourceOnly: sourceQueueable,
+      // An exact provider video is actionable but NOT claimed as a licensed
+      // catalogue match. Its own embedded player supplies the excerpt.
+      identified: Boolean(found && (!sourceOnly || sourceQueueable)),
     };
     const session = useSessionStore.getState();
     if (session.isActive && !session.micPaused && !pausedForPreview.current) {
