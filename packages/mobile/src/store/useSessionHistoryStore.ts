@@ -339,7 +339,7 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
         const now = new Date().toISOString();
         const day = now.slice(0, 10);
         const title = 'Musiques partagées';
-        const normalized = (v: string) => v.normalize('NFKD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+        const normalized = (v: string) => v.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
         const normalizedSource = (sourceUrl || '').trim();
         const enrichedTrack: CanonicalTrack = {
           ...track,
