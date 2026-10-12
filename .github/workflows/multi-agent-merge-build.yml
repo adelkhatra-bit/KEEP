@@ -26,7 +26,7 @@ on:
           - squash
           - rebase
       run_workflow:
-        description: 'Run eas-build-ios workflow after merge'
+        description: 'Dispatch the existing auto-eas-build workflow after successful merge'
         required: true
         default: true
         type: boolean
@@ -109,12 +109,12 @@ jobs:
 
       - name: 🚀 Trigger eas-build-ios workflow
         run: |
-          echo "🔄 Triggering eas-build-ios.yml with profile: ${{ github.event.inputs.profile }}"
+          echo "🔄 Triggering auto-eas-build.yml with profile: ${{ github.event.inputs.profile }}"
           
-          gh workflow run eas-build-ios.yml \
+          gh workflow run auto-eas-build.yml \
             --repo ${{ github.repository }} \
             --ref reconcile/claude-main-20260825 \
-            -F profile=${{ github.event.inputs.profile }} || echo "⚠️ Workflow trigger attempt completed"
+            -F profile=${{ github.event.inputs.profile }}
           
           echo "✅ Build workflow initiated"
         env:
@@ -153,7 +153,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- [PR #${{ github.event.inputs.pr_number }}](https://github.com/${{ github.repository }}/pull/${{ github.event.inputs.pr_number }})" >> $GITHUB_STEP_SUMMARY
           echo "- [Workflow Run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
-          echo "- [Build Status](https://github.com/${{ github.repository }}/actions/workflows/eas-build-ios.yml)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Build Status](https://github.com/${{ github.repository }}/actions/workflows/auto-eas-build.yml)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 🤖 Compatible Agents" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Claude (OpenAI Copilot)" >> $GITHUB_STEP_SUMMARY
