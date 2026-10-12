@@ -70,14 +70,16 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
   const [busy, setBusy] = useState(false);
   const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState(previewUrl?.trim() || '');
   const [resolvedFallbackUrl, setResolvedFallbackUrl] = useState(fallbackUrl?.trim() || '');
-  const [resolving, setResolving] = useState(!previewUrl && !fallbackUrl);
+  const [resolving, setResolving] = useState(!previewUrl);
 
   useEffect(() => () => { if (playing) void stopTrackPreview(trackKey); }, [playing, trackKey]);
 
   useEffect(() => {
     setResolvedPreviewUrl(previewUrl?.trim() || '');
     setResolvedFallbackUrl(fallbackUrl?.trim() || '');
-    if (previewUrl || fallbackUrl) {
+    // Un lien vers YouTube/TikTok/Spotify n'est pas un extrait audio.
+    // Même si le lien externe existe, chercher la vraie preview en bibliothèque.
+    if (previewUrl) {
       setResolving(false);
       return undefined;
     }
