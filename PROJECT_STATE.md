@@ -143,6 +143,7 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
+| `cff41f4` | `cff41f4` | iOS #228 success (release f8dbd60) | OTA #1019 success (release f8dbd60) | 2026-10-12 11:44 | pass | fix(boutique): vitrines lisibles et parcours FREE / PayPal compréhensible PC et mobile (#143) |
 | `af99be4` | `af99be4` | iOS #228 success (release f8dbd60) | OTA #1019 success (release f8dbd60) | 2026-10-12 11:37 | pass | fix(events): badge rouge TERMINÉE sur la version avec Stories et cockpit PC (#141) |
 | `326173c` | `326173c` | iOS #228 success (release f8dbd60) | OTA #1019 success (release f8dbd60) | 2026-10-12 11:29 | pass | fix(listen): YouTube PC — capture d'onglet intégrée et liens reconnus (#136) |
 | `6259169` | `6259169` | iOS #228 success (release f8dbd60) | OTA #1019 success (release f8dbd60) | 2026-10-12 11:22 | pass | feat(events): vente lisible, Story automatique validée, Pulse social et cockpit créateur PC (#116) |

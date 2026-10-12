@@ -1,5 +1,14 @@
 [
   {
+    "commit": "cff41f487b7275eb6b2b2c0d8c0f895f99a78f06",
+    "web": "cff41f487b7275eb6b2b2c0d8c0f895f99a78f06",
+    "testflight": "iOS #228 success (release f8dbd60)",
+    "ota": "OTA #1019 success (release f8dbd60)",
+    "date": "2026-10-12 11:44",
+    "tests": "pass",
+    "changes": "fix(boutique): vitrines lisibles et parcours FREE / PayPal compréhensible PC et mobile (#143)"
+  },
+  {
     "commit": "af99be4f80e598795ab029130a78cb4e9e1749ec",
     "web": "af99be4f80e598795ab029130a78cb4e9e1749ec",
     "testflight": "iOS #228 success (release f8dbd60)",
