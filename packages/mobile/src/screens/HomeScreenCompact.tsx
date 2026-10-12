@@ -495,7 +495,7 @@ export default function HomeScreenCompact({ navigation }: any) {
     // artist/title match. Two different videos can share an uploader/title;
     // recycling the same canonical ID made the next link reopen the first
     // card in Mes Sessions and Swipe.
-    const youtubeVideoId = exactYouTube && pasted
+    const youtubeVideoId = sameVerifiedPlayer && originalEmbed?.provider === 'YOUTUBE' && pasted
       ? (() => { try { return new URL(pasted).searchParams.get('v'); } catch { return null; } })()
       : null;
     const resolvedTrack: CanonicalTrack = found
