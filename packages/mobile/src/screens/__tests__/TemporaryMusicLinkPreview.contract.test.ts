@@ -9,8 +9,13 @@ const clipboardBlock = home.slice(home.indexOf('const recordSharedLinkResult = a
 
 describe('Temporary link/music preview is shared by PC and mobile', () => {
   it('only looks up metadata, never adds a pasted link to a session, library or history', () => {
-    expect(searchBlock).toContain('searchTrackByText(manualSearchQuery)');
+    expect(searchBlock).toContain('searchTrackByText(input)');
     expect(searchBlock).toContain('openTemporaryMusicPreview(found, input)');
+    // Preview lookup is read-only; saving is an explicit, separate user action.
+    expect(home).toContain('const saveManualPreviewToSessions = () =>');
+    expect(home).toContain('onSave={saveManualPreviewToSessions}');
+    expect(home).toContain('addSharedLinkTrack(');
+    expect(home).toContain('onNext={nextManualSearch}');
     expect(searchBlock).not.toMatch(/submitManualSearch\(|submitSharedLinkRecognition\(|startSession\(|commitKeep\(|persistLiveSession\(/);
     expect(clipboardBlock).toContain('searchTrackByText(supportedUrl)');
     expect(clipboardBlock).not.toMatch(/submitManualSearch\(|submitSharedLinkRecognition\(|startSession\(|commitKeep\(|persistLiveSession\(/);
