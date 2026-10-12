@@ -5,6 +5,7 @@ import type { CanonicalTrack, MusicRecognitionProvider, RecognitionResult } from
 import type { KeepVisibility } from '../types';
 import { getSupabaseAccessToken, supabase } from './supabaseClient';
 import { getSharedMusicSource } from './sharedMusicSourceService';
+import { sharedSourcePlatformFromUrl } from './sharedSourcePlatform';
 import { APP_NAME } from '../config/brand';
 import { updateRecognitionConsensus, type RecognitionConsensusState } from './recognitionConsensus';
 
@@ -514,22 +515,6 @@ async function keylessSourceRecognition(accessToken: string | null): Promise<Rec
  * scoring par recouvrement de tokens), juste avec un texte fourni à la main
  * au lieu d'une page scrappée.
  */
-/**
- * Le resolver attend la plateforme pour appeler le bon oEmbed. Un lien YouTube
- * collé dans la recherche manuelle arrivait avec UNKNOWN : aucune requête
- * oEmbed YouTube n'était alors tentée (même si le lien était valide).
- */
-export function sharedSourcePlatformFromUrl(raw: string): 'YOUTUBE' | 'TIKTOK' | 'INSTAGRAM' | 'FACEBOOK' | 'UNKNOWN' {
-  try {
-    const host = new URL(raw).hostname.toLowerCase().replace(/^www\./, '');
-    if (host === 'youtu.be' || host === 'youtube.com' || host.endsWith('.youtube.com')) return 'YOUTUBE';
-    if (host === 'tiktok.com' || host.endsWith('.tiktok.com')) return 'TIKTOK';
-    if (host === 'instagram.com' || host.endsWith('.instagram.com')) return 'INSTAGRAM';
-    if (host === 'facebook.com' || host.endsWith('.facebook.com') || host === 'fb.watch') return 'FACEBOOK';
-  } catch { /* la saisie libre n'est pas une URL */ }
-  return 'UNKNOWN';
-}
-
 export async function searchTrackByText(query: string): Promise<RecognitionResult | null> {
   const trimmed = query.trim();
   if (!trimmed || !configured(SUPABASE_URL) || !configured(SUPABASE_ANON_KEY)) return null;
