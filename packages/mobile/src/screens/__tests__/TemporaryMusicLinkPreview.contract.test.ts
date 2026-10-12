@@ -10,7 +10,7 @@ const clipboardBlock = home.slice(home.indexOf('const recordSharedLinkResult = a
 describe('Temporary link/music preview is shared by PC and mobile', () => {
   it('only looks up metadata, never adds a pasted link to a session, library or history', () => {
     expect(searchBlock).toContain('searchTrackByText(manualSearchQuery)');
-    expect(searchBlock).toContain('setManualSearchResult({ title: found.title, artist: found.artist, track: found })');
+    expect(searchBlock).toContain('openTemporaryMusicPreview(found, input)');
     expect(searchBlock).not.toMatch(/submitManualSearch\(|submitSharedLinkRecognition\(|startSession\(|commitKeep\(|persistLiveSession\(/);
     expect(clipboardBlock).toContain('searchTrackByText(supportedUrl)');
     expect(clipboardBlock).not.toMatch(/submitManualSearch\(|submitSharedLinkRecognition\(|startSession\(|commitKeep\(|persistLiveSession\(/);
