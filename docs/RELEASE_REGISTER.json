@@ -1,5 +1,14 @@
 [
   {
+    "commit": "e1bad17e8d32e5f00132eccf4a5deab242f123e3",
+    "web": "e1bad17e8d32e5f00132eccf4a5deab242f123e3",
+    "testflight": "iOS #230 success (release 1f44ee1)",
+    "ota": "OTA #1021 success (release 1f44ee1)",
+    "date": "2026-10-12 19:53",
+    "tests": "pass",
+    "changes": "test(music): require explicit saved link sessions while keeping searches read-only"
+  },
+  {
     "commit": "d8e54f1cc9e36b7bfedebc681824637e0c56ecc2",
     "web": "d8e54f1cc9e36b7bfedebc681824637e0c56ecc2",
     "testflight": "iOS #230 success (release 1f44ee1)",
