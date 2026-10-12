@@ -382,7 +382,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // DESIGN UNIQUE : le gabarit validé sur iPhone est la source de vérité.
   // Desktop ne reçoit plus des dimensions de manche différentes : on garde
   // la même composition carrée/4 réponses et on centre simplement l'ensemble.
-  const battleDesignWidth = Math.min(windowWidth, 430);
+  const battleDesignWidth = Math.min(windowWidth, isDesktopBattle ? 650 : 430);
   const roundCardMinHeight = Math.max(520, Math.min(650, windowHeight - 124));
   const arenaVisualMax = Math.max(260, Math.min(battleDesignWidth - 10, roundCardMinHeight - 214));
   const soloRoundCardMinHeight = Math.max(500, Math.min(650, windowHeight - 248));
@@ -3648,7 +3648,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
 
 const s = StyleSheet.create({
   root: { width: '100%', flex: 1, paddingBottom: 0, position: 'relative' },
-  rootDesktop: { maxWidth: 430, alignSelf: 'center' },
+  rootDesktop: { width: '100%', maxWidth: 1024, alignSelf: 'center', paddingHorizontal: 16 },
   soloSaveBackdrop: { flex: 1, backgroundColor: 'rgba(5,4,10,.76)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
   soloSaveCard: { width: '100%', maxWidth: 390, borderRadius: 24, borderWidth: 1, borderColor: colors.primary, backgroundColor: colors.backgroundElevated, paddingHorizontal: 16, paddingTop: 18, paddingBottom: 14 },
   soloSaveEyebrow: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 1.4, textAlign: 'center' },
