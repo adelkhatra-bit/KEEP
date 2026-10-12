@@ -174,11 +174,11 @@ const boutiqueJourney = {
     const r = {};
     const profileUrl = `${BASE}/profile/${fake.SELLER_USERNAME}`;
     await page.goto(profileUrl, { waitUntil: 'load' });
-    await page.getByText('BOUTIQUE MUSICALE · SES PÉPITES').first().waitFor({ timeout: 40000 });
+    await page.getByText(/^BOUTIQUE · @/).first().waitFor({ timeout: 40000 });
     await page.waitForTimeout(2200);
 
-    r.banniere = (await page.getByText('BOUTIQUE MUSICALE · SES PÉPITES').count()) > 0;
-    r.titre_banniere = (await page.getByText('40 collections · 1 clic pour écouter').count()) > 0;
+    r.banniere = (await page.getByText(/^BOUTIQUE · @/).count()) > 0;
+    r.titre_banniere = (await page.getByText('40 collections à découvrir').count()) > 0;
     r.pastilles = {
       free: (await page.getByText(/^✦ \d+ en FREE$/).count()) > 0,
       euro: (await page.getByText(/^€ \d+$/).count()) > 0,
@@ -186,13 +186,13 @@ const boutiqueJourney = {
       filtre_nouveautes: (await page.getByText('Nouveautés', { exact: true }).count()) > 0,
     };
     r.aucune_image_banniere = await page.evaluate(() => {
-      const k = [...document.querySelectorAll('div')].find((n) => n.textContent.trim() === 'BOUTIQUE MUSICALE · SES PÉPITES');
+      const k = [...document.querySelectorAll('div')].find((n) => n.textContent.trim().startsWith('BOUTIQUE · @'));
       let b = k;
       for (let i = 0; i < 4 && b; i++) b = b.parentElement;
       return b ? b.querySelectorAll('img').length === 0 : null;
     });
-    r.pepite_une = (await page.getByText('★ PÉPITE À LA UNE').count()) > 0;
-    r.etagere_titre = (await page.getByText('Toutes les Pépites').count()) > 0;
+    r.pepite_une = (await page.getByText('★ À LA UNE').count()) > 0;
+    r.etagere_titre = (await page.getByText('Explorer').count()) > 0;
     r.tout_voir = (await page.getByText('Tout voir · 40 ›').count()) > 0;
     r.chips = {
       tout: (await page.getByText('Tout 40').count()) > 0,
@@ -212,7 +212,7 @@ const boutiqueJourney = {
     await page.locator('[aria-label^="Fermer"]').first().click({ force: true }).catch(() => {});
 
     await page.goto(profileUrl, { waitUntil: 'load' });
-    await page.getByText('BOUTIQUE MUSICALE · SES PÉPITES').first().waitFor({ timeout: 40000 });
+    await page.getByText(/^BOUTIQUE · @/).first().waitFor({ timeout: 40000 });
     await page.getByText('Tout voir · 40 ›').first().click({ force: true });
     await page.waitForTimeout(1000);
     r.boutique_titre = (await page.getByText('PÉPITES LOKI').count()) > 0;
@@ -230,14 +230,14 @@ const boutiqueJourney = {
     r.debordement_horizontal = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
 
     const checks = [
-      ['bannière Boutique musicale · Ses Pépites', r.banniere],
-      ['sous-titre « 40 collections · 1 clic pour écouter »', r.titre_banniere],
+      ['bannière Boutique · @vendeur', r.banniere],
+      ['sous-titre « 40 collections à découvrir »', r.titre_banniere],
       ['pastille FREE', r.pastilles.free],
       ['pastille €', r.pastilles.euro],
       ['filtre Nouveautés disponible même si aucune nouveauté n’est calculée', r.pastilles.filtre_nouveautes],
       ['aucune image dans la bannière', r.aucune_image_banniere === true],
       ['Pépite à la une visible', r.pepite_une],
-      ['étagère « Toutes les Pépites »', r.etagere_titre],
+      ['étagère « Explorer »', r.etagere_titre],
       ['lien « Tout voir · 40 »', r.tout_voir],
       ['filtre Tout 40', r.chips.tout],
       ['filtre FREE 2x', r.chips.free],
