@@ -10,7 +10,7 @@ describe('Loki Music — compact desktop / mobile without feature loss', () => {
 
   it('opens the real music library and keeps every source filter', () => {
     expect(music).toContain('Toute ma musique · {localKeptEntries.length}');
-    expect(music).toContain("originFilter !== 'ALL'");
+    expect(music).toContain("!['ALL'].includes(originFilter)");
     for (const filter of ['ALL', 'PRIVATE', 'LISTEN', 'SESSION', 'USERS', 'IDENTIFIED', 'PULSE']) {
       expect(music).toContain("['" + filter + "',");
     }
