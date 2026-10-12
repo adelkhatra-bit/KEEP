@@ -196,7 +196,6 @@ export default function HomeScreenCompact({ navigation }: any) {
   useEffect(() => () => { if (snackTimer.current) clearTimeout(snackTimer.current); }, []);
   const [privacyBusy, setPrivacyBusy] = useState(false);
   const [manualSearchOpen, setManualSearchOpen] = useState(false);
-  const [tabAudioHelpOpen, setTabAudioHelpOpen] = useState(false);
   const [sessionPeekOpen, setSessionPeekOpen] = useState(false);
   // Navigation différée : le lecteur Swipe ne doit jamais s'ouvrir derrière une Modal iOS encore en train de se fermer.
   const queuedSwipeSessionId = useRef<string | null>(null);
@@ -521,10 +520,16 @@ export default function HomeScreenCompact({ navigation }: any) {
     openSessionHistorySafely();
   };
 
-  const runManualSearch = async () => {
-    if (manualSearchBusy || !manualSearchQuery.trim()) return;
+  const runManualSearch = async (inputOverride?: string) => {
+    const input = (typeof inputOverride === 'string' ? inputOverride : manualSearchQuery).trim();
+    if (manualSearchBusy || !input) return;
     const generation = ++searchGeneration.current;
-    const input = manualSearchQuery.trim();
+    // A second link must immediately invalidate the first preview and its player.
+    setManualSearchResult(null);
+    setManualResultSaved(false);
+    setManualResultOpen(false);
+    setManualSearchOpen(true);
+    setManualSearchQuery(input);
     setManualSearchBusy(true);
     setManualSearchNotFound(false);
     try {
@@ -874,7 +879,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   const manualSearchModal = (
       <KeepModal visible={manualSearchOpen || manualResultOpen} transparent animationType="fade" onRequestClose={closeManualSearchPreview}>
         {manualResultOpen ? (
-          <TemporaryMusicPreview visible={manualResultOpen} result={manualSearchResult} onClose={closeManualSearchPreview} onNext={nextManualSearch} onSave={saveManualPreviewToSessions} onSeeSessions={viewSavedManualSessions} saved={manualResultSaved} saving={manualSaveBusy} />
+          <TemporaryMusicPreview visible={manualResultOpen} result={manualSearchResult} onClose={closeManualSearchPreview} onNext={nextManualSearch} onReplaceLink={(link) => { void runManualSearch(link); }} onSave={saveManualPreviewToSessions} onSeeSessions={viewSavedManualSessions} saved={manualResultSaved} saving={manualSaveBusy} />
         ) : (
         <View style={s.modalOverlay}><View style={s.modalCard}>
           <Text style={s.modalTitle}>Chercher un morceau</Text>
@@ -888,7 +893,7 @@ export default function HomeScreenCompact({ navigation }: any) {
             editable={!manualSearchBusy}
             autoFocus
             returnKeyType="search"
-            onSubmitEditing={runManualSearch}
+            onSubmitEditing={() => { void runManualSearch(); }}
           />
           {Platform.OS === 'web' ? (
             <TouchableOpacity onPress={importCopiedMusicLink} accessibilityRole="button" accessibilityLabel="Importer le lien YouTube ou Spotify copié" style={{ paddingVertical: 10 }}>
@@ -898,7 +903,7 @@ export default function HomeScreenCompact({ navigation }: any) {
           {manualSearchNotFound ? <Text style={s.manualSearchNotFound}>Aucun titre confirmé à partir de cette recherche. Essaie « Artiste – Titre », une autre vidéo YouTube ou la capture audio de l’onglet sur PC.</Text> : null}
           <View style={s.modalActions}>
             <TouchableOpacity style={s.modalBtn} onPress={closeManualSearchPreview}><Text style={s.modalBtnText}>Annuler</Text></TouchableOpacity>
-            <TouchableOpacity style={[s.modalBtn, s.modalEnd]} onPress={runManualSearch} disabled={manualSearchBusy || !manualSearchQuery.trim()}>
+            <TouchableOpacity style={[s.modalBtn, s.modalEnd]} onPress={() => { void runManualSearch(); }} disabled={manualSearchBusy || !manualSearchQuery.trim()}>
               <Text style={s.modalEndText}>{manualSearchBusy ? 'Recherche…' : 'Chercher'}</Text>
             </TouchableOpacity>
           </View>
@@ -986,7 +991,7 @@ export default function HomeScreenCompact({ navigation }: any) {
               <TouchableOpacity testID="home-tab-audio-option" style={s.tabTest} onPress={testTabCapture} disabled={tabTestBusy} accessibilityRole="button" accessibilityLabel={tabMonitoring ? 'Arrêter le partage audio de l’onglet' : 'Reconnaître le son d’un onglet YouTube ou TikTok sur PC'}>
                 <Text style={s.tabTestText}>{tabTestBusy ? 'Ouverture du partage…' : tabMonitoring ? '■ ARRÊTER LE SON DE L’ONGLET' : '♫ Suivre la musique d’un onglet PC'}</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setTabAudioHelpOpen(true)} accessibilityRole="button" accessibilityLabel="Comment fonctionne le son d’un onglet PC ?" style={{ alignSelf: "center", padding: 8 }}><Text style={{ color: C.text, fontSize: 12 }}>ⓘ Comment ça marche ?</Text></TouchableOpacity>
+              
               </React.Fragment>
             ) : null}
             <MotionActionButton
@@ -1015,7 +1020,6 @@ export default function HomeScreenCompact({ navigation }: any) {
           </View>
         </View>
         {manualSearchModal}
-        <KeepModal visible={tabAudioHelpOpen} transparent animationType="fade" onRequestClose={() => setTabAudioHelpOpen(false)}><View style={s.modalOverlay}><View style={s.modalCard}><Text style={s.modalTitle}>Son d’un onglet PC</Text><Text style={s.modalBody}>Sur ordinateur, ouvre YouTube dans Chrome ou Edge, lance « Suivre la musique d’un onglet PC », sélectionne l’onglet YouTube et coche « Partager l’audio ». Loki garde le partage ouvert pour identifier les titres suivants, et ajoute chaque morceau reconnu à la session, avec préécoute et GARDER en FREE. Appuie sur ARRÊTER pour libérer le partage. Cette fonction ne fonctionne pas sur iPhone ; sur mobile, utilise le micro ou colle un lien.</Text><TouchableOpacity style={s.modalBtn} onPress={() => setTabAudioHelpOpen(false)}><Text style={s.modalBtnText}>Compris</Text></TouchableOpacity></View></View></KeepModal>
         <CoachMarks visible={showCoach && !showMicPrimer} onFinish={finishCoach} />
 </SafeAreaView>
     );
