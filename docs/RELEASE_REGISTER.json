@@ -1,5 +1,14 @@
 [
   {
+    "commit": "7e9b32df1bbd736244ebdc43854b2cd7aa6d3a88",
+    "web": "7e9b32df1bbd736244ebdc43854b2cd7aa6d3a88",
+    "testflight": "iOS #230 success (release 1f44ee1)",
+    "ota": "OTA #1021 success (release 1f44ee1)",
+    "date": "2026-10-12 19:31",
+    "tests": "pass",
+    "changes": "fix(music): align direct music-link confidence with server and allow catalog lookup to complete"
+  },
+  {
     "commit": "0f73066c3eaa4180db6b04774914c4d4fe751688",
     "web": "0f73066c3eaa4180db6b04774914c4d4fe751688",
     "testflight": "iOS #230 success (release 1f44ee1)",
