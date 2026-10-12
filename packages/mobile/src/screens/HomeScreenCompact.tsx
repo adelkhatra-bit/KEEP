@@ -763,6 +763,15 @@ export default function HomeScreenCompact({ navigation }: any) {
                 <Text style={s.tabTestText}>{tabTestBusy ? 'Analyse de l’onglet…' : '♫ Son d’un onglet PC'}</Text>
               </TouchableOpacity>
             ) : null}
+            <MotionActionButton
+              variant="ghost"
+              size="medium"
+              onPress={() => { setManualSearchNotFound(false); setManualSearchOpen(true); }}
+              accessibilityLabel="Chercher un morceau par son titre ou son lien"
+              accessibilityHint="Ouvre la recherche par titre, artiste ou lien musical"
+            >
+              Tu connais le titre ? Cherche-le toi-même
+            </MotionActionButton>
             {isDemoMode || (musicEngine.isDemoMode && !listenEconomyStatus) ? (
               <View style={s.demoRow}>
                 <Text style={s.demo}>MODE DÉMO{isDemoMode ? ` · ${Math.min(demoListenUsed, demoListenLimit)}/${demoListenLimit} TROUVAILLES` : ''}</Text>
@@ -968,15 +977,6 @@ export default function HomeScreenCompact({ navigation }: any) {
           </View>
         ) : null}
 
-        <MotionActionButton
-          variant="ghost"
-          size="medium"
-          onPress={() => { setManualSearchNotFound(false); setManualSearchOpen(true); }}
-          accessibilityLabel="Chercher un morceau par son titre"
-          accessibilityHint="Ouvre un formulaire de recherche par titre"
-        >
-          Tu connais le titre ? Cherche-le toi-même
-        </MotionActionButton>
       </ScrollView>
 
       {keepSnackbar ? (
