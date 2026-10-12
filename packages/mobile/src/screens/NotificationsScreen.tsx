@@ -1164,7 +1164,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
                     <Text style={styles.cardBody} numberOfLines={expandedNotificationIds.has(item.id) ? undefined : 2}>{notificationBody}</Text>
                     {String(notificationBody || '').length > 78 ? (
                       <TouchableOpacity onPress={() => toggleNotificationExpanded(item.id)} accessibilityRole="button" accessibilityLabel={expandedNotificationIds.has(item.id) ? 'Réduire la notification' : 'Afficher les détails de la notification'}>
-                        <Text style={styles.cardMoreLink}>{expandedNotificationIds.has(item.id) ? 'Réduire ‹' : 'En savoir plus ›'}</Text>
+                        <Text style={styles.cardMoreLink}>{expandedNotificationIds.has(item.id) ? 'Réduire ‹' : 'Plus ›'}</Text>
                       </TouchableOpacity>
                     ) : null}
                   </View>
