@@ -51,7 +51,7 @@ const SOCIAL_HOSTS = ["tiktok.com", "instagram.com", "youtube.com", "youtu.be", 
 // "Copier le lien" des applications renvoie souvent des domaines courts :
 // tous les hôtes ci-dessous sont autorisés explicitement pour empêcher SSRF.
 const MUSIC_HOSTS = [
-  "music.apple.com", "open.spotify.com", "spotify.link", "spotify.app.link",
+  "music.apple.com", "open.spotify.com", "spotify.link", "spotify.app.link", "link.tospotify.com",
   "deezer.com", "deezer.page.link", "link.deezer.com", "dzr.page.link",
   "soundcloud.com", "on.soundcloud.com", "listen.tidal.com", "tidal.com",
   "song.link", "odesli.co",
@@ -127,6 +127,25 @@ function sharedUrl(value: unknown): URL | null {
   const match = text.match(/https?:\/\/[^\s<>"'«»]+/i);
   const raw = match?.[0]?.replace(/[)\]},;.!?]+$/g, "").replace(/&amp;/gi, "&");
   return raw ? safeUrl(raw) : null;
+}
+
+/**
+ * All YouTube apps share the same 11-character video identifier.
+ * A copied mobile youtu.be/Shorts/Music URL is resolved through precisely
+ * the same YouTube oEmbed lookup and cache as a desktop /watch link.
+ */
+function canonicalYoutubeVideoUrl(url: URL | null): URL | null {
+  if (!url) return null;
+  const host = url.hostname.toLowerCase();
+  if (!(host === "youtu.be" || host === "youtube.com" || host.endsWith(".youtube.com"))) return url;
+  const segments = url.pathname.split("/").filter(Boolean);
+  const id = host === "youtu.be"
+    ? segments[0]
+    : url.pathname === "/watch"
+      ? url.searchParams.get("v")
+      : ["shorts", "live", "embed", "v"].includes(segments[0] ?? "") ? segments[1] : null;
+  if (!id || !/^[a-zA-Z0-9_-]{11}$/.test(id)) return url;
+  return new URL(`https://www.youtube.com/watch?v=${id}`);
 }
 
 function linkPlatform(url: URL | null, fallback: string): string {
@@ -339,6 +358,22 @@ async function fetchJson(url: string) {
   } catch { return null; }
 }
 
+// Some provider short links return an HTML interstitial instead of a HTTP
+// redirect. Follow a canonical/og:url only for the allowlisted provider hosts.
+function providerCanonicalUrl(html: string, from: URL): URL | null {
+  const hostname = from.hostname.toLowerCase().replace(/^www\./, "");
+  const shortHosts = new Set([
+    "spotify.link", "spotify.app.link", "link.tospotify.com",
+    "deezer.page.link", "dzr.page.link", "link.deezer.com", "on.soundcloud.com",
+  ]);
+  if (!shortHosts.has(hostname)) return null;
+  const canonical = metaContent(html, "og:url")
+    || html.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)/i)?.[1]
+    || html.match(/<link[^>]+href=["']([^"']+)["'][^>]+rel=["']canonical["']/i)?.[1];
+  const found = canonical ? safeUrl(canonical, from) : null;
+  return found?.toString() === from.toString() ? null : found;
+}
+
 async function fetchPage(start: URL): Promise<{ url: URL; html: string }> {
   let current = start;
   for (let hop = 0; hop < 5; hop += 1) {
@@ -357,7 +392,10 @@ async function fetchPage(start: URL): Promise<{ url: URL; html: string }> {
       continue;
     }
     const type = response.headers.get("content-type") || "";
-    return { url: current, html: /text\/html|application\/xhtml/i.test(type) ? (await response.text()).slice(0, 1_800_000) : "" };
+    const html = /text\/html|application\/xhtml/i.test(type) ? (await response.text()).slice(0, 1_800_000) : "";
+    const canonical = html ? providerCanonicalUrl(html, current) : null;
+    if (canonical && hop < 4) { current = canonical; continue; }
+    return { url: current, html };
   }
   return { url: current, html: "" };
 }
@@ -524,7 +562,7 @@ Deno.serve(async (req) => {
     if (!(await allowRequest(req, userId))) return json(429, { ok: false, provider: "KEYLESS_SOURCE", error: "keyless_rate_limited", recognition: null });
 
     const rawUrl = String(body?.url ?? "").trim();
-    const sourceUrl = sharedUrl(rawUrl) ?? sharedUrl(body?.rawText) ?? sharedUrl(body?.title);
+    const sourceUrl = canonicalYoutubeVideoUrl(sharedUrl(rawUrl) ?? sharedUrl(body?.rawText) ?? sharedUrl(body?.title));
     const rawText = cleanMusicText(body?.rawText ?? "").slice(0, 1500);
     const suppliedTitle = cleanMusicText(body?.title ?? "").slice(0, 500);
     const platform = linkPlatform(sourceUrl, String(body?.platform ?? "UNKNOWN").toUpperCase());
