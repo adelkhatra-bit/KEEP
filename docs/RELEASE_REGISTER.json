@@ -1,5 +1,14 @@
 [
   {
+    "commit": "9c59676be777f3346202e97030c5e6ba31fd6520",
+    "web": "9c59676be777f3346202e97030c5e6ba31fd6520",
+    "testflight": "iOS #231 in_progress (release 5447724)",
+    "ota": "OTA #1022 in_progress (release 5447724)",
+    "date": "2026-10-12 22:28",
+    "tests": "pass",
+    "changes": "fix(guard): compare newline escapes correctly in exact story SQL syntax exception"
+  },
+  {
     "commit": "c0c5a77993b2b956ffddd73023aa32d8e0aca752",
     "web": "c0c5a77993b2b956ffddd73023aa32d8e0aca752",
     "testflight": "iOS #230 success (release 1f44ee1)",
@@ -349,14 +358,5 @@
     "date": "2026-10-11 13:07",
     "tests": "pass",
     "changes": "fix(ci): garde-fou navigateur sur PR servi avec repli SPA (comme GitHub Pages) — reload sans 404"
-  },
-  {
-    "commit": "dbd1012b2921109f8ab22320dd429161451253bb",
-    "web": "dbd1012b2921109f8ab22320dd429161451253bb",
-    "testflight": "iOS #226 success (release bcd5711)",
-    "ota": "OTA #1017 success (release bcd5711)",
-    "date": "2026-10-11 12:43",
-    "tests": "pass",
-    "changes": "fix(release): garde-fou navigateur sur vrais profils d'appareil + exécuté sur chaque PR ; registre de versions ; règle « terminé = publié et vérifié »"
   }
 ]
