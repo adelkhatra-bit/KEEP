@@ -25,6 +25,7 @@ export type TemporaryMusicResult = {
 export default function TemporaryMusicPreview({
   visible, result, onClose, onNext, onReplaceLink, onSave, onSeeSessions, saved = false, saving = false,
   onKeep, keepChoiceOpen = false, onChooseVisibility, onCancelKeep, keepCostFree = 3, keptVisibility = null, storyPublished = false,
+  playlists = [], selectedPlaylistId, onSelectPlaylist,
 }: {
   visible: boolean;
   result: TemporaryMusicResult | null;
@@ -40,6 +41,9 @@ export default function TemporaryMusicPreview({
   onChooseVisibility?: (visibility: 'PUBLIC' | 'PRIVATE') => void;
   onCancelKeep?: () => void;
   keepCostFree?: number;
+  playlists?: { id: string; name: string }[];
+  selectedPlaylistId?: string;
+  onSelectPlaylist?: (playlistId: string) => void;
   keptVisibility?: 'PUBLIC' | 'PRIVATE' | null;
   storyPublished?: boolean;
 }) {
@@ -86,6 +90,7 @@ export default function TemporaryMusicPreview({
         <KeepVisibilityChoiceContent
           title="Garder ce morceau" trackLabel={`${result.title} · ${result.artist}`}
           costFree={keepCostFree} busy={saving}
+          playlists={playlists} selectedPlaylistId={selectedPlaylistId} onSelectPlaylist={onSelectPlaylist}
           body="Le morceau est déjà dans Mes Sessions. Le débit FREE et la publication sur le profil n’auront lieu qu’après ton choix."
           onPublic={() => onChooseVisibility('PUBLIC')}
           onPrivate={() => onChooseVisibility('PRIVATE')}
