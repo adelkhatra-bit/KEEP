@@ -250,3 +250,14 @@ describe('Ma story : total des j\'aime visible (Adel 10/10/2026)', () => {
     expect(bar).toContain('❤️ ${ownLikeTotal}');
   });
 });
+
+describe('Story visiteur : étiquettes lisibles sans chevauchement (13/10/2026)', () => {
+  const deck = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'MusicSwipeDeckModal.tsx'), 'utf8');
+  it('affiche PAYANT / GRATUIT dans une rangée dédiée, jamais en position absolue sur la pochette', () => {
+    expect(deck).toContain('<View style={s.priceBadgeRow} testID="deck-price-badge">');
+    expect(deck).toContain('priceBadgeRow:{flexShrink:0');
+    expect(deck).not.toContain("priceBadge:{position:'absolute'");
+    expect(deck).toContain('numberOfLines={2}>{priceBadge.label}');
+    expect(deck.match(/testID="deck-price-badge"/g)).toHaveLength(1);
+  });
+});
