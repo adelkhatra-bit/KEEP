@@ -7,6 +7,7 @@ const controls = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components
 const row = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'TrackRow.tsx'), 'utf8');
 const history = fs.readFileSync(path.resolve(__dirname, '..', '..', 'store', 'useSessionHistoryStore.ts'), 'utf8');
 const home = fs.readFileSync(path.resolve(__dirname, '..', '..', 'screens', 'HomeScreenCompact.tsx'), 'utf8');
+const continuous = fs.readFileSync(path.resolve(__dirname, '..', 'continuousTabMusicSession.ts'), 'utf8');
 
 describe('PC tab music session continues across multiple songs', () => {
   it('keeps a single shared stream across successive audio samples', () => {
@@ -16,12 +17,13 @@ describe('PC tab music session continues across multiple songs', () => {
     expect(monitor).toContain("transient sample/recognition failure; resuming next sample");
     expect(monitor).toContain('continue;');
   });
-  it('adds recognized audio to the same real session with a stop button', () => {
-    expect(home).toContain('startTabAudioMonitor(async (sample) => {');
-    expect(home).toContain('submitCapturedAudioRecognition(recognition)');
-    expect(home).toContain('current.startSession({ captureMode: \'tab\' })');
-    expect(home).toContain('tabMonitorRef.current?.stop()');
-    expect(home).toContain('requestEndSession()');
+  it('keeps one tab capture linked to a real session until STOP', () => {
+    expect(continuous).toContain('startTabAudioMonitor(async (sample) => {');
+    expect(continuous).toContain('submitCapturedAudioRecognition(recognition)');
+    expect(continuous).toContain("current.startSession({ captureMode: 'tab' })");
+    expect(continuous).toContain('activeMonitor?.stop()');
+    expect(continuous).toContain('session.requestEndSession()');
+    expect(home).toContain('startContinuousTabMusic()');
   });
   it('does not prompt to restart a deliberately paused microphone during tab preview', () => {
     expect(controls).toContain('pausedMicForPreview.current');

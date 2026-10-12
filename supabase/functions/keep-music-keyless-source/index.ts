@@ -622,9 +622,13 @@ Deno.serve(async (req) => {
     }
     // oEmbed peut répondre sur un lien court Spotify même si la page HTML
     // et sa chaîne de redirection restent bloquées par le site fournisseur.
-    const embedded = page.url ? (await oEmbed(platform, page.url.toString())
-      ?? (sourceUrl && sourceUrl.toString() !== page.url.toString() ? await oEmbed(platform, sourceUrl.toString()) : null)) : null;
-    const explicit = extractExplicitMusic(page.html);
+    const embedded = sourceUrl && strictYoutubeLink
+      ? await oEmbed("YOUTUBE", sourceUrl.toString())
+      : page.url ? (await oEmbed(platform, page.url.toString())
+        ?? (sourceUrl && sourceUrl.toString() !== page.url.toString() ? await oEmbed(platform, sourceUrl.toString()) : null)) : null;
+    // Video HTML includes recommendations and unrelated audio tracks: the only
+    // trusted title for YouTube is the exact video oEmbed response.
+    const explicit = strictYoutubeLink ? null : extractExplicitMusic(page.html);
     const ogTitle = metaContent(page.html, "og:title") || metaContent(page.html, "twitter:title") || titleTag(page.html);
     const ogDescription = metaContent(page.html, "og:description") || metaContent(page.html, "twitter:description") || metaContent(page.html, "description");
     const embeddedTitle = String(embedded?.title ?? "");
@@ -635,12 +639,12 @@ Deno.serve(async (req) => {
     const artistTitleCandidates = buildCandidates({ explicit,
       suppliedTitle: strictYoutubeLink ? "" : suppliedTitle,
       rawText: strictYoutubeLink ? "" : rawText,
-      embeddedTitle, embeddedAuthor, ogTitle });
+      embeddedTitle, embeddedAuthor, ogTitle: strictYoutubeLink ? "" : ogTitle });
     // Only metadata obtained from the actual video can prove the title/artist.
     // A search result with partial tokens must NEVER replace that video.
     const videoPairs = strictYoutubeLink ? [
       ...(explicit ? [{ artist: explicit.artist, title: explicit.title }] : []),
-      ...[embeddedTitle, ogTitle].flatMap((title) => {
+      ...[embeddedTitle].flatMap((title) => {
         const bySeparator = parseArtistTitle(title);
         const quoted = parseQuotedTitle(title);
         return [bySeparator, quoted].filter((x): x is { artist: string; title: string } => Boolean(x));
@@ -654,22 +658,27 @@ Deno.serve(async (req) => {
 
     // Repli source verifiee : preparee des maintenant, utilisee seulement si
     // aucun match catalogue suffisamment confiant n'est trouve plus bas.
-    const bestTitleGuess = artistTitleCandidates[0]?.title || cleanMusicText(embeddedTitle || ogTitle || (strictYoutubeLink ? "" : suppliedTitle));
-    const bestArtistGuess = artistTitleCandidates[0]?.artist || embeddedAuthor;
+    const videoMetadata = strictYoutubeLink ? (parseArtistTitle(embeddedTitle) || parseQuotedTitle(embeddedTitle)) : null;
+    const bestTitleGuess = strictYoutubeLink
+      ? (videoMetadata?.title || cleanMusicText(embeddedTitle))
+      : artistTitleCandidates[0]?.title || cleanMusicText(embeddedTitle || ogTitle || suppliedTitle);
+    const bestArtistGuess = strictYoutubeLink
+      ? (videoMetadata?.artist || embeddedAuthor)
+      : artistTitleCandidates[0]?.artist || embeddedAuthor;
     // No trustworthy video metadata -> show the actual embedded video only.
     // Never invent an artist or publish a different catalogue song.
-    const canSourceVerify = Boolean(page.url && bestTitleGuess && (!strictYoutubeLink || (embeddedTitle || ogTitle || explicit)));
+    const canSourceVerify = Boolean(page.url && bestTitleGuess && (!strictYoutubeLink || embeddedTitle));
     const sourceVerifiedFallback = () => {
       if (!canSourceVerify) return respond({ ok: true, provider: "KEYLESS_SOURCE", recognition: null, reason: "catalog_no_match" });
       const rec = sourceVerifiedRecognition({
-        url: page.url!.toString(),
+        url: strictYoutubeLink && sourceUrl ? sourceUrl.toString() : page.url!.toString(),
         title: bestTitleGuess,
         artist: bestArtistGuess,
         thumbnail: typeof embedded?.thumbnail_url === "string" ? embedded.thumbnail_url : undefined,
       });
       return respond({
         ok: true, provider: "KEYLESS_SOURCE", strategy: "source_verified", recognition: rec,
-        evidence: { platform, explicitMusicMetadata: Boolean(explicit), candidateCount: artistTitleCandidates.length, crossCatalogConfirmed: false },
+        evidence: { platform, explicitMusicMetadata: Boolean(explicit), candidateCount: artistTitleCandidates.length, crossCatalogConfirmed: false, videoIdentityVerified: Boolean(strictYoutubeLink && embeddedTitle) },
       });
     };
 
@@ -714,7 +723,7 @@ Deno.serve(async (req) => {
     return respond({
       ok: true, provider: "KEYLESS_SOURCE", strategy: corroborating ? "cross-catalog" : explicit ? "explicit-music-metadata" : "public-metadata",
       recognition: finalRecognition,
-      evidence: { platform, explicitMusicMetadata: Boolean(explicit), candidateCount: artistTitleCandidates.length, crossCatalogConfirmed: Boolean(corroborating), directMusicHost },
+      evidence: { platform, explicitMusicMetadata: Boolean(explicit), candidateCount: artistTitleCandidates.length, crossCatalogConfirmed: Boolean(corroborating), directMusicHost, videoIdentityVerified: Boolean(strictYoutubeLink && embeddedTitle) },
     });
   } catch (error) {
     console.error("[keep-music-keyless-source]", error);

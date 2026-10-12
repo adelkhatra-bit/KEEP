@@ -4,6 +4,7 @@ import path from 'path';
 
 const capture = fs.readFileSync(path.resolve(__dirname, '..', 'micCapture.ts'), 'utf8');
 const home = fs.readFileSync(path.resolve(__dirname, '..', '..', 'screens', 'HomeScreenCompact.tsx'), 'utf8');
+const continuous = fs.readFileSync(path.resolve(__dirname, '..', 'continuousTabMusicSession.ts'), 'utf8');
 
 describe('Browser tab audio remains independent from the microphone (regression)', () => {
   const tab = capture.slice(capture.indexOf('export async function captureTabAudioSample('), capture.indexOf('export function releaseCaptureResources()'));
@@ -25,12 +26,11 @@ describe('Browser tab audio remains independent from the microphone (regression)
     expect(tab).toContain('await tabAudioCtx.close().catch(() => {})');
   });
 
-  it('requests browser screen sharing without first starting an idle microphone session', () => {
-    const action = home.slice(home.indexOf('const testTabCapture = async () => {'), home.indexOf('// Keep the search modal mounted'));
-    expect(action).toContain('const monitor = await startTabAudioMonitor(');
-    expect(action).toContain("current.startSession({ captureMode: 'tab' })");
-    const beforeCapture = action.slice(0, action.indexOf('const monitor = await startTabAudioMonitor('))
-      .split('\n').filter((line) => !line.trim().startsWith('//')).join('\n');
-    expect(beforeCapture).not.toMatch(/\bstartSession\s*\(/);
+  it('starts browser capture first; the microphone session opens only afterward', () => {
+    const prompt = continuous.indexOf('const pending = await startTabAudioMonitor(');
+    const session = continuous.indexOf("current.startSession({ captureMode: 'tab' })");
+    expect(prompt).toBeGreaterThan(0);
+    expect(session).toBeGreaterThan(prompt);
+    expect(home).toContain('startContinuousTabMusic()');
   });
 });

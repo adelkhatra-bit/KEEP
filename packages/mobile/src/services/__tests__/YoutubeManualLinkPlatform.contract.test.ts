@@ -12,12 +12,14 @@ describe('YouTube manual recognition and tab capture', () => {
     expect(source).toContain('platform: sharedSourcePlatformFromUrl(input.url)');
   });
   it('shows tab audio on PC in active listening and idle home, without exposing it on native mobile', () => {
-    expect(screen).toContain('submitCapturedAudioRecognition(recognition)');
-    expect(screen).toContain('pauseListening()');
-    expect(screen).toContain('resumeListening()');
+    const monitor = fs.readFileSync(path.resolve(__dirname, '..', 'continuousTabMusicSession.ts'), 'utf8');
+    expect(monitor).toContain('submitCapturedAudioRecognition(recognition)');
+    expect(monitor).toContain('startTabAudioMonitor(async (sample) => {');
     expect(screen).toContain('Suivre les morceaux de YouTube (PC)');
     expect(screen).toContain("desktopHome && Platform.OS === 'web'");
     expect(screen).toContain('testID="home-tab-audio-option"');
     expect(screen).toContain('lien d’une vidéo YouTube');
+    expect(screen).toContain('Trouve ta musique en un clic');
+    expect(screen).not.toContain('ⓘ Comment ça marche ?');
   });
 });

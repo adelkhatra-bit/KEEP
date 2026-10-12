@@ -538,6 +538,24 @@ export async function searchTrackByText(query: string): Promise<RecognitionResul
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || !payload?.recognition) return null;
+    if ('url' in input && sharedSourcePlatformFromUrl(input.url) === 'YOUTUBE') {
+      // Never display a similarly named catalogue song for a pasted video.
+      // A stale resolver lacking exact-video provenance must fail closed:
+      // the original YouTube video remains embeddable as an unverified link.
+      if (payload.evidence?.videoIdentityVerified !== true) return null;
+      const extractVideoId = (value: string): string | null => {
+        try {
+          const u = new URL(value);
+          const host = u.hostname.toLowerCase().replace(/^www\\./, '');
+          const id = host === 'youtu.be' ? u.pathname.split('/')[1]
+            : u.searchParams.get('v') || u.pathname.match(/\\/(?:shorts|live|embed)\\/([A-Za-z0-9_-]{11})/)?.[1];
+          return id && /^[A-Za-z0-9_-]{11}$/.test(id) ? id : null;
+        } catch { return null; }
+      };
+      const originalId = extractVideoId(input.url);
+      const resolvedId = extractVideoId(String(payload.recognition.externalUrls?.source ?? ''));
+      if (!originalId || originalId !== resolvedId) return null;
+    }
     return payload.recognition as RecognitionResult;
   } catch {
     return null;
