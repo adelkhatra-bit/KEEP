@@ -463,7 +463,10 @@ export default function HomeScreenCompact({ navigation }: any) {
         artworkUrl: undefined, providerIds: {},
       },
       sourceUrl,
-      identified: Boolean(found),
+      // SOURCE_VERIFIED is metadata of the video, NOT a confirmed catalogue
+      // match. Show the exact shared player; do not enable KEEP/Story based
+      // on an approximate catalogue result or uploader credit.
+      identified: Boolean(found && !String(found.recognitionProviderTrackId ?? '').startsWith('source:')),
     };
     const session = useSessionStore.getState();
     if (session.isActive && !session.micPaused && !pausedForPreview.current) {
