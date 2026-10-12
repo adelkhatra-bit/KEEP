@@ -143,6 +143,7 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
+| `0f73066` | `0f73066` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 19:24 | pass | fix(music): restore safe shared-link validator required by PC clipboard import |
 | `c0684fb` | `c0684fb` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 19:18 | pass | fix(listen): offer link-search recovery for denied tab-audio permission |
 | `9b70980` | `9b70980` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 19:09 | pass | fix(web): repair tab capture JSX and avoid starting microphone before browser share prompt |
 | `d3cbeae` | `d3cbeae` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 18:59 | pass | feat(home): show found music directly below Loki Music logo |

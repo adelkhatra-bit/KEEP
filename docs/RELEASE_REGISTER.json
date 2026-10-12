@@ -1,5 +1,14 @@
 [
   {
+    "commit": "0f73066c3eaa4180db6b04774914c4d4fe751688",
+    "web": "0f73066c3eaa4180db6b04774914c4d4fe751688",
+    "testflight": "iOS #230 success (release 1f44ee1)",
+    "ota": "OTA #1021 success (release 1f44ee1)",
+    "date": "2026-10-12 19:24",
+    "tests": "pass",
+    "changes": "fix(music): restore safe shared-link validator required by PC clipboard import"
+  },
+  {
     "commit": "c0684fbd23d9efb82a1568d7f998ac3e12ccfb49",
     "web": "c0684fbd23d9efb82a1568d7f998ac3e12ccfb49",
     "testflight": "iOS #230 success (release 1f44ee1)",
