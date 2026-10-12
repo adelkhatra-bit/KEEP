@@ -5,6 +5,24 @@
  * punctuation. Both web and native use this parser; the server validates the
  * destination and resolves safe provider short links.
  */
+/** Un même morceau YouTube possède des liens PC, application, Shorts, Live et Music.
+ * Le serveur reçoit toujours le format vidéo canonique lorsqu'un identifiant sûr existe.
+ * Ne modifie jamais les playlists ni les URL dont l'identifiant n'est pas reconnu.
+ */
+export function canonicalYouTubeMusicLink(value: string): string {
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase().replace(/^www\\./, '');
+    if (host !== 'youtu.be' && host !== 'youtube.com' && !host.endsWith('.youtube.com')) return value;
+    const components = url.pathname.split('/').filter(Boolean);
+    const videoId = host === 'youtu.be'
+      ? components[0]
+      : (url.searchParams.get('v') || (['shorts', 'live', 'embed', 'v'].includes(components[0]) ? components[1] : null));
+    if (!videoId || !/^[a-zA-Z0-9_-]{11}$/.test(videoId)) return value;
+    return 'https://www.youtube.com/watch?v=' + videoId;
+  } catch { return value; }
+}
+
 export function extractMusicShareLink(value: string): string | null {
   const text = String(value ?? '').trim().replace(/[\u200B-\u200D\uFEFF]/g, '');
   if (!text) return null;
@@ -19,7 +37,7 @@ export function extractMusicShareLink(value: string): string | null {
   try {
     const url = new URL(raw);
     if (!['https:', 'http:'].includes(url.protocol)) return null;
-    return url.toString();
+    return canonicalYouTubeMusicLink(url.toString());
   } catch {
     return null;
   }
