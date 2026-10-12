@@ -187,6 +187,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   useEffect(() => () => { if (snackTimer.current) clearTimeout(snackTimer.current); }, []);
   const [privacyBusy, setPrivacyBusy] = useState(false);
   const [manualSearchOpen, setManualSearchOpen] = useState(false);
+  const [tabAudioHelpOpen, setTabAudioHelpOpen] = useState(false);
   const [sessionPeekOpen, setSessionPeekOpen] = useState(false);
   // Navigation différée : le lecteur Swipe ne doit jamais s'ouvrir derrière une Modal iOS encore en train de se fermer.
   const queuedSwipeSessionId = useRef<string | null>(null);
@@ -803,6 +804,7 @@ export default function HomeScreenCompact({ navigation }: any) {
               <TouchableOpacity testID="home-tab-audio-option" style={s.tabTest} onPress={testTabCapture} disabled={tabTestBusy} accessibilityRole="button" accessibilityLabel="Reconnaître le son d’un onglet YouTube ou TikTok sur PC">
                 <Text style={s.tabTestText}>{tabTestBusy ? 'Analyse de l’onglet…' : '♫ Son d’un onglet PC'}</Text>
               </TouchableOpacity>
+              <TouchableOpacity onPress={() => setTabAudioHelpOpen(true)} accessibilityRole="button" accessibilityLabel="Comment fonctionne le son d’un onglet PC ?" style={{ alignSelf: "center", padding: 8 }}><Text style={{ color: C.text, fontSize: 12 }}>ⓘ Comment ça marche ?</Text></TouchableOpacity>
             ) : null}
             <MotionActionButton
               variant="ghost"
@@ -830,6 +832,7 @@ export default function HomeScreenCompact({ navigation }: any) {
           </View>
         </View>
         {manualSearchModal}
+        <KeepModal visible={tabAudioHelpOpen} transparent animationType="fade" onRequestClose={() => setTabAudioHelpOpen(false)}><View style={s.modalOverlay}><View style={s.modalCard}><Text style={s.modalTitle}>Son d’un onglet PC</Text><Text style={s.modalBody}>Sur ordinateur, ouvre une musique dans Chrome ou Edge, clique sur « Son d’un onglet PC », sélectionne l’onglet qui joue la musique et active « Partager l’audio ». Loki analyse cet extrait pour identifier le titre. Cette fonction ne fonctionne pas sur iPhone ; sur mobile, utilise le micro ou colle un lien.</Text><TouchableOpacity style={s.modalBtn} onPress={() => setTabAudioHelpOpen(false)}><Text style={s.modalBtnText}>Compris</Text></TouchableOpacity></View></View></KeepModal>
         <CoachMarks visible={showCoach && !showMicPrimer} onFinish={finishCoach} />
 </SafeAreaView>
     );
@@ -927,7 +930,7 @@ export default function HomeScreenCompact({ navigation }: any) {
         {error ? <View style={s.errorBanner}><Text style={s.errorBannerText}>{error}</Text>{micBlocked && micPermissionFixHint() ? <Text style={s.micFixHintInBanner}>{micPermissionFixHint()}</Text> : null}</View> : null}
         {!error && signalHint ? <Text style={s.signalHint}>{signalHint}</Text> : null}
 
-        <View style={s.sectionHeader}><Text style={s.sectionTitle}>MUSIQUE DÉTECTÉE</Text><View style={s.sectionCount}><Text style={s.sectionCountText}>{detected}</Text></View></View>
+        <View style={s.sectionHeader}><Text style={s.sectionTitle}>MUSIQUE DÉTECTÉE</Text></View>
 
         {tracks.length > 1 ? (
           <View style={s.queueNav}>
