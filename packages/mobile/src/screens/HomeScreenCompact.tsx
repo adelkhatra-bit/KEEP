@@ -861,6 +861,9 @@ export default function HomeScreenCompact({ navigation }: any) {
     }
     const initial = useSessionStore.getState();
     tabResumeMicRef.current = initial.isActive && !initial.micPaused;
+    // Suspendre le micro actif avant la capture d'onglet sans attendre une
+    // permission ou annuler le contexte audio isolé du navigateur.
+    if (tabResumeMicRef.current) initial.pauseListening();
     // Le partage d'onglet doit démarrer DIRECTEMENT dans le clic utilisateur.
     // Ne jamais appeler startSession(), getUserMedia() ou await avant ce geste.
     setTabTestBusy(true);
@@ -904,7 +907,11 @@ export default function HomeScreenCompact({ navigation }: any) {
       tabMonitorRef.current = monitor;
       setTabMonitoring(true);
     } catch (error: any) {
+      const previousMic = tabResumeMicRef.current;
       tabResumeMicRef.current = false;
+      if (previousMic && useSessionStore.getState().isActive && useSessionStore.getState().micPaused) {
+        useSessionStore.getState().resumeListening();
+      }
       const hint = error instanceof MicPermissionDeniedError
         ? 'Choisis un onglet YouTube dans Chrome ou Edge et coche « Partager l’audio ».'
         : String(error?.message || 'La capture audio est indisponible.');
