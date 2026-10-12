@@ -69,6 +69,8 @@ Source : `HomeScreenCompact.tsx`.
 - L'accueil Écouter affiche Loki Pulse directement avec les bulles musicales de l'utilisateur ; le bloc « Loki Music DNA » n'y apparaît plus.
 - Le bloc Loki Pulse d'accueil ne redirige pas vers le profil : les bulles sont visibles directement sur place, tout en conservant Loki Pulse sur le profil.
 
+- Stories : sur PC et iOS, le propriétaire voit la même liste Supabase de spectateurs, avec les musiques réellement vues, l'arrêt et les cœurs `track_likes`. La RPC v4 de production expose `chapters[{i,s,t}]` (sans `track_views` ni `last_track_id`) : l'application doit normaliser ces champs sans inventer de lecture ; erreur réseau ≠ zéro vue, proposer Réessayer. Décision du 12/10/2026.
+
 ## 6. Découvertes
 
 Source : `DiscoverScreen.tsx`.

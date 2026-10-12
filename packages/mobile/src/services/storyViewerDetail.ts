@@ -66,3 +66,39 @@ export function buildViewerDetail(
   ].filter(Boolean).join(' · ');
   return { rows, summary, leftAtTitle: left ? left.title : null };
 }
+
+/**
+ * Compatibilité avec la RPC réellement déployée : keep_my_story_viewers_v4(p_track_id,p_published_at)
+ * renvoie chapters[{i,s,t}] et playback_progress, mais PLUS track_views ni last_track_id.
+ * Ne jamais confondre une absence de champ serveur avec une absence de musique vue.
+ * Aucune donnée locale n'est persistée : iPhone et PC lisent la même session Supabase.
+ */
+export function normalizeStoryViewerPlayback(row: any): {
+  chapters: Array<{ index: number; seconds: number }>;
+  trackViews: Array<{ trackId: string; seconds: number }>;
+  lastTrackId: string | null;
+} {
+  const rawChapters = Array.isArray(row?.chapters) ? row.chapters : [];
+  const chapters = rawChapters
+    .map((c: any) => ({ index: Math.max(0, Number(c?.i) || 0), seconds: Math.max(0, Number(c?.s) || 0) }))
+    .sort((a: { index: number }, b: { index: number }) => a.index - b.index);
+  const explicit = Array.isArray(row?.track_views) ? row.track_views : [];
+  const sources = explicit.length ? explicit : rawChapters;
+  const byTrack = new Map<string, number>();
+  for (const item of sources) {
+    const trackId = String(item?.t ?? '').trim();
+    if (!trackId) continue;
+    const seconds = Math.max(0, Number(item?.s) || 0);
+    byTrack.set(trackId, Math.max(byTrack.get(trackId) ?? 0, seconds));
+  }
+  // La dernière position réellement ouverte détermine où la personne s'est arrêtée.
+  // Ne pas se fier au dernier élément JSON : les chapitres peuvent arriver désordonnés.
+  const last = [...rawChapters]
+    .filter((c: any) => c?.t && Number.isFinite(Number(c?.i)))
+    .sort((a: any, b: any) => Number(b.i) - Number(a.i))[0];
+  return {
+    chapters,
+    trackViews: [...byTrack].map(([trackId, seconds]) => ({ trackId, seconds })),
+    lastTrackId: row?.last_track_id ? String(row.last_track_id) : last?.t ? String(last.t) : null,
+  };
+}

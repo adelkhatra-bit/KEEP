@@ -4,6 +4,11 @@ export const STORY_WATCH_MIN_MS = 2000;
 export const STORY_WATCH_PING_MS = 10000;
 
 const UUID_RE = /^[0-9a-f-]{36}$/i;
+// Les morceaux en vente utilisent l'identifiant UI sale:<uuid> ; la RPC attend le vrai UUID.
+const canonicalTrackId = (id: string): string | null => {
+  const candidate = String(id ?? '').replace(/^sale:/, '');
+  return UUID_RE.test(candidate) ? candidate : null;
+};
 
 type Rpc = (fn: string, args: Record<string, unknown>) => PromiseLike<{ data?: any; error?: any }>;
 export type StoryWatchEvent = { type: 'shown' | 'listen'; trackId: string; index?: number; total?: number };
@@ -62,10 +67,11 @@ export function startStoryWatch(ownerId: string, tracksTotal: number, rpc: Rpc, 
           if (chapterIndex >= 0) chapterSeconds[chapterIndex] = (chapterSeconds[chapterIndex] ?? 0) + Math.max(0, Math.round((now() - chapterStartedAt) / 1000));
           chapterIndex = event.index;
           chapterStartedAt = now();
-          if (UUID_RE.test(event.trackId)) chapterTrack[event.index] = event.trackId;
+          const canonical = canonicalTrackId(event.trackId);
+          if (canonical) chapterTrack[event.index] = canonical;
           if (event.index > maxIndex) { maxIndex = event.index; tracksSeen = maxIndex + 1; }
         }
-        lastTrackId = UUID_RE.test(event.trackId) ? event.trackId : lastTrackId;
+        lastTrackId = canonicalTrackId(event.trackId) ?? lastTrackId;
       } else {
         listened = true;
       }
