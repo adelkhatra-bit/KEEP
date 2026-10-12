@@ -1,6 +1,5 @@
 import React from 'react';
 import { Platform, Text, TouchableOpacity, View } from 'react-native';
-import KeepModal from './KeepModal';
 import TrackCover from './TrackCover';
 import { resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
 
@@ -23,12 +22,12 @@ export default function TemporaryMusicPreview({
   result: TemporaryMusicResult | null;
   onClose: () => void;
 }) {
-  if (!result) return null;
+  if (!result || !visible) return null;
   const embed = resolveEmbeddedMusicPlayer(result.sourceUrl);
   const NativeWebView = Platform.OS === 'web' ? null : require('react-native-webview').WebView;
 
   return (
-    <KeepModal visible={visible} transparent animationType="slide" onRequestClose={onClose} testID="temporary-music-preview">
+    <View testID="temporary-music-preview" style={{ flex: 1 }}>
       <View style={{ flex: 1, backgroundColor: 'rgba(7,6,19,0.88)', justifyContent: 'center', alignItems: 'center', padding: 14 }}>
         <View style={{ width: '100%', maxWidth: 620, maxHeight: '92%', borderRadius: 22, overflow: 'hidden', padding: 16, backgroundColor: '#181326', borderColor: '#6956BB', borderWidth: 1 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
@@ -88,6 +87,6 @@ export default function TemporaryMusicPreview({
           </TouchableOpacity>
         </View>
       </View>
-    </KeepModal>
+    </View>
   );
 }
