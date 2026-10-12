@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { KeepSession, KeepVisibility, SessionTrackEntry, SessionTrackStatus } from '../types';
+import type { CanonicalTrack } from '@keep/music';
 import { commitKeep } from '../services/keepTrackAction';
 import { getDownloadCreditStatus } from '../services/creditService';
 import { setAllOwnKeepVisibility } from '../services/keepLibraryService';
@@ -42,6 +43,7 @@ interface SessionHistoryStore {
   dismissedSessionIds: string[];
   addSession: (session: KeepSession) => void;
   upsertSession: (session: KeepSession) => void;
+  addSharedLinkTrack: (track: CanonicalTrack, sourceUrl?: string, ownerUserId?: string) => { sessionId: string; added: boolean };
   deleteSession: (sessionId: string) => void;
   clearSessions: () => void;
   renameSession: (sessionId: string, title: string) => void;
@@ -329,6 +331,46 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
         const exists = s.sessions.some((item) => item.id === session.id);
         return { sessions: exists ? s.sessions.map((item) => item.id === session.id ? session : item) : [session, ...s.sessions] };
       }),
+      // Une recherche par lien est une PRE-ECOUTE par défaut. Seul l'appui
+      // explicite sur « Ajouter à Mes Sessions » crée cette entrée : sans
+      // démarrer le microphone, sans consommer de FREE, sans publier de story.
+      // Garder depuis le récap utilise ensuite le contrôle FREE existant.
+      addSharedLinkTrack: (track, sourceUrl, ownerUserId) => {
+        const now = new Date().toISOString();
+        const day = now.slice(0, 10);
+        const title = 'Musiques partagées';
+        const normalized = (v: string) => v.normalize('NFKD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+        const normalizedSource = (sourceUrl || '').trim();
+        const enrichedTrack: CanonicalTrack = {
+          ...track,
+          externalUrls: { ...(track.externalUrls ?? {}), ...(normalizedSource ? { source: normalizedSource } : {}) },
+        };
+        let outcome: { sessionId: string; added: boolean } | null = null;
+        set((state) => {
+          // Un seul groupe journalier par profil, sans mélanger deux comptes
+          // sur le même PC. Une session micro existante reste inchangée.
+          const existing = state.sessions.find((item) => item.title === title
+            && item.startedAt.startsWith(day) && (item.ownerUserId ?? '') === (ownerUserId ?? '')
+            && !state.dismissedSessionIds.includes(item.id));
+          const id = existing?.id ?? `shared-${day}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          const duplicate = existing?.tracks.some((item) =>
+            Boolean(normalizedSource && item.track.externalUrls?.source === normalizedSource)
+            || (normalized(item.track.title) === normalized(enrichedTrack.title)
+              && normalized(item.track.artist) === normalized(enrichedTrack.artist))
+          );
+          if (duplicate) { outcome = { sessionId: id, added: false }; return state; }
+          const entry: SessionTrackEntry = {
+            id: `shared-track-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            track: enrichedTrack, recommendations: [], status: 'pending', detectedAt: now,
+          };
+          const session: KeepSession = existing
+            ? { ...existing, endedAt: now, tracks: [entry, ...existing.tracks] }
+            : { id, ownerUserId, title, startedAt: now, endedAt: now, tracks: [entry] };
+          outcome = { sessionId: id, added: true };
+          return { sessions: [session, ...state.sessions.filter((item) => item.id !== id)] };
+        });
+        return outcome ?? { sessionId: '', added: false };
+      },
       deleteSession: (sessionId) => set((s) => {
         const target = s.sessions.find((session) => session.id === sessionId);
         const decisionIds = (target?.tracks ?? []).map((t) => t.keepDecisionId).filter((id): id is string => Boolean(id));
