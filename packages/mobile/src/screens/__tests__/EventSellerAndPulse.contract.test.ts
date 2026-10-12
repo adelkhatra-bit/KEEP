@@ -21,6 +21,8 @@ describe('Loki events: seller checkout, moderation and Pulse visibility', () => 
     expect(parties).toContain('getMyPayoutMethods()');
     expect(parties).toContain('eventPayoutQrConfigured');
     expect(parties).toContain('await setEventTicketPrice(created.id, ticketPriceCents);');
+    expect(parties).toContain('setEditingEventId(created.id);');
+    expect(parties).toContain('Réessaie ici sans recréer une soirée.');
     expect(parties).not.toContain('setEventTicketPrice(created.id, ticketPriceCents).catch(() => {})');
   });
 
