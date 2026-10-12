@@ -1,5 +1,14 @@
 [
   {
+    "commit": "364b927c0d2d37307f7da0a87570fae06a3b3004",
+    "web": "364b927c0d2d37307f7da0a87570fae06a3b3004",
+    "testflight": "iOS #230 success (release 1f44ee1)",
+    "ota": "OTA #1021 success (release 1f44ee1)",
+    "date": "2026-10-12 22:15",
+    "tests": "pass",
+    "changes": "fix(stories): label unique viewers separately from tracks actually visited"
+  },
+  {
     "commit": "7e6cce68130b981b6b855ba1e9ef278903ce28ec",
     "web": "7e6cce68130b981b6b855ba1e9ef278903ce28ec",
     "testflight": "iOS #230 success (release 1f44ee1)",
