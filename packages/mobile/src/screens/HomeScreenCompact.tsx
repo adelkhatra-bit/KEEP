@@ -843,6 +843,13 @@ export default function HomeScreenCompact({ navigation }: any) {
               </View>
             </Animated.View>
           </ListenEnergyAura>
+          {listenEconomyStatus && !isDemoMode ? (
+            <Text style={s.listenCreditsHint} testID="listen-server-quota-summary" numberOfLines={2}>
+              {listenEconomyStatus.includedRemaining} identification{listenEconomyStatus.includedRemaining === 1 ? '' : 's'} incluse{listenEconomyStatus.includedRemaining === 1 ? '' : 's'} restante{listenEconomyStatus.includedRemaining === 1 ? '' : 's'}
+              {' · '}{listenEconomyStatus.freeBalance} FREE disponibles
+              {' · '}puis {listenEconomyStatus.overQuotaFreeCost} FREE / morceau
+            </Text>
+          ) : null}
           <View style={s.liveTopbar}>
             <View style={[s.micPill, micIdle && s.micPillIdle]}>
               <View style={[s.liveDot, micIdle && s.liveDotError]} />
@@ -1403,6 +1410,7 @@ const s = StyleSheet.create({
   signalBottom: { position: 'absolute', left: 16, right: 16, bottom: 0, height: 2, borderRadius: 2, backgroundColor: C.purpleLight },
   signalLeft: { position: 'absolute', left: 0, top: 10, bottom: 10, width: 2, borderRadius: 2, backgroundColor: C.green },
   stats: { flexDirection: 'row', gap: 7 },
+  listenCreditsHint: { color: C.purpleLight, fontSize: 11, lineHeight: 14, fontWeight: '700', textAlign: 'center', marginTop: 4 },
   miniStat: { flex: 1, height: 58, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(42,38,64,0.78)', backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
   miniValue: { color: C.text, fontSize: 20, fontWeight: '900' },
   miniValueKept: { color: C.green },
