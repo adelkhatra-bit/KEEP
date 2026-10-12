@@ -40,6 +40,19 @@ describe('Loki events: seller checkout, moderation and Pulse visibility', () => 
     expect(ranking).toContain('s.created_at>=now()');
   });
 
+  it('shows real seller history and separate ticket stats on the desktop without inventing payment verification', () => {
+    const dashboard = read('packages/mobile/src/components/CreatorSalesCockpit.tsx');
+    expect(dashboard).toContain('loadMySalesHistory()');
+    expect(dashboard).toContain('loadMyEventTicketSales()');
+    expect(dashboard).toContain("sale.status === 'COMPLETED'");
+    expect(dashboard).toContain("sale.status === 'PENDING'");
+    expect(dashboard).toContain("sale.currencyCode === 'EUR'");
+    expect(dashboard).toContain('non vérifiés auprès des prestataires');
+    expect(profile).toContain('<CreatorSalesCockpit');
+    expect(profile).toContain('desktopProfile && !accountRequired');
+    expect(parties).toContain('route?.params?.openMyEvents');
+  });
+
   it('surfaces clear owner sales and party actions on desktop, reusing existing screens', () => {
     expect(profile).toContain('desktopProfile && !accountRequired');
     expect(profile).toContain('◆ VENDRE');
