@@ -16,6 +16,7 @@ import { useUserStore } from '../store/useUserStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import { musicEngine } from '../services/musicEngine';
 import { searchTrackByText } from '../services/keepMusicCoreRecognition';
+import { getSharedMusicSource, supportedSharedMusicUrl } from '../services/sharedMusicSourceService';
 import SwipeDeck from '../components/SwipeDeck';
 import TrackListenControls from '../components/TrackListenControls';
 import ListenEnergyAura from '../components/ListenEnergyAura';
@@ -135,7 +136,7 @@ export default function HomeScreenCompact({ navigation }: any) {
     listenEconomyStatus, listenFreeRequired, listenFreeInsufficient, refreshListenEconomyStatus,
     useFreeForNextListen, dismissListenFreePrompt,
     startSession, requestEndSession, dismissEndPrompt, keepTrack, passTrack, setTrackVisibility, submitManualSearch,
-    pauseListening, resumeListening, submitCapturedAudioRecognition,
+    pauseListening, resumeListening, submitCapturedAudioRecognition, submitSharedLinkRecognition,
   } = useSessionStore();
   const { playlists, refresh } = usePlaylistStore();
   const user = useUserStore((s) => s.user);
@@ -676,6 +677,49 @@ export default function HomeScreenCompact({ navigation }: any) {
   // ordinateur (écho, distorsion). Action ponctuelle volontairement séparée
   // de la session normale : ne touche ni son état ni son design validé.
   const [tabTestBusy, setTabTestBusy] = useState(false);
+  const recordSharedLinkResult = async (url: string): Promise<boolean> => {
+    const supportedUrl = supportedSharedMusicUrl(url);
+    if (!supportedUrl) return false;
+    const found = await searchTrackByText(supportedUrl);
+    if (!found) {
+      setManualSearchQuery(supportedUrl);
+      setManualSearchNotFound(true);
+      setManualSearchOpen(true);
+      return false;
+    }
+    const track = musicEngine.trackResolver.resolveFromRecognition(found);
+    setManualSearchResult({ title: track.title, artist: track.artist, track });
+    if (useSessionStore.getState().isActive) {
+      // Le lien n'est pas une reconnaissance audio : pas de débit de quota micro.
+      await submitSharedLinkRecognition(found);
+      Alert.alert('Musique retrouvée grâce au lien', found.artist + ' — ' + found.title);
+    }
+    setManualSearchOpen(false);
+    return true;
+  };
+
+  const importCopiedMusicLink = () => {
+    // Lecture du presse-papiers UNIQUEMENT après le clic explicite de l'utilisateur.
+    if (Platform.OS !== 'web' || typeof navigator === 'undefined' || !navigator.clipboard?.readText) {
+      setManualSearchNotFound(false);
+      setManualSearchOpen(true);
+      return;
+    }
+    void navigator.clipboard.readText().then(async (raw) => {
+      const url = supportedSharedMusicUrl(raw);
+      if (!url) {
+        setManualSearchNotFound(false);
+        setManualSearchOpen(true);
+        return;
+      }
+      setManualSearchQuery(url);
+      await recordSharedLinkResult(url);
+    }).catch(() => {
+      // Un navigateur peut refuser l'accès au presse-papiers ; saisie manuelle sûre.
+      setManualSearchOpen(true);
+    });
+  };
+
   const testTabCapture = async () => {
     if (tabTestBusy || musicEngine.isDemoMode) return;
     // L’action est aussi disponible dès l’accueil PC, avant de lancer le micro.
@@ -690,7 +734,20 @@ export default function HomeScreenCompact({ navigation }: any) {
       const sample = await captureTabAudioSample();
       const recognition = await musicEngine.recognitionProvider.recognize(sample);
       if (!recognition) {
-        Alert.alert('Musique non identifiée', 'Le son de l’onglet a été capté, mais le catalogue ne reconnaît pas cet extrait. Essaie un autre passage ou colle le lien YouTube dans « Chercher un morceau ».');
+        // Le navigateur ne donne jamais l'URL de l'onglet sélectionné par
+        // getDisplayMedia. En revanche, un lien effectivement partagé à Loki
+        // est disponible dans notre file de provenance : recherche automatique.
+        const shared = await getSharedMusicSource();
+        if (shared?.url && await recordSharedLinkResult(shared.url)) return;
+        Alert.alert(
+          'Audio capté, titre non reconnu',
+          'Loki a capté le son, mais aucune empreinte fiable ne correspond. Pour récupérer la musique exacte, importe son lien YouTube ou Spotify.',
+          [
+            { text: 'Importer le lien copié', onPress: importCopiedMusicLink },
+            { text: 'Saisir un lien', onPress: () => { setManualSearchNotFound(false); setManualSearchOpen(true); } },
+            { text: 'Fermer', style: 'cancel' },
+          ],
+        );
         return;
       }
       // N'active le micro/session qu'après la capture ; le partage d'onglet doit démarrer dans le geste utilisateur.
@@ -702,7 +759,8 @@ export default function HomeScreenCompact({ navigation }: any) {
     } catch (e: any) {
       if (e instanceof MicPermissionDeniedError) {
         Alert.alert('Partage non autorisé', 'Choisis l’onglet YouTube dans Chrome ou Edge et active le partage du son. Sinon, colle son lien directement.', [
-          { text: 'Coller un lien', onPress: () => { setManualSearchNotFound(false); setManualSearchOpen(true); } },
+          { text: 'Importer le lien copié', onPress: importCopiedMusicLink },
+          { text: 'Saisir le lien', onPress: () => { setManualSearchNotFound(false); setManualSearchOpen(true); } },
           { text: 'Fermer', style: 'cancel' },
         ]);
       } else {
@@ -712,7 +770,8 @@ export default function HomeScreenCompact({ navigation }: any) {
           'Son de l’onglet indisponible',
           (e?.message || 'La capture du navigateur a échoué.') + ' Tu peux aussi coller le lien YouTube ou Spotify sans capturer ton écran.',
           [
-            { text: 'Coller un lien', onPress: () => { setManualSearchNotFound(false); setManualSearchOpen(true); } },
+            { text: 'Importer le lien copié', onPress: importCopiedMusicLink },
+          { text: 'Saisir le lien', onPress: () => { setManualSearchNotFound(false); setManualSearchOpen(true); } },
             { text: 'Fermer', style: 'cancel' },
           ],
         );
@@ -741,6 +800,11 @@ export default function HomeScreenCompact({ navigation }: any) {
             returnKeyType="search"
             onSubmitEditing={runManualSearch}
           />
+          {Platform.OS === 'web' ? (
+            <TouchableOpacity onPress={importCopiedMusicLink} accessibilityRole="button" accessibilityLabel="Importer le lien YouTube ou Spotify copié" style={{ paddingVertical: 10 }}>
+              <Text style={{ color: C.text, fontSize: 12, fontWeight: '700' }}>Importer le lien musical copié</Text>
+            </TouchableOpacity>
+          ) : null}
           {manualSearchNotFound ? <Text style={s.manualSearchNotFound}>Aucun titre confirmé à partir de cette recherche. Essaie « Artiste – Titre », une autre vidéo YouTube ou la capture audio de l’onglet sur PC.</Text> : null}
           <View style={s.modalActions}>
             <TouchableOpacity style={s.modalBtn} onPress={() => setManualSearchOpen(false)} disabled={manualSearchBusy}><Text style={s.modalBtnText}>Annuler</Text></TouchableOpacity>
