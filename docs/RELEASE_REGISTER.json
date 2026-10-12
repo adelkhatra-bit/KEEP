@@ -1,5 +1,14 @@
 [
   {
+    "commit": "97b3d1a050cf2b43afcbfa1dbec185488fbba372",
+    "web": "97b3d1a050cf2b43afcbfa1dbec185488fbba372",
+    "testflight": "iOS #229 success (release a18e390)",
+    "ota": "OTA #1020 success (release a18e390)",
+    "date": "2026-10-12 18:12",
+    "tests": "pass",
+    "changes": "fix(soirées): rendre Story automatique et Loki Pulse visibles aux organisateurs (#151)"
+  },
+  {
     "commit": "0e903ad923b36c8d8fe0346acc043ff1a8c8c590",
     "web": "0e903ad923b36c8d8fe0346acc043ff1a8c8c590",
     "testflight": "iOS #229 in_progress (release a18e390)",
