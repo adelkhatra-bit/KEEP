@@ -7,6 +7,7 @@ const read = (relative: string) => fs.readFileSync(path.join(root, relative), 'u
 describe('Loki events: seller checkout, moderation and Pulse visibility', () => {
   const parties = read('packages/mobile/src/screens/PartiesScreen.tsx');
   const profile = read('packages/mobile/src/screens/ProfilePublicScreen.tsx');
+  const approvalGuard = read('supabase/migrations/20261012012500_event_moderation_owner_guard.sql');
   const migration = read('supabase/migrations/20261012013000_auto_story_on_approved_event.sql');
   const ranking = read('supabase/migrations/20261012013500_personalized_event_pulse_ranking.sql');
 
@@ -24,6 +25,10 @@ describe('Loki events: seller checkout, moderation and Pulse visibility', () => 
   });
 
   it('publishes an approved organizer event automatically and only once', () => {
+    expect(approvalGuard).toContain("auth.role() in ('authenticated','anon')");
+    expect(approvalGuard).toContain("raise exception 'EVENT_ADMIN_APPROVAL_REQUIRED'");
+    expect(approvalGuard).toContain('before insert or update on public.events');
+    expect(approvalGuard).toContain("new.photo_status::text = 'APPROVED'");
     expect(migration).toContain("new.moderation_status::text <> 'APPROVED'");
     expect(migration).toContain("coalesce(new.is_disabled,false)");
     expect(migration).toContain('coalesce(new.ends_at,new.starts_at');
