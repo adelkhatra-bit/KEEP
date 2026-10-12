@@ -143,6 +143,7 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
+| `87267b5` | `87267b5` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 20:35 | pass | fix(ci): use verified provider player identity for YouTube video id |
 | `82d6a00` | `82d6a00` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 20:24 | pass | fix(ci): remove duplicate pending-session counter declaration blocking mobile typecheck |
 | `48c651c` | `48c651c` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 20:17 | pass | fix(stories): exact embedded YouTube source over unrelated previews; no repeated KEEP on own Story |
 | `ce8b585` | `ce8b585` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 20:10 | pass | fix(swipe): advance only after server confirms KEEP and FREE debit |

@@ -1,5 +1,14 @@
 [
   {
+    "commit": "87267b5631b7f167a31762298a021ce934be090b",
+    "web": "87267b5631b7f167a31762298a021ce934be090b",
+    "testflight": "iOS #230 success (release 1f44ee1)",
+    "ota": "OTA #1021 success (release 1f44ee1)",
+    "date": "2026-10-12 20:35",
+    "tests": "pass",
+    "changes": "fix(ci): use verified provider player identity for YouTube video id"
+  },
+  {
     "commit": "82d6a0032075815111a5e2e23f552e2aec20bfd7",
     "web": "82d6a0032075815111a5e2e23f552e2aec20bfd7",
     "testflight": "iOS #230 success (release 1f44ee1)",
