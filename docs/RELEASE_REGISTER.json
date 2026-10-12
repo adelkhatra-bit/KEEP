@@ -1,5 +1,14 @@
 [
   {
+    "commit": "62591695bddc06cc5826040423cee35dd0823760",
+    "web": "62591695bddc06cc5826040423cee35dd0823760",
+    "testflight": "iOS #228 success (release f8dbd60)",
+    "ota": "OTA #1019 success (release f8dbd60)",
+    "date": "2026-10-12 11:22",
+    "tests": "pass",
+    "changes": "feat(events): vente lisible, Story automatique validée, Pulse social et cockpit créateur PC (#116)"
+  },
+  {
     "commit": "58dacb5626cffa3af6ef719dcf2e26303ebbd8dc",
     "web": "58dacb5626cffa3af6ef719dcf2e26303ebbd8dc",
     "testflight": "iOS #228 success (release f8dbd60)",
