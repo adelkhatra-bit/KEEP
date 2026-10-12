@@ -55,7 +55,8 @@ describe('Manual link search is ephemeral on desktop and mobile', () => {
     expect(home).toContain('<TemporaryMusicPreview visible={manualResultOpen}');
     expect(modal).toContain("require('react-native-webview').WebView");
     expect(modal).toContain("React.createElement('iframe' as any");
-    expect(modal).toContain('Fermer efface ce résultat.');
+    expect(modal).toContain('Préécoute dans Loki');
+    expect(modal).toContain('onSave');
     expect(modal).not.toContain('Linking.openURL(');
   });
 });
