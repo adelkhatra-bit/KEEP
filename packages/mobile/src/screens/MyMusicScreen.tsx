@@ -35,6 +35,7 @@ import PayPalQrPayoutControl from '../components/PayPalQrPayoutControl';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
 import KeepModal from '../components/KeepModal';
+import { useLayoutMode } from '../layout/layoutMode';
 
 const ALL_KEEP_VIEW_ID = 'keep-all-music-view';
 type PlaylistWithTracks = { playlist: ProviderPlaylist; tracks: CanonicalTrack[] };
@@ -140,6 +141,7 @@ const resolveSaleSaveError = (raw: string, followers?: number | null, threshold?
 
 export default function MyMusicScreen({ navigation, route }: any) {
   const { t } = useTranslation();
+  const { isDesktop: desktopPlaylists } = useLayoutMode();
   const { playlists, isLoading, refresh } = usePlaylistStore();
   const user = useUserStore((s) => s.user);
   const userId = user?.id ?? '';
@@ -1469,7 +1471,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
     <SafeAreaView style={styles.container}><PersonalThemeBackdrop />
       <View style={styles.header}>
         <View style={styles.headerCopy}>
-          <Text style={styles.title} numberOfLines={1}>Playlists</Text>
+          <Text style={styles.title} numberOfLines={1}>{desktopPlaylists ? "Ma musique" : "Playlists"}</Text>
         </View>
         <TouchableOpacity
           style={styles.headerHelpButton}
