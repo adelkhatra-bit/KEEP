@@ -489,8 +489,22 @@ export default function HomeScreenCompact({ navigation }: any) {
       && originalEmbed.provider === verifiedEmbed.provider
       && originalEmbed.url === verifiedEmbed.url);
     const sourceQueueable = sourceOnly && sameVerifiedPlayer;
+    // YouTube source-only is identified by its ACTUAL video, not a fuzzy
+    // artist/title match. Two different videos can share an uploader/title;
+    // recycling the same canonical ID made the next link reopen the first
+    // card in Mes Sessions and Swipe.
+    const youtubeVideoId = exactYouTube && pasted
+      ? (() => { try { return new URL(pasted).searchParams.get('v'); } catch { return null; } })()
+      : null;
     const resolvedTrack: CanonicalTrack = found
-      ? musicEngine.trackResolver.resolveFromRecognition(found)
+      ? sourceOnly && youtubeVideoId
+        ? {
+            ...musicEngine.trackResolver.resolveFromRecognition(found),
+            id: `source-youtube:${youtubeVideoId}`,
+            providerIds: { ...found.providerIds, youtube: youtubeVideoId },
+            externalUrls: { ...found.externalUrls, source: pasted! },
+          }
+        : musicEngine.trackResolver.resolveFromRecognition(found)
       : { id: 'temporary-unidentified', title: 'Vidéo musicale partagée',
           artist: 'Titre non identifié', artworkUrl: undefined, providerIds: {} } as CanonicalTrack;
     const result: TemporaryMusicResult & { track: CanonicalTrack } = {
