@@ -2198,21 +2198,23 @@ export default function ProfilePublicScreen({ navigation }: any) {
           <MotionActionButton variant="outline" size="medium" containerStyle={s.ownerQuickActionFull} onPress={() => navigation.navigate('Parties', { openBattle: true, source: 'profile-solo' })} accessibilityLabel="Jouer Battle">
             ⚡ BATTLE
           </MotionActionButton>
-          {desktopProfile && !accountRequired ? (
-            <>
-              <MotionActionButton variant="outline" size="medium" containerStyle={s.ownerQuickActionFull}
-                onPress={() => navigation.navigate('Main', { screen: 'Parties', params: { openCreateEvent: true } })}
-                accessibilityLabel="Créer une soirée ou un événement avec billetterie">
-                ＋ SOIRÉE
-              </MotionActionButton>
-              <MotionActionButton variant="outline" size="medium" containerStyle={s.ownerQuickActionFull}
-                onPress={() => navigation.navigate('PlaylistSale', { openPaymentHistory: true })}
-                accessibilityLabel="Afficher mes ventes de musique et mes transactions">
-                VENTES
-              </MotionActionButton>
-            </>
-          ) : null}
         </View>
+        {desktopProfile && !accountRequired ? (
+          <View style={{ flexDirection: 'row', gap: 10, width: '100%', marginTop: 12 }} testID="desktop-creator-cockpit">
+            <TouchableOpacity
+              style={{ flex: 1, minHeight: 48, borderWidth: 1, borderColor: colors.primaryLight, backgroundColor: colors.backgroundElevated, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}
+              onPress={() => navigation.navigate('Main', { screen: 'Parties', params: { openCreateEvent: true } })}
+              accessibilityRole="button" accessibilityLabel="Créer une soirée ou vendre des billets">
+              <Text style={{ color: colors.textPrimary, fontSize: 12, fontWeight: '900' }}>＋ SOIRÉE</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ flex: 1, minHeight: 48, borderWidth: 1, borderColor: colors.keep, backgroundColor: colors.backgroundElevated, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}
+              onPress={() => navigation.navigate('PlaylistSale', { openPaymentHistory: true })}
+              accessibilityRole="button" accessibilityLabel="Voir mes ventes et transactions">
+              <Text style={{ color: colors.textPrimary, fontSize: 12, fontWeight: '900' }}>VENTES</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
       </ProfileMotionReveal>
 
