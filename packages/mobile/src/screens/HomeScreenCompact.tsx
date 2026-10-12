@@ -729,6 +729,11 @@ export default function HomeScreenCompact({ navigation }: any) {
                 <View style={s.idleLearnMorePanel}>
                   <Text style={s.idleLearnMoreBody}>{screenCopy.emptyTitle ?? t('session.emptyTitle')} {homeSubtitleMore}</Text>
                   <Text style={s.idleLearnMoreBody}>Le micro est utilisé uniquement pendant l’écoute.</Text>
+                  {user && listenEconomyStatus ? (
+                    <TouchableOpacity onPress={explainListenEconomy} accessibilityRole="button" accessibilityLabel="Comprendre les écoutes et les FREE" style={s.demoHelp}>
+                      <Text style={s.demoHelpText}>?</Text>
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
               ) : null}
             </View>
@@ -750,16 +755,6 @@ export default function HomeScreenCompact({ navigation }: any) {
               <View style={s.demoRow}>
                 <Text style={s.demo}>MODE DÉMO{isDemoMode ? ` · ${Math.min(demoListenUsed, demoListenLimit)}/${demoListenLimit} TROUVAILLES` : ''}</Text>
                 <TouchableOpacity style={s.demoHelp} onPress={explainDemo} accessibilityRole="button" accessibilityLabel="À quoi servent le mode démo et les FREE ?">
-                  <Text style={s.demoHelpText}>?</Text>
-                </TouchableOpacity>
-              </View>
-            ) : user && listenEconomyStatus ? (
-              <View style={s.demoRow}>
-                <Text style={s.demo}>
-                  {listenEconomyStatus.includedRemaining} RESTANTES · {listenEconomyStatus.used}/{listenEconomyStatus.limit} {listenEconomyStatus.periodMode === 'WEEK' ? 'SEMAINE' : listenEconomyStatus.periodMode === 'MONTH' ? 'MOIS' : listenEconomyStatus.periodMode === 'NEVER' ? 'CRÉDIT' : 'JOUR'}
-                  {listenEconomyStatus.overQuota ? ` · +${listenEconomyStatus.overQuotaFreeCost} FREE / MORCEAU` : ''}
-                </Text>
-                <TouchableOpacity style={s.demoHelp} onPress={explainListenEconomy} accessibilityRole="button" accessibilityLabel="Comprendre le quota d’écoutes et les FREE">
                   <Text style={s.demoHelpText}>?</Text>
                 </TouchableOpacity>
               </View>
@@ -832,7 +827,7 @@ export default function HomeScreenCompact({ navigation }: any) {
               <View style={s.stats}>
                 <MiniStat value={elapsed} label="Durée" />
                 <MiniStat value={String(detected)} label="Détectés" />
-                <MiniStat value={listenEconomyStatus ? String(listenEconomyStatus.includedRemaining) : "—"} label="Restantes" highlight />
+
               </View>
             </Animated.View>
           </ListenEnergyAura>
