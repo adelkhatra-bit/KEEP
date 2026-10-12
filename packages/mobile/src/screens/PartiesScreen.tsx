@@ -702,6 +702,16 @@ export default function PartiesScreen({ navigation, route }: any) {
     navigation.setParams?.({ openCreateEvent: undefined });
     void openCreate();
   }, [navigation, route?.params?.openCreateEvent]);
+  useEffect(() => {
+    if (!route?.params?.openMyEvents) return;
+    setPartiesTab('SOIREES');
+    setPartyHome(false);
+    setEventViewMode('MY');
+    setEventIndex(0);
+    setPartySection('EVENT');
+    setEventTab('LOBBY');
+    navigation.setParams?.({ openMyEvents: undefined });
+  }, [navigation, route?.params?.openMyEvents]);
   const visibleEvents = useMemo(() => {
     if (eventViewMode === 'MY') return events.filter((event) => event.creatorId === user?.id);
     if (eventViewMode === 'INVITES') {
