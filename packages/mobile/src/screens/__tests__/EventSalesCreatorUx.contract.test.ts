@@ -40,6 +40,15 @@ describe('Loki event creation, sale and auto promotion safety', () => {
     expect(ticketGuard).toContain('public.keep_event_request_ticket_purchase(uuid)');
   });
 
+  it('promotes relevant public events in Pulse but never floods it', () => {
+    expect(profile).toContain('testID="loki-pulse-events-for-you"');
+    expect(profile).toContain("items.filter((item) => item.creatorId !== user.id).slice(0, 2)");
+    expect(profile).toContain("source: 'loki-pulse'");
+    expect(profile).toContain('recommendedEventStories.length > 0');
+    expect(profile).toContain("event.ticketPriceCents != null");
+    expect(profile).toContain('setRecommendedEventStories([])');
+  });
+
   it('only auto-stories approved and unexpired events, once per event', () => {
     expect(sql).toContain("new.moderation_status::text <> 'APPROVED'");
     expect(sql).toContain('coalesce(new.is_disabled, false)');
