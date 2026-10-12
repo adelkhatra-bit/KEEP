@@ -15,6 +15,12 @@ export default function StoryEmbeddedSourcePlayer({ sourceUrl }: { sourceUrl: st
   const [opened, setOpened] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
   if (!player) return null;
+  // Une Story n'est pas une sortie vers YouTube : le lecteur officiel reste
+  // dans Loki et commence l'extrait après le seul tap de l'utilisateur.
+  // Aucun fichier audio/vidéo n'est extrait ni hébergé par Loki.
+  const excerptUrl = player.provider === 'YOUTUBE'
+    ? `${player.url}&start=0&end=20&autoplay=1`
+    : player.url;
 
   const message = player.provider === 'YOUTUBE' ? 'Voir et écouter la vidéo dans Loki' : 'Écouter depuis Loki Music';
   return (
@@ -33,8 +39,8 @@ export default function StoryEmbeddedSourcePlayer({ sourceUrl }: { sourceUrl: st
         <View testID="story-embedded-frame" style={{ width: '100%', height: player.provider === 'YOUTUBE' ? 160 : 125, overflow: 'hidden', borderRadius: 10, backgroundColor: '#090713' }}>
           {Platform.OS === 'web' ? (
             React.createElement('iframe' as any, {
-              key: player.url,
-              src: player.url,
+              key: excerptUrl,
+              src: excerptUrl,
               title: player.label,
               width: '100%',
               height: '100%',
@@ -45,14 +51,14 @@ export default function StoryEmbeddedSourcePlayer({ sourceUrl }: { sourceUrl: st
             })
           ) : (
             React.createElement(require('react-native-webview').WebView, {
-              key: player.url,
-              source: { uri: player.url },
+              key: excerptUrl,
+              source: { uri: excerptUrl },
               style: { flex: 1 },
               javaScriptEnabled: true,
               domStorageEnabled: true,
               allowsInlineMediaPlayback: true,
               allowsFullscreenVideo: false,
-              mediaPlaybackRequiresUserAction: true,
+              mediaPlaybackRequiresUserAction: false,
               setSupportMultipleWindows: false,
               onError: () => setUnavailable(true),
               onShouldStartLoadWithRequest: (request: { url: string; isTopFrame?: boolean }) => (
@@ -64,7 +70,7 @@ export default function StoryEmbeddedSourcePlayer({ sourceUrl }: { sourceUrl: st
       )}
       {opened && !unavailable ? (
         <Text style={{ color: '#D1CBE5', fontSize: 11, paddingTop: 5, textAlign: 'center' }}>
-          Appuie sur ▶ dans le lecteur si la vidéo ne démarre pas automatiquement.
+          L’extrait est limité à 20 secondes pour YouTube. Si le navigateur bloque le son automatique, appuie sur ▶ dans le lecteur.
         </Text>
       ) : null}
     </View>
