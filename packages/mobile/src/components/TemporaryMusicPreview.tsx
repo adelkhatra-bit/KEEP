@@ -16,8 +16,9 @@ export type TemporaryMusicResult = {
 };
 
 /**
- * A temporary, read-only result; no session, playlist, quota or database writes.
- * Closing this Loki-branded modal destroys the embedded player and its result.
+ * The player is temporary; the HOME flow auto-queues identified music as
+ * PENDING without spending FREE. Explicit GARDER remains necessary for the
+ * user's profile, credit debit and Story publication.
  */
 export default function TemporaryMusicPreview({
   visible, result, onClose, onNext, onReplaceLink, onSave, onSeeSessions, saved = false, saving = false,
@@ -184,16 +185,16 @@ export default function TemporaryMusicPreview({
               <Text style={{ color: '#10101A', fontWeight: '900', fontSize: 13 }}>{saving ? 'Vérification…' : `♡ GARDER · ${keepCostFree} FREE · PUBLIC OU PRIVÉ`}</Text>
             </TouchableOpacity>
           ) : null}
-          {result.identified && onSave ? (
-            <TouchableOpacity testID="temporary-music-add-session" accessibilityRole="button" accessibilityLabel={saved ? 'Morceau ajouté dans Mes Sessions' : 'Ajouter ce morceau à Mes Sessions'} disabled={saved || saving} onPress={onSave} style={{ marginTop: 12, backgroundColor: saved ? '#285A52' : '#2DE1C2', minHeight: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 }}>
-              <Text style={{ color: saved ? '#FFFFFF' : '#10101A', fontWeight: '900', fontSize: 13 }}>
-                {saving ? 'Ajout…' : saved ? '✓ Dans Mes Sessions' : '＋ Ajouter à Mes Sessions'}
+          {result.identified && onSave && !saved ? (
+            <TouchableOpacity testID="temporary-music-add-session" accessibilityRole="button" accessibilityLabel="Réessayer l’enregistrement du morceau dans Mes Sessions" disabled={saving} onPress={onSave} style={{ marginTop: 12, backgroundColor: '#2DE1C2', minHeight: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 }}>
+              <Text style={{ color: '#10101A', fontWeight: '900', fontSize: 13 }}>
+                {saving ? 'Enregistrement…' : '↻ Enregistrer dans Mes Sessions'}
               </Text>
             </TouchableOpacity>
           ) : null}
           {saved && onSeeSessions ? (
             <TouchableOpacity testID="temporary-music-see-sessions" accessibilityRole="button" accessibilityLabel="Ouvrir Mes Sessions pour garder ce morceau avec mes FREE" onPress={onSeeSessions} style={{ marginTop: 8, minHeight: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#2DE1C2' }}>
-              <Text style={{ color: '#2DE1C2', fontWeight: '800', fontSize: 12 }}>Mes Sessions · GARDER / FREE / Story</Text>
+              <Text style={{ color: '#2DE1C2', fontWeight: '800', fontSize: 12 }}>MES SESSIONS · {saved ? 'EN ATTENTE' : 'REVOIR'}</Text>
             </TouchableOpacity>
           ) : null}
           {onNext ? (
@@ -202,7 +203,7 @@ export default function TemporaryMusicPreview({
             </TouchableOpacity>
           ) : null}
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fermer cet aperçu sans enregistrer" onPress={onClose} style={{ marginTop: 12, backgroundColor: '#6956BB', minHeight: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: 13 }}>FERMER · NE PAS ENREGISTRER</Text>
+            <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: 13 }}>FERMER L’APERÇU</Text>
           </TouchableOpacity>
         </ScrollView>
       </View>
