@@ -69,11 +69,45 @@ export const SECTION_SCENARIOS: Record<Exclude<RobotSection, 'OTHER'>, Scenario>
   },
 };
 
-/** Message et propositions du robot quand on le secoue (ou qu'on le touche 5 fois) sur une rubrique donnée. */
-export function scenarioForRoute(routeName: string | null | undefined, username: string, seed = 0): { text: string; actions: RobotAction[] } {
+// Action de menu qui renvoie vers la rubrique où l'on est déjà : inutile de la proposer.
+const OWN_ACTION_BY_SECTION: Partial<Record<RobotSection, HelpActionKey>> = { PULSE: 'PULSE', DISCOVER: 'SEARCH', PLAYLISTS: 'PLAYLISTS', PARTIES: 'PARTIES', PROFILE: 'COMMUNITY' };
+export const MAX_ROBOT_MENU_ACTIONS = 9;
+
+/** Conseil de rubrique (SECTION_SCENARIOS) : un différent à chaque secousse successive. */
+export function sectionTip(routeName: string | null | undefined, index: number): string | null {
+  const section = sectionOfRoute(routeName);
+  if (section === 'OTHER') return null;
+  const tips = SECTION_SCENARIOS[section].tips;
+  return tips[Math.abs(Math.floor(index)) % tips.length];
+}
+
+export type ScenarioOptions = {
+  /** Règles déclenchées par le contexte d'écran (robotScreenContext.contextRules) : passées déjà calculées. */
+  rules?: Array<{ id: string; text: string; actions: RobotAction[] }>;
+  /** Nombre de secousses déjà faites récemment sur cette rubrique (0 = première). */
+  shakeCount?: number;
+};
+
+/**
+ * Message et propositions du robot quand on le secoue (ou qu'on le touche 5 fois) sur une rubrique donnée.
+ * Priorité : 1) conseil contextuel (règles pures) ; 2) conseil de rubrique à partir de la 2e secousse ; 3) question courte.
+ * Les actions contextuelles passent en premier (un clic = navigation), puis le menu général sans la rubrique actuelle ; « Un souci » reste dernier.
+ */
+export function scenarioForRoute(routeName: string | null | undefined, username: string, seed = 0, options: ScenarioOptions = {}): { text: string; actions: RobotAction[] } {
   const name = String(username || '').trim().replace(/^@+/, '');
-  // The same seven actions and short prompt are used on every screen.
-  // Section-specific tips remain defined above for contextual coaching.
   const compactText = `Qu'est-ce que je peux faire pour toi${name ? `, ${name}` : ''} ?`;
-  return { text: compactText, actions: SHAKE_ACTIONS };
+  const rules = options.rules ?? [];
+  const section = sectionOfRoute(routeName);
+  const contextual: RobotAction[] = [];
+  for (const rule of rules) for (const action of rule.actions) if (!contextual.some((a) => a.key === action.key)) contextual.push(action);
+  const own = OWN_ACTION_BY_SECTION[section];
+  const base = SHAKE_ACTIONS.filter((a) => a.key !== own && !contextual.some((c) => c.key === a.key));
+  const report = base.filter((a) => a.key === 'REPORT');
+  const menu = base.filter((a) => a.key !== 'REPORT');
+  const room = Math.max(0, MAX_ROBOT_MENU_ACTIONS - contextual.length - report.length);
+  const actions = [...contextual, ...menu.slice(0, room), ...report];
+  const tip = (options.shakeCount ?? 0) >= 1 ? sectionTip(routeName, (options.shakeCount ?? 1) - 1) : null;
+  const text = rules[0]?.text ?? tip ?? compactText;
+  void seed;
+  return { text, actions };
 }

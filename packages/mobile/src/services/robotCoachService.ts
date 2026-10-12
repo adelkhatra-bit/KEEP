@@ -75,12 +75,58 @@ async function speakOncePerDay(text: string): Promise<void> {
   } catch { /* la voix est un bonus : jamais bloquante */ }
 }
 
-/** Secousse (Adel, 06/10/2026) : le robot propose plusieurs directions ; « Un souci » ouvre le signalement. */
+// Mémoire des secousses récentes par rubrique : la 2e secousse donne un conseil de rubrique (SECTION_SCENARIOS), la 3e un autre.
+let lastShake: { route: string; at: number; count: number } = { route: '', at: 0, count: 0 };
+const SHAKE_MEMORY_MS = 3 * 60 * 1000;
+
+/** Secousse (Adel, 06/10/2026) : le robot propose plusieurs directions ; « Un souci » ouvre le signalement. Lot 6 : il tient compte du contexte d'écran. */
 export async function summonRobotMenu(username: string, routeName?: string | null): Promise<boolean> {
-  // Menu adapté à la rubrique où se trouve l'utilisateur (scénario du robot, IDEA-205).
   const { scenarioForRoute } = require('./robotSectionScenario');
-  const { text, actions } = scenarioForRoute(routeName, username, Date.now());
+  const { buildRobotScreenContext, contextRules } = require('./robotScreenContext');
+  const now = Date.now();
+  const route = String(routeName ?? '');
+  lastShake = lastShake.route === route && now - lastShake.at <= SHAKE_MEMORY_MS ? { route, at: now, count: lastShake.count + 1 } : { route, at: now, count: 0 };
+  let rules: unknown[] = [];
+  try {
+    const ctx = buildRobotScreenContext(routeName, readStoreState());
+    rules = contextRules(ctx);
+  } catch { /* contexte indisponible : menu général */ }
+  const { text, actions } = scenarioForRoute(routeName, username, now, { rules, shakeCount: lastShake.count });
+  // Silence : robotSay() applique le jeu en cours et robotQuietService ; force ne contourne que le délai (appel volontaire).
   return robotSay('ROBOT_CALL', { text, actions, force: true });
+}
+
+/** État lu directement dans les stores (sans que l'écran ait à le déclarer) : morceaux en attente de tri. */
+function readStoreState(): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  try {
+    const { useSessionHistoryStore } = require('../store/useSessionHistoryStore');
+    const sessions = useSessionHistoryStore.getState().sessions as Array<{ tracks: Array<{ status: string }> }>;
+    out.pendingTracks = sessions.reduce((total, session) => total + session.tracks.filter((track) => track.status === 'pending').length, 0);
+  } catch { /* store indisponible */ }
+  return out;
+}
+
+/**
+ * Conseil contextuel spontané (Lot 6) : au plus une fois par règle toutes les 24 h, SANS force -> le silence demandé (2 h),
+ * le jeu en cours et un message déjà affiché le bloquent (robotSay). Appelé par un écran quand son état change.
+ */
+export async function robotContextHint(routeName: string | null | undefined): Promise<boolean> {
+  try {
+    if (await isRobotQuiet()) return false;
+    const { buildRobotScreenContext, contextRules } = require('./robotScreenContext');
+    const { scenarioForRoute } = require('./robotSectionScenario');
+    const ctx = buildRobotScreenContext(routeName, readStoreState());
+    const rule = contextRules(ctx)[0];
+    if (!rule) return false;
+    const key = `keep:robot:ctxHint:${rule.id}`;
+    const last = Number(await AsyncStorage.getItem(key)) || 0;
+    if (Date.now() - last < 24 * 3600 * 1000) return false;
+    const { actions } = scenarioForRoute(routeName, '', Date.now(), { rules: [rule] });
+    const spoke = await robotSay('ROBOT_TIP', { text: rule.text, actions: actions.slice(0, 3) });
+    if (spoke) await AsyncStorage.setItem(key, String(Date.now())).catch(() => {});
+    return spoke;
+  } catch { return false; }
 }
 
 /** Appel du robot (5 touchers rapprochés) : « Qu'est-ce que je peux faire pour toi, {pseudo} ? » + les trois propositions, à voix haute. */

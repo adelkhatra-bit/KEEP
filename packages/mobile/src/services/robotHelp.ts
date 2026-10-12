@@ -1,6 +1,8 @@
 // Robot d'accueil et d'aide (Adel, 06/10/2026, IDEA-154) : salut avec le pseudo SANS « @ » seulement quand l'utilisateur revient après une absence,
 // trois propositions cliquables (Solo / Loki Pulse / communauté), explication une fois sur place, et appel du robot par 5 touchers rapprochés. Module PUR.
-export type HelpActionKey = 'SOLO' | 'PULSE' | 'COMMUNITY' | 'PLAYLISTS' | 'SEARCH' | 'STORY' | 'REPORT' | 'QUIET' | 'CONTINUE';
+export type HelpActionKey = 'SOLO' | 'PULSE' | 'COMMUNITY' | 'PLAYLISTS' | 'SEARCH' | 'STORY' | 'REPORT' | 'QUIET' | 'CONTINUE'
+  // Lot 6 (12/10/2026) : boutique, vente, soirées et actions contextuelles du robot.
+  | 'BOUTIQUE' | 'SELL' | 'PARTIES' | 'SHARE' | 'RECHARGE' | 'SORT';
 export type RobotAction = { key: HelpActionKey; label: string; route: string; params?: Record<string, unknown> };
 
 export const HELP_ACTIONS: RobotAction[] = [
@@ -20,6 +22,9 @@ export const SHAKE_ACTIONS: RobotAction[] = [
   { key: 'SEARCH', label: '🔎 Chercher', route: 'Main', params: { screen: 'Discover' } },
   { key: 'STORY', label: '⭕ Ma story', route: 'Main', params: { screen: 'Profile' } },
   { key: 'SOLO', label: '🎮 Solo', route: 'Main', params: { screen: 'Parties', params: { openBattle: true, source: 'ROBOT' } } },
+  { key: 'BOUTIQUE', label: '🛍️ Boutique', route: 'Main', params: { screen: 'Profile' } },
+  { key: 'SELL', label: '💸 Vendre', route: 'PlaylistSale' },
+  { key: 'PARTIES', label: '🎉 Soirées', route: 'Main', params: { screen: 'Parties' } },
   { key: 'REPORT', label: '🐞 Un souci', route: '' },
 ];
 
@@ -31,6 +36,12 @@ export const HELP_TIPS: Record<HelpActionKey, string[]> = {
   PLAYLISTS: ['Tes playlists : touche une playlist pour l’écouter, ou ＋ pour en créer une.', 'Ici tes playlists. Touche ＋ pour en créer une.'],
   SEARCH: ['Touche 🔎 en haut pour chercher un ami ou un style.', 'Cherche un pseudo avec 🔎, puis abonne-toi.'],
   STORY: ['Touche ta photo en haut : ＋ pour ajouter une musique à ta story.', 'Ta story : touche ta photo, puis ＋.'],
+  BOUTIQUE: ['Ta Boutique est sur ton profil, sous tes boutons : une offre à la une, puis toutes tes collections.', 'La Boutique est toujours là, même vide : touche « Créer ma boutique » pour commencer.'],
+  SELL: ['Vendre : choisis tes morceaux, donne un prix en FREE, puis publie. Il faut assez d’abonnés pour ouvrir la vente.', 'Pour vendre, choisis au moins deux morceaux, fixe le prix et publie : c’est tout.'],
+  PARTIES: ['Les soirées : crée la tienne ou rejoins celle d’un ami.', 'Ici les soirées et le Battle. Touche Créer pour lancer la tienne.'],
+  SHARE: ['Partage ton profil : plus d’abonnés, c’est ta boutique qui s’ouvre.', 'Envoie ton lien à tes potes pour gagner des abonnés.'],
+  RECHARGE: ['Choisis un pack pour recharger tes FREE.', 'Tu peux aussi gagner des FREE en jouant un Solo.'],
+  SORT: ['Garde ou passe chaque morceau : un tap, c’est trié.', 'Trie tes morceaux en attente, ils restent à toi.'],
   REPORT: ['Dis-moi ce qui ne va pas.', 'Explique le souci en quelques mots.'],
   QUIET: ['Je me fais discret.'],
   CONTINUE: ['Ok, je reste dans les parages.'],
