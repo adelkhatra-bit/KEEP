@@ -74,7 +74,8 @@ export default function AppUpdateBanner({ authReady = true }: { authReady?: bool
     document.addEventListener('visibilitychange', onHidden);
     // La détection SHA est séparée (15 s). Dès qu'elle signale un changement,
     // ce contrôle applique la mise à jour sur l'onglet visible au repos.
-    const visibleIdleCheck = setInterval(applyUpdate, 3_000);
+    // Contrôle local du temps d'inactivité, sans requête réseau (>= 5 s).
+    const visibleIdleCheck = setInterval(applyUpdate, 5_000);
     applyUpdate();
     return () => {
       clearInterval(visibleIdleCheck);
