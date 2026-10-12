@@ -10,7 +10,7 @@ describe('ProfilePublicScreen — owner actions stay together in the hero', () =
   it('keeps preview, collections and Battle aligned before the collection content', () => {
     const actions = source.indexOf('<View style={s.ownerQuickActions}>');
     const preview = source.indexOf('▶ APERÇU', actions);
-    const sales = source.indexOf('◆ PÉPITES', actions);
+    const sales = source.indexOf('◆ VENDRE', actions);
     const battle = source.indexOf('⚡ BATTLE', actions);
     const collection = source.indexOf('<View style={s.collectionHeader}>');
 
