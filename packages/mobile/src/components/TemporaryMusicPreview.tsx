@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, Text, TouchableOpacity, View } from 'react-native';
+import { Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import TrackCover from './TrackCover';
 import { resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
 
@@ -34,7 +34,7 @@ export default function TemporaryMusicPreview({
   return (
     <View testID="temporary-music-preview" style={{ flex: 1 }}>
       <View style={{ flex: 1, backgroundColor: 'rgba(7,6,19,0.88)', justifyContent: 'center', alignItems: 'center', padding: 14 }}>
-        <View style={{ width: '100%', maxWidth: 620, maxHeight: '92%', borderRadius: 22, overflow: 'hidden', padding: 16, backgroundColor: '#181326', borderColor: '#6956BB', borderWidth: 1 }}>
+        <ScrollView testID="temporary-music-preview-scroll" keyboardShouldPersistTaps="always" showsVerticalScrollIndicator contentContainerStyle={{ padding: 16, paddingBottom: 22 }} style={{ width: '100%', maxWidth: 620, maxHeight: '92%', borderRadius: 22, backgroundColor: '#181326', borderColor: '#6956BB', borderWidth: 1 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '900' }}>LOKI MUSIC · APERÇU</Text>
             <TouchableOpacity testID="temporary-music-close" onPress={onClose} accessibilityRole="button" accessibilityLabel="Fermer et effacer cet aperçu" style={{ minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center' }}>
@@ -50,7 +50,7 @@ export default function TemporaryMusicPreview({
             </View>
           </View>
           {embed ? (
-            <View testID="temporary-music-embedded-player" style={{ width: '100%', height: embed.provider === 'YOUTUBE' ? 280 : 185, minHeight: 170, borderRadius: 12, overflow: 'hidden', backgroundColor: '#090713' }}>
+            <View key={embed.url} testID="temporary-music-embedded-player" style={{ width: '100%', height: embed.provider === 'YOUTUBE' ? 280 : 185, minHeight: 170, borderRadius: 12, overflow: 'hidden', backgroundColor: '#090713' }}>
               {Platform.OS === 'web' ?
                 React.createElement('iframe' as any, {
                   src: embed.url,
@@ -109,7 +109,7 @@ export default function TemporaryMusicPreview({
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fermer cet aperçu sans enregistrer" onPress={onClose} style={{ marginTop: 12, backgroundColor: '#6956BB', minHeight: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: 13 }}>FERMER · NE PAS ENREGISTRER</Text>
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       </View>
     </View>
   );
