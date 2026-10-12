@@ -27,6 +27,7 @@ on:
 # with every other production-backed browser audit so auth cannot be starved.
 concurrency:
   group: keep-production-supabase-browser-audits
+  queue: max
   cancel-in-progress: false
 
 permissions:

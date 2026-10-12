@@ -1,5 +1,14 @@
 [
   {
+    "commit": "43f1f945748ccfc2498ab3b8775a47d47279eee5",
+    "web": "43f1f945748ccfc2498ab3b8775a47d47279eee5",
+    "testflight": "iOS #228 success (release f8dbd60)",
+    "ota": "OTA #1019 success (release f8dbd60)",
+    "date": "2026-10-12 01:55",
+    "tests": "pass",
+    "changes": "fix(mobile/web): ouvrir réellement Swipe depuis les sessions et centrer les fenêtres (#120)"
+  },
+  {
     "commit": "f8dbd60c9caa6ac32f804c2568f00b6387fe788c",
     "web": "f8dbd60c9caa6ac32f804c2568f00b6387fe788c",
     "testflight": "iOS #228 in_progress (release f8dbd60)",

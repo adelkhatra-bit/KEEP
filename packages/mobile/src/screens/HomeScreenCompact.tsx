@@ -187,6 +187,12 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [privacyBusy, setPrivacyBusy] = useState(false);
   const [manualSearchOpen, setManualSearchOpen] = useState(false);
   const [sessionPeekOpen, setSessionPeekOpen] = useState(false);
+  // Navigation différée : le lecteur Swipe ne doit jamais s'ouvrir derrière une Modal iOS encore en train de se fermer.
+  const queuedSwipeSessionId = useRef<string | null>(null);
+  const queuedSwipeFallback = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (queuedSwipeFallback.current) clearTimeout(queuedSwipeFallback.current);
+  }, []);
   const [demoListenLimit, setDemoListenLimit] = useState(3);
   const [demoListenUsed, setDemoListenUsed] = useState(0);
   const demoListenUsedRef = useRef(0);
@@ -571,6 +577,27 @@ export default function HomeScreenCompact({ navigation }: any) {
     setSessionPeekOpen(false);
     openSessionHistoryGuarded(() => navigation.navigate('SessionHistory'));
   };
+  const showQueuedSessionSwipe = () => {
+    const sessionId = queuedSwipeSessionId.current;
+    if (!sessionId) return;
+    queuedSwipeSessionId.current = null;
+    if (queuedSwipeFallback.current) {
+      clearTimeout(queuedSwipeFallback.current);
+      queuedSwipeFallback.current = null;
+    }
+    navigation.navigate('SessionRecap', { sessionId, openSwipe: true });
+  };
+  const openSessionSwipeSafely = () => {
+    if (!tracks.some((entry) => entry.status === 'pending')) return;
+    // Le geste libère le lecteur Web ; arrêter la capture AVANT de jouer une préécoute protège la reconnaissance.
+    unlockWebAudioForGesture();
+    const savedSessionId = requestEndSession();
+    if (!savedSessionId) return;
+    queuedSwipeSessionId.current = savedSessionId;
+    setSessionPeekOpen(false);
+    // onDismiss synchronise iOS ; repli Android/Web si le callback natif n'est pas émis.
+    queuedSwipeFallback.current = setTimeout(showQueuedSessionSwipe, 380);
+  };
 
   const doKeep = async (entryId: string, playlistId: string | undefined, visibility: KeepVisibility) => {
     if (keepBusy) return;
@@ -926,8 +953,8 @@ export default function HomeScreenCompact({ navigation }: any) {
         <TouchableOpacity style={s.secondary} onPress={finishSession} accessibilityRole="button" accessibilityLabel="Couper le micro"><Text style={s.secondaryText}>■  COUPER LE MICRO</Text></TouchableOpacity>
       </View>
 
-      <KeepModal visible={sessionPeekOpen} transparent animationType="fade" onRequestClose={() => setSessionPeekOpen(false)}>
-        <View style={[s.modalOverlay, { paddingHorizontal: 16 }]} testID="listen-session-peek-overlay"><View style={[s.modalCard, { maxWidth: 480, maxHeight: '78%', borderRadius: 22 }]} testID="listen-session-peek-centered">
+      <KeepModal visible={sessionPeekOpen} transparent animationType="fade" onRequestClose={() => setSessionPeekOpen(false)} onDismiss={showQueuedSessionSwipe}>
+        <View style={s.modalOverlay}><View style={[s.modalCard, { width: '100%', maxWidth: desktopHome ? 580 : 400, maxHeight: '78%', borderRadius: 22 }]}>
           <Text style={s.modalTitle}>Ta session en cours</Text>
           <Text style={{ color: micPaused ? C.purpleLight : C.green, fontSize: 12, marginTop: 8, fontWeight: '800' }}>{micPaused ? '● Micro en pause pendant la préécoute' : '● Le micro continue d’écouter'}</Text>
           <Text style={s.modalBody}>{tracks.length} morceau{tracks.length > 1 ? 'x' : ''} détecté{tracks.length > 1 ? 's' : ''} · {tracks.filter((x) => x.status === 'pending').length} à swiper</Text>
@@ -944,7 +971,12 @@ export default function HomeScreenCompact({ navigation }: any) {
               </View>
             ))}
           </ScrollView>
-          <Text style={{ color: C.text, fontSize: 12, lineHeight: 18, marginTop: 12 }}>Pour réécouter les extraits, swiper et sélectionner tes morceaux, termine d’abord l’écoute. Les morceaux détectés sont conservés.</Text>
+          <Text style={{ color: C.text, fontSize: 12, lineHeight: 18, marginTop: 12 }}>Les morceaux détectés restent enregistrés. Pour swiper, Loki Music arrête d’abord le micro, puis ouvre le lecteur.</Text>
+          {tracks.some((entry) => entry.status === 'pending') ? (
+            <TouchableOpacity onPress={openSessionSwipeSafely} style={[s.modalBtn, { backgroundColor: C.green, marginTop: 12 }]} accessibilityRole="button" accessibilityLabel="Arrêter le micro puis ouvrir Swipe">
+              <Text style={[s.modalBtnText, { color: colors.black }]}>ARRÊTER ET SWIPER · {tracks.filter((entry) => entry.status === 'pending').length}</Text>
+            </TouchableOpacity>
+          ) : null}
           <TouchableOpacity onPress={() => setSessionPeekOpen(false)} style={[s.modalBtn, { backgroundColor: C.purple, marginTop: 16 }]} accessibilityRole="button" accessibilityLabel="Continuer l'écoute sans couper le micro">
             <Text style={s.modalBtnText}>CONTINUER L’ÉCOUTE</Text>
           </TouchableOpacity>

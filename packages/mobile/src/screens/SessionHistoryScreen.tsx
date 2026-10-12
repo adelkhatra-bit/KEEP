@@ -84,7 +84,7 @@ export default function SessionHistoryScreen({ navigation }: any) {
 
     return (
       <View style={[styles.card, pendingCount > 0 && styles.cardNeedsSorting]}>
-        <TouchableOpacity style={styles.cardMain} onPress={() => !isLive && navigation.navigate('SessionRecap', { sessionId: item.id })} disabled={isLive}>
+        <TouchableOpacity style={styles.cardMain} onPress={() => !isLive && navigation.replace('SessionRecap', { sessionId: item.id })} disabled={isLive}>
           <View style={styles.cardTop}>
             <Text style={styles.cardTitle} numberOfLines={1}>{autoTitle(item)}</Text>
             <Text style={styles.cardTime}>{time}</Text>
@@ -98,7 +98,7 @@ export default function SessionHistoryScreen({ navigation }: any) {
         </TouchableOpacity>
         {!isLive ? <View style={styles.cardFooter}>
           {pendingCount > 0 ? (
-            <TouchableOpacity style={styles.sortButton} onPress={() => navigation.navigate('SessionRecap', { sessionId: item.id, openSwipe: true })} accessibilityRole="button" accessibilityLabel={`Swiper ${pendingCount} musiques`}>
+            <TouchableOpacity style={styles.sortButton} onPress={() => navigation.replace('SessionRecap', { sessionId: item.id, openSwipe: true })} accessibilityRole="button" accessibilityLabel={`Swiper ${pendingCount} musiques`}>
               <Text style={styles.sortText}>SWIPER · {pendingCount}</Text>
             </TouchableOpacity>
           ) : null}
@@ -109,9 +109,9 @@ export default function SessionHistoryScreen({ navigation }: any) {
   };
 
   return (
-    <View style={[styles.overlay, { justifyContent: 'center', alignItems: desktop ? 'flex-end' : 'center' }]} testID="sessions-overlay-centered">
+    <View style={styles.overlay}>
       <Pressable style={styles.backdrop} onPress={() => navigation.goBack()} accessibilityLabel="Fermer les sessions" accessibilityRole="button" />
-      <SafeAreaView style={[styles.container, styles.sheet, desktop ? { width: Math.min(480, width * 0.48), height: height - 32, marginVertical: 16, marginRight: 16, borderRadius: 22 } : { width: Math.min(480, width - 24), height: Math.min(Math.round(height * 0.82), 760), borderRadius: 24 }]}>
+      <SafeAreaView style={[styles.container, styles.sheet, desktop ? { width: Math.min(560, width - 32), height: Math.min(height - 48, 740), borderRadius: 22 } : { width: '100%', height: Math.min(height - 40, Math.round(height * 0.80)), borderRadius: 22 }]}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.helpButton} onPress={() => setHelpOpen(true)} accessibilityRole="button" accessibilityLabel="Comprendre Mes Sessions">
           <Text style={styles.helpButtonText}>?</Text>
@@ -143,7 +143,7 @@ export default function SessionHistoryScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, flexDirection: 'column', alignItems: 'flex-end', backgroundColor: 'rgba(0,0,0,0.36)' },
+  overlay: { flex: 1, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: 'rgba(0,0,0,0.62)' },
   backdrop: { ...StyleSheet.absoluteFillObject },
   sheet: { overflow: 'hidden', borderWidth: 1, borderColor: colors.border },
   container: { flex: 1, backgroundColor: colors.background },

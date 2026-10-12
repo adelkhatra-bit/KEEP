@@ -17,7 +17,11 @@ describe('Loki mobile chat lift + Pulse audio tap contract', () => {
 
   it('keeps Home Loki Pulse bubbles wired to the exact tapped track and audio unlock', () => {
     expect(home).not.toContain('const openHomePulseTrack = (trackId: string) => {'); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
-    expect(home).not.toContain('unlockWebAudioForGesture();'); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
+    // La suppression concernait les anciennes bulles Pulse, PAS le geste utilisateur « Arrêter et swiper ».
+    // L'accueil ne réintroduit aucune bulle Pulse ; l'autorisation Web doit rester attachée au bouton de session.
+    const sessionSwipe = home.slice(home.indexOf('const openSessionSwipeSafely = () => {'), home.indexOf('const doKeep = async'));
+    expect(sessionSwipe).toContain('unlockWebAudioForGesture();');
+    expect(sessionSwipe).toContain('const savedSessionId = requestEndSession();');
     expect(home).not.toContain('setHomePulseSelectedTrackId(trackId);'); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
     expect(home).not.toContain('onPress={() => openHomePulseTrack(item.track.id)}'); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
     expect(home).not.toContain('initialTrackId={homePulseSelectedTrackId}'); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
