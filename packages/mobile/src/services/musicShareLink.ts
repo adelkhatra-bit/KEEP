@@ -43,9 +43,35 @@ export function extractMusicShareLink(value: string): string | null {
   }
 }
 
+/**
+ * Normalize links copied from YouTube PC, iOS/Android, Shorts and YouTube Music.
+ * Same video ID always reaches the same server cache and oEmbed resolver.
+ * A playlist-only or clip link is NOT silently interpreted as a video.
+ */
+export function canonicalYouTubeMusicUrl(raw: string): string {
+  try {
+    const url = new URL(raw);
+    if (!['http:', 'https:'].includes(url.protocol)) return raw;
+    const host = url.hostname.toLowerCase();
+    const isShort = host === 'youtu.be';
+    const isYoutube = host === 'youtube.com' || host.endsWith('.youtube.com');
+    if (!isShort && !isYoutube) return raw;
+    const segments = url.pathname.split('/').filter(Boolean);
+    const candidate = isShort
+      ? segments[0]
+      : url.pathname === '/watch'
+        ? url.searchParams.get('v')
+        : ['shorts', 'live', 'embed', 'v'].includes(segments[0] ?? '') ? segments[1] : null;
+    if (!candidate || !/^[a-zA-Z0-9_-]{11}$/.test(candidate)) return raw;
+    return `https://www.youtube.com/watch?v=${candidate}`;
+  } catch {
+    return raw;
+  }
+}
+
 /** Preserve plain artist/title input instead of mistakenly treating a caption as a link. */
 export function parseMusicShareInput(value: string): { url: string; rawText: string } | { title: string } {
   const input = String(value ?? '').trim();
   const url = extractMusicShareLink(input);
-  return url ? { url, rawText: input.slice(0, 1500) } : { title: input };
+  return url ? { url: canonicalYouTubeMusicUrl(url), rawText: input.slice(0, 1500) } : { title: input };
 }
