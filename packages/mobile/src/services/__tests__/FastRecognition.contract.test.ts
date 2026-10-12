@@ -63,7 +63,8 @@ describe('Fast recognition contract', () => {
     expect(session).toContain('submitCapturedAudioRecognition: async (recognition)');
     expect(session).toContain("return applyDetectedTrack(set, get, recognition, 'listen')");
     expect(home).toContain('pauseListening();');
-    expect(home).toContain('captureTabAudioSample()');
+    expect(home).toContain('startTabAudioMonitor(');
+    expect(home).toContain("current.startSession({ captureMode: 'tab' })");
     expect(home).toContain('submitCapturedAudioRecognition(recognition)');
     expect(home).toContain('resumeListening()');
     expect(home).toContain('testID="listen-tab-audio-option"');
