@@ -53,7 +53,7 @@ describe('Fast recognition contract', () => {
 
   it('classifies a pasted YouTube URL before the server chooses its oEmbed metadata resolver', () => {
     expect(core).toContain("import { sharedSourcePlatformFromUrl } from './sharedSourcePlatform'");
-    expect(core).toContain('platform: sharedSourcePlatformFromUrl(trimmed)');
+    expect(core).toContain('platform: sharedSourcePlatformFromUrl(input.url)');
     const resolver = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '..', '..', 'supabase', 'functions', 'keep-music-keyless-source', 'index.ts'), 'utf8');
     expect(resolver).toContain('if (platform === "YOUTUBE") endpoint');
   });
