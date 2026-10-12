@@ -39,6 +39,17 @@ describe('Loki events: seller checkout, moderation and Pulse visibility', () => 
     expect(parties).toContain('publishEventStory(currentEvent.id)'); // manual renewal stays
   });
 
+  it('explains Story publication in Soirées without bypassing admin moderation or re-sharing expired events', () => {
+    expect(parties).toContain('testID="event-story-how-it-works"');
+    expect(parties).toContain('STORY + LOKI PULSE · AUTOMATIQUE');
+    expect(parties).toContain('Après validation de la photo et du texte');
+    expect(parties).toContain("currentEvent.moderationStatus === 'APPROVED' && eventNotFinished(currentEvent)");
+    expect(parties).toContain('testID="event-publish-to-story"');
+    expect(parties).toContain('publishEventStory(currentEvent.id)');
+    expect(parties).toContain('La photo et le texte passent au Super Admin.');
+    expect(parties).not.toContain("Après création, ta soirée est déjà publiée en Story.");
+  });
+
   it('gives other users a chance to discover events in Pulse without exposing 18+ to minors', () => {
     expect(profile).toContain('setMyPulseEventStories(items.slice(0, 6))');
     expect(profile).not.toContain('setMyPulseEventStories(items.filter((item) => item.creatorId === user.id))');
