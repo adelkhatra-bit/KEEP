@@ -1,5 +1,14 @@
 [
   {
+    "commit": "c0684fbd23d9efb82a1568d7f998ac3e12ccfb49",
+    "web": "c0684fbd23d9efb82a1568d7f998ac3e12ccfb49",
+    "testflight": "iOS #230 success (release 1f44ee1)",
+    "ota": "OTA #1021 success (release 1f44ee1)",
+    "date": "2026-10-12 19:18",
+    "tests": "pass",
+    "changes": "fix(listen): offer link-search recovery for denied tab-audio permission"
+  },
+  {
     "commit": "9b70980600a88654bea9a06e8333a512dd88b430",
     "web": "9b70980600a88654bea9a06e8333a512dd88b430",
     "testflight": "iOS #230 success (release 1f44ee1)",
