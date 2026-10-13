@@ -1184,7 +1184,8 @@ export default function MusicSwipeDeckModal({
                 {ownerMasked ? <View style={[s.cover,s.coverFallback]}><MysteryArtwork caption="Titre masqué · aperçu de tes abonnés" /></View> : current.artworkUrl ? <Image source={{ uri: current.artworkUrl }} style={s.cover as any} resizeMode="cover" /> : <View style={[s.cover,s.coverFallback]}>{isSaleStoryTrack(current) ? <MysteryArtwork caption={priceBadge ? '' : 'Titre masqué · garde pour révéler'} /> : <Text style={s.coverK}>K</Text>}</View>}
                 {currentSourceUsername ? <TouchableOpacity style={s.sourceOverlay} onPress={() => setSourceQuick(currentSourceUsername.replace(/^@/, ''))} disabled={!onOpenSourceProfile} accessibilityLabel={`Découvert par ${currentSourceUsername.replace(/^@/, '')}. Ouvrir son profil`}><GlowRing radius={14} testID="deck-source-glow" /><Text style={s.sourceOverlayText}>Découvert par @{currentSourceUsername.replace(/^@/, '')}</Text></TouchableOpacity> : null}
                 {/* Adel 05/10/2026 : « il faut que ce soit très lisible, que les utilisateurs ne se fassent pas tromper » -- PAYANT (PayPal) ou GRATUIT, toujours dit en clair sur la carte. */}
-                <View style={[s.gradientFake, compactDeck && s.gradientCompact]}>
+                {storyEmbeddedSource ? <View style={s.storyEmbeddedInCard} testID="story-official-inline-area"><StoryEmbeddedSourcePlayer sourceUrl={storyEmbeddedSource} compact={compactDeck} /></View> : null}
+                <View style={[s.gradientFake, compactDeck && s.gradientCompact, storyEmbeddedSource && s.gradientStoryEmbed]}>
                   <View style={s.autoRow}><View style={[s.dot,resolvedPreviewUrl ? s.dotOn : s.dotOff]} /><Text style={s.autoText}>{previewLabel}</Text></View>
                   {!trackAddedAt && !resolvedPreviewUrl && sourcePlayer && !sourcePlayerOpen ? (
                     <TouchableOpacity testID="story-open-source-player" style={s.manualPlayButton} accessibilityRole="button" accessibilityLabel="Écouter la vidéo originale dans Loki Music" onPress={() => { stopTrackPreviewFast(); setSourcePlayerOpen(true); }}>
@@ -1196,9 +1197,9 @@ export default function MusicSwipeDeckModal({
                       <Text style={s.manualPlayText}>{previewEnded ? '↻ RÉÉCOUTER' : '▶ ÉCOUTER L’EXTRAIT'}</Text>
                     </TouchableOpacity>
                   ) : null}
-                  <Text style={s.trackTitle} numberOfLines={2}>{ownerMasked ? 'Musique en vente' : current.title}</Text>
+                  <Text style={[s.trackTitle, storyEmbeddedSource && s.embeddedTrackTitle]} numberOfLines={2}>{ownerMasked ? 'Musique en vente' : current.title}</Text>
                   <Text style={s.artist} numberOfLines={1}>{ownerMasked ? 'Ta boutique' : current.artist}</Text>
-                  {current.album && !ownerMasked ? <Text style={s.album} numberOfLines={1}>{current.album}</Text> : null}
+                  {current.album && !ownerMasked && !storyEmbeddedSource ? <Text style={s.album} numberOfLines={1}>{current.album}</Text> : null}
                 </View>
                 {!trackAddedAt && sourcePlayerOpen && !resolvedPreviewUrl && sourcePlayer ? (
                   <View testID="story-source-player" style={s.sourcePlayerOverlay}>
@@ -1217,7 +1218,7 @@ export default function MusicSwipeDeckModal({
                         })
                       : React.createElement(require('react-native-webview').WebView, {
                           key: sourcePlayer.url,
-                          source: { uri: sourcePlayer.url },
+                          source: { uri: sourcePlayer.url, ...(sourcePlayer.provider === 'YOUTUBE' ? { headers: { Referer: 'https://com.adelkhatra.keep' } } : {}) },
                           allowsInlineMediaPlayback: true,
                           mediaPlaybackRequiresUserAction: false,
                           javaScriptEnabled: true,
@@ -1227,9 +1228,6 @@ export default function MusicSwipeDeckModal({
                 ) : null}
               </View>
             </SwipeDeck>
-            {storyEmbeddedSource ? (
-              <StoryEmbeddedSourcePlayer key={storyEmbeddedSource} sourceUrl={storyEmbeddedSource} />
-            ) : null}
           </View>
 
 
@@ -1380,6 +1378,9 @@ const s = StyleSheet.create({
   sourcePlayerClose:{minHeight:44,alignItems:'center',justifyContent:'center',backgroundColor:'#32224A',borderRadius:10,marginBottom:5},
   sourcePlayerCloseText:{color:'#FFFFFF',fontWeight:'800',fontSize:12},
   cover:{...StyleSheet.absoluteFillObject,width:'100%',height:'100%'},coverFallback:{alignItems:'center',justifyContent:'center',backgroundColor:'#241936'},coverK:{color:colors.primaryLight,fontSize:72,fontWeight:'900',letterSpacing:6},
+  storyEmbeddedInCard:{flex:1,minHeight:0,width:'100%',paddingHorizontal:6,paddingTop:38,justifyContent:'center'},
+  gradientStoryEmbed:{paddingHorizontal:14,paddingTop:8,paddingBottom:10,backgroundColor:'rgba(9,6,16,.86)'},
+  embeddedTrackTitle:{fontSize:19,lineHeight:23},
   gradientFake:{padding:20,paddingTop:90,backgroundColor:'rgba(9,6,16,.68)'},autoRow:{flexDirection:'row',alignItems:'center',marginBottom:8},dot:{width:8,height:8,borderRadius:4,marginRight:6},dotOn:{backgroundColor:'#68F2B1'},dotOff:{backgroundColor:'#756B84'},autoText:{color:'#FFFFFF',fontSize:10,fontWeight:'800'},manualPlayButton:{alignSelf:'flex-start',minHeight:minTouchTarget,paddingHorizontal:14,borderRadius:17,backgroundColor:colors.keep,marginBottom:9},manualPlayText:{color:'#0B0E0B',fontSize:11,fontWeight:'900',lineHeight:34},trackTitle:{color:'#FFF',fontSize:28,lineHeight:32,fontWeight:'900'},artist:{color:'#F0EAF7',fontSize:16,fontWeight:'800',marginTop:6},album:{color:'#FFFFFF',fontSize:12,marginTop:3},
   sourceProfileButton:{minHeight:minTouchTarget,marginHorizontal:4,marginBottom:8,borderRadius:21,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center',paddingHorizontal:12},sourceProfileButtonText:{color:'#FFF',fontSize:11,fontWeight:'900',letterSpacing:.25,textAlign:'center'},
   deckHint:{marginTop:14,marginBottom:6,paddingHorizontal:6,color:'#FFFFFF',fontSize:13,lineHeight:19,fontWeight:'800',textAlign:'center'},
