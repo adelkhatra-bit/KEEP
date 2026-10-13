@@ -1,5 +1,14 @@
 [
   {
+    "commit": "7e85c52602f2472fbe70b685760abf38bad9fd55",
+    "web": "7e85c52602f2472fbe70b685760abf38bad9fd55",
+    "testflight": "iOS #236 in_progress (release 7e85c52)",
+    "ota": "OTA #1027 in_progress (release 7e85c52)",
+    "date": "2026-10-13 18:24",
+    "tests": "pass",
+    "changes": "release(iOS+Web): publier réellement Sessions + Loki Pulse + Swipe/Stories PR178/180/181 (#183)"
+  },
+  {
     "commit": "3b439c1487520d8b2a05b696140093346059bd4a",
     "web": "3b439c1487520d8b2a05b696140093346059bd4a",
     "testflight": "iOS #235 cancelled (release 3b439c1)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 18:51",
     "tests": "pass",
     "changes": "feat(storefront): highlight personalized discovery in boutique hero without changing navigation"
-  },
-  {
-    "commit": "fbb446fb885f8e01d0737ecbb6096c14f4210f86",
-    "web": "fbb446fb885f8e01d0737ecbb6096c14f4210f86",
-    "testflight": "iOS #230 in_progress (release 1f44ee1)",
-    "ota": "OTA #1021 in_progress (release 1f44ee1)",
-    "date": "2026-10-12 18:45",
-    "tests": "pass",
-    "changes": "fix(home): place manual title and link search beside tab audio on Loki Music home"
   }
 ]
