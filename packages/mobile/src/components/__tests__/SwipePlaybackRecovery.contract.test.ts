@@ -22,7 +22,9 @@ describe('Loki Music Swipe iPhone / desktop audio recovery', () => {
 
   it('does not freeze the queue after the 30-second official YouTube/Spotify story embed', () => {
     expect(modal).toContain('const scheduleEmbeddedStoryNext = () => {');
-    expect(modal).toContain('if (!trackAddedAt || !(index + 1 < deckTracks.length || loop)) return;');
+    expect(modal).toContain('if (!(index + 1 < deckTracks.length || loop)) return;');
+    expect(modal).toContain('if (trackAddedAt && preferCleanStoryPlayer) {');
+    expect(modal).toContain('STORY_PREVIEW_NO_AD_FREE_AUDIO');
     expect(modal).toContain('}, 30000);');
     expect(modal).toContain('scheduleEmbeddedStoryNext();');
   });
