@@ -1086,7 +1086,7 @@ export default function MusicSwipeDeckModal({
   const previewLabel = previewResolving
     ? 'Recherche de l’extrait…'
     : !resolvedPreviewUrl
-      ? (trackAddedAt ? 'Extrait indisponible · Story suivante' : sourcePlayer ? 'Source vidéo officielle · lecture selon autorisation' : 'Extrait indisponible')
+      ? (sourcePlayer ? 'Extrait indisponible · source disponible' : 'Extrait indisponible · à toi de passer')
       : autoplayBlocked
         ? 'Appuie ci-dessous pour écouter'
         : previewEnded
@@ -1219,7 +1219,7 @@ export default function MusicSwipeDeckModal({
   const feedbackBar = headerExtra || (likesActive && current && isUuidKey(likeKey(current.id))) ? (
             <View style={[s.headerLikeRow, desktopSwipeLayout && s.desktopLikeRow]} testID="deck-like-bar">
               {ask ? <Animated.View pointerEvents="none" style={[s.askBubble, { opacity: askFade, transform: [{ translateY: askFade.interpolate({ inputRange: [0, 1], outputRange: [-6, 0] }) }] }]} testID="deck-like-ask"><View style={s.askArrow} /><Text style={s.askText} numberOfLines={1}>{ask}</Text></Animated.View> : null}
-              <View style={[{ flexShrink: 0, maxWidth: '100%' }, compactDeck ? s.headerExtraCompact : null]}>{headerExtra}</View>
+              <View style={[{ flexShrink: 0, maxWidth: '100%' }, desktopSwipeLayout ? s.desktopFeedbackExtra : null, compactDeck ? s.headerExtraCompact : null]}>{headerExtra}</View>
               {likesActive && current && isUuidKey(likeKey(current.id)) ? (() => {
                 const key = likeKey(current.id);
                 const count = trackLikes.counts[key] ?? 0;
@@ -1497,7 +1497,8 @@ const s = StyleSheet.create({
   desktopSourcePill:{minHeight:42,borderRadius:13,borderWidth:1,borderColor:'#8B6CC2',backgroundColor:'#211A30',alignItems:'center',justifyContent:'center',paddingHorizontal:10},
   desktopSourceText:{color:'#E6DAFF',fontSize:12,fontWeight:'900'},
   desktopAutoRow:{marginBottom:5},
-  desktopLikeRow:{flex:0,paddingHorizontal:4,paddingVertical:0,borderBottomWidth:0,alignItems:'center'},
+  desktopLikeRow:{flex:0,flexShrink:1,maxWidth:'55%',flexWrap:'nowrap',gap:6,paddingHorizontal:4,paddingVertical:0,borderBottomWidth:0,alignItems:'center'},
+  desktopFeedbackExtra:{flexShrink:1,maxWidth:'100%'},
   desktopDecisionBand:{paddingTop:6,paddingBottom:8},
   desktopBody:{paddingTop:6},
   desktopDeckArea:{paddingTop:2,paddingBottom:6},
