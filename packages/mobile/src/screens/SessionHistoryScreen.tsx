@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { isCloudProfileRecoverySession, useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { isContinuousTabMusicActive, stopContinuousTabMusic } from '../services/continuousTabMusicSession';
+import { unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { KeepSession } from '../types';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
@@ -87,7 +88,7 @@ export default function SessionHistoryScreen({ navigation }: any) {
 
     return (
       <View style={[styles.card, pendingCount > 0 && styles.cardNeedsSorting]}>
-        <TouchableOpacity style={styles.cardMain} onPress={() => !isLive && navigation.replace('SessionRecap', { sessionId: item.id })} disabled={isLive}>
+        <TouchableOpacity style={styles.cardMain} onPress={() => { if (!isLive) { unlockWebAudioForGesture(); navigation.replace('SessionRecap', { sessionId: item.id, openSwipe: true }); } }} disabled={isLive} accessibilityRole="button" accessibilityLabel={`Écouter immédiatement la session ${autoTitle(item)}`}>
           <View style={styles.cardTop}>
             <Text style={styles.cardTitle} numberOfLines={1}>{autoTitle(item)}</Text>
             <Text style={styles.cardTime}>{time}</Text>
@@ -109,7 +110,7 @@ export default function SessionHistoryScreen({ navigation }: any) {
                 stopContinuousTabMusic();
                 const current = useSessionStore.getState();
                 if (current.isActive && current.sessionId === item.id) current.requestEndSession();
-                navigation.replace('SessionRecap', { sessionId: item.id, openSwipe: pendingCount > 0 });
+                navigation.replace('SessionRecap', { sessionId: item.id, openSwipe: true });
               }}
             >
               <Text style={styles.sortText}>■ ARRÊTER ET {pendingCount > 0 ? 'SWIPER TOUTES' : 'OUVRIR'} · {pendingCount}</Text>
@@ -118,7 +119,7 @@ export default function SessionHistoryScreen({ navigation }: any) {
         ) : null}
         {!isLive ? <View style={styles.cardFooter}>
           {pendingCount > 0 ? (
-            <TouchableOpacity style={styles.sortButton} onPress={() => navigation.replace('SessionRecap', { sessionId: item.id, openSwipe: true })} accessibilityRole="button" accessibilityLabel={`Swiper ${pendingCount} musiques`}>
+            <TouchableOpacity style={styles.sortButton} onPress={() => { unlockWebAudioForGesture(); navigation.replace('SessionRecap', { sessionId: item.id, openSwipe: true }); }} accessibilityRole="button" accessibilityLabel={`Swiper ${pendingCount} musiques`}>
               <Text style={styles.sortText}>SWIPER TOUTES · {pendingCount}</Text>
             </TouchableOpacity>
           ) : null}
