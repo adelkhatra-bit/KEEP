@@ -27,7 +27,7 @@ AS $function$
       or (a.title is not null and a.artist is not null and a.title=b.title and a.artist=b.artist)
     from a cross join b
   ), false);
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.keep_commit_social_free_decision(p_track_id uuid, p_source_profile_id uuid, p_visibility text DEFAULT 'PRIVATE'::text, p_context jsonb DEFAULT '{}'::jsonb)
  RETURNS jsonb
@@ -86,7 +86,7 @@ begin
   return jsonb_build_object('ok', true, 'trackId', p_track_id, 'decisionId', v_row.id, 'createdAt', v_row.created_at,
     'visibility', v_row.visibility, 'deduplicated', false, 'charged', 0, 'social', true, 'sourceProfileId', v_origin);
 end;
-$function$
+$function$;
 
 create or replace function public.keep_check_own_track(p_track_id uuid)
 returns jsonb language plpgsql stable security definer set search_path to 'public','auth' as $check$
