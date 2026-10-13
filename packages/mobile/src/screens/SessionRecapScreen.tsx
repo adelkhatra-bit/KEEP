@@ -39,6 +39,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   const [titleSaved, setTitleSaved] = useState(false);
   const [swipeOpen, setSwipeOpen] = useState(false);
   const [swipeTracks, setSwipeTracks] = useState<CanonicalTrack[]>([]);
+  const [swipePreviewOnly, setSwipePreviewOnly] = useState(false);
   const [firstShareOffered, setFirstShareOffered] = useState(false);
   const [keepCostPerKeep, setKeepCostPerKeep] = useState(3);
 
@@ -111,7 +112,12 @@ export default function SessionRecapScreen({ route, navigation }: any) {
 
   const openSwipe = () => {
     const pending = pendingSwipeTracks.slice();
-    if (!pending.length) return;
+    // Even after every decision is taken, a saved Session must remain
+    // playable with the familiar Swipe deck. In replay mode PASSER/GARDER
+    // cannot modify purchased/kept music or consume FREE.
+    const previewOnly = pending.length === 0;
+    const playable = previewOnly ? sortedTracks.map((entry) => entry.track) : pending;
+    if (!playable.length) return;
     // Adel (20/09/2026) : même correctif que Battle -- débloquer l'élément
     // <audio> partagé PENDANT ce tap pour que la première lecture
     // programmatique du Swipe (arrivant après resolveTrackPreviewUrl, donc
@@ -120,7 +126,8 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     // Snapshot volontaire : le parent met à jour le statut après chaque choix.
     // Garder la liste stable évite le double saut qui obligeait à fermer puis
     // rouvrir le Swipe après PASSER/GARDER.
-    setSwipeTracks(pending);
+    setSwipePreviewOnly(previewOnly);
+    setSwipeTracks(playable);
     setSwipeOpen(true);
   };
 
@@ -268,6 +275,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   const closeSwipe = () => {
     setSwipeOpen(false);
     setSwipeTracks([]);
+    setSwipePreviewOnly(false);
   };
 
   return (
@@ -359,9 +367,9 @@ export default function SessionRecapScreen({ route, navigation }: any) {
       />
 
       <View style={styles.sessionActionsRow}>
-        {pendingCount > 0 ? (
-          <TouchableOpacity style={[styles.compactAction, styles.swipeAction]} onPress={openSwipe} accessibilityRole="button" accessibilityLabel="Swiper la session">
-            <Text style={styles.swipeActionText}>↑ SWIPER / PRÉÉCOUTER · {pendingCount}</Text>
+        {sortedTracks.length > 0 ? (
+          <TouchableOpacity testID="session-swipe-or-replay" style={[styles.compactAction, styles.swipeAction]} onPress={openSwipe} accessibilityRole="button" accessibilityLabel={pendingCount > 0 ? 'Swiper la session et préécouter les morceaux' : 'Réécouter la session dans le Swipe, sans modifier les choix'}>
+            <Text style={styles.swipeActionText}>{pendingCount > 0 ? `↑ SWIPER / PRÉÉCOUTER · ${pendingCount}` : '▶ RÉÉCOUTER EN SWIPE'}</Text>
           </TouchableOpacity>
         ) : null}
         {pendingCount > 0 ? (
@@ -391,11 +399,12 @@ export default function SessionRecapScreen({ route, navigation }: any) {
       <MusicSwipeDeckModal
         visible={swipeOpen}
         tracks={swipeTracks}
-        title="Swiper cette session"
-        subtitle={`${swipeTracks.length} musique${swipeTracks.length > 1 ? 's' : ''} · Préécoute gratuite · Glisse vers le haut pour avancer · PASSER est récupérable.`}
+        title={swipePreviewOnly ? 'Réécouter cette session' : 'Swiper cette session'}
+        subtitle={swipePreviewOnly ? 'Mode préécoute : GARDER/PASSER ne modifie rien. ↑ pour passer au morceau suivant.' : `${swipeTracks.length} musique${swipeTracks.length > 1 ? 's' : ''} · Préécoute gratuite · Glisse vers le haut pour avancer · PASSER est récupérable.`}
         emptyTitle="Swipe terminé. Toutes les musiques ont été validées."
         loop={false}
-        askVisibilityOnKeep
+        previewOnly={swipePreviewOnly}
+        askVisibilityOnKeep={!swipePreviewOnly}
         keepCostNotice={`GARDER ce morceau débitera ${keepCostPerKeep} FREE après ton choix Public ou Privé. PASSER reste gratuit.`}
         keepDebitAmount={keepCostPerKeep}
         onClose={closeSwipe}
