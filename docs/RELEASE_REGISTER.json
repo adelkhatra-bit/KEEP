@@ -1,5 +1,14 @@
 [
   {
+    "commit": "f028cd025fb11fc4097e02f3e90534aef16aef78",
+    "web": "f028cd025fb11fc4097e02f3e90534aef16aef78",
+    "testflight": "iOS #231 success (release 5447724)",
+    "ota": "OTA #1022 success (release 5447724)",
+    "date": "2026-10-13 00:06",
+    "tests": "pass",
+    "changes": "test(stories): guard paid/free labels against artwork overlap"
+  },
+  {
     "commit": "134632f136bae2e7009ab192eb3ba35e02606ca6",
     "web": "134632f136bae2e7009ab192eb3ba35e02606ca6",
     "testflight": "iOS #231 success (release 5447724)",
@@ -349,14 +358,5 @@
     "date": "2026-10-11 18:24",
     "tests": "pass",
     "changes": "release(ios+web): publish verified PR110 on unified TestFlight and desktop source"
-  },
-  {
-    "commit": "d13e0f18c6a429d39bb0a21604abe9c0e5009296",
-    "web": "d13e0f18c6a429d39bb0a21604abe9c0e5009296",
-    "testflight": "iOS #226 success (release bcd5711)",
-    "ota": "OTA #1017 success (release bcd5711)",
-    "date": "2026-10-11 18:17",
-    "tests": "pass",
-    "changes": "release: Loki web/iOS sync, PC countdown, stories and atomic FREE dedup (#110)"
   }
 ]
