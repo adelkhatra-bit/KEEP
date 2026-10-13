@@ -89,6 +89,8 @@ describe('source unique et branches de revue Copilot', () => {
     const pr = { GITHUB_EVENT_NAME: 'pull_request', GITHUB_BASE_REF: canonical, GITHUB_REF_NAME: '84/merge' };
     expect(check('', false, { ...pr, GITHUB_HEAD_REF: 'claude/fix-admin' })).toBe('');
     expect(check('', false, { ...pr, GITHUB_HEAD_REF: 'copilot/fix-stories' })).toBe('');
+    expect(check('', false, { ...pr, GITHUB_HEAD_REF: 'release/sync-ios-web-after-181-20261013' })).toBe('');
+    expect(check('', false, { GITHUB_EVENT_NAME: 'push', GITHUB_REF_NAME: 'release/sync-ios-web-after-181-20261013' })).toContain('WRONG BRANCH');
   });
   it('CI pull_request : refuse une branche hors agent, une base autre que la branche produit (refus), et un push', () => {
     const pr = { GITHUB_EVENT_NAME: 'pull_request', GITHUB_BASE_REF: canonical, GITHUB_REF_NAME: '84/merge' };
