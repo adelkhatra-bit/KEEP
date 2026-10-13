@@ -36,7 +36,8 @@ describe('shared iPhone / desktop Swipe: album art, metadata and exact source pl
 
   it('preserves exact YouTube IDs for source-only personal profile discoveries', () => {
     expect(deck).toContain('const hasCatalogIdentity = Boolean(current.isrc');
-    expect(deck).toContain('if (!current.previewUrl?.trim() && !hasCatalogIdentity');
+    expect(deck).toContain('if (!trackAddedAt && !current.previewUrl?.trim() && !hasCatalogIdentity');
+    expect(deck).toContain('const preferCleanStoryPlayer = true');
     expect(deck).toContain('if (!trackAddedAt) { setSourcePlayerFailed(false); setSourcePlayerOpen(true); }');
     expect(deck).toContain('testID="swipe-exact-source-player"');
     expect(deck).toContain('https://com.adelkhatra.keep');
