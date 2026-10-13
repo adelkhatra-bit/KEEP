@@ -24,6 +24,8 @@ interface Props {
   onPreviewFinished?: () => void;
   /** Lecture automatique uniquement dans une vue focalisée (ex. Écouter/Loki Pulse). */
   autoPlay?: boolean;
+  /** One accessible, full-width preview action on the narrow Session list. */
+  compactPreview?: boolean;
 }
 
 /**
@@ -31,7 +33,7 @@ interface Props {
  * « vient d'être détecté » (HomeScreenCompact) et les lignes d'historique
  * (TrackRow). Chaque bouton représente une vraie DURÉE, jamais un offset.
  */
-export default function TrackListenControls({ track, previewKey, onPreviewFinished, autoPlay = false }: Props) {
+export default function TrackListenControls({ track, previewKey, onPreviewFinished, autoPlay = false, compactPreview = false }: Props) {
   const [previewBusy, setPreviewBusy] = useState(false);
   const [embeddedPlayerOpen, setEmbeddedPlayerOpen] = useState(false);
   const pausedByEmbeddedPlayer = useRef(false);
@@ -43,7 +45,7 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
   // que le fournisseur de reconnaissance ne renvoyait aucun previewUrl/lien
   // externe direct, sans jamais tenter le même repli iTunes déjà utilisé et
   // fonctionnel dans TrackPreviewButton.tsx/MusicSwipeDeckModal.tsx.
-  const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState(track.previewUrl ?? null);
+  const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState(track.previewUrl?.trim() || null);
   const [resolvingPreview, setResolvingPreview] = useState(false);
   const autoStartedKey = useRef<string | null>(null);
 
@@ -89,7 +91,7 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
   };
 
   useEffect(() => {
-    setResolvedPreviewUrl(track.previewUrl ?? null);
+    setResolvedPreviewUrl(track.previewUrl?.trim() || null);
     // Un simple lien de recherche YouTube/TikTok ne constitue pas un extrait
     // jouable dans Loki Music. C'était le bug du mode démo : TrackResolver
     // fournit toujours ces liens de découverte, ce qui empêchait auparavant
@@ -99,6 +101,7 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
     setResolvingPreview(true);
     resolveTrackPreviewUrl(track)
       .then((url) => { if (live) setResolvedPreviewUrl(url); })
+      .catch(() => { if (live) setResolvedPreviewUrl(null); })
       .finally(() => { if (live) setResolvingPreview(false); });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -194,7 +197,18 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
     try {
       await playTrackPreviewSegment(previewKey, resolvedPreviewUrl, 0, durationMillis, resumeListeningOnStop, onPreviewFinished, true);
     } catch {
-      Alert.alert('Extrait indisponible', 'Impossible de lire cet extrait pour le moment.');
+      // A preview returned by a previous session can expire on the CDN.
+      // Refresh the exact artist/title before declaring the sound unavailable.
+      try {
+        const fresh = await resolveTrackPreviewUrl(track, { forceRefresh: true });
+        if (!fresh) throw new Error('NO_FRESH_PREVIEW');
+        setResolvedPreviewUrl(fresh);
+        await stopTrackPreview(previewKey);
+        await playTrackPreviewSegment(previewKey, fresh, 0, durationMillis, resumeListeningOnStop, onPreviewFinished, true);
+      } catch {
+        resumeListeningOnStop(false);
+        Alert.alert('Pré-écoute indisponible', 'Cet extrait ne répond pas. Tu peux encore passer ce titre ou ouvrir sa source officielle.');
+      }
     } finally {
       setPreviewBusy(false);
     }
@@ -252,7 +266,9 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
   return (
     <>
       <View style={styles.previewRow}>
-        {resolvedPreviewUrl ? <>
+        {resolvedPreviewUrl ? compactPreview ? (
+          <TouchableOpacity testID={`session-preview-${previewKey}`} style={[styles.previewPill, styles.sessionPreviewPill]} onPress={() => playSnippet(30000)} disabled={previewBusy} accessibilityRole="button" accessibilityLabel="Pré-écouter 30 secondes de ce morceau"><Text style={[styles.previewText, styles.sessionPreviewText]} numberOfLines={1}>{previewBusy ? 'CHARGEMENT…' : '▶ PRÉ-ÉCOUTER · 30 s'}</Text></TouchableOpacity>
+        ) : <>
           <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(10000)} disabled={previewBusy} accessibilityLabel="Écouter 10 secondes"><Text style={styles.previewText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{previewBusy ? '…' : '▶ 10s'}</Text></TouchableOpacity>
           <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(20000)} disabled={previewBusy} accessibilityLabel="Écouter 20 secondes"><Text style={styles.previewText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>▶ 20s</Text></TouchableOpacity>
           <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(25000)} disabled={previewBusy} accessibilityLabel="Écouter 25 secondes"><Text style={styles.previewText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>▶ 25s</Text></TouchableOpacity>
@@ -305,6 +321,8 @@ const styles = StyleSheet.create({
   previewRow: { flexDirection: 'row', flexWrap: 'nowrap', gap: 6, marginTop: 6, alignSelf: 'stretch' },
   previewPill: { flex: 1, minHeight: minTouchTarget, minWidth: 0, paddingHorizontal: 2, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard, alignItems: 'center', justifyContent: 'center' },
   previewText: { color: colors.textSecondary, fontSize: 12, fontWeight: '800', textAlign: 'center' },
+  sessionPreviewPill: { flexGrow: 1, borderColor: colors.keep, backgroundColor: 'rgba(45,225,194,.09)' },
+  sessionPreviewText: { color: colors.keep, fontSize: 11, fontWeight: '900', letterSpacing: .2 },
   youtubePill: { minHeight: minTouchTarget, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: '#211018', borderWidth: 1, borderColor: '#7A2035', alignItems: 'center', justifyContent: 'center' },
   youtubeText: { color: '#FF6B86', fontSize: 9, fontWeight: '900' },
   audioUnavailable: { color: colors.textMuted, fontSize: 9, marginTop: 5 },
