@@ -47,6 +47,7 @@ import {
 } from '../services/musicStoriesService';
 import { colors } from '../theme/colors';
 import { ownBadgeFor, ownBadgeMessage, pruneExpiredStory } from '../services/storyActivity';
+import { reconcileStoryRefresh } from '../services/storyRefreshReconciliation';
 import { shareReferralLink } from '../services/referralShare';
 import { buildViewerDetail } from '../services/storyViewerDetail';
 import { loadMyLikesAmong, loadLikeCounts, likeKey } from '../services/trackLikesService';
@@ -113,6 +114,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   }, [viewer.id]);
   const [stories, setStories] = useState<MusicStory[]>([]);
   const storiesRef = React.useRef<MusicStory[]>([]);
+  const storyMissingRefreshRef = React.useRef(new Map<string, number>());
   const [reloadTick, setReloadTick] = useState(0);
   const lastBumpRef = React.useRef(0);
   storiesRef.current = stories;
@@ -259,9 +261,17 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
       await Promise.all([bubblesMeta, storiesMeta]);
       if (!live) return;
       // Données complètes : on retire alors les bulles qui ont disparu côté serveur (story expirée, désabonnement).
-      if (!degraded) setStories(Array.from(collected.values()));
-      // Mémoire : 12 membres, 12 musiques chacun au plus (le disque reste léger), et seulement des données complètes.
-      if (!degraded) writeProfileMemory(viewer.id, 'story-rail', Array.from(collected.values()).slice(0, 12).map((story) => ({ ...story, tracks: story.tracks.slice(0, 12) })));
+      if (!degraded) {
+        // An authoritative refresh can temporarily contain zero music stories
+        // if a concurrent source completed before its pins/decisions settled.
+        // Keep an unexpired bubble for just ONE absent full snapshot; two
+        // confirmed misses remove it. Never retain a story past 24 hours.
+        const stable = reconcileStoryRefresh(storiesRef.current, Array.from(collected.values()), storyMissingRefreshRef.current);
+        setStories(stable);
+        void writeProfileMemory(viewer.id, 'story-rail', stable.slice(0, 12).map((story) => ({
+          ...story, tracks: story.tracks.slice(0, 12),
+        })));
+      }
       if (!activityFailed) setActivityKnown(true);
       // Une seule nouvelle tentative, 6 s plus tard, si une branche a échoué (jamais de boucle : règle de résilience de connexion).
       if (degraded && attempt === 0 && live) retryTimer = setTimeout(() => { if (live) void run(1); }, 6000);
@@ -304,7 +314,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     const refreshEvents = () => {
       void loadEventStories().then((rows) => {
         if (mounted) setEventStories(rows.filter((item) => eventStoryStillVisible(item)));
-      }).catch(() => { if (mounted) setEventStories([]); });
+      }).catch(() => { if (mounted) setEventStories((current) => current.filter((event) => eventStoryStillVisible(event))); });
     };
     refreshEvents();
     const interval = setInterval(refreshEvents, 60000);
