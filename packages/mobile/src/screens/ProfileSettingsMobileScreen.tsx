@@ -1,5 +1,5 @@
 import { openProblemReport } from '../services/problemReportService';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { useUserStore } from '../store/useUserStore';
@@ -44,6 +44,20 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
   const [avatar, setAvatar] = useState(user?.avatar ?? '');
   const [birthDate, setBirthDate] = useState(user?.privateInfo.birthDate ?? '');
   const [gender, setGender] = useState<GenderOption | undefined>(user?.privateInfo.gender);
+  const editedBirthDateRef = useRef(false);
+  const editedGenderRef = useRef(false);
+  const editingProfileIdRef = useRef(user?.id);
+  // Date/genre arrivent après le profil principal : actualiser les champs
+  // tant que l'utilisateur n'y a pas touché, sans écraser une saisie en cours.
+  useEffect(() => {
+    if (editingProfileIdRef.current !== user?.id) {
+      editingProfileIdRef.current = user?.id;
+      editedBirthDateRef.current = false;
+      editedGenderRef.current = false;
+    }
+    if (!editedBirthDateRef.current) setBirthDate(user?.privateInfo?.birthDate ?? '');
+    if (!editedGenderRef.current) setGender(user?.privateInfo?.gender);
+  }, [user?.id, user?.privateInfo?.birthDate, user?.privateInfo?.gender]);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [sessionBusy, setSessionBusy] = useState(false);
@@ -137,7 +151,14 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
       if (isLocalGuest) {
         await stageGuestProfileForUpgrade(nextUser);
       } else if (supabase && !isDemoMode) {
-        await createProfileService(supabase).saveOwnProfile(nextUser, { allowClearing: true, preserveUneditedCollections: true });
+        await createProfileService(supabase).saveOwnProfile(nextUser, {
+          allowClearing: true,
+          preserveUneditedCollections: true,
+          preserveUneditedPrivateFields: {
+            birthDate: !editedBirthDateRef.current,
+            gender: !editedGenderRef.current,
+          },
+        });
         if (locationEdited) {
           const { error: locationError } = await supabase.from('profiles').update({
             city: nextUser.city ?? null,
@@ -151,6 +172,16 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
       }
       // Never show optimistic profile changes as saved when Supabase refused
       // the update: the store reflects the confirmed save only.
+      // An extras fetch may finish while Save is in flight. Keep its private
+      // values in the local store instead of replacing them with stale drafts.
+      const newestUser = useUserStore.getState().user;
+      if (newestUser?.id === nextUser.id) {
+        nextUser.privateInfo = {
+          ...nextUser.privateInfo,
+          birthDate: editedBirthDateRef.current ? nextUser.privateInfo.birthDate : (newestUser.privateInfo.birthDate ?? nextUser.privateInfo.birthDate),
+          gender: editedGenderRef.current ? nextUser.privateInfo.gender : (newestUser.privateInfo.gender ?? nextUser.privateInfo.gender),
+        };
+      }
       setUser(nextUser);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
@@ -241,6 +272,7 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
   const confirmDate = () => {
     const maxDay = new Date(dateDraft.year, dateDraft.month, 0).getDate();
     const safeDay = Math.min(dateDraft.day, maxDay);
+    editedBirthDateRef.current = true;
     setBirthDate(`${dateDraft.year}-${String(dateDraft.month).padStart(2,'0')}-${String(safeDay).padStart(2,'0')}`);
     setDateOpen(false);
   };
@@ -295,7 +327,7 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
         <Selector label="Date de naissance" value={birthDate || 'Choisir une date'} onPress={() => { if (accountRequired) return requireAccount(); setDateDraft({ year: parsed.year, month: parsed.month, day: parsed.day }); setDateOpen(true); }} />
         <Text style={s.hint}>Utilisée seulement si tu veux activer les filtres d'âge et événements 18+.</Text>
         <Text style={[s.label,{marginTop:18}]}>Genre</Text>
-        <View style={s.genderWrap}>{GENDERS.map((item) => <TouchableOpacity key={item.key} style={[s.genderChip, gender===item.key&&s.genderChipActive, item.key==='FEMALE'&&gender===item.key&&s.genderChipPink]} onPress={()=>accountRequired ? requireAccount() : setGender(item.key)}><Text style={[s.genderText,gender===item.key&&s.genderTextActive]}>{item.label}</Text></TouchableOpacity>)}</View>
+        <View style={s.genderWrap}>{GENDERS.map((item) => <TouchableOpacity key={item.key} style={[s.genderChip, gender===item.key&&s.genderChipActive, item.key==='FEMALE'&&gender===item.key&&s.genderChipPink]} onPress={()=>{ if (accountRequired) return requireAccount(); editedGenderRef.current = true; setGender(item.key); }}><Text style={[s.genderText,gender===item.key&&s.genderTextActive]}>{item.label}</Text></TouchableOpacity>)}</View>
         <View style={[s.themeChoice, gender==='FEMALE' ? s.themeChoicePink : s.themeChoiceDark]}>
           <Text style={s.themeChoiceTitle}>Style de l’app · {gender==='FEMALE' ? 'Rose nuit' : 'Sombre Loki'}</Text>
           <Text style={s.themeChoiceText}>{gender==='FEMALE' ? 'Après enregistrement, Loki prend des accents roses tout en gardant les mêmes boutons et fonctions.' : 'Le design sombre Loki reste exactement comme aujourd’hui.'}</Text>
