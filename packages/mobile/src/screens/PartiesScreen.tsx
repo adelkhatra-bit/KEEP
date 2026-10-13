@@ -146,8 +146,13 @@ function LivePulseBadge() {
 
 export default function PartiesScreen({ navigation, route }: any) {
   const { isDesktop: desktopParties, width: partyViewportWidth, height: partyViewportHeight } = useLayoutMode();
-  // Les panneaux latéraux remplissent le bureau dès qu'ils peuvent entourer sans chevauchement le jeu iPhone de 430 px.
-  const desktopBattleWide = desktopParties && partyViewportWidth >= 1024 && partyViewportHeight >= 550;
+  const routeParamsRef = useRef(route?.params);
+  routeParamsRef.current = route?.params;
+  // Les panneaux latéraux encadrent le plateau desktop uniquement quand ils
+  // tiennent sans recouvrir les actions au centre.
+  // Les panneaux latéraux ne s'affichent que lorsque la zone centrale garde
+  // assez de largeur ; les fenêtres PC plus étroites utilisent toute la scène.
+  const desktopBattleWide = desktopParties && partyViewportWidth >= 1800 && partyViewportHeight >= 550;
   const user = useUserStore((s) => s.user);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
@@ -269,6 +274,7 @@ export default function PartiesScreen({ navigation, route }: any) {
   // deviennent deux onglets séparés au lieu d'un lanceur mélangé dans le
   // flux des événements ; Soirées reste l'onglet par défaut.
   const [partiesTab, setPartiesTab] = useState<'SOIREES' | 'BATTLE'>('SOIREES');
+  const skipNextBattleAutoResumeRef = useRef(false);
   // Un joueur qui possède encore un siège ACTIVE côté serveur ne doit jamais
   // avoir à chercher où est passé son Battle. Au montage et à chaque retour
   // sur l'onglet Soirées, on relit la vérité serveur puis on rouvre
@@ -278,12 +284,14 @@ export default function PartiesScreen({ navigation, route }: any) {
     if (!battleFeatureEnabled || !user?.id || isLocalGuest || isDemoMode) return undefined;
     let live = true;
     const resumeActiveArena = async () => {
+      if (routeParamsRef.current?.returnToSoireesRequestId) return;
+      if (skipNextBattleAutoResumeRef.current) return;
       const active = await loadMyActiveKeepBattleArena().catch(() => null);
       // Ne jamais forcer un ancien lobby WAITING par-dessus le SOLO. Le retour
       // automatique est réservé à un match réellement lancé. Un salon WAITING
       // reste accessible depuis l'onglet Battle mais ne prend pas le contrôle
       // de l'écran ni de la session Solo.
-      if (!live || !active?.id || active.status !== 'ACTIVE' || active.me?.status !== 'ACTIVE') return;
+      if (!live || skipNextBattleAutoResumeRef.current || routeParamsRef.current?.returnToSoireesRequestId || !active?.id || active.status !== 'ACTIVE' || active.me?.status !== 'ACTIVE') return;
       setPendingArenaId(active.id);
       setPartiesTab('BATTLE');
       setBattleOpen(true);
@@ -300,7 +308,7 @@ export default function PartiesScreen({ navigation, route }: any) {
       live = false;
       unsubscribe?.();
     };
-  }, [battleFeatureEnabled, isDemoMode, isLocalGuest, navigation, user?.id]);
+  }, [battleFeatureEnabled, isDemoMode, isLocalGuest, user?.id]);
   // Adel (30/09/2026) : le bouton Battle du haut ouvre directement le vrai
   // Battle. Le classement global reste disponible séparément, replié dans
   // Soirées, sans écran/lanceur intermédiaire.
@@ -677,6 +685,23 @@ export default function PartiesScreen({ navigation, route }: any) {
   };
 
   useEffect(() => { void reload(); }, [user?.id, isLocalGuest, isDemoMode]);
+  useEffect(() => {
+    const requestId = route?.params?.returnToSoireesRequestId;
+    if (!requestId) return;
+    // L’onglet global Soirées doit ramener à son écran d’accueil, même si
+    // Battle/une arène était ouvert. La partie en ligne reste côté serveur ;
+    // elle pourra être reprise en revenant explicitement sur Battle.
+    skipNextBattleAutoResumeRef.current = true;
+    setPartiesTab('SOIREES');
+    setPartyHome(true);
+    setPartySection('EVENT');
+    setEventTab('LOBBY');
+    setEventViewMode('ALL');
+    setEventIndex(0);
+    setBattleOpen(false);
+    navigation.setParams?.({ returnToSoireesRequestId: undefined });
+  }, [navigation, route?.params?.returnToSoireesRequestId]);
+
   useEffect(() => {
     const openBattle = Boolean(route?.params?.openBattle);
     const openRanking = Boolean(route?.params?.openBattleRanking);
@@ -1548,19 +1573,19 @@ export default function PartiesScreen({ navigation, route }: any) {
       <View style={styles.partiesTabs} accessibilityLabel="Choisir Soirées ou Battle">
         <TouchableOpacity
           style={[styles.partiesTabBtn, partiesTab === 'SOIREES' && styles.partiesTabBtnOn]}
-          onPress={() => { setPartiesTab('SOIREES'); setPartyHome(true); setBattleOpen(false); }}
+          onPress={() => { setPartiesTab('SOIREES'); setPartyHome(true); setEventViewMode('ALL'); setEventIndex(0); setBattleOpen(false); }}
           accessibilityRole="button"
           accessibilityLabel="Ouvrir Soirées"
         >
           <Text style={[styles.partiesTabText, partiesTab === 'SOIREES' && styles.partiesTabTextOn]}>SOIRÉES</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.partiesTabBtn}
-          onPress={() => { setPendingArenaId(undefined); setBattleOpen(true); }}
+          style={[styles.partiesTabBtn, partiesTab === 'BATTLE' && styles.partiesTabBtnOn]}
+          onPress={() => { skipNextBattleAutoResumeRef.current = false; setPartiesTab('BATTLE'); setBattleOpen(true); }}
           accessibilityRole="button"
           accessibilityLabel="Ouvrir directement Battle"
         >
-          <Text style={styles.partiesTabText}>BATTLE</Text>
+          <Text style={[styles.partiesTabText, partiesTab === 'BATTLE' && styles.partiesTabTextOn]}>BATTLE</Text>
         </TouchableOpacity>
       </View>
       
@@ -2092,7 +2117,7 @@ eventStoryInfo:{width:'100%',flexBasis:'100%',minHeight:72,paddingHorizontal:14,
 eventStoryInfoTitle:{color:colors.primaryLight,fontWeight:'900',fontSize:12,letterSpacing:.4},
 eventStoryInfoText:{color:colors.textPrimary,fontWeight:'600',fontSize:12,lineHeight:18},
 desktopBattleFullscreen:{flex:1,width:'100%',minHeight:0,overflow:'hidden',borderRadius:0,borderWidth:0,margin:0,padding:0,backgroundColor:'#251736',alignItems:'center',justifyContent:'center'},
-desktopBattleSide:{position:'absolute',top:52,width:'18%',maxWidth:250,borderRadius:18,borderWidth:1,borderColor:'rgba(167,139,250,.35)',backgroundColor:'rgba(20,13,36,.82)',padding:12,gap:8},
+desktopBattleSide:{position:'absolute',top:52,width:'16%',maxWidth:220,borderRadius:18,borderWidth:1,borderColor:'rgba(167,139,250,.35)',backgroundColor:'rgba(20,13,36,.82)',padding:12,gap:8},
 desktopBattleLeft:{left:14},
 desktopBattleRight:{right:14},
 desktopBattleKicker:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:1},

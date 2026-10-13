@@ -135,6 +135,19 @@ jobs:
           sleep 2
           node scripts/web-visible-surface-gate.cjs http://127.0.0.1:8765/KEEP
 
+      - name: Verify repeated Soirees return and desktop Battle layout
+        env:
+          LOKI_PROOF_DIR: soirees-browser-proof
+        run: node scripts/test-soirees-navigation-browser.cjs http://127.0.0.1:8765/KEEP
+
+      - name: Save Soirees desktop and mobile screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: soirees-browser-proof
+          path: soirees-browser-proof/
+          if-no-files-found: ignore
+
       - name: Export iOS bundle
         working-directory: packages/mobile
         run: npx expo export --platform ios --output-dir dist-ios

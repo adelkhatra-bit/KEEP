@@ -45,7 +45,7 @@ const protectedShell = {
   // DESKTOP_CONTENT_MAX_WIDTH uniquement lorsque l'onglet Parties est actif.
   // Le shell, les cinq onglets, le parcours mobile et le garde de sortie Battle
   // restent inchangés. Guard + tests navigateur 1024/1440/1920.
-  'packages/mobile/src/navigation/Navigation.tsx': '86ddb200ccbf09673078e5e402e23162bec38857',
+  'packages/mobile/src/navigation/Navigation.tsx': 'c022f3e70a3cfa781c2d1639378f6bbc64ecde49',
 };
 for (const [rel, expected] of Object.entries(protectedShell)) {
   const actual = blob(rel);
