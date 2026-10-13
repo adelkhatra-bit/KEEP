@@ -1214,7 +1214,7 @@ export default function MusicSwipeDeckModal({
   return <KeepModal visible={visible} animationType="slide" onRequestClose={() => { void close(); }} presentationStyle="fullScreen">
     <View style={[s.outer, desktopSwipeLayout && s.desktopOuter]} testID="story-viewport">
     <SafeAreaView style={[s.container, desktopSwipeLayout && s.desktopPlayer, desktopSwipeLayout && { height: Math.max(410, windowHeight - 32) }]} testID="story-player">
-      <View style={[s.header, desktopSwipeLayout && compactDeck && s.desktopHeaderCompact]}>
+      <View style={[s.header, desktopSwipeLayout && s.desktopHeaderCompact]}>
         <View style={s.headerText}>
           <Text style={s.eyebrow}>Loki Music SWIPE</Text>
           <View style={s.titleRow}>{onTitlePress ? <TouchableOpacity onPress={onTitlePress} accessibilityRole="button" accessibilityLabel={`Voir la fiche : ${title}`} testID="deck-title-profile" style={{ flexShrink: 1 }}><Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title} ›</Text></TouchableOpacity> : <Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title}</Text>}{titleBadge ? <View style={s.titleBadge}>{titleBadge}</View> : null}</View>
@@ -1297,12 +1297,12 @@ export default function MusicSwipeDeckModal({
                 </View>
                 <View style={[s.gradientFake, compactDeck && s.gradientCompact, storyEmbeddedSource && s.gradientStoryEmbed]} testID="swipe-metadata-below-artwork">
                   {!desktopSwipeLayout && currentSourceUsername ? <TouchableOpacity style={s.sourceOverlay} onPress={() => setSourceQuick(currentSourceUsername.replace(/^@/, ''))} disabled={!onOpenSourceProfile} accessibilityLabel={`Découvert par ${currentSourceUsername.replace(/^@/, '')}. Ouvrir son profil`}><GlowRing radius={14} testID="deck-source-glow" /><Text style={s.sourceOverlayText} numberOfLines={1}>Découvert par @{currentSourceUsername.replace(/^@/, '')}</Text></TouchableOpacity> : null}
-                  <View style={s.autoRow}>
+                  <View style={[s.autoRow, desktopSwipeLayout && s.desktopAutoRow]}>
                     <View style={[s.dot,resolvedPreviewUrl ? s.dotOn : s.dotOff]} />
                     <Text style={s.autoText} numberOfLines={2}>{previewLabel}</Text>
-                    <TouchableOpacity testID="swipe-next-without-gesture" accessibilityRole="button" accessibilityLabel="Morceau suivant" style={s.nextInlineButton} disabled={controlsLocked} onPress={() => { void advance(); }}>
+                    {!desktopSwipeLayout ? <TouchableOpacity testID="swipe-next-without-gesture" accessibilityRole="button" accessibilityLabel="Morceau suivant" style={s.nextInlineButton} disabled={controlsLocked} onPress={() => { void advance(); }}>
                       <Text style={s.nextInlineText}>↑ SUIVANT</Text>
-                    </TouchableOpacity>
+                    </TouchableOpacity> : null}
                   </View>
                   {!resolvedPreviewUrl && !previewResolving && sourcePlayer && !sourcePlayerOpen && !isSaleStoryTrack(current) ? (
                     <TouchableOpacity testID="story-open-source-player" style={s.manualPlayButton} accessibilityRole="button" accessibilityLabel="Écouter la vidéo originale dans Loki Music" onPress={() => {
@@ -1328,16 +1328,15 @@ export default function MusicSwipeDeckModal({
           </View>
 
 
-          {desktopSwipeLayout && currentSourceUsername && onOpenSourceProfile ? <TouchableOpacity style={s.sourceProfileButton} onPress={() => setSourceQuick(currentSourceUsername.replace(/^@/, ''))} accessibilityLabel={`Voir le profil du premier découvreur ${currentSourceUsername.replace(/^@/, '')}`}><GlowRing radius={21} testID="deck-source-button-glow" /><Text style={s.sourceProfileButtonText}>◎ DÉCOUVERT PAR @{currentSourceUsername.replace(/^@/, '')} · VOIR / SUIVRE</Text></TouchableOpacity> : null}
-          {renderStoryAdd('main')}
+          {!desktopSwipeLayout ? renderStoryAdd('main') : null}
                     <View style={s.decisionBand}>
             <View style={s.decisionRow}>
               <TouchableOpacity style={[s.decisionButton, s.passButton]} onPress={() => { void pass(); }} disabled={controlsLocked} accessibilityLabel="Passer cette musique">
                 <Text style={s.passButtonText}>PASSER</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[s.decisionButton, s.backDecisionButton]} onPress={() => { void close(); }} disabled={controlsLocked} accessibilityLabel="Arrêter l’écoute et revenir">
+              {!desktopSwipeLayout ? <TouchableOpacity style={[s.decisionButton, s.backDecisionButton]} onPress={() => { void close(); }} disabled={controlsLocked} accessibilityLabel="Arrêter l’écoute et revenir">
                 <Text style={s.backDecisionText}>ARRÊTER</Text>
-              </TouchableOpacity>
+              </TouchableOpacity> : null}
               <TouchableOpacity
                 style={[s.decisionButton, s.keepButton, currentAlreadyKept && s.keepButtonAlready]}
                 onPress={() => { void requestKeep(); }}
@@ -1348,8 +1347,8 @@ export default function MusicSwipeDeckModal({
               </TouchableOpacity>
             </View>
           </View>
-          {fullTrackDestination && fullListenLocked ? <Text style={s.fullTrackLocked} accessibilityLabel="Écoute complète disponible après GARDER">🔒 Écoute complète disponible après GARDER</Text> : null}
-          {fullTrackDestination && !fullListenLocked ? <TouchableOpacity style={s.fullTrackButton} onPress={openFullTrack} accessibilityLabel={fullTrackDestination.label}><Text style={s.fullTrackButtonText}>↗ {fullTrackDestination.label}</Text></TouchableOpacity> : null}
+          {!desktopSwipeLayout && fullTrackDestination && fullListenLocked ? <Text style={s.fullTrackLocked} accessibilityLabel="Écoute complète disponible après GARDER">🔒 Écoute complète disponible après GARDER</Text> : null}
+          {!desktopSwipeLayout && fullTrackDestination && !fullListenLocked ? <TouchableOpacity style={s.fullTrackButton} onPress={openFullTrack} accessibilityLabel={fullTrackDestination.label}><Text style={s.fullTrackButtonText}>↗ {fullTrackDestination.label}</Text></TouchableOpacity> : null}
         </>}
       </View>
 
@@ -1434,8 +1433,8 @@ export default function MusicSwipeDeckModal({
         <View style={s.desktopAsideDot} />
         <Text style={s.desktopAsideKicker}>LOKI MUSIC · {trackAddedAt ? 'STORY LIVE' : 'SWIPE IMMERSIF'}</Text>
       </View>
-      <Text style={s.desktopAsideTitle}>{trackAddedAt ? 'Une Story, une découverte.' : 'Découvre ton prochain son.'}</Text>
-      <Text style={s.desktopAsideBody}>Écoute, ressens, passe ou garde. Ton expérience musicale reste synchronisée avec ton profil.</Text>
+      <Text style={s.desktopAsideTitle}>{trackAddedAt ? 'Story' : 'Swipe'}</Text>
+      <Text style={s.desktopAsideBody}>← Passer · → Garder · ↑ Suivant</Text>
       <View style={s.desktopAsideDivider} />
       {current ? <View testID="desktop-story-now-playing" style={s.desktopNowPlaying}>
         {current.artworkUrl && !ownerMasked && !isSaleStoryTrack(current)
@@ -1454,16 +1453,9 @@ export default function MusicSwipeDeckModal({
         accessibilityRole="button" accessibilityLabel="Écouter le morceau suivant" style={s.desktopNextButton}>
         <Text style={s.desktopNextText}>↑ MORCEAU SUIVANT</Text>
       </TouchableOpacity> : null}
-      <Text style={s.desktopAsideSection}>À TOI DE CHOISIR</Text>
-      <View style={s.desktopTips}>
-        <Text style={s.desktopAsideHint}>← PASSER   ·   GARDER →</Text>
-        <Text style={s.desktopAsideHint}>↑ Le morceau suivant</Text>
-        <Text style={s.desktopAsideHint}>▶ Préécoute sans quitter Loki</Text>
-      </View>
-      <View style={s.desktopAsideDivider} />
-      <Text style={s.desktopAsideFoot}>{trackAddedAt
-        ? 'Story de 24 h. Un extrait peut être indisponible si son fournisseur ne permet pas la diffusion sans publicité.'
-        : 'Le Swipe conserve tes décisions. Un morceau indisponible ne bloque pas la découverte.'}</Text>
+      {currentSourceUsername && onOpenSourceProfile ? <TouchableOpacity testID="desktop-short-discoverer" style={s.desktopSourcePill} onPress={() => setSourceQuick(currentSourceUsername.replace(/^@/, ''))} accessibilityRole="button" accessibilityLabel={`Voir le profil du découvreur @${currentSourceUsername.replace(/^@/, '')}`}><Text style={s.desktopSourceText} numberOfLines={1}>◎ @${currentSourceUsername.replace(/^@/, '')} · PROFIL</Text></TouchableOpacity> : null}
+      {renderStoryAdd('main')}
+      {fullTrackDestination && !fullListenLocked ? <TouchableOpacity style={s.desktopSourcePill} onPress={openFullTrack} accessibilityRole="button" accessibilityLabel={fullTrackDestination.label}><Text style={s.desktopSourceText} numberOfLines={1}>↗ SOURCE</Text></TouchableOpacity> : null}
     </View> : null}
     </View>
   <ChatDockHost active={visible} />
@@ -1475,9 +1467,16 @@ const s = StyleSheet.create({
   desktopOuter:{flexDirection:'row',justifyContent:'center',alignItems:'center',paddingHorizontal:24,paddingVertical:16,gap:22,backgroundColor:'#0B0713'},
   // RN Web: `flex:1` + `flexGrow:0` without a fixed height collapses the
   // modal child to zero, leaving the Story header halfway down the viewport.
-  desktopPlayer:{flex:0,flexBasis:'auto',flexGrow:0,flexShrink:0,width:560,maxWidth:'57%',minHeight:0,overflow:'hidden',borderWidth:1.5,borderColor:'#7E5AB8',borderRadius:26,backgroundColor:'#110D1D',shadowColor:'#A78BFA',shadowOpacity:.24,shadowRadius:28,shadowOffset:{width:0,height:10}},
-  desktopHeaderCompact:{minHeight:68,paddingVertical:8},
-  desktopStoryAside:{width:350,maxWidth:'38%',minHeight:420,maxHeight:'97%',alignSelf:'center',backgroundColor:'#171020',borderWidth:1.5,borderColor:'#604787',borderRadius:24,padding:26,gap:14,justifyContent:'center'},
+  desktopPlayer:{flex:0,flexBasis:'auto',flexGrow:0,flexShrink:0,width:690,maxWidth:'65%',minHeight:0,overflow:'hidden',borderWidth:1.5,borderColor:'#7E5AB8',borderRadius:26,backgroundColor:'#110D1D',shadowColor:'#A78BFA',shadowOpacity:.24,shadowRadius:28,shadowOffset:{width:0,height:10}},
+  desktopHeaderCompact:{minHeight:62,paddingVertical:8},
+  desktopStoryAside:{width:270,maxWidth:'32%',minHeight:340,maxHeight:'94%',alignSelf:'center',backgroundColor:'#171020',borderWidth:1.5,borderColor:'#604787',borderRadius:24,padding:18,gap:10,justifyContent:'center'},
+  desktopSourcePill:{minHeight:42,borderRadius:13,borderWidth:1,borderColor:'#8B6CC2',backgroundColor:'#211A30',alignItems:'center',justifyContent:'center',paddingHorizontal:10},
+  desktopSourceText:{color:'#E6DAFF',fontSize:12,fontWeight:'900'},
+  desktopAutoRow:{marginBottom:5},
+  desktopLikeRow:{flex:0,paddingHorizontal:4,paddingVertical:0,borderBottomWidth:0,alignItems:'center'},
+  desktopDecisionBand:{paddingTop:6,paddingBottom:8},
+  desktopBody:{paddingTop:6},
+  desktopDeckArea:{paddingTop:2,paddingBottom:6},
   desktopAsideKicker:{color:'#D5C4FF',fontSize:11,fontWeight:'900',letterSpacing:1.4},
   desktopAsideBrandRow:{flexDirection:'row',alignItems:'center',gap:9},desktopAsideDot:{width:9,height:9,borderRadius:5,backgroundColor:'#68F2B1',shadowColor:'#68F2B1',shadowOpacity:.9,shadowRadius:10},
   desktopNowPlaying:{flexDirection:'row',gap:12,alignItems:'center',padding:12,borderRadius:18,backgroundColor:'#231936',borderWidth:1,borderColor:'#604787'},
