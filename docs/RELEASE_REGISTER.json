@@ -1,5 +1,14 @@
 [
   {
+    "commit": "2b36c5caf2a1112490207b2e320b78eb139f0851",
+    "web": "2b36c5caf2a1112490207b2e320b78eb139f0851",
+    "testflight": "iOS #234 success (release f8eacf5)",
+    "ota": "OTA #1025 success (release f8eacf5)",
+    "date": "2026-10-13 17:06",
+    "tests": "pass",
+    "changes": "fix(swipe/iOS+PC): débloquer le Swipe et les extraits silencieux (#172)"
+  },
+  {
     "commit": "70d1b4a28080e4c5f354ec5938934ed19e2736af",
     "web": "70d1b4a28080e4c5f354ec5938934ed19e2736af",
     "testflight": "iOS #234 success (release f8eacf5)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 12:50",
     "tests": "pass",
     "changes": "fix(web): afficher les corrections publiées sans quitter l’onglet PC (#148)"
-  },
-  {
-    "commit": "0acadc67dca169af471652c4315a3067233ebea2",
-    "web": "0acadc67dca169af471652c4315a3067233ebea2",
-    "testflight": "iOS #229 in_progress (release a18e390)",
-    "ota": "OTA #1020 in_progress (release a18e390)",
-    "date": "2026-10-12 12:43",
-    "tests": "pass",
-    "changes": "fix(listen): supprimer enfin RESTANTES et réduire le bandeau (rebasé) (#145)"
   }
 ]
