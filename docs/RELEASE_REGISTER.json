@@ -1,5 +1,14 @@
 [
   {
+    "commit": "404f6694966f087e2f7433e689b4bf340815531a",
+    "web": "404f6694966f087e2f7433e689b4bf340815531a",
+    "testflight": "iOS #234 in_progress (release f8eacf5)",
+    "ota": "OTA #1025 in_progress (release f8eacf5)",
+    "date": "2026-10-13 16:29",
+    "tests": "pass",
+    "changes": "fix(solo): réponses difficiles par pays d’origine vérifié, genre et époque (#169)"
+  },
+  {
     "commit": "f8eacf5396d262e939fd7bb12b38a33e4eb0cb5f",
     "web": "f8eacf5396d262e939fd7bb12b38a33e4eb0cb5f",
     "testflight": "iOS #234 in_progress (release f8eacf5)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 12:34",
     "tests": "pass",
     "changes": "release(ios): trigger TestFlight and OTA for merged PR116 web/mobile updates"
-  },
-  {
-    "commit": "5aa0413ac18a694532b52c0ccb400b3f82734940",
-    "web": "5aa0413ac18a694532b52c0ccb400b3f82734940",
-    "testflight": "iOS #228 success (release f8dbd60)",
-    "ota": "OTA #1019 success (release f8dbd60)",
-    "date": "2026-10-12 12:16",
-    "tests": "pass",
-    "changes": "build(deps): bump actions/configure-pages from 5.0.0 to 6.0.0 (#130)"
   }
 ]
