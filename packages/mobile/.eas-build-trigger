@@ -54,3 +54,4 @@ release: Stories partage musical — aperçu automatique 30 s, vues uniques et m
 release: 2026-10-13 — PR158 QR attend session Supabase, refus jumelage sans deconnexion ; source officielle cbacd1ac0d02f45fafed727318f0eb33c2274f6c
 release: 2026-10-13 — PR161 protection naissance/genre Supabase et PR162 suppression ancienne modale GARDER, sans changement de design; build natif + OTA liés au même SHA
 release: 2026-10-13 — PR167 erreur YouTube 153 Story/iPhone + carte Swipe sans chevauchement + réparation aperçu et test mobile/PC (CI validée)
+release: 2026-10-13 — PR181 immersive Swipe source exact @adel4A, jaquette sans superposition, Story stable, PC/iOS CI verte; PR178 Sessions et PR180 Pulse déjà fusionnées
