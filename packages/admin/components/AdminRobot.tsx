@@ -23,7 +23,7 @@ export const ROBOT_HELP: Record<string, string> = {
   '/plans': 'Prix des formules, FREE offerts et quotas.',
   '/costs': 'Revenus et coûts, séparés par pays et devise.',
   '/marketplace': 'Ventes de playlists et de billets.',
-  '/music-brain': 'Styles, Vibes et rangement automatique de la musique.',
+  '/music-brain': 'Styles et rangement automatique de la musique.',
   '/integrations': 'Coller et contrôler les clés des services.',
   '/email-test': 'Envoyer un e-mail de test.',
   '/operations': 'Santé et coût des services payants.',

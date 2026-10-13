@@ -33,7 +33,7 @@ type QuotaResponse = { guestLimit?: number; signupBonus?: number; usageLimits?: 
 // manquer -- désormais écrite en toutes lettres dans l'intitulé de colonne.
 const LIMIT_COLUMNS: Array<{ key: LimitKey; label: string; help: string }> = [
   { key: 'discovery_profiles_lifetime', label: 'Découvertes', help: 'À vie, une seule fois. Profils uniques accessibles au total, jamais renouvelé. ∞ = illimité.' },
-  { key: 'smart_sort_trials_lifetime', label: 'Vibes', help: 'À vie, une seule fois. Essais de rangement automatique au total, jamais renouvelé. ∞ = illimité.' },
+  { key: 'smart_sort_trials_lifetime', label: 'Styles', help: 'À vie, une seule fois. Essais de rangement automatique au total, jamais renouvelé. ∞ = illimité.' },
   { key: 'listens_per_day', label: 'Écoutes', help: 'Écoutes reconnues (chaque jour) : reconnaissances réussies incluses ; au-delà, une reconnaissance réussie coûte 1 FREE. Une reconnaissance ratée ne coûte rien.' },
   { key: 'downloads_per_day', label: 'Téléch.', help: 'Chaque jour. Téléchargements autorisés, remis à zéro chaque jour. ∞ = illimité.' },
   { key: 'events_per_month', label: 'Soirées', help: 'Chaque mois. Créations de soirées autorisées, remis à zéro chaque mois. ∞ = illimité.' },
@@ -57,6 +57,11 @@ function mapPlan(plan: ApiPlan): PlanRow {
   };
 }
 
+interface FreePack { productId: string; freeAmount: number; isActive: boolean; }
+const PACK_FREE_AMOUNTS = [10, 30, 50, 100, 200, 300, 500, 1000];
+// Le prix d'une recharge est celui d'Apple / Google : on lit ici seulement le contenu (FREE crédités) et l'état.
+const packLabel = (id: string) => id.replace('com.adelkhatra.keep.', '');
+
 const PLAN_ICON: Record<string, string> = { PREMIUM: '⭐', CREATOR_PRO: '🎤', VENUE_PRO: '🏛️' };
 // Mêmes noms que l’écran Offres de l’app (OffersScreen.planLabel) : l’admin lit exactement ce que voit l’utilisateur.
 const planName = (code: string) => (code === 'CREATOR_PRO' ? 'Creator Pro' : code === 'VENUE_PRO' ? 'Venue Pro' : code === 'PREMIUM' ? 'Premium' : code === 'FREE' ? 'Free' : code.replace(/_/g, ' '));
@@ -79,6 +84,9 @@ export default function Plans() {
   // 07/10/2026 : le « ? » de chaque colonne ouvre la fenêtre partagée (Hint) ; avant d'enregistrer, une fenêtre liste chaque changement.
   const [snapshot, setSnapshot] = useState<string>('');
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [packs, setPacks] = useState<FreePack[]>([]);
+  const [packSaving, setPackSaving] = useState<string | null>(null);
+  const [packError, setPackError] = useState<string | null>(null);
   const cardsRef = useRef<HTMLDivElement>(null);
   const slide = (dir: 1 | -1) => cardsRef.current?.scrollBy({ left: dir * 260, behavior: 'smooth' });
 
@@ -98,6 +106,9 @@ export default function Plans() {
         nextLimits[item.planCode] = { ...(nextLimits[item.planCode] ?? {}), [item.limitKey]: item.limitValue };
       }
       setLimits(nextLimits);
+      const packResult = await supabase.rpc('admin_list_iap_free_products');
+      setPacks(packResult.error ? [] : ((packResult.data ?? []) as FreePack[]));
+      setPackError(packResult.error ? 'Recharges FREE indisponibles (migration non appliquée ?) : ' + packResult.error.message : null);
       setSnapshot(JSON.stringify({ plans: ((response?.data ?? []) as ApiPlan[]).map(mapPlan), guestLimit: Number(quota.guestLimit ?? 3), signupBonus: Number(quota.signupBonus ?? 5), limits: nextLimits }));
     } catch (e: any) { setError(e?.message ?? 'Impossible de charger les réglages réels.'); }
     finally { setLoading(false); }
@@ -106,6 +117,19 @@ export default function Plans() {
   useEffect(() => { void load(); }, []);
   const updatePlan = (code: string, field: 'monthly' | 'yearly' | 'trialDays' | 'monthlyFreeBonus' | 'yearlyFreeBonus' | 'monthlyStripePriceId' | 'yearlyStripePriceId', value: number | string) => { setPlans((prev) => prev.map((p) => p.code === code ? { ...p, [field]: value } : p)); setSavedAt(null); };
   const updateLimit = (planCode: string, key: LimitKey, value: number | null) => { setLimits((prev) => ({ ...prev, [planCode]: { ...(prev[planCode] ?? {}), [key]: value } })); setSavedAt(null); };
+
+  const savePack = async (pack: FreePack, next: Partial<FreePack>) => {
+    if (!supabase) return;
+    const merged = { ...pack, ...next };
+    setPackSaving(pack.productId); setPackError(null);
+    try {
+      const result = await supabase.rpc('admin_set_iap_free_product', { p_product_id: merged.productId, p_free_amount: Math.max(1, Math.round(merged.freeAmount)), p_is_active: merged.isActive });
+      if (result.error) throw result.error;
+      setPacks((prev) => prev.map((x) => (x.productId === merged.productId ? merged : x)));
+      setSavedAt(new Date().toLocaleTimeString('fr-FR'));
+    } catch (e: any) { setPackError(e?.message ?? 'Enregistrement de la recharge impossible.'); }
+    finally { setPackSaving(null); }
+  };
 
   const handleSave = async () => {
     if (!supabase) return;
@@ -218,6 +242,23 @@ export default function Plans() {
     <div style={{display:'flex',gap:16,flexWrap:'wrap',alignItems:'center',marginTop:12}}>
       <a href="/remote-config" style={{color:'#c4b5fd',fontWeight:800}}>Paliers ›</a>
     </div>
+
+    <section className="plan-card" style={{marginTop:14,maxWidth:560}} aria-label="Recharges FREE">
+      <header className="plan-card-head">🔋 Recharges FREE<Hint title="Recharges FREE" text="Achats intégrés vendus dans l’app. Le prix est fixé chez Apple / Google (App Store Connect, Play Console) : ici tu règles seulement combien de FREE l’acheteur reçoit et si la recharge est proposée. S’applique après vérification serveur du reçu ; les achats déjà faits ne changent pas."/></header>
+      <div className="plan-card-sub">Chaque modification est enregistrée tout de suite</div>
+      {packError && <p className="muted-note" role="alert" style={{color:'#f87171'}}>{packError}</p>}
+      {packs.length === 0 && !packError && <p className="muted-note">Aucune recharge configurée.</p>}
+      {packs.map((pack)=><div key={pack.productId} className="plan-row" style={{flexWrap:'wrap',gap:8}}>
+        <span style={{minWidth:90}}>{packLabel(pack.productId)}</span>
+        <PresetPicker label={`Recharge ${packLabel(pack.productId)} · FREE crédités`} value={pack.freeAmount} presets={PACK_FREE_AMOUNTS} format={formatFree} width={120}
+          onChange={(v)=>{ if (v != null && v >= 1) void savePack(pack, { freeAmount: Math.round(v) }); }}
+          impact={(v)=>`Les prochains acheteurs de « ${packLabel(pack.productId)} » recevront ${v ?? 0} FREE (au lieu de ${pack.freeAmount}). Pense à garder le prix Apple / Google cohérent.`}/>
+        <label style={{display:'inline-flex',gap:6,alignItems:'center',minHeight:44}}>
+          <input type="checkbox" checked={pack.isActive} disabled={packSaving===pack.productId} onChange={(e)=>void savePack(pack,{isActive:e.target.checked})}/>
+          {pack.isActive ? 'Proposée' : 'Masquée'}
+        </label>
+      </div>)}
+    </section>
 
     <details style={{marginTop:14}}><summary style={{cursor:'pointer',color:'#f0b429',fontWeight:800}}>💳 Stripe</summary>
     <div className="demo-banner" style={{ marginTop: 8, borderColor: '#f0b429', color: '#f0b429' }}>

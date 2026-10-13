@@ -100,9 +100,9 @@ function eventsPerMonthClause(limit: number | null): string {
 function requiredReason(feature: string, plan: string, rules: CommercialRules) {
   const eventFollowers = rules.followerTiers[3] || 500;
   if (feature === 'SOCIAL_DISCOVERY') return `Les ${rules.freeDiscoveryProfiles} premiers profils sont offerts en Free. Ensuite Premium, Creator Pro ou Venue Pro débloquent Découvertes sans limite.`;
-  if (feature === 'SMART_SORTING') return `Loki Music Vibes classe automatiquement ta musique par ambiances et styles. Il est inclus en illimité avec Creator Pro et Venue Pro. Premium garde ${rules.premiumSmartSortTrials} essais pour le découvrir.`;
+  if (feature === 'SMART_SORTING') return `Le rangement automatique en Styles classe ta musique par ambiances. Il est inclus en illimité avec Creator Pro et Venue Pro. Premium garde ${rules.premiumSmartSortTrials} essais pour le découvrir.`;
   if (feature === 'PROFILE_SHARE') return `Crée d'abord ton compte Loki Music pour partager ton profil. Premium étend ensuite la visibilité de ton univers.`;
-  if (feature === 'PUBLIC_PLAYLISTS') return `Les Vibes publiques sont disponibles à partir de Premium. Creator Pro et Venue Pro les incluent aussi.`;
+  if (feature === 'PUBLIC_PLAYLISTS') return `Les Styles publics sont disponibles à partir de Premium. Creator Pro et Venue Pro les incluent aussi.`;
   if (feature === 'CREATOR_KIND') return `Creator Pro et Venue Pro débloquent les profils DJ, Artiste, Créateur et Producteur.`;
   if (feature === 'CREATE_EVENT') return `La création d'événements s'ouvre à partir de ${eventFollowers} abonnés. Creator Pro : soirées ${eventsPerMonthClause(rules.creatorEventsPerMonth)} ; Venue Pro : soirées ${eventsPerMonthClause(rules.venueEventsPerMonth)}.`;
   if (feature === 'VENUE_KIND') return 'Venue Pro débloque le profil Lieu / établissement et les outils professionnels.';
@@ -128,13 +128,13 @@ function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFun
     `+${monthlyFreeBonus} Free offerts chaque mois (hors Battle).`,
     listenBenefit,
     'Découvertes de profils en illimité.',
-    `${rules.premiumSmartSortTrials} essais de Loki Music Vibes.`,
+    `${rules.premiumSmartSortTrials} essais de Loki Music Styles.`,
     'Certification visible sur le profil et réglages avancés de confort Loki Music.',
   ];
   if (planCode === 'CREATOR_PRO') return [
     `+${monthlyFreeBonus} Free offerts chaque mois (hors Battle).`,
     listenBenefit,
-    rules.creatorDailyDownloads == null ? 'Téléchargements et Loki Music Vibes illimités.' : `Jusqu'à ${rules.creatorDailyDownloads} téléchargements par jour, Loki Music Vibes illimité.`,
+    rules.creatorDailyDownloads == null ? 'Téléchargements et Loki Music Styles illimités.' : `Jusqu'à ${rules.creatorDailyDownloads} téléchargements par jour, Loki Music Styles illimités.`,
     'Profils DJ, Artiste, Créateur ou Producteur.',
     `À partir de ${eventFollowers} abonnés : soirées ${eventsPerMonthClause(rules.creatorEventsPerMonth)} et notifications aux abonnés.`,
     'Analytics et outils créateur avancés.',
@@ -427,7 +427,7 @@ export default function OffersScreen({ navigation, route }: any) {
             })() : null}
           </View>
           <ClampedText style={s.requiredIntroText} text={requiredReason(sourceFeature, focusPlan, rules)} />
-          {isEventChoice ? <View style={s.eventChoiceHint}><Text style={s.eventChoiceHintText}>À partir de {f4} abonnés · 9,99 € : soirées {eventsPerMonthClause(rules.creatorEventsPerMonth)} · 29,99 € : soirées {eventsPerMonthClause(rules.venueEventsPerMonth)}</Text></View> : null}
+          {isEventChoice ? <View style={s.eventChoiceHint}><Text style={s.eventChoiceHintText}>À partir de {f4} abonnés · Creator Pro : soirées {eventsPerMonthClause(rules.creatorEventsPerMonth)} · Venue Pro : soirées {eventsPerMonthClause(rules.venueEventsPerMonth)}</Text></View> : null}
           {!isEventChoice && isUpgradeChoice ? <View style={s.choiceHint}><Text style={s.choiceHintText}>Toutes les formules ci-dessous incluent cette fonction. Choisis selon les autres avantages dont tu as besoin.</Text></View> : null}
           <View style={s.quickStartBox}>
             <Text style={s.quickStartEyebrow}>POUR BIEN DÉMARRER SUR LOKI MUSIC</Text>

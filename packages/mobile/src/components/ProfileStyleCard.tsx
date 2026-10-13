@@ -95,7 +95,7 @@ export default function ProfileStyleCard({
   const unlocked = mode === 'UNLOCKED';
   const palette = paletteFor(title);
   const salePalette = salePaletteFor(title);
-  const resolvedBadge = badgeLabel ?? (locked ? '🔒 EN VENTE' : unlocked ? '✓ DÉBLOQUÉ' : mode === 'VIBE' ? 'VIBE' : 'PUBLIC');
+  const resolvedBadge = badgeLabel ?? (locked ? '🔒 EN VENTE' : unlocked ? '✓ DÉBLOQUÉ' : mode === 'VIBE' ? 'STYLE' : 'PUBLIC');
 
   useEffect(() => {
     let live = true;

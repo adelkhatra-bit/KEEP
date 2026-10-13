@@ -1555,7 +1555,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       setPlaylistTracks((current) => ({ ...current, [playlist.id]: visibleTracks }));
       return visibleTracks;
     } catch {
-      Alert.alert('Vibe Loki Music', 'Impossible de charger les morceaux de cette collection pour le moment.');
+      Alert.alert('Style Loki Music', 'Impossible de charger les morceaux de cette collection pour le moment.');
       return [];
     } finally {
       setLoadingPlaylistId(null);
@@ -1570,7 +1570,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
   const openPlaylistSwipe = async (playlist: ProviderPlaylist) => {
     const tracks = await loadPlaylistTracks(playlist);
-    if (!tracks.length) return Alert.alert('Vibe Loki Music', 'Cette collection ne contient pas encore de morceau à swiper.');
+    if (!tracks.length) return Alert.alert('Style Loki Music', 'Cette collection ne contient pas encore de morceau à swiper.');
     openSelectionSwipe({ title: playlist.name, subtitle: 'Ta sélection, morceau après morceau.', tracks });
   };
 
@@ -1660,7 +1660,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       return <View style={s.keepList}>
         <View style={s.ownerMusicInfo}>
           <View style={s.ownerMusicInfoHeader}>
-            <Text style={s.ownerKeepHintCompact}>Loki Music construit ton univers : Vibes et artistes.</Text>
+            <Text style={s.ownerKeepHintCompact}>Loki Music construit ton univers : Styles et artistes.</Text>
             <TouchableOpacity
               style={s.ownerMusicInfoToggle}
               onPress={() => setOwnerMusicInfoOpen((open) => !open)}
@@ -1741,14 +1741,14 @@ export default function ProfilePublicScreen({ navigation }: any) {
         <View style={s.growthPanel}>
           <Text style={s.growthText}>
             {smartSortAccess?.unlimited
-              ? 'Génération automatique de tes Vibes en cours -- reviens dans quelques instants.'
+              ? 'Génération automatique de tes Styles en cours -- reviens dans quelques instants.'
               : smartSortAccess?.allowed
-              ? `Pas encore de Vibe automatique par genre. Il te reste ${smartSortAccess.remaining ?? 0} essai${(smartSortAccess.remaining ?? 0) > 1 ? 's' : ''} gratuit${(smartSortAccess.remaining ?? 0) > 1 ? 's' : ''} -- lance "TESTER VIBES AUTO" depuis Mes musiques.`
-              : 'Pas encore de Vibe automatique par genre. Le classement automatique est réservé à Creator Pro/Venue Pro, ou à gagner en développant ta communauté.'}
+              ? `Pas encore de Style automatique par genre. Il te reste ${smartSortAccess.remaining ?? 0} essai${(smartSortAccess.remaining ?? 0) > 1 ? 's' : ''} gratuit${(smartSortAccess.remaining ?? 0) > 1 ? 's' : ''} -- lance "TESTER STYLES AUTO" depuis Mes musiques.`
+              : 'Pas encore de Style automatique par genre. Le classement automatique est réservé à Creator Pro/Venue Pro, ou à gagner en développant ta communauté.'}
           </Text>
         </View>
       ) : null;
-      if (!displayPlaylists.length) return <View>{vibesHint}<Empty text="Tes Vibes apparaîtront ici automatiquement." /></View>;
+      if (!displayPlaylists.length) return <View>{vibesHint}<Empty text="Tes Styles apparaîtront ici automatiquement." /></View>;
       // Adel (05/10/2026) : « style c'est parfait, fais pareil pour le reste » -- Playlists et Artistes reprennent EXACTEMENT les cartes premium des Styles
       // (pochette, badge, nombre de morceaux, grille 2 colonnes) ; toucher une carte lance le Swipe.
       return <View>{vibesHint}<View style={s.ownerStyleGrid}>{displayPlaylists.map((playlist, index) => {
@@ -2420,7 +2420,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
           // honnête, sans inventer d'avantage qui n'existe pas encore.
           <TouchableOpacity style={[s.growthPanel, s.sectionMargin]} onPress={() => Alert.alert(
             '🏆 Audience Pro débloquée',
-            `Ce badge signale à toute la communauté que tu as une vraie audience (${growthStatus.audienceProThreshold ?? 1000}+ abonnés).\n\nAvantages déjà actifs :\n· Free en bonus sur ton solde\n· Des profils Découverte et essais Vibes Auto en plus, gagnés à mesure que ta communauté grandit\n\nC'est aussi le premier palier vers les collections exclusives (déblocage séparé, par abonnés) quand tu en as assez.`,
+            `Ce badge signale à toute la communauté que tu as une vraie audience (${growthStatus.audienceProThreshold ?? 1000}+ abonnés).\n\nAvantages déjà actifs :\n· Free en bonus sur ton solde\n· Des profils Découverte et essais Styles Auto en plus, gagnés à mesure que ta communauté grandit\n\nC'est aussi le premier palier vers les collections exclusives (déblocage séparé, par abonnés) quand tu en as assez.`,
           )}><Text style={s.growthBadgeText}>🏆 AUDIENCE PRO DÉBLOQUÉE · {growthStatus.followers} abonnés</Text><Text style={[s.growthText, { textAlign: 'center', marginTop: 4 }]}>Toucher pour voir les avantages ⓘ</Text></TouchableOpacity>
         ) : growthStatus.nextFollowerGoal ? (
           <View style={[s.growthPanel, s.sectionMargin]}>
@@ -2429,11 +2429,11 @@ export default function ProfilePublicScreen({ navigation }: any) {
               {/* Adel (14/09/2026) : "un point d'interrogation, il met une
                   explication claire. C'est quoi le bonus ?" -- les paliers
                   d'abonnés (25/100/250/500/1000) donnent des bonus
-                  différents (profils Découverte, essais Vibes Auto, Free,
+                  différents (profils Découverte, essais Styles Auto, Free,
                   Audience Pro à 1000) ; jamais un seul type de bonus,
                   d'où une explication générale plutôt qu'un chiffre figé
                   qui pourrait se tromper si Adel change les seuils. */}
-              <TouchableOpacity hitSlop={8} onPress={() => Alert.alert('Bonus Loki Music', 'Chaque palier d’abonnés débloque un bonus différent : des profils Découverte en plus, des essais Vibes Auto gratuits, du Free en plus, et à 1000 abonnés le badge Audience Pro. Plus tu as d’abonnés, plus les bonus grandissent.')}>
+              <TouchableOpacity hitSlop={8} onPress={() => Alert.alert('Bonus Loki Music', 'Chaque palier d’abonnés débloque un bonus différent : des profils Découverte en plus, des essais Styles Auto gratuits, du Free en plus, et à 1000 abonnés le badge Audience Pro. Plus tu as d’abonnés, plus les bonus grandissent.')}>
                 <Text style={{ color: colors.primaryLight, fontSize: 15, fontWeight: '900', marginLeft: 6 }}>ⓘ</Text>
               </TouchableOpacity>
             </View>
@@ -2781,7 +2781,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     <MusicSwipeDeckModal
       visible={Boolean(selectionSwipe)}
       tracks={selectionSwipe?.tracks ?? []}
-      title={selectionSwipe?.title ?? 'Vibe Loki Music'}
+      title={selectionSwipe?.title ?? 'Style Loki Music'}
       sourceUsername={user.username}
       sourceAvatarUrl={user.avatar}
       sourceByTrack={selectionSwipe?.sourceByTrack}
@@ -2875,7 +2875,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
         <View style={s.shareSheet}>
           <View style={s.sheetHandle} />
           <Text style={s.shareTitle}>Partager mon profil Loki Music</Text>
-          <Text style={s.shareSubtitle}>Ton univers musical tient dans un lien. Fais découvrir ton Loki Pulse, tes Vibes, tes réseaux et ce qui te ressemble.</Text>
+          <Text style={s.shareSubtitle}>Ton univers musical tient dans un lien. Fais découvrir ton Loki Pulse, tes Styles, tes réseaux et ce qui te ressemble.</Text>
           <View style={s.linkPreview}><Text style={s.linkPreviewText} numberOfLines={2}>{publicProfileLink}</Text></View>
           <MotionActionButton variant="primary" size="medium" onPress={shareNative} accessibilityLabel="Decouvrir"><Text style={s.shareActionPrimaryText}>FAIRE DÉCOUVRIR MON Loki Music</Text></MotionActionButton>
           <View style={s.shareCompactRow}>
@@ -2913,7 +2913,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
               <View style={s.qrStatDivider}/>
               <View style={s.qrStat}><Text style={s.qrStatValue}>{profileFollowerCount}</Text><Text style={s.qrStatLabel}>ABONNÉS</Text></View>
               <View style={s.qrStatDivider}/>
-              <View style={s.qrStat}><Text style={s.qrStatValue}>{displayPlaylists.length}</Text><Text style={s.qrStatLabel}>VIBES</Text></View>
+              <View style={s.qrStat}><Text style={s.qrStatValue}>{displayPlaylists.length}</Text><Text style={s.qrStatLabel}>STYLES</Text></View>
             </View>
             <View style={s.qrCodeZone}>
               <View style={s.qrBox}><QRCode value={publicProfileLink} size={172} color="#0B0A12" backgroundColor="#FFFFFF" /></View>
