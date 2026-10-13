@@ -79,8 +79,8 @@ describe('ajouter à ma story depuis le swipe + petits écrans (Adel 05/10/2026)
     expect(modal).toContain("'deck-add-story'");
     expect(modal).toContain('pinStoryTrack(resolveKeptTrackId(current.id), current)');
     expect(modal).toContain('pinSharedStoryTrack(track.id, fromProfileId)'); // partager la musique d'un autre : gratuit, sans la garder
-    expect(modal).toContain('const compactDeck = windowHeight < 640 || (desktopStoryLayout && windowHeight < 780);');
-    expect(modal).toContain('desktopStoryLayout && compactDeck && s.desktopHeaderCompact');
+    expect(modal).toContain('const compactDeck = windowHeight < 640 || (desktopSwipeLayout && windowHeight < 760);');
+    expect(modal).toContain('desktopSwipeLayout && compactDeck && s.desktopHeaderCompact');
   });
 });
 
