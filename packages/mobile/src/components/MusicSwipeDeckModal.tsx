@@ -444,19 +444,20 @@ export default function MusicSwipeDeckModal({
     }
   };
   // Bouton « story » : allumé tant qu'on peut ajouter, vert + message de félicitations juste après, gris « déjà » seulement ensuite.
-  const renderStoryAdd = (kind: 'main' | 'popup') => {
+  const renderStoryAdd = (kind: 'main' | 'popup' | 'desktop') => {
     if (!canAddToStory) return null;
     const popup = kind === 'popup';
-    const buttonStyle = popup ? s.ownerStoryButton : s.addStoryButton;
+    const desktop = kind === 'desktop';
+    const buttonStyle = popup ? s.ownerStoryButton : desktop ? s.desktopSourcePill : s.addStoryButton;
     const textStyle = popup ? s.ownerStoryButtonText : s.addStoryText;
     const checking = !storyIdsReady && !justAddedNow;
-    const label = checking ? '⏳ PATIENTE… VÉRIFICATION DE TA STORY' : justAddedNow ? '✓ EN STORY · 24 H' : alreadyInStory ? '✓ DÉJÀ EN STORY' : (currentOffered ? '＋ METTRE EN STORY (MASQUÉE)' : popup ? '＋ METTRE EN STORY' : '＋ AJOUTER À MA STORY');
+    const label = checking ? (desktop ? '…' : '⏳ PATIENTE… VÉRIFICATION DE TA STORY') : justAddedNow ? '✓ STORY' : alreadyInStory ? '✓ STORY' : desktop ? '＋ STORY' : (currentOffered ? '＋ METTRE EN STORY (MASQUÉE)' : popup ? '＋ METTRE EN STORY' : '＋ AJOUTER À MA STORY');
     return <View>
       <TouchableOpacity disabled={checking || alreadyInStory || justAddedNow} style={[buttonStyle, checking || justAddedNow || alreadyInStory ? s.addStoryButtonDone : s.addStoryButtonLit]} onPress={() => { void addCurrentToStory(); }} accessibilityRole="button" accessibilityLabel={checking ? 'Vérification de ta story en cours' : alreadyInStory ? 'Déjà dans ma story' : 'Ajouter ce morceau à ma story'} testID={popup ? 'deck-info-add-story' : 'deck-add-story'}>
         <Text style={[textStyle, (alreadyInStory || checking || justAddedNow) && s.addStoryTextDone]}>{label}</Text>
       </TouchableOpacity>
-      {currentOffered && !justAddedNow ? <Text style={s.storySaleNote2} testID="deck-story-sale-note">{alreadyInStory ? '🏷 En vente : elle est déjà dans ta story, jaquette et artiste masqués.' : '🏷 Cette musique est en vente : dans ta story, la jaquette et le nom de l’artiste restent masqués.'}</Text> : null}
-      {justAddedNow ? <Text style={s.storyCongrats} testID="deck-story-congrats">🎉 Tu viens de l’ajouter à ta story : elle sera visible pendant 24 heures. Ta photo s’allume sur ton profil.</Text> : null}
+      {!desktop && currentOffered && !justAddedNow ? <Text style={s.storySaleNote2} testID="deck-story-sale-note">{alreadyInStory ? '🏷 En vente : elle est déjà dans ta story, jaquette et artiste masqués.' : '🏷 Cette musique est en vente : dans ta story, la jaquette et le nom de l’artiste restent masqués.'}</Text> : null}
+      {!desktop && justAddedNow ? <Text style={s.storyCongrats} testID="deck-story-congrats">🎉 Tu viens de l’ajouter à ta story : elle sera visible pendant 24 heures. Ta photo s’allume sur ton profil.</Text> : null}
     </View>;
   };
   const openFullTrack = useCallback(() => {
@@ -1454,7 +1455,7 @@ export default function MusicSwipeDeckModal({
         <Text style={s.desktopNextText}>↑ MORCEAU SUIVANT</Text>
       </TouchableOpacity> : null}
       {currentSourceUsername && onOpenSourceProfile ? <TouchableOpacity testID="desktop-short-discoverer" style={s.desktopSourcePill} onPress={() => setSourceQuick(currentSourceUsername.replace(/^@/, ''))} accessibilityRole="button" accessibilityLabel={`Voir le profil du découvreur @${currentSourceUsername.replace(/^@/, '')}`}><Text style={s.desktopSourceText} numberOfLines={1}>◎ @${currentSourceUsername.replace(/^@/, '')} · PROFIL</Text></TouchableOpacity> : null}
-      {renderStoryAdd('main')}
+      {renderStoryAdd('desktop')}
       {fullTrackDestination && !fullListenLocked ? <TouchableOpacity style={s.desktopSourcePill} onPress={openFullTrack} accessibilityRole="button" accessibilityLabel={fullTrackDestination.label}><Text style={s.desktopSourceText} numberOfLines={1}>↗ SOURCE</Text></TouchableOpacity> : null}
     </View> : null}
     </View>
