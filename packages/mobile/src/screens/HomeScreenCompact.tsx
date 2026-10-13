@@ -496,7 +496,7 @@ export default function HomeScreenCompact({ navigation }: any) {
     // recycling the same canonical ID made the next link reopen the first
     // card in Mes Sessions and Swipe.
     const youtubeVideoId = sameVerifiedPlayer && originalEmbed?.provider === 'YOUTUBE' && pasted
-      ? (() => { try { return new URL(pasted).searchParams.get('v'); } catch { return null; } })()
+      ? originalEmbed!.url.match(/\/embed\/([\w-]{11})/)?.[1] ?? null
       : null;
     const resolvedTrack: CanonicalTrack = found
       ? sourceOnly && youtubeVideoId
@@ -667,6 +667,7 @@ export default function HomeScreenCompact({ navigation }: any) {
     // A new URL is allowed to supersede an in-flight request; the generation
     // guard below prevents an older result from restoring the first video.
     const generation = ++searchGeneration.current;
+    unlockWebAudioForGesture(); // Unblock web playback while still inside the user's tap.
     // A second link must immediately invalidate the first preview and its player.
     setManualSearchResult(null);
     setManualResultSaved(false);
@@ -681,7 +682,11 @@ export default function HomeScreenCompact({ navigation }: any) {
       // Searching is NOT the user's GARDER action. No session, quota or DB write.
       if (!openTemporaryMusicPreview(found, input)) setManualSearchNotFound(true);
     } catch {
-      if (generation === searchGeneration.current) setManualSearchNotFound(true);
+      if (generation === searchGeneration.current) {
+        // If catalogue lookup fails, the original provider video can still
+        // be playable. Never discard a valid YouTube/Spotify/Deezer link.
+        if (!openTemporaryMusicPreview(null, input)) setManualSearchNotFound(true);
+      }
     } finally {
       if (generation === searchGeneration.current) setManualSearchBusy(false);
     }
@@ -1037,8 +1042,8 @@ export default function HomeScreenCompact({ navigation }: any) {
           <TemporaryMusicPreview visible={manualResultOpen} result={manualSearchResult} onClose={closeManualSearchPreview} onNext={nextManualSearch} onReplaceLink={(link) => { void runManualSearch(link); }} onKeep={requestManualKeep} keepChoiceOpen={manualKeepChoiceOpen} onChooseVisibility={(visibility) => { void confirmManualKeep(visibility); }} onCancelKeep={() => setManualKeepChoiceOpen(false)} keepCostFree={creditCostPerKeep} playlists={playlists.map((p) => ({ id: p.id, name: p.name }))} selectedPlaylistId={manualKeepPlaylistId} onSelectPlaylist={setManualKeepPlaylistId} keptVisibility={manualKeptVisibility} storyPublished={manualStoryPublished} onSeeSessions={viewSavedManualSessions} saved={manualResultSaved} saving={manualSaveBusy} />
         ) : (
         <View style={s.modalOverlay}><View style={s.modalCard}>
-          <Text style={s.modalTitle}>Chercher un morceau</Text>
-          <Text style={s.modalBody}>Colle un lien musical ou saisis « Artiste – Titre ». Loki recherche le morceau et, s’il est confirmé, le met en attente dans Mes Sessions sans débiter de FREE. Les lecteurs autorisés restent dans Loki.</Text>
+          <Text style={s.modalTitle}>♫ Trouver ta musique</Text>
+          <Text style={s.modalBody}>Colle un lien YouTube, Spotify ou Deezer, ou saisis Artiste – Titre. Préécoute gratuite, puis GARDER seulement si tu le décides.</Text>
           <TextInput
             style={s.manualSearchInput}
             value={manualSearchQuery}
@@ -1061,10 +1066,10 @@ export default function HomeScreenCompact({ navigation }: any) {
             </TouchableOpacity>
           ) : null}
           {manualSearchNotFound ? <Text style={s.manualSearchNotFound}>Aucun titre confirmé à partir de cette recherche. Essaie « Artiste – Titre », une autre vidéo YouTube ou la capture audio de l’onglet sur PC.</Text> : null}
-          <View style={s.modalActions}>
-            <TouchableOpacity style={s.modalBtn} onPress={closeManualSearchPreview}><Text style={s.modalBtnText}>Annuler</Text></TouchableOpacity>
-            <TouchableOpacity style={[s.modalBtn, s.modalEnd]} onPress={() => { void runManualSearch(); }} disabled={manualSearchBusy || !manualSearchQuery.trim()}>
-              <Text style={s.modalEndText}>{manualSearchBusy ? 'Recherche…' : 'Chercher'}</Text>
+          <View style={[s.modalActions, s.manualSearchActions]}>
+            <TouchableOpacity style={[s.modalBtn, s.manualSearchCancel]} onPress={closeManualSearchPreview} accessibilityRole="button"><Text style={s.modalBtnText}>ANNULER</Text></TouchableOpacity>
+            <TouchableOpacity style={[s.modalBtn, s.manualSearchSubmit]} accessibilityRole="button" onPress={() => { void runManualSearch(); }} disabled={manualSearchBusy || !manualSearchQuery.trim()}>
+              <Text style={s.manualSearchSubmitText}>{manualSearchBusy ? 'RECHERCHE…' : '▶ ÉCOUTER'}</Text>
             </TouchableOpacity>
           </View>
         </View></View>
@@ -1147,12 +1152,12 @@ export default function HomeScreenCompact({ navigation }: any) {
               </MotionActionButton>
             </View>
             {desktopHome && Platform.OS === 'web' && !musicEngine.isDemoMode ? (
-              <TouchableOpacity testID="home-tab-audio-option" style={s.tabTest} onPress={tabMonitoring ? stopTabAudio : importCopiedMusicLink}
+              <TouchableOpacity testID="home-tab-audio-option" style={[s.tabTest, s.homeFindLinkButton]} onPress={tabMonitoring ? stopTabAudio : importCopiedMusicLink}
                 accessibilityRole="button" accessibilityLabel={tabMonitoring ? 'Arrêter le suivi audio' : 'Trouver le morceau avec le lien musical copié'}>
                 <Text style={s.tabTestText}>{tabMonitoring ? '■ ARRÊTER LE SUIVI AUDIO' : '♫ Trouve ta musique en un clic'}</Text>
               </TouchableOpacity>
             ) : (
-              <MotionActionButton variant="ghost" size="medium" onPress={importCopiedMusicLink}
+              <MotionActionButton variant="outline" size="medium" style={s.homeFindLinkButton} onPress={importCopiedMusicLink}
                 accessibilityLabel="Chercher un morceau par son titre ou son lien"
                 accessibilityHint="Ouvre la recherche par titre, artiste ou lien musical">
                 ♫  Trouve ta musique en un clic
@@ -1389,7 +1394,7 @@ export default function HomeScreenCompact({ navigation }: any) {
 
       <KeepModal visible={sessionPeekOpen} transparent animationType="fade" onRequestClose={() => setSessionPeekOpen(false)} onDismiss={showQueuedSessionSwipe}>
         <View style={s.modalOverlay}><View style={[s.modalCard, { width: '100%', maxWidth: desktopHome ? 580 : 400, maxHeight: '78%', borderRadius: 22 }]}>
-          <Text style={s.modalTitle}>Ta session en cours</Text>
+          <Text style={s.modalTitle}>Session en cours</Text>
           <Text style={{ color: micPaused ? C.purpleLight : C.green, fontSize: 12, marginTop: 8, fontWeight: '800' }}>{tabMonitoring ? '● Suivi du son de l’onglet PC en cours' : micPaused ? '● Micro en pause pendant la préécoute' : '● Le micro continue d’écouter'}</Text>
           <Text style={s.modalBody}>{tracks.length} morceau{tracks.length > 1 ? 'x' : ''} détecté{tracks.length > 1 ? 's' : ''} · {tracks.filter((x) => x.status === 'pending').length} à swiper</Text>
           {tracks.filter((x) => x.status === 'pending').length >= 10 ? <Text style={{ color: C.purpleLight, fontSize: 12, marginTop: 6, fontWeight: '800' }}>Ta sélection t’attend : ouvre Mes Sessions pour retrouver et swiper tes morceaux, même après avoir quitté cet écran.</Text> : null}
@@ -1763,7 +1768,7 @@ const s = StyleSheet.create({
   demoHelp:{width:44,height:44,borderRadius:12,borderWidth:1,borderColor:C.purpleLight,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(124,92,252,.10)'},
   demoHelpText:{color:C.purpleLight,fontSize:12,fontWeight:'900'},
   tabTest: { marginTop: 14, paddingVertical: 6, paddingHorizontal: 12, minHeight: 44, justifyContent: 'center' },
-  tabTestText: { color: C.mutedGrey, fontSize: 13, fontWeight: '700', textDecorationLine: 'underline' },
+  tabTestText: { color: '#E5D9FF', fontSize: 13, fontWeight: '800', textAlign: 'center' },
   error: { color: C.pink, fontSize: 12, textAlign: 'center', marginBottom: 10 },
   signalHint: { color: C.muted, fontSize: 11, textAlign: 'center', marginTop: 7, marginBottom: 3 },
   main: { flex: 1 },
@@ -1834,13 +1839,18 @@ const s = StyleSheet.create({
   waitingText: { color: C.text, fontSize: 12, textAlign: 'center' },
   manualSearchLink: { marginTop: 10, alignItems: 'center', paddingVertical: 4 },
   manualSearchLinkText: { color: C.yellow, fontSize: 11, fontWeight: '700', textDecorationLine: 'underline' },
-  manualSearchInput: { marginTop: 14, minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: C.line, backgroundColor: colors.background, color: C.text, fontSize: 14, paddingHorizontal: 12 },
+  manualSearchInput: { marginTop: 14, minHeight: 50, borderRadius: 13, borderWidth: 1.5, borderColor: '#A78BFA', backgroundColor: '#100D1A', color: '#FFFFFF', fontSize: 14, paddingHorizontal: 14 },
+  manualSearchActions: { gap: 12, marginTop: 20 },
+  manualSearchCancel: { borderColor: '#A78BFA', borderWidth: 1.5, backgroundColor: '#211936' },
+  manualSearchSubmit: { borderColor: '#68F2B1', borderWidth: 1.5, backgroundColor: '#68F2B1' },
+  manualSearchSubmitText: { color: '#090713', fontSize: 12, fontWeight: '900' },
+  homeFindLinkButton: { borderWidth: 1.5, borderColor: '#A78BFA', borderRadius: 14, marginTop: 12, paddingHorizontal: 16, minHeight: 48, backgroundColor: 'rgba(167,139,250,.08)' },
   manualSearchNotFound: { color: C.pink, fontSize: 11, marginTop: 8 },
   footerActions: { width: '100%', maxWidth: 720, alignSelf: 'center', flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingTop: 8, paddingBottom: 10, borderTopWidth: 1, borderTopColor: C.line },
   secondary: { flex: 1, minHeight: 44, borderRadius: 11, borderWidth: 1, borderColor: C.purple, backgroundColor: C.purple, alignItems: 'center', justifyContent: 'center' },
   secondaryText: { color: C.text, fontSize: 12, fontWeight: '700' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,.72)', alignItems: 'center', justifyContent: 'center', padding: 24 },
-  modalCard: { width: '100%', maxWidth: 360, borderRadius: 18, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, padding: 20 },
+  modalCard: { width: '100%', maxWidth: 400, borderRadius: 20, backgroundColor: '#171020', borderWidth: 1.5, borderColor: '#A78BFA', padding: 18 },
   keepChoiceCard: { width: '100%', maxWidth: 380, borderRadius: 18, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, padding: 18 },
   modalTitle: { color: C.text, fontSize: 19, fontWeight: '900' },
   modalBody: { color: C.muted, fontSize: 13, lineHeight: 18, marginTop: 8 },
