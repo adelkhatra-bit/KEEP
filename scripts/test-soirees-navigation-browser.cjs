@@ -34,7 +34,7 @@ const output = process.env.LOKI_PROOF_DIR || '/tmp/loki-soirees-proof';
             assert(setup, 'Battle setup must be visible');
           }
         }
-        if (mobile) await page.getByRole('tab', { name: /Soirées/ }).click();
+        if (mobile) await page.getByText('Soirées', { exact: true }).click();
         else await page.getByTestId('desktop-nav-Parties').click();
         await page.getByTestId('parties-home-actions').waitFor({ state: 'visible' });
         assert.equal(await page.getByTestId('desktop-battle-stage').count(), 0, 'Soirées must close Battle');
