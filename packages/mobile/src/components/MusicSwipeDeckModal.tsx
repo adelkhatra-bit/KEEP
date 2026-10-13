@@ -673,7 +673,16 @@ export default function MusicSwipeDeckModal({
                 const waited = Date.now() - cardShownAt;
                 if (waited > 2500) reportAutoDiagnostic('SWIPE_SLOW', `${Math.round(waited / 100) / 10}s host=${String(previewUrl ?? '').replace(/^https?:\/\//, '').split('/')[0] || 'none'}`);
               }
-              if (playing) recordSwipeListenOnce(current.id, currentSourceProfileId);
+              if (playing) {
+                setAutoplayBlocked(false);
+                setPreviewEnded(false);
+                recordSwipeListenOnce(current.id, currentSourceProfileId);
+              } else if (alive && playbackGeneration.current === generation && !isTrackPreviewActive(playbackKey)) {
+                // A stalled iOS buffer stopped without onEnded: show Retry,
+                // keep the same cover and never count it as heard.
+                setAutoplayBlocked(true);
+                setPreviewEnded(true);
+              }
             },
             () => {
               if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
@@ -719,7 +728,14 @@ export default function MusicSwipeDeckModal({
               playbackKey,
               refreshedUrl,
               (playing) => {
-                if (playing) recordSwipeListenOnce(current.id, currentSourceProfileId);
+                if (playing) {
+                  setAutoplayBlocked(false);
+                  setPreviewEnded(false);
+                  recordSwipeListenOnce(current.id, currentSourceProfileId);
+                } else if (alive && playbackGeneration.current === generation && !isTrackPreviewActive(playbackKey)) {
+                  setAutoplayBlocked(true);
+                  setPreviewEnded(true);
+                }
               },
               () => {
                 if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
@@ -754,7 +770,14 @@ export default function MusicSwipeDeckModal({
                     playbackKey,
                     retryUrl,
                     (playing) => {
-                      if (playing) recordSwipeListenOnce(current.id, currentSourceProfileId);
+                      if (playing) {
+                        setAutoplayBlocked(false);
+                        setPreviewEnded(false);
+                        recordSwipeListenOnce(current.id, currentSourceProfileId);
+                      } else if (alive && playbackGeneration.current === generation && !isTrackPreviewActive(playbackKey)) {
+                        setAutoplayBlocked(true);
+                        setPreviewEnded(true);
+                      }
                     },
                     () => {
                       if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
