@@ -1193,7 +1193,7 @@ export default function MusicSwipeDeckModal({
     : emptyTitle;
 
   const feedbackBar = headerExtra || (likesActive && current && isUuidKey(likeKey(current.id))) ? (
-            <View style={s.headerLikeRow} testID="deck-like-bar">
+            <View style={[s.headerLikeRow, desktopSwipeLayout && s.desktopLikeRow]} testID="deck-like-bar">
               {ask ? <Animated.View pointerEvents="none" style={[s.askBubble, { opacity: askFade, transform: [{ translateY: askFade.interpolate({ inputRange: [0, 1], outputRange: [-6, 0] }) }] }]} testID="deck-like-ask"><View style={s.askArrow} /><Text style={s.askText} numberOfLines={1}>{ask}</Text></Animated.View> : null}
               <View style={[{ flexShrink: 0, maxWidth: '100%' }, compactDeck ? s.headerExtraCompact : null]}>{headerExtra}</View>
               {likesActive && current && isUuidKey(likeKey(current.id)) ? (() => {
@@ -1234,9 +1234,9 @@ export default function MusicSwipeDeckModal({
       ) : null}
       {!desktopSwipeLayout ? feedbackBar : null}
 
-      <View style={s.body}>
+      <View style={[s.body, desktopSwipeLayout && s.desktopBody]}>
         {preparingDeck ? <View style={s.empty}><ActivityIndicator color={colors.primaryLight} size="large" /><Text style={s.emptyTitle}>Préparation des nouvelles musiques…</Text><Text style={s.preparingHint}>Loki Music prépare les extraits de ce profil.</Text></View> : !current ? <View style={s.empty}><Text style={s.emptyIcon}>♪</Text><Text style={s.emptyTitle}>{resolvedEmptyTitle}</Text>{endExtra}<TouchableOpacity style={s.backButton} onPress={() => { void close(); }}><Text style={s.backText}>{resolvedBackLabel}</Text></TouchableOpacity></View> : <>
-          <View style={s.deckArea}>
+          <View style={[s.deckArea, desktopSwipeLayout && s.desktopDeckArea]}>
             {nudge ? <View pointerEvents="none" style={s.nudgePill} testID="deck-like-nudge"><Text style={s.nudgeText} numberOfLines={3}>{nudge}</Text></View> : null}
             <SwipeDeck
               resetKey={`${current.id}-${index}`}
@@ -1299,7 +1299,7 @@ export default function MusicSwipeDeckModal({
                   {!desktopSwipeLayout && currentSourceUsername ? <TouchableOpacity style={s.sourceOverlay} onPress={() => setSourceQuick(currentSourceUsername.replace(/^@/, ''))} disabled={!onOpenSourceProfile} accessibilityLabel={`Découvert par ${currentSourceUsername.replace(/^@/, '')}. Ouvrir son profil`}><GlowRing radius={14} testID="deck-source-glow" /><Text style={s.sourceOverlayText} numberOfLines={1}>Découvert par @{currentSourceUsername.replace(/^@/, '')}</Text></TouchableOpacity> : null}
                   <View style={[s.autoRow, desktopSwipeLayout && s.desktopAutoRow]}>
                     <View style={[s.dot,resolvedPreviewUrl ? s.dotOn : s.dotOff]} />
-                    <Text style={s.autoText} numberOfLines={2}>{previewLabel}</Text>
+                    <Text style={s.autoText} numberOfLines={2}>{!resolvedPreviewUrl && !previewResolving && sourcePlayer ? (trackAddedAt ? 'Source disponible · lecture sur demande' : 'Source officielle disponible') : previewLabel}</Text>
                     {!desktopSwipeLayout ? <TouchableOpacity testID="swipe-next-without-gesture" accessibilityRole="button" accessibilityLabel="Morceau suivant" style={s.nextInlineButton} disabled={controlsLocked} onPress={() => { void advance(); }}>
                       <Text style={s.nextInlineText}>↑ SUIVANT</Text>
                     </TouchableOpacity> : null}
@@ -1310,11 +1310,11 @@ export default function MusicSwipeDeckModal({
                       if (endAdvanceTimer.current) { clearTimeout(endAdvanceTimer.current); endAdvanceTimer.current = null; }
                       setSourcePlayerOpen(true);
                     }}>
-                      <Text style={s.manualPlayText}>{trackAddedAt ? '▶ SOURCE OFFICIELLE · PUB POSSIBLE' : '▶ ÉCOUTER DANS LOKI'}</Text>
+                      <Text style={s.manualPlayText}>{trackAddedAt ? '▶ SOURCE · PUB POSSIBLE' : '▶ ÉCOUTER'}</Text>
                     </TouchableOpacity>
                   ) : null}
-                  {Platform.OS === 'web' && (autoplayBlocked || previewEnded) && resolvedPreviewUrl ? (
-                    <TouchableOpacity style={s.manualPlayButton} onPress={() => { unlockWebAudioForGesture(); setPreviewEnded(false); void manualPlay(); }} accessibilityLabel={previewEnded ? "Réécouter l’extrait" : "Lancer l’extrait"}>
+                  {(autoplayBlocked || previewEnded) && resolvedPreviewUrl ? (
+                    <TouchableOpacity testID="swipe-retry-audio" style={s.manualPlayButton} onPress={() => { unlockWebAudioForGesture(); setPreviewEnded(false); void manualPlay(); }} accessibilityLabel={previewEnded ? "Réécouter l’extrait" : "Lancer l’extrait"}>
                       <Text style={s.manualPlayText}>{previewEnded ? '↻ RÉÉCOUTER' : '▶ ÉCOUTER L’EXTRAIT'}</Text>
                     </TouchableOpacity>
                   ) : null}
@@ -1329,7 +1329,7 @@ export default function MusicSwipeDeckModal({
 
 
           {!desktopSwipeLayout ? renderStoryAdd('main') : null}
-                    <View style={s.decisionBand}>
+                    <View style={[s.decisionBand, desktopSwipeLayout && s.desktopDecisionBand]}>
             <View style={s.decisionRow}>
               <TouchableOpacity style={[s.decisionButton, s.passButton]} onPress={() => { void pass(); }} disabled={controlsLocked} accessibilityLabel="Passer cette musique">
                 <Text style={s.passButtonText}>PASSER</Text>
