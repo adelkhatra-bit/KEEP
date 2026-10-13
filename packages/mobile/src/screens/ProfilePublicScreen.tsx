@@ -24,6 +24,7 @@ import { getDownloadCreditStatus, loadFreeSpentToday } from '../services/creditS
 import { loadMyFreeWalletStatus } from '../services/freeWalletService';
 import { keepLokiPulseTrack } from '../services/lokiPulseKeep';
 import { hideLokiPulseTrack, loadLokiPulse, LokiPulseItem } from '../services/lokiPulseService';
+import { loadPulseSimilarProfiles, type PulseSimilarProfile } from '../services/pulseSimilarProfilesService';
 import { loadEventStories, type EventStoryCard } from '../services/eventStoryService';
 import { loadPulsePreferenceState } from '../services/pulsePreferenceService';
 import { loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadMyActiveKeepBattleArena, loadMyKeepBattleCreditStatus, loadMyKeepBattleStats, KeepBattleStats } from '../services/keepBattleService';
@@ -567,6 +568,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [profileSwipeOpen, setProfileSwipeOpen] = useState(false);
   const [selectionSwipe, setSelectionSwipe] = useState<{ title: string; subtitle: string; tracks: CanonicalTrack[]; sourceByTrack?: Record<string, { profileId?: string; username?: string; avatarUrl?: string | null }> } | null>(null);
   const [lokiPulseItems, setLokiPulseItems] = useState<LokiPulseItem[]>([]);
+  const [pulseSimilarProfiles, setPulseSimilarProfiles] = useState<PulseSimilarProfile[]>([]);
   const [myPulseEventStories, setMyPulseEventStories] = useState<EventStoryCard[]>([]);
   const [lokiPulseSwipeOpen, setLokiPulseSwipeOpen] = useState(false);
   const [lokiPulseSelectedTrackId, setLokiPulseSelectedTrackId] = useState<string | null>(null);
@@ -714,9 +716,14 @@ export default function ProfilePublicScreen({ navigation }: any) {
     let live = true;
     const refreshPulse = async () => {
       if (!user || accountRequired) {
-        if (live) setLokiPulseItems([]);
+        if (live) { setLokiPulseItems([]); setPulseSimilarProfiles([]); }
         return;
       }
+      // Match public members using both favorite and automatically learned
+      // styles. Never block music loading if the people service is offline.
+      void loadPulseSimilarProfiles(8)
+        .then((rows) => { if (live) setPulseSimilarProfiles(rows); })
+        .catch(() => { if (live) setPulseSimilarProfiles([]); });
       try {
         const items = await loadLokiPulse(60, user.id);
         if (live) setLokiPulseItems(items);
@@ -2532,14 +2539,14 @@ export default function ProfilePublicScreen({ navigation }: any) {
       ) : null}
 
 
-      {!accountRequired && (visibleLokiPulseItems.length > 0 || myPulseEventStories.length > 0) ? (
+      {!accountRequired && (visibleLokiPulseItems.length > 0 || myPulseEventStories.length > 0 || pulseSimilarProfiles.length > 0) ? (
         <View style={s.lokiPulseSection} testID="profile-loki-pulse-track-bubbles">
           <View style={s.lokiPulseHeader}>
             <View style={s.lokiPulseHeaderCopy}>
               <Text style={s.lokiPulseEyebrow}>LOKI PULSE</Text>
               <Text style={s.lokiPulseTitle}>Des sons qui te ressemblent</Text>
             </View>
-            <Text style={s.lokiPulseCost}>Musiques · collection</Text>
+            <Text style={s.lokiPulseCost}>Musiques · profils · soirées</Text>
           </View>
           {myPulseEventStories.length ? <View style={{ gap: 7, paddingHorizontal: 12, paddingTop: 10 }}>
             <Text style={{ color: colors.keep, fontWeight: '900', fontSize: 12 }}>SOIRÉES À DÉCOUVRIR · LOKI PULSE</Text>
@@ -2552,6 +2559,26 @@ export default function ProfilePublicScreen({ navigation }: any) {
               </TouchableOpacity>
             ))}
           </View> : null}
+          {pulseSimilarProfiles.length > 0 ? (
+            <View testID="loki-pulse-people-same-style" style={{ paddingTop: 10, gap: 8 }}>
+              <Text style={{ color: '#68F2B1', fontSize: 12, fontWeight: '900', paddingHorizontal: 12 }}>PROFILS QUI AIMENT TES STYLES</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingHorizontal: 12, paddingBottom: 8 }}>
+                {pulseSimilarProfiles.map((person) => (
+                  <TouchableOpacity key={person.profileId} testID={`loki-pulse-similar-${person.profileId}`}
+                    onPress={() => navigation.navigate('PublicProfile', { username: person.username })}
+                    accessibilityRole="button" accessibilityLabel={`Voir @${person.username} : styles musicaux en commun`}
+                    style={{ width: 136, minHeight: 132, borderRadius: 16, padding: 10, alignItems: 'center', gap: 6, borderWidth: 1, borderColor: '#A78BFA', backgroundColor: '#1A142A' }}>
+                    {person.avatarUrl ? <Image source={{ uri: person.avatarUrl }} style={{ width: 54, height: 54, borderRadius: 27 }} /> :
+                      <View style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: '#423258', alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: 19 }}>{person.username.slice(0, 1).toUpperCase()}</Text>
+                      </View>}
+                    <Text style={{ fontSize: 12, fontWeight: '900', color: '#FFFFFF', maxWidth: '100%' }} numberOfLines={1}>@${person.username}</Text>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#DCCFFF', textAlign: 'center' }} numberOfLines={2}>{person.sharedStyle} · {person.matchScore} pts</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          ) : null}
           <Text style={s.lokiPulseHint}>Appris par Loki à partir de tes écoutes et adapté à tes goûts. Appuie sur une bulle pour écouter.</Text>
           <ScrollView
             ref={lokiPulseScrollRef}

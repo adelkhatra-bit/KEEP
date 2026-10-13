@@ -300,7 +300,10 @@ export default function MusicSwipeDeckModal({
   // A sale teaser cannot load a provider iframe: it would expose the hidden
   // title, artist and cover before purchase. Normal public stories can use
   // the original verified source when no licensed catalogue snippet exists.
-  const storyEmbeddedSource = visible && Boolean(trackAddedAt) && current
+  // Public Stories must never autoplay a provider iframe that can insert ads.
+  // Catalogue preview clips have no in-app provider advertisement UI.
+  const preferCleanStoryPlayer = true;
+  const storyEmbeddedSource = visible && Boolean(trackAddedAt) && !preferCleanStoryPlayer && current
     && !isSaleStoryTrack(current) && !currentOffered && !ownerMasked
     && !resolvedPreviewUrl && !previewResolving
     ? String(current.externalUrls?.source ?? '') : '';
@@ -594,6 +597,19 @@ export default function MusicSwipeDeckModal({
     const skipUnavailablePreview = (reason: string) => {
       if (!alive || playbackGeneration.current !== generation || !current) return;
       const source = current.externalUrls?.source || current.externalUrls?.youtube || null;
+      if (trackAddedAt && preferCleanStoryPlayer) {
+        // Never load YouTube/Spotify ads inside a public Story. Try an exact
+        // catalogue audio clip first; without one, let the clean card progress.
+        reportAutoDiagnostic('STORY_PREVIEW_NO_AD_FREE_AUDIO', String(current.id).slice(0, 36));
+        if (index + 1 < deckTracks.length || loop) {
+          if (endAdvanceTimer.current) clearTimeout(endAdvanceTimer.current);
+          endAdvanceTimer.current = setTimeout(() => {
+            endAdvanceTimer.current = null;
+            if (alive && playbackGeneration.current === generation && !actionInFlight.current) advanceIndex();
+          }, 2400);
+        }
+        return;
+      }
       if (!isSaleStoryTrack(current) && resolveEmbeddedMusicPlayer(source)) {
         scheduleEmbeddedStoryNext();
         return;
@@ -616,7 +632,7 @@ export default function MusicSwipeDeckModal({
 
     // Share-linked YouTube videos are their own playback source.
     // Never substitute a different iTunes song based on loosely parsed titles.
-    if (!current.previewUrl?.trim() && !isSaleStoryTrack(current)
+    if (!trackAddedAt && !current.previewUrl?.trim() && !isSaleStoryTrack(current)
         && resolveEmbeddedMusicPlayer(current.externalUrls?.source || current.externalUrls?.youtube || null)) {
       setPreviewResolving(false);
       setResolvedPreviewUrl(null);
@@ -1053,7 +1069,7 @@ export default function MusicSwipeDeckModal({
   const previewLabel = previewResolving
     ? 'Recherche de l’extrait…'
     : !resolvedPreviewUrl
-      ? (sourcePlayer ? 'Écoute intégrée de la vidéo originale' : 'Extrait indisponible')
+      ? (trackAddedAt ? 'Extrait indisponible · Story suivante' : sourcePlayer ? 'Écoute intégrée de la vidéo originale' : 'Extrait indisponible')
       : autoplayBlocked
         ? 'Appuie ci-dessous pour écouter'
         : previewEnded
@@ -1246,6 +1262,7 @@ export default function MusicSwipeDeckModal({
                 {currentSourceUsername ? <TouchableOpacity style={s.sourceOverlay} onPress={() => setSourceQuick(currentSourceUsername.replace(/^@/, ''))} disabled={!onOpenSourceProfile} accessibilityLabel={`Découvert par ${currentSourceUsername.replace(/^@/, '')}. Ouvrir son profil`}><GlowRing radius={14} testID="deck-source-glow" /><Text style={s.sourceOverlayText}>Découvert par @{currentSourceUsername.replace(/^@/, '')}</Text></TouchableOpacity> : null}
                 {/* Adel 05/10/2026 : « il faut que ce soit très lisible, que les utilisateurs ne se fassent pas tromper » -- PAYANT (PayPal) ou GRATUIT, toujours dit en clair sur la carte. */}
                 {storyEmbeddedSource ? <View style={s.storyEmbeddedInCard} testID="story-official-inline-area"><StoryEmbeddedSourcePlayer sourceUrl={storyEmbeddedSource} compact={compactDeck} /></View> : null}
+                {Boolean(trackAddedAt) && !resolvedPreviewUrl && !previewResolving && sourcePlayer ? <Text testID="story-no-provider-ads" style={s.cleanStoryNotice}>Lecture sans publicité intégrée · extrait indisponible</Text> : null}
                 <View style={[s.gradientFake, compactDeck && s.gradientCompact, storyEmbeddedSource && s.gradientStoryEmbed]}>
                   <View style={s.autoRow}>
                     <View style={[s.dot,resolvedPreviewUrl ? s.dotOn : s.dotOff]} />
@@ -1446,6 +1463,7 @@ const s = StyleSheet.create({
   sourcePlayerCloseText:{color:'#FFFFFF',fontWeight:'800',fontSize:12},
   cover:{...StyleSheet.absoluteFillObject,width:'100%',height:'100%'},coverFallback:{alignItems:'center',justifyContent:'center',backgroundColor:'#241936'},coverK:{color:colors.primaryLight,fontSize:72,fontWeight:'900',letterSpacing:6},
   storyEmbeddedInCard:{flex:1,minHeight:0,width:'100%',paddingHorizontal:6,paddingTop:38,justifyContent:'center'},
+  cleanStoryNotice:{color:'#E1D6F4',fontSize:12,lineHeight:17,textAlign:'center',paddingTop:18,paddingHorizontal:14},
   gradientStoryEmbed:{paddingHorizontal:14,paddingTop:8,paddingBottom:10,backgroundColor:'rgba(9,6,16,.86)'},
   embeddedTrackTitle:{fontSize:19,lineHeight:23},
   gradientFake:{padding:20,paddingTop:90,backgroundColor:'rgba(9,6,16,.68)'},autoRow:{flexDirection:'row',alignItems:'center',marginBottom:8,gap:5},dot:{width:8,height:8,borderRadius:4,marginRight:6},dotOn:{backgroundColor:'#68F2B1'},dotOff:{backgroundColor:'#756B84'},autoText:{flex:1,minWidth:0,color:'#FFFFFF',fontSize:10,fontWeight:'800'},nextInlineButton:{minHeight:36,paddingHorizontal:10,borderRadius:12,alignItems:'center',justifyContent:'center',backgroundColor:'#342653',borderWidth:1,borderColor:'#B79CFF'},nextInlineText:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},manualPlayButton:{alignSelf:'flex-start',minHeight:minTouchTarget,paddingHorizontal:14,borderRadius:17,backgroundColor:colors.keep,marginBottom:9},manualPlayText:{color:'#0B0E0B',fontSize:11,fontWeight:'900',lineHeight:34},trackTitle:{color:'#FFF',fontSize:28,lineHeight:32,fontWeight:'900'},artist:{color:'#F0EAF7',fontSize:16,fontWeight:'800',marginTop:6},album:{color:'#FFFFFF',fontSize:12,marginTop:3},
