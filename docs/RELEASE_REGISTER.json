@@ -1,5 +1,14 @@
 [
   {
+    "commit": "c7f97df08df3f51cf31c33b53655e19fb536e72b",
+    "web": "c7f97df08df3f51cf31c33b53655e19fb536e72b",
+    "testflight": "iOS #233 in_progress (release c7f97df)",
+    "ota": "OTA #1024 in_progress (release c7f97df)",
+    "date": "2026-10-13 10:22",
+    "tests": "pass",
+    "changes": "chore(release): ship profile persistence, KEEP modal and iOS OTA updater (#163)"
+  },
+  {
     "commit": "8e5905bb0565f2b9395b600513d96b68ce0d6a26",
     "web": "8e5905bb0565f2b9395b600513d96b68ce0d6a26",
     "testflight": "iOS #232 success (release c7cfb99)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 11:22",
     "tests": "pass",
     "changes": "feat(events): vente lisible, Story automatique validée, Pulse social et cockpit créateur PC (#116)"
-  },
-  {
-    "commit": "58dacb5626cffa3af6ef719dcf2e26303ebbd8dc",
-    "web": "58dacb5626cffa3af6ef719dcf2e26303ebbd8dc",
-    "testflight": "iOS #228 success (release f8dbd60)",
-    "ota": "OTA #1019 success (release f8dbd60)",
-    "date": "2026-10-12 11:03",
-    "tests": "pass",
-    "changes": "Merge pull request #135 from adelkhatra-bit/fix/story-viewer-detail-sync-20261012"
   }
 ]
