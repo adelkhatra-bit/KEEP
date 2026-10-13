@@ -19,16 +19,17 @@ const output = process.env.LOKI_PROOF_DIR || '/tmp/loki-soirees-proof';
       gateAuthPages.add(page);
       await isolateSurfaceGateFromProduction(page);
       const errors = [];
-      page.on('pageerror', error => errors.push(error.message));
+      page.on('pageerror', error => { errors.push(error.stack || error.message); console.error('BATTLE_PAGE_ERROR', error.stack || error.message); });
+      page.on('console', message => { if (message.type() === 'error') console.error('BATTLE_CONSOLE_ERROR', message.text()); });
       await page.goto(base + '/Main/Parties/', { waitUntil: 'domcontentloaded' });
       await page.getByTestId('parties-home-actions').waitFor({ state: 'visible', timeout: 30000 }).catch(async error => { await page.screenshot({ path: path.join(output, 'failure.png') }); console.error(await page.locator('body').innerText(), errors); throw error; });
       for (let cycle = 0; cycle < 2; cycle++) {
         await page.getByRole('button', { name: 'Ouvrir directement Battle', exact: true }).click();
-        await page.getByTestId('desktop-battle-stage').waitFor({ state: 'visible' });
+        await page.getByTestId('desktop-battle-stage').waitFor({ state: 'visible' }).catch(async error => { console.error('BATTLE_STAGE_NOT_VISIBLE', errors, (await page.locator('body').innerText()).slice(0, 2000)); await page.screenshot({ path: path.join(output, `battle-crash-${width}.png`), fullPage: false }); throw error; });
         if (cycle === 0) {
           await page.screenshot({ path: path.join(output, `battle-${width}.png`), fullPage: false });
           if (!mobile) {
-            const stage = await page.getByTestId('desktop-battle-stage').boundingBox();
+            const stage = await page.getByTestId('desktop-battle-stage').boundingBox({ timeout: 8000 }).catch(async error => { console.error('BATTLE_STAGE_DISAPPEARED', errors, (await page.locator('body').innerText()).slice(0, 2000)); await page.screenshot({ path: path.join(output, `battle-crash-${width}.png`), fullPage: false }); throw error; });
             const setup = await page.getByText('FORMAT DU BATTLE', { exact: true }).boundingBox();
             assert(stage.width > width * 0.7, 'Battle must fill desktop content area');
             assert(setup, 'Battle setup must be visible');

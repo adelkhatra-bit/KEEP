@@ -9,7 +9,7 @@ import { resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
  * there is no catalogue preview; provider ads and browser autoplay restrictions
  * cannot be removed by Loki. Never embed a track hidden in a paid collection.
  */
-export default function StoryEmbeddedSourcePlayer({ sourceUrl }: { sourceUrl: string }) {
+export default function StoryEmbeddedSourcePlayer({ sourceUrl, compact = false }: { sourceUrl: string; compact?: boolean }) {
   const player = resolveEmbeddedMusicPlayer(sourceUrl);
   const [unavailable, setUnavailable] = useState(false);
   if (!player) return null;
@@ -30,7 +30,7 @@ export default function StoryEmbeddedSourcePlayer({ sourceUrl }: { sourceUrl: st
           Le fournisseur empêche la lecture intégrée. Tu restes sur ta Story Loki Music.
         </Text>
       ) : (
-        <View testID="story-embedded-frame" style={{ width: '100%', height: player.provider === 'YOUTUBE' ? 160 : 125, overflow: 'hidden', borderRadius: 10, backgroundColor: '#090713' }}>
+        <View testID="story-embedded-frame" style={{ width: '100%', height: compact ? 104 : player.provider === 'YOUTUBE' ? 140 : 120, overflow: 'hidden', borderRadius: 10, backgroundColor: '#090713' }}>
           {Platform.OS === 'web' ? (
             React.createElement('iframe' as any, {
               key: excerptUrl,
@@ -45,7 +45,7 @@ export default function StoryEmbeddedSourcePlayer({ sourceUrl }: { sourceUrl: st
           ) : (
             React.createElement(require('react-native-webview').WebView, {
               key: excerptUrl,
-              source: { uri: excerptUrl },
+              source: { uri: excerptUrl, ...(player.provider === 'YOUTUBE' ? { headers: { Referer: 'https://com.adelkhatra.keep' } } : {}) },
               style: { flex: 1 },
               javaScriptEnabled: true,
               domStorageEnabled: true,

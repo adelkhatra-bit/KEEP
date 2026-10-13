@@ -12,6 +12,12 @@ async function openHome(page) {
   const trial=page.getByText('ESSAYER GRATUITEMENT',{exact:true}).last();
   if (await trial.isVisible().catch(()=>false)) await trial.click({force:true,timeout:2000}).catch(()=>{});
   await page.getByText('Loki Music',{exact:true}).filter({visible:true}).first().waitFor({state:'visible',timeout:20000});
+  // First-run tour is a real interactive sheet. Dismiss it as a user would,
+  // rather than force-click through the help bubble covering the search control.
+  const skipTour = page.getByLabel('Passer le mini-tour').filter({visible:true}).first();
+  if (await skipTour.isVisible().catch(()=>false)) {
+    await skipTour.click({timeout:5000});
+  }
 }
 
 async function check(viewport,label,browser) {
@@ -38,10 +44,14 @@ async function check(viewport,label,browser) {
     await open();
     const preview=page.getByTestId('home-manual-search-result');
     if (await preview.count()!==1) throw new Error(label+': duplicate search preview');
-    await page.getByTestId('close-manual-search-preview').click();
+    // The temporary music preview is a modal containing a provider iframe; its
+    // visible close action, not a covered control on the underlying home screen,
+    // must close the preview and remove the temporary search result.
+    await page.getByTestId('temporary-music-close').click({timeout:10000});
     await preview.waitFor({state:'detached',timeout:10000});
 
     await open();
+    await page.getByTestId('temporary-music-close').click({timeout:10000});
     await page.getByText('Découvertes',{exact:true}).filter({visible:true}).last().click();
     await page.getByText('Loki Music',{exact:true}).filter({visible:true}).last().click();
     await preview.waitFor({state:'detached',timeout:10000});
