@@ -1496,12 +1496,12 @@ export default function MusicSwipeDeckModal({
 
 const s = StyleSheet.create({
   outer:{flex:1,minHeight:0,width:'100%',backgroundColor:'#090610',alignItems:'center'},
-  desktopOuter:{flexDirection:'row',justifyContent:'center',alignItems:'center',paddingHorizontal:24,paddingVertical:16,gap:22,backgroundColor:'#0B0713'},
+  desktopOuter:{flexDirection:'row',justifyContent:'center',alignItems:'center',paddingHorizontal:16,paddingVertical:12,gap:14,backgroundColor:'#0B0713'},
   // RN Web: `flex:1` + `flexGrow:0` without a fixed height collapses the
   // modal child to zero, leaving the Story header halfway down the viewport.
-  desktopPlayer:{flex:0,flexBasis:'auto',flexGrow:0,flexShrink:0,width:560,maxWidth:'57%',minHeight:0,overflow:'hidden',borderWidth:1.5,borderColor:'#7E5AB8',borderRadius:26,backgroundColor:'#110D1D',shadowColor:'#A78BFA',shadowOpacity:.24,shadowRadius:28,shadowOffset:{width:0,height:10}},
+  desktopPlayer:{flex:0,flexBasis:'auto',flexGrow:0,flexShrink:0,width:560,maxWidth:'55%',minHeight:0,overflow:'hidden',borderWidth:1.5,borderColor:'#BFA6F2',borderRadius:26,backgroundColor:'#110D1D',shadowColor:'#A78BFA',shadowOpacity:.42,shadowRadius:28,shadowOffset:{width:0,height:10},elevation:10},
   desktopHeaderCompact:{minHeight:68,paddingVertical:8},
-  desktopStoryAside:{width:350,maxWidth:'38%',minHeight:420,maxHeight:'97%',alignSelf:'center',backgroundColor:'#171020',borderWidth:1.5,borderColor:'#604787',borderRadius:24,padding:26,gap:14,justifyContent:'center'},
+  desktopStoryAside:{width:340,maxWidth:'35%',minHeight:420,maxHeight:'97%',alignSelf:'center',backgroundColor:'#171020',borderWidth:1.5,borderColor:'#8062B7',borderRadius:24,padding:18,gap:12,justifyContent:'center',shadowColor:'#A78BFA',shadowOpacity:.24,shadowRadius:19,shadowOffset:{width:0,height:7}},
   desktopAsideKicker:{color:'#D5C4FF',fontSize:11,fontWeight:'900',letterSpacing:1.4},
   desktopAsideBrandRow:{flexDirection:'row',alignItems:'center',gap:9},desktopAsideDot:{width:9,height:9,borderRadius:5,backgroundColor:'#68F2B1',shadowColor:'#68F2B1',shadowOpacity:.9,shadowRadius:10},
   desktopNowPlaying:{flexDirection:'row',gap:12,alignItems:'center',padding:12,borderRadius:18,backgroundColor:'#231936',borderWidth:1,borderColor:'#604787'},
