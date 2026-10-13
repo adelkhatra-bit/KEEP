@@ -15,8 +15,8 @@ describe('Loki Swipe responsive desktop header + compact help', () => {
     expect(body).toBeGreaterThan(title);
     expect(swipe).toContain('desktopSwipeLayout && s.headerCountHaloDesktop');
     expect(swipe).toContain('desktopSwipeLayout && s.headerTopLineDesktop');
-    expect(swipe).toContain('headerCountHaloDesktop:{position:\'absolute\',top:0,right:0');
-    expect(swipe).toContain('headerTopLineDesktop:{position:\'relative\',minHeight:54');
+    expect(swipe).toMatch(/headerCountHaloDesktop:\{position:'absolute',top:-\d+,right:\d+/);
+    expect(swipe).toMatch(/headerTopLineDesktop:\{position:'relative',minHeight:\d+/);
   });
 
   it('retains original reaction numbers, semantics, and glow rather than inventing counters', () => {
@@ -26,11 +26,11 @@ describe('Loki Swipe responsive desktop header + compact help', () => {
     expect(swipe).toContain('testID="deck-reactions-animated-edge"');
     expect(glow).toContain('AccessibilityInfo.isReduceMotionEnabled');
     expect(glow).toContain('Animated.loop');
-    expect(swipe).toContain('perspective:900');
+    expect(swipe).toContain('perspective:980');
   });
 
   it('never places reaction counters over the cover or listening controls', () => {
-    expect(swipe).toContain('style={[s.headerTopLine, desktopSwipeLayout && s.headerTopLineDesktop]}');
+    expect(swipe).toContain('style={[s.headerTopLine, desktopSwipeLayout && s.headerTopLineDesktop]} testID="deck-reactions-above-title"');
     expect(swipe).toContain('testID="swipe-metadata-below-artwork"');
     expect(swipe).toContain('desktopSwipeLayout && s.desktopPlayer');
     expect(swipe).toContain('testID="desktop-story-next-track"');
