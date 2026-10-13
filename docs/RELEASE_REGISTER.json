@@ -1,5 +1,14 @@
 [
   {
+    "commit": "d5012e6e2b3e41a79a4ce62065e660e9f2a574ad",
+    "web": "d5012e6e2b3e41a79a4ce62065e660e9f2a574ad",
+    "testflight": "iOS #238 cancelled (release 98d3a9a)",
+    "ota": "OTA #1029 success (release 98d3a9a)",
+    "date": "2026-10-13 20:11",
+    "tests": "pass",
+    "changes": "fix(desktop/ui): réactions au-dessus du titre, contour néon animé, Plus partout (#189)"
+  },
+  {
     "commit": "98d3a9a0dbff0d9bc4ed795cb29b270d4a354f2c",
     "web": "98d3a9a0dbff0d9bc4ed795cb29b270d4a354f2c",
     "testflight": "iOS #238 in_progress (release 98d3a9a)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 19:24",
     "tests": "pass",
     "changes": "fix(music): restore safe shared-link validator required by PC clipboard import"
-  },
-  {
-    "commit": "c0684fbd23d9efb82a1568d7f998ac3e12ccfb49",
-    "web": "c0684fbd23d9efb82a1568d7f998ac3e12ccfb49",
-    "testflight": "iOS #230 success (release 1f44ee1)",
-    "ota": "OTA #1021 success (release 1f44ee1)",
-    "date": "2026-10-12 19:18",
-    "tests": "pass",
-    "changes": "fix(listen): offer link-search recovery for denied tab-audio permission"
   }
 ]
