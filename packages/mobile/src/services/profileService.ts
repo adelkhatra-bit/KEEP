@@ -15,6 +15,8 @@ export interface SaveProfileOptions {
   allowClearing?: boolean;
   /** Profile editor cannot edit social links or musical tastes: preserve those existing remote collections. */
   preserveUneditedCollections?: boolean;
+  /** Prevent an editor opened before private-info hydration from erasing remote fields it did not edit. */
+  preserveUneditedPrivateFields?: { birthDate?: boolean; gender?: boolean };
 }
 
 function fallbackUser(session: KeepAuthSession): User {
@@ -577,12 +579,18 @@ export function createProfileService(client: SupabaseClient) {
         }
       }
 
-      const birthDate = allowClearing
-        ? (user.privateInfo.birthDate || null)
-        : (user.privateInfo.birthDate || existingPrivate?.birth_date || null);
-      const gender = allowClearing
-        ? (user.privateInfo.gender || null)
-        : (user.privateInfo.gender || existingPrivate?.gender || null);
+      // An editor may mount before the secondary private-info query finishes.
+      // An explicit "Enregistrer" must never erase untouched server values.
+      const birthDate = options.preserveUneditedPrivateFields?.birthDate
+        ? (existingPrivate?.birth_date || null)
+        : allowClearing
+          ? (user.privateInfo.birthDate || null)
+          : (user.privateInfo.birthDate || existingPrivate?.birth_date || null);
+      const gender = options.preserveUneditedPrivateFields?.gender
+        ? (existingPrivate?.gender || null)
+        : allowClearing
+          ? (user.privateInfo.gender || null)
+          : (user.privateInfo.gender || existingPrivate?.gender || null);
 
       const privateUnchanged = Boolean(existingPrivate) && (existingPrivate?.birth_date ?? null) === birthDate && (existingPrivate?.gender ?? null) === gender;
       if (privateUnchanged) return;
