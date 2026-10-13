@@ -1,5 +1,14 @@
 [
   {
+    "commit": "84e3fbdc482f44e142dc17e3538ffb2af47ec43c",
+    "web": "84e3fbdc482f44e142dc17e3538ffb2af47ec43c",
+    "testflight": "iOS #233 success (release c7f97df)",
+    "ota": "OTA #1024 success (release c7f97df)",
+    "date": "2026-10-13 14:49",
+    "tests": "pass",
+    "changes": "Retour Soirées depuis Battle et mise en page PC élargie (#165)"
+  },
+  {
     "commit": "c7f97df08df3f51cf31c33b53655e19fb536e72b",
     "web": "c7f97df08df3f51cf31c33b53655e19fb536e72b",
     "testflight": "iOS #233 in_progress (release c7f97df)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 11:29",
     "tests": "pass",
     "changes": "fix(listen): YouTube PC — capture d'onglet intégrée et liens reconnus (#136)"
-  },
-  {
-    "commit": "62591695bddc06cc5826040423cee35dd0823760",
-    "web": "62591695bddc06cc5826040423cee35dd0823760",
-    "testflight": "iOS #228 success (release f8dbd60)",
-    "ota": "OTA #1019 success (release f8dbd60)",
-    "date": "2026-10-12 11:22",
-    "tests": "pass",
-    "changes": "feat(events): vente lisible, Story automatique validée, Pulse social et cockpit créateur PC (#116)"
   }
 ]

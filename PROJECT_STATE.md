@@ -143,6 +143,7 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
+| `84e3fbd` | `84e3fbd` | iOS #233 success (release c7f97df) | OTA #1024 success (release c7f97df) | 2026-10-13 14:49 | pass | Retour Soirées depuis Battle et mise en page PC élargie (#165) |
 | `c7f97df` | `c7f97df` | iOS #233 in_progress (release c7f97df) | OTA #1024 in_progress (release c7f97df) | 2026-10-13 10:22 | pass | chore(release): ship profile persistence, KEEP modal and iOS OTA updater (#163) |
 | `8e5905b` | `8e5905b` | iOS #232 success (release c7cfb99) | OTA #1023 success (release c7cfb99) | 2026-10-13 10:14 | pass | refactor(keep): remove unused KEEP choice modal (#162) |
 | `466a4f2` | `466a4f2` | iOS #232 success (release c7cfb99) | OTA #1023 success (release c7cfb99) | 2026-10-13 10:07 | pass | fix(profile): preserve late-loaded birthday and gender on Save (#161) |
@@ -182,7 +183,6 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 | `cff41f4` | `cff41f4` | iOS #228 success (release f8dbd60) | OTA #1019 success (release f8dbd60) | 2026-10-12 11:44 | pass | fix(boutique): vitrines lisibles et parcours FREE / PayPal compréhensible PC et mobile (#143) |
 | `af99be4` | `af99be4` | iOS #228 success (release f8dbd60) | OTA #1019 success (release f8dbd60) | 2026-10-12 11:37 | pass | fix(events): badge rouge TERMINÉE sur la version avec Stories et cockpit PC (#141) |
 | `326173c` | `326173c` | iOS #228 success (release f8dbd60) | OTA #1019 success (release f8dbd60) | 2026-10-12 11:29 | pass | fix(listen): YouTube PC — capture d'onglet intégrée et liens reconnus (#136) |
-| `6259169` | `6259169` | iOS #228 success (release f8dbd60) | OTA #1019 success (release f8dbd60) | 2026-10-12 11:22 | pass | feat(events): vente lisible, Story automatique validée, Pulse social et cockpit créateur PC (#116) |
 <!-- AUTO:RELEASE-REGISTER:END -->
 
 
