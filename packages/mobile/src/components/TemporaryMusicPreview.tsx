@@ -132,16 +132,16 @@ export default function TemporaryMusicPreview({
 
   return (
     <View testID="temporary-music-preview" style={{ flex: 1 }}>
-      <View style={{ flex: 1, backgroundColor: 'rgba(7,6,19,0.88)', justifyContent: 'center', alignItems: 'center', padding: 14 }}>
-        <ScrollView testID="temporary-music-preview-scroll" keyboardShouldPersistTaps="always" showsVerticalScrollIndicator contentContainerStyle={{ padding: 16, paddingBottom: 22 }} style={{ width: '100%', maxWidth: 620, maxHeight: '92%', borderRadius: 22, backgroundColor: '#181326', borderColor: '#6956BB', borderWidth: 1 }}>
+      <View style={{ flex: 1, backgroundColor: 'rgba(7,6,19,0.94)', justifyContent: 'center', alignItems: 'center', padding: 12 }}>
+        <ScrollView testID="temporary-music-preview-scroll" keyboardShouldPersistTaps="always" showsVerticalScrollIndicator contentContainerStyle={{ padding: 16, paddingBottom: 24, gap: 10 }} style={{ width: '100%', maxWidth: 620, maxHeight: '92%', borderRadius: 22, backgroundColor: '#171020', borderColor: '#A78BFA', borderWidth: 1.5 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '900' }}>LOKI MUSIC · APERÇU</Text>
+            <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '900' }}>ÉCOUTER · SWIPE</Text>
             <TouchableOpacity testID="temporary-music-close" onPress={onClose} accessibilityRole="button" accessibilityLabel="Fermer et effacer cet aperçu" style={{ minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center' }}>
               <Text style={{ color: '#FFFFFF', fontSize: 24 }}>×</Text>
             </TouchableOpacity>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-            <TrackCover track={result} style={{ width: 66, height: 66, borderRadius: 10 }} fallbackStyle={{ width: 66, height: 66, borderRadius: 10, backgroundColor: '#2B2341', alignItems: 'center', justifyContent: 'center' }} fallbackTextStyle={{ color: '#A899E7', fontSize: 25, fontWeight: '900' }} />
+          <View testID="temporary-music-swipe-card" style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 4, padding: 12, borderRadius: 16, borderColor: '#A78BFA', borderWidth: 1, backgroundColor: '#100D1A' }}>
+            <TrackCover track={result} style={{ width: 70, height: 70, borderRadius: 12 }} fallbackStyle={{ width: 70, height: 70, borderRadius: 12, backgroundColor: '#2B2341', alignItems: 'center', justifyContent: 'center' }} fallbackTextStyle={{ color: '#A899E7', fontSize: 25, fontWeight: '900' }} />
             <View style={{ flex: 1 }}>
               <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '900' }} numberOfLines={2}>{result.title}</Text>
               <Text style={{ color: '#D1CBE5', fontSize: 12, marginTop: 5 }} numberOfLines={2}>{result.artist}</Text>
@@ -149,22 +149,22 @@ export default function TemporaryMusicPreview({
             </View>
           </View>
           {onReplaceLink ? (
-            <View testID="temporary-music-replace-link" style={{ marginBottom: 12 }}>
+            <View testID="temporary-music-replace-link" style={{ marginBottom: 4 }}>
               <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700', marginBottom: 6 }}>Une autre musique ? Colle son lien ici</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <TextInput testID="temporary-music-next-link-input" value={nextLink} onChangeText={setNextLink}
                   placeholder="Nouveau lien YouTube, Spotify…" placeholderTextColor="#C9C3E0"
                   autoCapitalize="none" autoCorrect={false} selectTextOnFocus keyboardType="url" returnKeyType="search"
                   onSubmitEditing={() => { if (nextLink.trim()) onReplaceLink(nextLink.trim()); }}
-                  style={{ flex: 1, minWidth: 0, minHeight: 46, borderRadius: 10, paddingHorizontal: 10, borderWidth: 1, borderColor: '#6956BB', backgroundColor: '#090713', color: '#FFFFFF', fontSize: 13 }} />
-                <TouchableOpacity testID="temporary-music-next-link-search" disabled={!nextLink.trim()} onPress={() => { if (nextLink.trim()) onReplaceLink(nextLink.trim()); }} accessibilityRole="button" accessibilityLabel="Rechercher le nouveau lien musical" style={{ minWidth: 92, minHeight: 46, backgroundColor: nextLink.trim() ? '#2DE1C2' : '#6956BB', borderRadius: 10, justifyContent: 'center', alignItems: 'center' }}>
+                  style={{ flex: 1, minWidth: 0, minHeight: 48, borderRadius: 12, paddingHorizontal: 12, borderWidth: 1.5, borderColor: '#A78BFA', backgroundColor: '#090713', color: '#FFFFFF', fontSize: 13 }} />
+                <TouchableOpacity testID="temporary-music-next-link-search" disabled={!nextLink.trim()} onPress={() => { if (nextLink.trim()) onReplaceLink(nextLink.trim()); }} accessibilityRole="button" accessibilityLabel="Rechercher le nouveau lien musical" style={{ minWidth: 92, minHeight: 48, paddingHorizontal: 12, backgroundColor: nextLink.trim() ? '#68F2B1' : '#4A3A65', borderRadius: 12, borderWidth: 1, borderColor: '#A78BFA', justifyContent: 'center', alignItems: 'center' }}>
                   <Text style={{ color: '#10101A', fontSize: 12, fontWeight: '800' }}>Chercher</Text>
                 </TouchableOpacity>
               </View>
             </View>
           ) : null}
           {embed ? (
-            <View key={embed.url} testID="temporary-music-embedded-player" style={{ width: '100%', height: embed.provider === 'YOUTUBE' ? 280 : 185, minHeight: 170, borderRadius: 12, overflow: 'hidden', backgroundColor: '#090713' }}>
+            <View key={embed.url} testID="temporary-music-embedded-player" style={{ width: '100%', height: embed.provider === 'YOUTUBE' ? 220 : 185, minHeight: 170, borderRadius: 14, borderWidth: 1.5, borderColor: '#A78BFA', overflow: 'hidden', backgroundColor: '#090713' }}>
               {Platform.OS === 'web' ?
                 React.createElement('iframe' as any, {
                   key: `${limitedYouTubeEmbed}:${providerAttempt}`,
@@ -212,7 +212,7 @@ export default function TemporaryMusicPreview({
           {previewUrl ? (
             <TouchableOpacity testID="temporary-music-play-catalog-excerpt" onPress={togglePreview} accessibilityRole="button"
               accessibilityLabel={previewPlaying ? 'Arrêter l’extrait musical' : 'Écouter un extrait du catalogue dans Loki Music'}
-              style={{ marginTop: 10, minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: '#2DE1C2', alignItems: 'center', justifyContent: 'center' }}>
+              style={{ minHeight: 48, borderRadius: 13, borderWidth: 1.5, borderColor: '#68F2B1', backgroundColor: 'rgba(104,242,177,.08)', alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ color: '#2DE1C2', fontWeight: '800', fontSize: 12 }}>{previewPlaying ? '■ ARRÊTER L’EXTRAIT' : '▶ PRÉÉCOUTER 20s'}</Text>
             </TouchableOpacity>
           ) : null}
@@ -244,11 +244,11 @@ export default function TemporaryMusicPreview({
             </TouchableOpacity>
           ) : null}
           {onNext ? (
-            <TouchableOpacity testID="temporary-music-next" accessibilityRole="button" accessibilityLabel="Rechercher une autre musique sans sortir de Loki" onPress={onNext} style={{ marginTop: 8, minHeight: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#6956BB' }}>
+            <TouchableOpacity testID="temporary-music-next" accessibilityRole="button" accessibilityLabel="Rechercher une autre musique sans sortir de Loki" onPress={onNext} style={{ marginTop: 8, minHeight: 48, borderRadius: 13, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#A78BFA', backgroundColor: '#211936' }}>
               <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 12 }}>♫ Autre musique</Text>
             </TouchableOpacity>
           ) : null}
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fermer cet aperçu sans enregistrer" onPress={onClose} style={{ marginTop: 12, backgroundColor: '#6956BB', minHeight: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fermer cet aperçu sans enregistrer" onPress={onClose} style={{ marginTop: 8, backgroundColor: '#211936', minHeight: 48, borderRadius: 13, borderWidth: 1, borderColor: '#A78BFA', alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: 13 }}>FERMER L’APERÇU</Text>
           </TouchableOpacity>
         </ScrollView>
