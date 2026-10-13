@@ -35,6 +35,7 @@ interface Props {
  */
 export default function TrackListenControls({ track, previewKey, onPreviewFinished, autoPlay = false, compactPreview = false }: Props) {
   const [previewBusy, setPreviewBusy] = useState(false);
+  const [previewPlaying, setPreviewPlaying] = useState(false);
   const [embeddedPlayerOpen, setEmbeddedPlayerOpen] = useState(false);
   const pausedByEmbeddedPlayer = useRef(false);
   // Only the component that paused the microphone may resume it.
@@ -183,6 +184,7 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
   // naturelle ou stop manuel, `onStateChange` étant appelé avec false dans
   // les deux cas.
   const resumeListeningOnStop = (isPlaying: boolean) => {
+    setPreviewPlaying(isPlaying);
     if (isPlaying || !pausedMicForPreview.current) return;
     pausedMicForPreview.current = false;
     const session = useSessionStore.getState();
@@ -215,7 +217,13 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
   };
 
   const playSnippet = (durationMillis: number) => {
-    if (!resolvedPreviewUrl || previewBusy) return;
+    if (previewBusy) return;
+    if (previewPlaying) {
+      stopTrackPreviewFast(previewKey);
+      resumeListeningOnStop(false);
+      return;
+    }
+    if (!resolvedPreviewUrl) return;
     unlockWebAudioForGesture();
     const session = useSessionStore.getState();
     if (session.isActive && !session.micPaused) {
@@ -267,7 +275,7 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
     <>
       <View style={styles.previewRow}>
         {resolvedPreviewUrl ? compactPreview ? (
-          <TouchableOpacity testID={`session-preview-${previewKey}`} style={[styles.previewPill, styles.sessionPreviewPill]} onPress={() => playSnippet(30000)} disabled={previewBusy} accessibilityRole="button" accessibilityLabel="Pré-écouter 30 secondes de ce morceau"><Text style={[styles.previewText, styles.sessionPreviewText]} numberOfLines={1}>{previewBusy ? 'CHARGEMENT…' : '▶ PRÉ-ÉCOUTER · 30 s'}</Text></TouchableOpacity>
+          <TouchableOpacity testID={`session-preview-${previewKey}`} style={[styles.previewPill, styles.sessionPreviewPill]} onPress={() => playSnippet(30000)} disabled={previewBusy} accessibilityRole="button" accessibilityLabel={previewPlaying ? "Arrêter la pré-écoute" : "Pré-écouter 30 secondes de ce morceau"}><Text style={[styles.previewText, styles.sessionPreviewText]} numberOfLines={1}>{previewBusy ? 'CHARGEMENT…' : previewPlaying ? '■ ARRÊTER L’EXTRAIT' : '▶ PRÉ-ÉCOUTER · 30 s'}</Text></TouchableOpacity>
         ) : <>
           <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(10000)} disabled={previewBusy} accessibilityLabel="Écouter 10 secondes"><Text style={styles.previewText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{previewBusy ? '…' : '▶ 10s'}</Text></TouchableOpacity>
           <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(20000)} disabled={previewBusy} accessibilityLabel="Écouter 20 secondes"><Text style={styles.previewText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>▶ 20s</Text></TouchableOpacity>
