@@ -1280,7 +1280,6 @@ export default function MusicSwipeDeckModal({
               fill
             >
               <View style={[s.card, desktopSwipeLayout && s.desktopStoryCard, compactDeck && s.cardCompact]} testID="swipe-neon-depth-card">
-                {desktopSwipeLayout ? <GlowRing radius={24} color="#68F2B1" testID="swipe-neon-depth-animated-edge" /> : null}
                 <View testID="swipe-artwork-stage" style={s.artworkStage}>
                 {ownerMasked ? <View style={[s.cover,s.coverFallback]}><MysteryArtwork caption="Titre masqué · aperçu de tes abonnés" /></View> : current.artworkUrl ? <Image source={{ uri: current.artworkUrl }} style={s.cover as any} resizeMode="contain" /> : <View style={[s.cover,s.coverFallback]}>{isSaleStoryTrack(current) ? <MysteryArtwork caption={priceBadge ? '' : 'Titre masqué · garde pour révéler'} /> : <Text style={s.coverK}>K</Text>}</View>}
                 {/* Adel 05/10/2026 : « il faut que ce soit très lisible, que les utilisateurs ne se fassent pas tromper » -- PAYANT (PayPal) ou GRATUIT, toujours dit en clair sur la carte. */}
@@ -1346,6 +1345,7 @@ export default function MusicSwipeDeckModal({
                   <Text style={s.artist} numberOfLines={1}>{ownerMasked ? 'Ta boutique' : current.artist}</Text>
                   {current.album && !ownerMasked && !storyEmbeddedSource && !compactDeck ? <Text style={s.album} numberOfLines={1}>{current.album}</Text> : null}
                 </View>
+                {desktopSwipeLayout ? <GlowRing radius={24} color="#68F2B1" testID="swipe-neon-depth-animated-edge" /> : null}
 
               </View>
             </SwipeDeck>
