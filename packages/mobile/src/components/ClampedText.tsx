@@ -17,7 +17,7 @@ export default function ClampedText({ text, style, max = CLAMP_WORDS }: { text: 
         style={{ color: colors.primaryLight, fontWeight: '800' }}
         onPress={() => setOpen((v) => !v)}
         accessibilityRole="button"
-        accessibilityLabel={open ? 'Réduire le texte' : 'En savoir plus'}
+        accessibilityLabel={open ? 'Moins' : 'Plus'}
         accessibilityState={{ expanded: open }}
       >
         {open ? 'Moins' : 'Plus'}
