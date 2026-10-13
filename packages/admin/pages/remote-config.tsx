@@ -84,10 +84,10 @@ const FRIENDLY_LABELS: Record<string, string> = {
   growth_followers_tier4_threshold: 'Abonnés · palier 4',
   growth_followers_tier5_threshold: 'Abonnés · palier Audience Pro',
   growth_followers_reward_25_discovery: 'Bonus Découvertes · abonnés palier 1',
-  growth_followers_reward_100_sort: 'Essais Vibes · abonnés palier 2',
+  growth_followers_reward_100_sort: 'Essais Styles · abonnés palier 2',
   growth_followers_reward_250_credits: 'Bonus crédits · abonnés palier 3',
   growth_followers_reward_500_discovery: 'Bonus Découvertes · abonnés palier 4',
-  growth_followers_reward_500_sort: 'Essais Vibes · abonnés palier 4',
+  growth_followers_reward_500_sort: 'Essais Styles · abonnés palier 4',
   growth_followers_reward_1000_credits: 'Bonus crédits · Audience Pro',
   // Adel (04/09/2026) : "je sais pas comment t'as calculé ton coût pour le
   // lien d'affiliation ... il faut que je puisse l'avoir dans les
@@ -101,13 +101,13 @@ const FRIENDLY_LABELS: Record<string, string> = {
   referral_bonus_10: 'Bonus Free au 10ᵉ filleul inscrit ce mois',
   referral_monthly_free_cap: 'Plafond de Free gagnés par parrainage / mois',
   music_services_limit_free: 'Services musicaux · FREE',
-  music_services_limit_premium: 'Services musicaux · Premium 2,99 €',
-  music_services_limit_creator: 'Services musicaux · Creator Pro 9,99 €',
-  music_services_limit_venue: 'Services musicaux · Venue Pro 29,99 €',
+  music_services_limit_premium: 'Services musicaux · Premium',
+  music_services_limit_creator: 'Services musicaux · Creator Pro',
+  music_services_limit_venue: 'Services musicaux · Venue Pro',
   free_monthly_bonus_free: 'Free offerts / mois · formule Free',
-  free_monthly_bonus_premium: 'Free offerts / mois · Premium 2,99 €',
-  free_monthly_bonus_creator_pro: 'Free offerts / mois · Creator Pro 9,99 €',
-  free_monthly_bonus_venue_pro: 'Free offerts / mois · Venue Pro 29,99 €',
+  free_monthly_bonus_premium: 'Free offerts / mois · Premium',
+  free_monthly_bonus_creator_pro: 'Free offerts / mois · Creator Pro',
+  free_monthly_bonus_venue_pro: 'Free offerts / mois · Venue Pro',
   listen_quota_period_FREE: 'Écouter FREE · recharge (DAY/WEEK/MONTH/NEVER)',
   listen_quota_limit_FREE: 'Écouter FREE · identifications incluses par période',
   listen_quota_period_PREMIUM: 'Écouter PREMIUM · recharge (DAY/WEEK/MONTH/NEVER)',
@@ -134,7 +134,7 @@ const FRIENDLY_LABELS: Record<string, string> = {
   session_empty_title: 'Écouter · titre au repos',
   session_empty_subtitle: 'Écouter · texte au repos',
   session_silence_timeout_minutes: 'Silence avant proposition d’arrêt (min)',
-  smart_album_config: 'Configuration Loki Music Vibes automatique',
+  smart_album_config: 'Configuration Loki Music Styles automatique',
   legal_publisher_name: 'Nom de l’éditeur (mentions légales/CGU)',
   legal_publisher_contact: 'Contact de l’éditeur (mentions légales)',
 };
@@ -157,7 +157,7 @@ function groupFor(key: string): GroupKey {
 
 const GROUPS: Array<{ key: GroupKey; title: string; subtitle: string }> = [
   { key: 'DESKTOP', title: 'Apparence ordinateur', subtitle: 'Réglages réels du bureau Loki Music. Les colonnes de boutique s’adaptent à la fenêtre PC ; la version mobile et les cinq onglets restent inchangés.' },
-  { key: 'GAINS', title: 'Gagner', subtitle: 'Tout ce qui fait GAGNER des FREE aux utilisateurs. Le bonus d’inscription et les FREE mensuels des abonnés se règlent dans Formules. Partager son profil ne donne pas de FREE : les paliers de partage donnent des Découvertes et des essais Vibes (Croissance).' },
+  { key: 'GAINS', title: 'Gagner', subtitle: 'Tout ce qui fait GAGNER des FREE aux utilisateurs. Le bonus d’inscription et les FREE mensuels des abonnés se règlent dans Formules. Partager son profil ne donne pas de FREE : les paliers de partage donnent des Découvertes et des essais Styles (Croissance).' },
   { key: 'SPEND', title: 'Dépenser', subtitle: 'Tout ce qui fait DÉPENSER des FREE.' },
   { key: 'BATTLE', title: 'Battle', subtitle: 'Mises, parties SOLO et packs. Le gain SOLO parfait (3 / 6 / 8 / 12 FREE selon le nombre de manches) est encore fixé dans le serveur : il deviendra réglable ici avec ton « OK base ».' },
   { key: 'LEGAL', title: 'Légal', subtitle: 'Nom et contact affichés dans les mentions légales, CGU et politique de confidentialité publiques -- un seul changement ici met à jour toutes les pages automatiquement, sans republier l’app.' },
@@ -165,7 +165,7 @@ const GROUPS: Array<{ key: GroupKey; title: string; subtitle: string }> = [
   { key: 'PLANS', title: 'Crédits', subtitle: 'Réglages transversaux. Écoutes invité, bonus d’inscription, FREE mensuels, prix et limites par formule : page Formules.' },
   { key: 'SERVICES', title: 'Services', subtitle: 'Nombre maximum de services qu’un compte peut choisir. Un service confirmé reste attaché au compte ; augmente une limite ici sans republier l’application.' },
   { key: 'LISTEN', title: 'Écouter · quotas', subtitle: 'Par formule : nombre de morceaux inclus et recharge JOUR / SEMAINE / MOIS / JAMAIS. JAMAIS = crédit permanent, sans remise à zéro. Au-delà, l’utilisateur accepte de payer en FREE pour chaque titre effectivement reconnu.' },
-  { key: 'VIBES', title: 'Vibes', subtitle: 'Configuration du rangement musical intelligent.' },
+  { key: 'VIBES', title: 'Styles', subtitle: 'Configuration du rangement musical intelligent.' },
   { key: 'OTHER', title: 'Avancé', subtitle: 'Autres réglages distants.' },
 ];
 
@@ -225,7 +225,7 @@ export default function RemoteConfig() {
   };
 
   return <AdminLayout>
-    <div className="page-title">Réglages <Hint title="Réglages" text={<>Pilote les cadeaux Free, la croissance communautaire, les services musicaux, Écouter et Loki Music Vibes directement depuis Supabase.</>}/></div>
+    <div className="page-title">Réglages <Hint title="Réglages" text={<>Pilote les cadeaux Free, la croissance communautaire, les services musicaux, Écouter et Loki Music Styles directement depuis Supabase.</>}/></div>
 
     {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
     {!error && !loading && <div className="demo-banner"><span className="real-pill">● Réel <Hint title="Mode réel" text="Chaque changement est audité et appliqué sans republier l’application."/></span></div>}

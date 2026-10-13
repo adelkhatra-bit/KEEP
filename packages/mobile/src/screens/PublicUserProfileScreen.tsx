@@ -879,7 +879,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     try {
       const rows = await loader();
       if (!rows.length) {
-        Alert.alert('Vibe Loki Music', 'Cette sélection ne contient pas encore de morceau accessible.');
+        Alert.alert('Style Loki Music', 'Cette sélection ne contient pas encore de morceau accessible.');
         return;
       }
       setFolderSwipeTracks(rows);
@@ -887,7 +887,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       setBrowseFilter(null);
       setSwipeOpen(true);
     } catch {
-      Alert.alert('Vibe Loki Music', 'Impossible d’ouvrir cette sélection pour le moment.');
+      Alert.alert('Style Loki Music', 'Impossible d’ouvrir cette sélection pour le moment.');
     } finally {
       setFolderLoadingId(null);
     }

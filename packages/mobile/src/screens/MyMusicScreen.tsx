@@ -803,7 +803,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
       setSortAccess(nextGate);
       setSortDone(true);
     } catch (e: any) {
-      Alert.alert('Vibes Loki Music', e?.message ?? 'Impossible de ranger automatiquement la bibliothèque pour le moment.');
+      Alert.alert('Styles Loki Music', e?.message ?? 'Impossible de ranger automatiquement la bibliothèque pour le moment.');
     } finally {
       setAnalyzing(false);
     }
@@ -849,7 +849,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
       setSmartAlbums((rows) => rows.map((row) => `keep-smart:${row.id}` === editing.id ? { ...row, name: preference.name, description: preference.description, isPublic: preference.isPublic } : row));
       setEditing(null);
     } catch (e: any) {
-      Alert.alert('Vibe Loki Music', e?.message ?? 'Impossible d’enregistrer les modifications.');
+      Alert.alert('Style Loki Music', e?.message ?? 'Impossible d’enregistrer les modifications.');
     } finally {
       setSavingEdit(false);
     }
@@ -1205,7 +1205,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
 
   const toggleTrackVisibility = async (track: CanonicalTrack, saleVisibilityConfirmed = false) => {
     const entry = localEntryForTrack(track);
-    if (!entry) return Alert.alert('Visibilité', 'Cette musique vient d’une Vibe ou d’un service connecté. Modifie la visibilité de sa collection.');
+    if (!entry) return Alert.alert('Visibilité', 'Cette musique vient d’un Style ou d’un service connecté. Modifie la visibilité de sa collection.');
     const key = trackIdentity(track);
     if (trackVisibilityBusy === key || trackDeleteBusy === key) return;
     const next = entry.visibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC';
@@ -1442,7 +1442,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
       <TouchableOpacity style={styles.playlistCard} onPress={() => void togglePlaylist(item)} accessibilityLabel={`Ouvrir ${item.name}`}>
         {item.coverUrl ? <Image source={{ uri: item.coverUrl }} style={styles.playlistCover as any} /> : <View style={[styles.playlistCover, styles.playlistCoverFallback]}><Text style={styles.playlistCoverText}>{isSmart ? '✦' : '♪'}</Text></View>}
         <View style={styles.playlistInfo}>
-          <View style={styles.playlistTitleRow}><Text style={styles.playlistName} numberOfLines={1}>{item.name}</Text>{isSmart ? <View style={styles.smartPill}><Text style={styles.smartPillText}>VIBE</Text></View> : null}</View>
+          <View style={styles.playlistTitleRow}><Text style={styles.playlistName} numberOfLines={1}>{item.name}</Text>{isSmart ? <View style={styles.smartPill}><Text style={styles.smartPillText}>STYLE</Text></View> : null}</View>
           <Text style={styles.songCount}>{actualCount} morceau{actualCount > 1 ? 'x' : ''}{visibility ? ` · ${visibility}` : ''}</Text>
         </View>
         {!isAllKeepView && !isGroupView ? <TouchableOpacity style={styles.miniEdit} onPress={() => openEdit(item)}><Text style={styles.miniEditText}>✎</Text></TouchableOpacity> : null}
@@ -1454,11 +1454,11 @@ export default function MyMusicScreen({ navigation, route }: any) {
           <TouchableOpacity style={styles.serviceMini} onPress={async () => {
             try {
               const exportTracks = tracks.length ? tracks : await loadTracks(item);
-              if (!exportTracks.length) return Alert.alert('Services musicaux', 'Cette Vibe ne contient encore aucun morceau.');
+              if (!exportTracks.length) return Alert.alert('Services musicaux', 'Ce Style ne contient encore aucun morceau.');
               await prepareKeylessMusicExport(item.name, exportTracks);
               navigation.navigate('MusicConnections');
             } catch (e: any) {
-              Alert.alert('Services musicaux', e?.message ?? 'Impossible de préparer cette Vibe.');
+              Alert.alert('Services musicaux', e?.message ?? 'Impossible de préparer ce Style.');
             }
           }}><Text style={styles.serviceMiniText}>♫ SERVICES</Text></TouchableOpacity>
           <TouchableOpacity style={styles.shareMini} onPress={() => sharePlaylist(item.id, item.name).catch(() => Alert.alert('Partager', 'Partage indisponible pour le moment.'))}><Text style={styles.shareMiniText}>↗ PARTAGER</Text></TouchableOpacity>
@@ -1750,13 +1750,13 @@ export default function MyMusicScreen({ navigation, route }: any) {
             </View>
           ) : null}
           ListFooterComponent={activeTab === 'VIBES' && automaticStylePlaylists.length ? (
-            <View style={styles.autoVibesSection}>
-              <Text style={styles.autoVibesTitle}>SUGGESTIONS AUTO · {automaticStylePlaylists.length}</Text>
-              <Text style={styles.autoVibesHint}>Ces suggestions ne sont PAS comptées dans tes {stylePlaylists.length} Styles musicaux affichés sur ton profil.</Text>
+            <View style={styles.autoStylesSection}>
+              <Text style={styles.autoStylesTitle}>SUGGESTIONS AUTO · {automaticStylePlaylists.length}</Text>
+              <Text style={styles.autoStylesHint}>Ces suggestions ne sont PAS comptées dans tes {stylePlaylists.length} Styles musicaux affichés sur ton profil.</Text>
               {automaticStylePlaylists.map((playlist) => <View key={`auto:${playlist.id}`}>{renderPlaylist({ item: playlist })}</View>)}
             </View>
           ) : null}
-          ListEmptyComponent={<View style={styles.emptyCard}><Text style={styles.emptyTitle}>{activeTab === 'ARTISTES' ? 'Tes artistes apparaîtront ici.' : 'Aucune musique gardée'}</Text><Text style={styles.emptyText}>Garde quelques morceaux : Loki Music construira ensuite ton univers et, selon ta formule, tes Vibes automatiques.</Text><TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('Main', { screen: 'Listen' })}><Text style={styles.emptyButtonText}>ÉCOUTER</Text></TouchableOpacity></View>}
+          ListEmptyComponent={<View style={styles.emptyCard}><Text style={styles.emptyTitle}>{activeTab === 'ARTISTES' ? 'Tes artistes apparaîtront ici.' : 'Aucune musique gardée'}</Text><Text style={styles.emptyText}>Garde quelques morceaux : Loki Music construira ensuite ton univers et, selon ta formule, tes Styles automatiques.</Text><TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('Main', { screen: 'Listen' })}><Text style={styles.emptyButtonText}>ÉCOUTER</Text></TouchableOpacity></View>}
         />
       )}
 
@@ -1838,7 +1838,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
 
       <KeepModal visible={!!editing} transparent animationType="fade" onRequestClose={() => setEditing(null)}>
         <View style={styles.modalBackdrop}><ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled"><View style={styles.editCard}>
-          <Text style={styles.editTitle}>{editing && isSmartAlbumUiId(editing.id) ? 'Renommer ma Vibe' : 'Modifier la collection'}</Text>
+          <Text style={styles.editTitle}>{editing && isSmartAlbumUiId(editing.id) ? 'Renommer mon Style' : 'Modifier la collection'}</Text>
           <Text style={styles.editHint}>Le nom et la visibilité restent entièrement sous ton contrôle.</Text>
           <TextInput style={styles.input} value={editName} onChangeText={setEditName} placeholder="Nom" placeholderTextColor={colors.textMuted} />
           <TextInput style={[styles.input, styles.multiline]} value={editDescription} onChangeText={setEditDescription} placeholder="Description" placeholderTextColor={colors.textMuted} multiline />
@@ -2111,9 +2111,9 @@ const styles = StyleSheet.create({
   styleCountHeader:{marginBottom:10,padding:12,borderRadius:18,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.primary},
   styleCountTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900',letterSpacing:.5},
   styleCountHint:{color:colors.textMutedGrey,fontSize:11,lineHeight:16,marginTop:3},
-  autoVibesSection:{marginTop:14,paddingTop:12,borderTopWidth:1,borderTopColor:colors.border},
-  autoVibesTitle:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:.7,marginBottom:2},
-  autoVibesHint:{color:colors.textMutedGrey,fontSize:11,lineHeight:16,marginBottom:8},
+  autoStylesSection:{marginTop:14,paddingTop:12,borderTopWidth:1,borderTopColor:colors.border},
+  autoStylesTitle:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:.7,marginBottom:2},
+  autoStylesHint:{color:colors.textMutedGrey,fontSize:11,lineHeight:16,marginBottom:8},
   manageGuide:{marginHorizontal:12,marginTop:7,paddingHorizontal:10,paddingVertical:7,borderRadius:14,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary,flexDirection:'row',alignItems:'center',gap:10},
   manageGuideActive:{borderColor:colors.keep,backgroundColor:colors.successFaint},
   manageHelpBox:{marginHorizontal:12,marginTop:6,paddingHorizontal:12,paddingVertical:10,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard},
