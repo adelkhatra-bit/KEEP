@@ -1,5 +1,14 @@
 [
   {
+    "commit": "13a6e68ec1a811ec06311b9b7f7a3bede0deb66c",
+    "web": "13a6e68ec1a811ec06311b9b7f7a3bede0deb66c",
+    "testflight": "iOS #239 success (release 92a9036)",
+    "ota": "OTA #1030 success (release 92a9036)",
+    "date": "2026-10-13 20:49",
+    "tests": "pass",
+    "changes": "feat(offres): Vibes → Styles, prix en dur retirés, recharges FREE réglables (#194)"
+  },
+  {
     "commit": "92a903692752980cce32a33249eccb4b90e62ea7",
     "web": "92a903692752980cce32a33249eccb4b90e62ea7",
     "testflight": "iOS #239 in_progress (release 92a9036)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 19:39",
     "tests": "pass",
     "changes": "test(music): PC and iPhone YouTube link parity and ephemeral in-app preview contract"
-  },
-  {
-    "commit": "7e9b32df1bbd736244ebdc43854b2cd7aa6d3a88",
-    "web": "7e9b32df1bbd736244ebdc43854b2cd7aa6d3a88",
-    "testflight": "iOS #230 success (release 1f44ee1)",
-    "ota": "OTA #1021 success (release 1f44ee1)",
-    "date": "2026-10-12 19:31",
-    "tests": "pass",
-    "changes": "fix(music): align direct music-link confidence with server and allow catalog lookup to complete"
   }
 ]

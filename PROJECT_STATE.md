@@ -143,6 +143,7 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
+| `13a6e68` | `13a6e68` | iOS #239 success (release 92a9036) | OTA #1030 success (release 92a9036) | 2026-10-13 20:49 | pass | feat(offres): Vibes → Styles, prix en dur retirés, recharges FREE réglables (#194) |
 | `92a9036` | `92a9036` | iOS #239 in_progress (release 92a9036) | OTA #1030 in_progress (release 92a9036) | 2026-10-13 20:21 | pass | release(loki): ship PR189 raised reaction counters, 3D neon Swipe and compact Plus to Web/TestFlight/OTA |
 | `d5012e6` | `d5012e6` | iOS #238 cancelled (release 98d3a9a) | OTA #1029 success (release 98d3a9a) | 2026-10-13 20:11 | pass | fix(desktop/ui): réactions au-dessus du titre, contour néon animé, Plus partout (#189) |
 | `98d3a9a` | `98d3a9a` | iOS #238 in_progress (release 98d3a9a) | OTA #1029 in_progress (release 98d3a9a) | 2026-10-13 19:50 | pass | fix(desktop/story): 3 compteurs lumineux au-dessus du titre et aide compacte Plus partout (#186) |
@@ -182,7 +183,6 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 | `e1bad17` | `e1bad17` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 19:53 | pass | test(music): require explicit saved link sessions while keeping searches read-only |
 | `d8e54f1` | `d8e54f1` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 19:47 | pass | fix(listen): monitor successive PC tab songs into real session with preview and FREE KEEP |
 | `a487e40` | `a487e40` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 19:39 | pass | test(music): PC and iPhone YouTube link parity and ephemeral in-app preview contract |
-| `7e9b32d` | `7e9b32d` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 19:31 | pass | fix(music): align direct music-link confidence with server and allow catalog lookup to complete |
 <!-- AUTO:RELEASE-REGISTER:END -->
 
 
