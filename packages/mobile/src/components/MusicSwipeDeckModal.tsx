@@ -722,7 +722,7 @@ export default function MusicSwipeDeckModal({
           // On web, autoplay can be denied until a real tap. A catalogue
           // re-search cannot grant a gesture; expose Play immediately instead.
           if (Platform.OS === 'web' && isWebAudioGestureRequired(initialPlayError)) {
-            if (alive && playbackGeneration.current === generation) setAutoplayBlocked(true);
+            if (alive && playbackGeneration.current === generation) { setPreviewStarting(false); setAutoplayBlocked(true); }
             return;
           }
           // Une URL de preview persistée peut expirer côté catalogue. Avant de
@@ -732,7 +732,7 @@ export default function MusicSwipeDeckModal({
           try {
             const refreshedUrl = await resolveTrackPreviewUrl(current, { forceRefresh: true });
             if (!alive || playbackGeneration.current !== generation || !refreshedUrl || !playbackKey) {
-              if (alive) setAutoplayBlocked(true);
+              if (alive) { setPreviewStarting(false); setAutoplayBlocked(true); }
               return;
             }
             setResolvedPreviewUrl(refreshedUrl);
@@ -884,6 +884,7 @@ export default function MusicSwipeDeckModal({
         setAutoplayBlocked(false);
         setPreviewEnded(false);
       } catch {
+        setPreviewStarting(false);
         setAutoplayBlocked(true);
       }
     }
