@@ -1,5 +1,14 @@
 [
   {
+    "commit": "d73e160ddb8c2333e4258ee9c17377782aa10f31",
+    "web": "d73e160ddb8c2333e4258ee9c17377782aa10f31",
+    "testflight": "iOS #237 in_progress (release d73e160)",
+    "ota": "OTA #1028 in_progress (release d73e160)",
+    "date": "2026-10-13 19:02",
+    "tests": "pass",
+    "changes": "release(ios+web): publish profile preview YouTube autoplay fallback and header UX, PR185 validated"
+  },
+  {
     "commit": "421946a746014c2a52ca8afbaea03914e419cb1c",
     "web": "421946a746014c2a52ca8afbaea03914e419cb1c",
     "testflight": "iOS #236 cancelled (release 7e85c52)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 19:09",
     "tests": "pass",
     "changes": "fix(web): repair tab capture JSX and avoid starting microphone before browser share prompt"
-  },
-  {
-    "commit": "d3cbeaebfc042bf9bc792ec452ec449d68294cbb",
-    "web": "d3cbeaebfc042bf9bc792ec452ec449d68294cbb",
-    "testflight": "iOS #230 success (release 1f44ee1)",
-    "ota": "OTA #1021 success (release 1f44ee1)",
-    "date": "2026-10-12 18:59",
-    "tests": "pass",
-    "changes": "feat(home): show found music directly below Loki Music logo"
   }
 ]
