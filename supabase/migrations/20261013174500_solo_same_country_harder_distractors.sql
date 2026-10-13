@@ -92,7 +92,7 @@ insert into public.keep_solo_artist_countries(artist_key,country_code) values
   ('jimi hendrix','US'),
   ('the doors','US'),
   ('eagles','US'),
-  ('fleetwood mac','US'),
+  ('fleetwood mac','GB'),
   ('nirvana','US'),
   ('pearl jam','US'),
   ('red hot chili peppers','US'),
