@@ -34,6 +34,9 @@ describe('Session iPhone + PC: compact design, reliable pre-listen, usable swipe
     expect(preview).toContain('testID={`session-preview-${previewKey}`}');
     expect(preview).toContain('playSnippet(30000)');
     expect(preview).toContain('PRÉ-ÉCOUTER · 30 s');
+    expect(preview).toContain('ARRÊTER L’EXTRAIT');
+    expect(preview).toContain('if (previewPlaying) {');
+    expect(preview).toContain('stopTrackPreviewFast(previewKey);');
     expect(row).toContain('width: 44, height: 44');
   });
 
