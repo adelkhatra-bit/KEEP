@@ -44,6 +44,17 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   const [keepCostPerKeep, setKeepCostPerKeep] = useState(3);
 
   useEffect(() => {
+    // React Navigation can reuse this screen for another session. Its old
+    // title, card stack and FREE status must not leak into a new session.
+    setTitleDraft(session?.title ?? '');
+    setTitleSaved(false);
+    setSwipeOpen(false);
+    setSwipeTracks([]);
+    setSwipePreviewOnly(false);
+    setShowPassed(false);
+  }, [sessionId]);
+
+  useEffect(() => {
     const refreshCredits = () => {
       void refreshCreditLocks().catch(() => {});
       void getDownloadCreditStatus().then((status) => {
@@ -245,7 +256,12 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     const entry = findPendingEntry(track);
     if (!entry) return true;
     await refreshCreditLocks().catch(() => {});
-    await keepTrackInSession(sessionId, entry.id, undefined, visibility);
+    try {
+      await keepTrackInSession(sessionId, entry.id, undefined, visibility);
+    } catch {
+      Alert.alert('GARDER indisponible', 'Le serveur n’a pas confirmé la sauvegarde. Ta musique reste dans ta session.');
+      return false;
+    }
     await refreshCreditLocks().catch(() => {});
     const refreshed = useSessionHistoryStore.getState().sessions.find((item) => item.id === sessionId)?.tracks.find((item) => item.id === entry.id);
     if (refreshed?.creditLocked) {
@@ -314,7 +330,6 @@ export default function SessionRecapScreen({ route, navigation }: any) {
           <Text style={styles.statsDot}>·</Text>
           <Text style={[styles.statsText, styles.statsKept]}>{t('session.kept', { count: keptCount })}</Text>
         </View>
-        {pendingCount > 0 ? <TouchableOpacity style={styles.pendingPill} onPress={openSwipe} accessibilityRole="button" accessibilityLabel={`Swiper ${pendingCount} musiques`}><Text style={styles.pendingPillText}>SWIPER TOUTES · {pendingCount}</Text></TouchableOpacity> : null}
       </View>
 
       {lockedCount > 0 ? (
@@ -324,12 +339,11 @@ export default function SessionRecapScreen({ route, navigation }: any) {
         </TouchableOpacity>
       ) : null}
 
-      {pendingCount > 0 ? (
-        <Text testID="session-recap-pending-total" style={[styles.visibilityHint, { color: colors.textPrimary, fontWeight: '800' }]}>
-          {pendingCount} musique{pendingCount > 1 ? 's' : ''} en attente · SWIPER TOUTES pour décider sans perdre ta session.
-        </Text>
-      ) : null}
-      <Text style={styles.visibilityHint}>À swiper en premier · Public = visible sur ton profil Loki Music · Privé = visible seulement par toi.</Text>
+      <Text testID="session-recap-pending-total" style={styles.visibilityHint}>
+        {pendingCount > 0
+          ? `${pendingCount} musique${pendingCount > 1 ? 's' : ''} à préécouter ou trier · Public sur ton profil, Privé pour toi.`
+          : 'Tu peux réécouter tes morceaux. Public sur ton profil, Privé pour toi.'}
+      </Text>
 
       <FlatList
         data={sortedTracks}
@@ -434,9 +448,9 @@ const styles = StyleSheet.create({
   titleInput: { flex: 1, minHeight: 48, color: colors.textPrimary, fontSize: 15, fontWeight: '700', borderWidth: 1, borderColor: colors.border, backgroundColor:colors.backgroundElevated, borderRadius:14, paddingHorizontal:12, paddingVertical: spacing.sm },
   validateTitleButton: { minHeight: 48, paddingHorizontal: 14, borderRadius: 24, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   validateTitleText: { color: colors.white, fontSize: 11, fontWeight: '900', letterSpacing: .4 },
-  titleHint: { marginHorizontal: spacing.xl, marginTop: 4, color: colors.textMuted, fontSize: 9 },
-  titleSaved: { marginHorizontal: spacing.xl, marginTop: 4, color: colors.keep, fontSize: 9, fontWeight: '800' },
-  statsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, paddingHorizontal: spacing.xl, marginTop: spacing.lg },
+  titleHint: { marginHorizontal: spacing.xl, marginTop: 4, color: colors.textMuted, fontSize: 11 },
+  titleSaved: { marginHorizontal: spacing.xl, marginTop: 4, color: colors.keep, fontSize: 11, fontWeight: '800' },
+  statsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, paddingHorizontal: spacing.xl, marginTop: spacing.sm },
   statsCopy: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexShrink: 1 },
   statsText: { color: colors.textSecondary, fontSize: 14, fontWeight: '600' },
   statsKept: { color: colors.keep },
@@ -447,7 +461,7 @@ const styles = StyleSheet.create({
   lockedBannerTitle: { color: colors.primaryLight, fontSize: 12, fontWeight: '900' },
   lockedBannerText: { color: colors.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 4 },
   visibilityHint: { color: colors.textMuted, fontSize: 11, lineHeight: 16, textAlign: 'center', marginTop: spacing.md, paddingHorizontal: spacing.xl },
-  list: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.sm },
+  list: { paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.sm },
   passedSection: { marginTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.sm },
   passedHeader: { minHeight:44, justifyContent:'center', paddingVertical: 8 },
   passedHeaderText: { color: colors.textMuted, fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
