@@ -1,5 +1,14 @@
 [
   {
+    "commit": "09c32b06423d854015bb11d12e3f7dea0fe2640c",
+    "web": "09c32b06423d854015bb11d12e3f7dea0fe2640c",
+    "testflight": "iOS #234 success (release f8eacf5)",
+    "ota": "OTA #1025 success (release f8eacf5)",
+    "date": "2026-10-13 17:46",
+    "tests": "pass",
+    "changes": "fix(sessions/ios/web): préécoute immédiate, lien partagé audible et UI Swipe cohérente (#178)"
+  },
+  {
     "commit": "1193d76158ea9fee1c0b3e0516371dbebf60d23f",
     "web": "1193d76158ea9fee1c0b3e0516371dbebf60d23f",
     "testflight": "iOS #234 success (release f8eacf5)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 18:19",
     "tests": "pass",
     "changes": "feat(desktop): cockpit Battle 16:9 sans espaces inutiles, rebasé sur version officielle (#150)"
-  },
-  {
-    "commit": "97b3d1a050cf2b43afcbfa1dbec185488fbba372",
-    "web": "97b3d1a050cf2b43afcbfa1dbec185488fbba372",
-    "testflight": "iOS #229 success (release a18e390)",
-    "ota": "OTA #1020 success (release a18e390)",
-    "date": "2026-10-12 18:12",
-    "tests": "pass",
-    "changes": "fix(soirées): rendre Story automatique et Loki Pulse visibles aux organisateurs (#151)"
   }
 ]
