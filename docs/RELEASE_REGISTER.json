@@ -1,5 +1,14 @@
 [
   {
+    "commit": "b1a6d5f64faa8b407d200b2f98a278647eb0acec",
+    "web": "b1a6d5f64faa8b407d200b2f98a278647eb0acec",
+    "testflight": "iOS #234 success (release f8eacf5)",
+    "ota": "OTA #1025 success (release f8eacf5)",
+    "date": "2026-10-13 17:53",
+    "tests": "pass",
+    "changes": "fix(stories/pulse): éviter les pubs intégrées, découvrir des profils de même style (#180)"
+  },
+  {
     "commit": "09c32b06423d854015bb11d12e3f7dea0fe2640c",
     "web": "09c32b06423d854015bb11d12e3f7dea0fe2640c",
     "testflight": "iOS #234 success (release f8eacf5)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 18:31",
     "tests": "pass",
     "changes": "fix(listen): show server-backed identifications consumed instead of duplicate detected counter, surface tab audio on PC home"
-  },
-  {
-    "commit": "3357ca7d60c9a8be670a4db97a69e72c964fc69e",
-    "web": "3357ca7d60c9a8be670a4db97a69e72c964fc69e",
-    "testflight": "iOS #229 success (release a18e390)",
-    "ota": "OTA #1020 success (release a18e390)",
-    "date": "2026-10-12 18:19",
-    "tests": "pass",
-    "changes": "feat(desktop): cockpit Battle 16:9 sans espaces inutiles, rebasé sur version officielle (#150)"
   }
 ]
