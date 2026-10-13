@@ -143,6 +143,7 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
+| `c7cfb99` | `c7cfb99` | iOS #232 in_progress (release c7cfb99) | OTA #1023 in_progress (release c7cfb99) | 2026-10-13 00:45 | pass | chore(release): déclencher TestFlight et OTA du correctif QR #158 |
 | `cbacd1a` | `cbacd1a` | iOS #231 success (release 5447724) | OTA #1022 success (release 5447724) | 2026-10-13 00:34 | pass | fix(qr): attendre la session restaurée avant popup de connexion |
 | `f028cd0` | `f028cd0` | iOS #231 success (release 5447724) | OTA #1022 success (release 5447724) | 2026-10-13 00:06 | pass | test(stories): guard paid/free labels against artwork overlap |
 | `134632f` | `134632f` | iOS #231 success (release 5447724) | OTA #1022 success (release 5447724) | 2026-10-12 23:58 | pass | fix(stories): keep paid/free labels in layout flow outside cover |
@@ -182,7 +183,6 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 | `58dacb5` | `58dacb5` | iOS #228 success (release f8dbd60) | OTA #1019 success (release f8dbd60) | 2026-10-12 11:03 | pass | Merge pull request #135 from adelkhatra-bit/fix/story-viewer-detail-sync-20261012 |
 | `43f1f94` | `43f1f94` | iOS #228 success (release f8dbd60) | OTA #1019 success (release f8dbd60) | 2026-10-12 01:55 | pass | fix(mobile/web): ouvrir réellement Swipe depuis les sessions et centrer les fenêtres (#120) |
 | `f8dbd60` | `f8dbd60` | iOS #228 in_progress (release f8dbd60) | OTA #1019 in_progress (release f8dbd60) | 2026-10-11 23:35 | pass | feat(loki): unify iPhone and desktop quota, sessions, events and Pulse (#112) |
-| `d678e56` | `d678e56` | iOS #227 success (release a1d7ac3) | OTA #1018 success (release a1d7ac3) | 2026-10-11 19:06 | pass | fix(desktop): accueil et Stories cadrés, sans contrôles superposés (#111) |
 <!-- AUTO:RELEASE-REGISTER:END -->
 
 

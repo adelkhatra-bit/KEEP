@@ -1,5 +1,14 @@
 [
   {
+    "commit": "c7cfb993c2689d1e6655289351c27e7608e3f2b7",
+    "web": "c7cfb993c2689d1e6655289351c27e7608e3f2b7",
+    "testflight": "iOS #232 in_progress (release c7cfb99)",
+    "ota": "OTA #1023 in_progress (release c7cfb99)",
+    "date": "2026-10-13 00:45",
+    "tests": "pass",
+    "changes": "chore(release): déclencher TestFlight et OTA du correctif QR #158"
+  },
+  {
     "commit": "cbacd1ac0d02f45fafed727318f0eb33c2274f6c",
     "web": "cbacd1ac0d02f45fafed727318f0eb33c2274f6c",
     "testflight": "iOS #231 success (release 5447724)",
@@ -349,14 +358,5 @@
     "date": "2026-10-11 23:35",
     "tests": "pass",
     "changes": "feat(loki): unify iPhone and desktop quota, sessions, events and Pulse (#112)"
-  },
-  {
-    "commit": "d678e5602dc290c16cf072a2938f7a3993c05b96",
-    "web": "d678e5602dc290c16cf072a2938f7a3993c05b96",
-    "testflight": "iOS #227 success (release a1d7ac3)",
-    "ota": "OTA #1018 success (release a1d7ac3)",
-    "date": "2026-10-11 19:06",
-    "tests": "pass",
-    "changes": "fix(desktop): accueil et Stories cadrés, sans contrôles superposés (#111)"
   }
 ]
