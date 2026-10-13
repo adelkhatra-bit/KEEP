@@ -9,7 +9,7 @@ describe('Solo answers must not change country in the mobile client', () => {
     expect(service).toContain('choices: rawChoices,');
     expect(service).toContain("throw new Error('BATTLE_SOLO_CHOICES_INVALID')");
     expect(service).toContain('new Set(labels).size !== 4');
-    expect(service).toContain('labels.filter((label) => label === normalize(round.correctAnswer)).length !== 1');
+    expect(service).toContain('labels.filter((label: string) => label === normalize(round.correctAnswer)).length !== 1');
   });
 
   it('never borrows foreign-genre decoys from other rounds when options are missing', () => {
