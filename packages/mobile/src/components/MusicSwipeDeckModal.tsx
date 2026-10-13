@@ -24,6 +24,7 @@ import StoryEmbeddedSourcePlayer from './StoryEmbeddedSourcePlayer';
 import { resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
 import { resolveTrackExternalDestination } from '../services/trackExternalLinkService';
 import { checkOwnKeepLibrary } from '../services/connectedMusicLibrary';
+import { uniqueSwipeTracks } from '../services/swipeTrackUniqueness';
 import GlowRing from './GlowRing';
 import TrackLikeButton, { ReactionStatPills } from './TrackLikeButton';
 import { useRobotMessageStore } from '../store/useRobotMessageStore';
@@ -512,7 +513,7 @@ export default function MusicSwipeDeckModal({
     setPrefilterVerified(false);
 
     const prepare = async () => {
-      const inputTracks = [...tracksRef.current];
+      const inputTracks = uniqueSwipeTracks([...tracksRef.current]);
 
       // Règle produit 24/09/2026 : un morceau déjà présent chez l'auditeur
       // reste écoutable. On ne retire donc PLUS rien de la file sociale.
