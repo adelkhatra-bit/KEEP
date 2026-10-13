@@ -276,7 +276,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
         <TouchableOpacity style={styles.backButton} onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))} hitSlop={8} accessibilityRole="button" accessibilityLabel="Retour">
           <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
-        <View style={styles.headerCopy}><Text style={styles.headerEyebrow}>SESSION</Text><Text style={styles.title}>{t('session.recapTitle')}</Text></View>
+        <View style={styles.headerCopy}><Text testID="session-short-header" style={styles.title}>{t('session.recapTitle')}</Text></View>
         <TouchableOpacity onPress={handleShare} hitSlop={8} style={styles.shareBtn} accessibilityRole="button" accessibilityLabel="Partager la session">
           <Text style={styles.shareBtnText}>🔗</Text>
         </TouchableOpacity>
@@ -361,7 +361,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
       <View style={styles.sessionActionsRow}>
         {pendingCount > 0 ? (
           <TouchableOpacity style={[styles.compactAction, styles.swipeAction]} onPress={openSwipe} accessibilityRole="button" accessibilityLabel="Swiper la session">
-            <Text style={styles.swipeActionText}>↔ SWIPER TOUTES · {pendingCount}</Text>
+            <Text style={styles.swipeActionText}>↑ SWIPER / PRÉÉCOUTER · {pendingCount}</Text>
           </TouchableOpacity>
         ) : null}
         {pendingCount > 0 ? (
@@ -392,7 +392,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
         visible={swipeOpen}
         tracks={swipeTracks}
         title="Swiper cette session"
-        subtitle={`${swipeTracks.length} musique${swipeTracks.length > 1 ? 's' : ''} · PASSER = la retire de la liste (récupérable dans RETIRÉS) · GARDER l’ajoute à ta collection.`}
+        subtitle={`${swipeTracks.length} musique${swipeTracks.length > 1 ? 's' : ''} · Préécoute gratuite · Glisse vers le haut pour avancer · PASSER est récupérable.`}
         emptyTitle="Swipe terminé. Toutes les musiques ont été validées."
         loop={false}
         askVisibilityOnKeep
@@ -442,15 +442,15 @@ const styles = StyleSheet.create({
   passedSection: { marginTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.sm },
   passedHeader: { minHeight:44, justifyContent:'center', paddingVertical: 8 },
   passedHeaderText: { color: colors.textMuted, fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
-  sessionActionsRow: { flexDirection: 'row', alignItems: 'stretch', gap: 7, marginHorizontal: spacing.xl, marginBottom: spacing.md },
-  compactAction: { flex: 1, minHeight: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
-  swipeAction: { backgroundColor: colors.keep, borderWidth: 1, borderColor: colors.keep },
+  sessionActionsRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'stretch', gap: 10, marginHorizontal: spacing.xl, marginBottom: spacing.md },
+  compactAction: { flex: 1, minHeight: 48, borderRadius: 15, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8 },
+  swipeAction: { flexBasis: '100%', flexGrow: 0, flexShrink: 0, backgroundColor: colors.keep, borderWidth: 2, borderColor: '#68F2B1' },
   swipeActionText: { color: colors.black, fontSize: 11, fontWeight: '900' },
-  keepAllButton: { backgroundColor: colors.keep, borderWidth: 1, borderColor: colors.keep },
+  keepAllButton: { flexBasis: '42%', flexGrow: 1, backgroundColor: '#19152B', borderWidth: 1.5, borderColor: '#68F2B1' },
   keepAllButtonLocked: { backgroundColor: colors.backgroundElevated, borderColor: colors.border },
-  keepAllButtonText: { color: colors.black, fontWeight: '900', fontSize: 11, textAlign: 'center' },
+  keepAllButtonText: { color: '#68F2B1', fontWeight: '900', fontSize: 11, textAlign: 'center' },
   keepAllButtonTextLocked: { color: colors.textPrimary },
-  deleteSessionButton: { borderWidth: 1, borderColor: colors.danger, backgroundColor: colors.backgroundCard },
+  deleteSessionButton: { flexBasis: '42%', flexGrow: 1, borderWidth: 1.5, borderColor: colors.danger, backgroundColor: colors.backgroundCard },
   deleteSessionText: { color: colors.danger, fontSize: 11, fontWeight: '900' },
   demoBadge: { marginHorizontal: spacing.xl, marginBottom: spacing.md, backgroundColor: colors.demoBadgeBg, borderWidth: 1, borderColor: colors.demoBadgeBorder, borderRadius: radius.md, paddingVertical: spacing.sm, alignItems: 'center' },
   demoText: { color: colors.demoBadgeText, fontSize: 11, fontWeight: '600' },
