@@ -32,6 +32,7 @@ describe('TikTok-style upward swipe contract', () => {
   it('never makes the gesture mandatory: PASSER, GARDER and ARRÊTER remain visible', () => {
     expect(modal).toContain('>PASSER</Text>');
     expect(modal).toContain("currentAlreadyKept ? '✓ DÉJÀ' : '♡ GARDER'");
+    expect(modal).toContain("alreadyKeptState === 'checking' ? '◌ VÉRIFICATION'");
     expect(modal).toContain('>ARRÊTER</Text>');
   });
 });
