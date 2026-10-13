@@ -143,6 +143,7 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
+| `43afe85` | `43afe85` | iOS #233 success (release c7f97df) | OTA #1024 success (release c7f97df) | 2026-10-13 16:13 | pass | fix(story/ios): corriger YouTube 153 dans le vrai lecteur Story et le chevauchement Swipe (#167) |
 | `0346112` | `0346112` | iOS #233 success (release c7f97df) | OTA #1024 success (release c7f97df) | 2026-10-13 14:55 | pass | fix(ios): corriger le lecteur YouTube erreur 153 avec Referer WebView (#166) |
 | `84e3fbd` | `84e3fbd` | iOS #233 success (release c7f97df) | OTA #1024 success (release c7f97df) | 2026-10-13 14:49 | pass | Retour Soirées depuis Battle et mise en page PC élargie (#165) |
 | `c7f97df` | `c7f97df` | iOS #233 in_progress (release c7f97df) | OTA #1024 in_progress (release c7f97df) | 2026-10-13 10:22 | pass | chore(release): ship profile persistence, KEEP modal and iOS OTA updater (#163) |
@@ -182,7 +183,6 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 | `a18e390` | `a18e390` | iOS #229 in_progress (release a18e390) | OTA #1020 in_progress (release a18e390) | 2026-10-12 12:34 | pass | release(ios): trigger TestFlight and OTA for merged PR116 web/mobile updates |
 | `5aa0413` | `5aa0413` | iOS #228 success (release f8dbd60) | OTA #1019 success (release f8dbd60) | 2026-10-12 12:16 | pass | build(deps): bump actions/configure-pages from 5.0.0 to 6.0.0 (#130) |
 | `cff41f4` | `cff41f4` | iOS #228 success (release f8dbd60) | OTA #1019 success (release f8dbd60) | 2026-10-12 11:44 | pass | fix(boutique): vitrines lisibles et parcours FREE / PayPal compréhensible PC et mobile (#143) |
-| `af99be4` | `af99be4` | iOS #228 success (release f8dbd60) | OTA #1019 success (release f8dbd60) | 2026-10-12 11:37 | pass | fix(events): badge rouge TERMINÉE sur la version avec Stories et cockpit PC (#141) |
 <!-- AUTO:RELEASE-REGISTER:END -->
 
 

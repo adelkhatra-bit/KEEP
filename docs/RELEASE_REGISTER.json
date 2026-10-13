@@ -1,5 +1,14 @@
 [
   {
+    "commit": "43afe855320a59c43a9e269884bf3b6ba0d706f1",
+    "web": "43afe855320a59c43a9e269884bf3b6ba0d706f1",
+    "testflight": "iOS #233 success (release c7f97df)",
+    "ota": "OTA #1024 success (release c7f97df)",
+    "date": "2026-10-13 16:13",
+    "tests": "pass",
+    "changes": "fix(story/ios): corriger YouTube 153 dans le vrai lecteur Story et le chevauchement Swipe (#167)"
+  },
+  {
     "commit": "0346112aebc9fbce4aaa48157cbcdeb09f023bfd",
     "web": "0346112aebc9fbce4aaa48157cbcdeb09f023bfd",
     "testflight": "iOS #233 success (release c7f97df)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 11:44",
     "tests": "pass",
     "changes": "fix(boutique): vitrines lisibles et parcours FREE / PayPal compréhensible PC et mobile (#143)"
-  },
-  {
-    "commit": "af99be4f80e598795ab029130a78cb4e9e1749ec",
-    "web": "af99be4f80e598795ab029130a78cb4e9e1749ec",
-    "testflight": "iOS #228 success (release f8dbd60)",
-    "ota": "OTA #1019 success (release f8dbd60)",
-    "date": "2026-10-12 11:37",
-    "tests": "pass",
-    "changes": "fix(events): badge rouge TERMINÉE sur la version avec Stories et cockpit PC (#141)"
   }
 ]
