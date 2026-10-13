@@ -226,6 +226,8 @@ on conflict(artist_key) do nothing;
 
 -- The answer list is always 1 correct + 3 distinctly normalized incorrect.
 -- Themes tied to a country must never borrow names from another country.
+-- Different full credits with the same visible lead singer (e.g. MAES / MAES & guest)
+-- are one answer identity, never two choices in the same question.
 CREATE OR REPLACE FUNCTION public.keep_battle_solo_pack(p_theme_code text DEFAULT 'MIX'::text, p_round_count integer DEFAULT 8, p_theme_codes text[] DEFAULT NULL::text[])
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -323,7 +325,8 @@ begin
   artist_dedup as (
     select * from (
       select p.*, regexp_replace(translate(lower(trim(p.artist)),'àáâäãåçèéêëìíîïñòóôöõùúûüýÿ','aaaaaaceeeeiiiinooooouuuuyy'),'[^[:alnum:]]','','g') as normalized_artist,
-        row_number() over(partition by regexp_replace(translate(lower(trim(p.artist)),'àáâäãåçèéêëìíîïñòóôöõùúûüýÿ','aaaaaaceeeeiiiinooooouuuuyy'),'[^[:alnum:]]','','g') order by p.recent_penalty,p.rnd) as artist_rn
+        regexp_replace(translate(lower(trim(split_part(split_part(split_part(split_part(p.artist,'&',1),',',1),'/',1),'+',1))),'àáâäãåçèéêëìíîïñòóôöõùúûüýÿ','aaaaaaceeeeiiiinooooouuuuyy'),'[^[:alnum:]]','','g') as display_artist_key,
+        row_number() over(partition by regexp_replace(translate(lower(trim(split_part(split_part(split_part(split_part(p.artist,'&',1),',',1),'/',1),'+',1))),'àáâäãåçèéêëìíîïñòóôöõùúûüýÿ','aaaaaaceeeeiiiinooooouuuuyy'),'[^[:alnum:]]','','g') order by p.recent_penalty,p.rnd) as artist_rn
       from pool p
     ) x where x.artist_rn=1 and nullif(x.normalized_artist,'') is not null
   ),
@@ -351,16 +354,17 @@ begin
   ),
   packed as (
     select row_number() over(order by case when v_themes is null then country_rank else 0 end,recent_penalty,rnd)::integer as position,
-      c.id,c.title,c.artist,c.normalized_artist,c.artwork_url,c.preview_url,c.release_year,c.genres,c.country_code,
+      c.id,c.title,c.artist,c.normalized_artist,c.display_artist_key,c.artwork_url,c.preview_url,c.release_year,c.genres,c.country_code,
       coalesce(c.theme_code,'MIX') as theme_code from candidates c
   ),
   -- Pas de leurres venant d'un autre pays lorsque l'origine de l'artiste est connue.
   -- Pays inconnu : comparaisons uniquement entre autres artistes de pays inconnus;
   -- ne pas inventer une nationalité à partir de la langue ou de l'ISRC.
-  distractors as (select artist,normalized_artist,release_year,genres,theme_code,country_code from artist_dedup),
+  distractors as (select artist,normalized_artist,display_artist_key,release_year,genres,theme_code,country_code from artist_dedup),
   with_choices as (select p.*, coalesce((select jsonb_agg(value order by random()) from (select p.artist::text as value union all
           select d.artist from (select d.artist from distractors d
             where d.normalized_artist<>p.normalized_artist
+              and d.display_artist_key<>p.display_artist_key
               and d.country_code is not distinct from p.country_code
               and (p.theme_code='MIX' or d.theme_code=p.theme_code)
             order by case when d.theme_code=p.theme_code then 0 else 1 end,
@@ -374,7 +378,8 @@ begin
   into v_rounds from with_choices x
   where jsonb_array_length(x.choices)=4
     and (select count(distinct regexp_replace(translate(lower(trim(choice.value)),'àáâäãåçèéêëìíîïñòóôöõùúûüýÿ','aaaaaaceeeeiiiinooooouuuuyy'),'[^[:alnum:]]','','g')) from jsonb_array_elements_text(x.choices) choice)=4
-    and (select count(*) from jsonb_array_elements_text(x.choices) choice where regexp_replace(translate(lower(trim(choice.value)),'àáâäãåçèéêëìíîïñòóôöõùúûüýÿ','aaaaaaceeeeiiiinooooouuuuyy'),'[^[:alnum:]]','','g') = x.normalized_artist)=1;
+    and (select count(*) from jsonb_array_elements_text(x.choices) choice where regexp_replace(translate(lower(trim(choice.value)),'àáâäãåçèéêëìíîïñòóôöõùúûüýÿ','aaaaaaceeeeiiiinooooouuuuyy'),'[^[:alnum:]]','','g') = x.normalized_artist)=1
+    and (select count(distinct regexp_replace(translate(lower(trim(split_part(split_part(split_part(split_part(choice.value,'&',1),',',1),'/',1),'+',1))),'àáâäãåçèéêëìíîïñòóôöõùúûüýÿ','aaaaaaceeeeiiiinooooouuuuyy'),'[^[:alnum:]]','','g')) from jsonb_array_elements_text(x.choices) choice)=4;
   if jsonb_array_length(coalesce(v_rounds,'[]'::jsonb))<5 then
     raise exception 'BATTLE_THEME_CATALOG_TOO_SMALL:%',coalesce(array_to_string(v_themes,'+'),v_label);
   end if;
