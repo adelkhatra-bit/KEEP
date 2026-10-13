@@ -1218,7 +1218,7 @@ export default function MusicSwipeDeckModal({
 
   const feedbackBar = headerExtra || (likesActive && current && isUuidKey(likeKey(current.id))) ? (
             <View style={[s.headerLikeRow, desktopSwipeLayout && s.desktopLikeRow]} testID="deck-like-bar">
-              {ask ? <Animated.View pointerEvents="none" style={[s.askBubble, { opacity: askFade, transform: [{ translateY: askFade.interpolate({ inputRange: [0, 1], outputRange: [-6, 0] }) }] }]} testID="deck-like-ask"><View style={s.askArrow} /><Text style={s.askText} numberOfLines={1}>{ask}</Text></Animated.View> : null}
+              {/* Keep the music artwork visible: no chat bubble floating over the image. */}
               <View style={[{ flexShrink: 0, maxWidth: '100%' }, desktopSwipeLayout ? s.desktopFeedbackExtra : null, compactDeck ? s.headerExtraCompact : null]}>{headerExtra}</View>
               {likesActive && current && isUuidKey(likeKey(current.id)) ? (() => {
                 const key = likeKey(current.id);
@@ -1261,7 +1261,7 @@ export default function MusicSwipeDeckModal({
       <View style={[s.body, desktopSwipeLayout && s.desktopBody]}>
         {preparingDeck ? <View style={s.empty}><ActivityIndicator color={colors.primaryLight} size="large" /><Text style={s.emptyTitle}>Préparation des nouvelles musiques…</Text><Text style={s.preparingHint}>Loki Music prépare les extraits de ce profil.</Text></View> : !current ? <View style={s.empty}><Text style={s.emptyIcon}>♪</Text><Text style={s.emptyTitle}>{resolvedEmptyTitle}</Text>{endExtra}<TouchableOpacity style={s.backButton} onPress={() => { void close(); }}><Text style={s.backText}>{resolvedBackLabel}</Text></TouchableOpacity></View> : <>
           <View style={[s.deckArea, desktopSwipeLayout && s.desktopDeckArea]}>
-            {nudge ? <View pointerEvents="none" style={s.nudgePill} testID="deck-like-nudge"><Text style={s.nudgeText} numberOfLines={3}>{nudge}</Text></View> : null}
+
             <SwipeDeck
               resetKey={`${current.id}-${index}`}
               enabled={!controlsLocked}
@@ -1345,6 +1345,7 @@ export default function MusicSwipeDeckModal({
                   <Text style={[s.trackTitle, storyEmbeddedSource && s.embeddedTrackTitle]} numberOfLines={2}>{ownerMasked ? 'Musique en vente' : current.title}</Text>
                   <Text style={s.artist} numberOfLines={1}>{ownerMasked ? 'Ta boutique' : current.artist}</Text>
                   {current.album && !ownerMasked && !storyEmbeddedSource && !compactDeck ? <Text style={s.album} numberOfLines={1}>{current.album}</Text> : null}
+                  {nudge || ask ? <Text testID="deck-like-nudge" style={s.nudgeInline} numberOfLines={1}>{nudge || ask}</Text> : null}
                 </View>
 
               </View>
@@ -1553,6 +1554,7 @@ const s = StyleSheet.create({
   addStoryTextDone:{color:'#E6E0EE'},
   addStoryText:{color:'#FFFFFF',fontSize:13,fontWeight:'900',letterSpacing:.5,textAlign:'center'},
   nudgePill:{position:'absolute',top:100,left:22,right:22,zIndex:8,alignItems:'center',paddingVertical:11,paddingHorizontal:16,borderRadius:16,backgroundColor:'rgba(20,14,31,.94)',borderWidth:1.5,borderColor:'#FF5C8A'},
+  nudgeInline:{color:'#F9D8F5',fontSize:11,fontWeight:'800',lineHeight:16,marginTop:5,marginBottom:1,textAlign:'left'},
   nudgeText:{color:'#FFFFFF',fontSize:16,lineHeight:22,fontWeight:'800',textAlign:'center'},
   askBubble:{position:'absolute',right:18,top:'100%',marginTop:4,zIndex:9,paddingVertical:8,paddingHorizontal:14,borderRadius:14,backgroundColor:'#FFE08A',alignItems:'center'},
   askArrow:{position:'absolute',top:-5,right:56,width:10,height:10,backgroundColor:'#FFE08A',transform:[{rotate:'45deg'}]},
