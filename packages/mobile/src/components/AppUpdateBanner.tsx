@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { reloadToLatest } from '../services/appUpdateService';
 import { useAppUpdateStore } from '../store/useAppUpdateStore';
 import { runWhenNoGameInProgress } from '../services/updateGameGuard';
@@ -8,7 +8,7 @@ import { runWhenNoGameInProgress } from '../services/updateGameGuard';
  * Mise à jour Loki Music sans UI visible :
  * - web : vérifie régulièrement version.json et recharge automatiquement
  *   avec cache-busting dès qu'un bundle plus récent est réellement publié ;
- * - iOS/Android production : récupère silencieusement l'OTA compatible au lancement.
+ * - iOS/Android production : vérifie aussi au retour au premier plan et pendant les longues sessions.
  *
  * Aucun bouton "Actualiser Loki Music" ne doit encombrer la cloche ou le profil.
  */
@@ -94,9 +94,15 @@ export default function AppUpdateBanner({ authReady = true }: { authReady?: bool
   useEffect(() => {
     if (!authReady || Platform.OS === 'web' || __DEV__) return undefined;
     let active = true;
+    let checking = false;
+    let installQueued = false;
     let cancelGameWait: () => void = () => {};
 
     const applySilently = async () => {
+      // Sur iOS, le composant reste monté quand l'application revient du fond.
+      // Éviter les requêtes simultanées et ne jamais relancer une installation déjà préparée.
+      if (!active || checking || installQueued) return;
+      checking = true;
       try {
         const Updates = await import('expo-updates');
         if (!active || !Updates.isEnabled) return;
@@ -104,18 +110,36 @@ export default function AppUpdateBanner({ authReady = true }: { authReady?: bool
         if (!active || !check.isAvailable) return;
         await Updates.fetchUpdateAsync();
         if (!active) return;
-        // Téléchargée maintenant, installée seulement hors partie.
+        installQueued = true;
+        // Téléchargée maintenant, installée seulement hors Solo/Battle.
         cancelGameWait = runWhenNoGameInProgress(() => {
           if (!active) return;
-          Updates.reloadAsync().catch(() => {});
+          Updates.reloadAsync().catch(() => { installQueued = false; });
         });
       } catch {
         // Une panne OTA ne doit jamais empêcher Loki Music de démarrer.
+      } finally {
+        checking = false;
       }
     };
 
     void applySilently();
-    return () => { active = false; cancelGameWait(); };
+    // Une session iOS déjà ouverte ne relançait jamais le contrôle OTA.
+    // Le retour au premier plan et un contrôle espacé récupèrent les releases
+    // sans déconnexion, sans intervention manuelle ni nouvelle interface.
+    const onAppStateChange = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void applySilently();
+    });
+    const checkInterval = setInterval(() => {
+      if (AppState.currentState === 'active') void applySilently();
+    }, 5 * 60_000);
+
+    return () => {
+      active = false;
+      onAppStateChange.remove();
+      clearInterval(checkInterval);
+      cancelGameWait();
+    };
   }, [authReady]);
 
   return null;
