@@ -84,7 +84,7 @@ export default function CoachMarks({ visible, steps = DEFAULT_COACH_STEPS, onFin
   };
 
   return (
-    <View style={s.overlay}>
+    <View pointerEvents="box-none" style={s.overlay}>
       <Animated.View style={[s.bubble, { opacity: fade, transform: [{ translateY: slide }] }]}>
         <Text style={s.badge}>{`Étape ${index + 1} / ${total}`}</Text>
         <Text style={s.emoji}>{step.emoji}</Text>
