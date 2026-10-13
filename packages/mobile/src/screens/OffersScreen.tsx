@@ -520,7 +520,7 @@ export default function OffersScreen({ navigation, route }: any) {
                 accessibilityLabel={`En savoir plus sur ${planLabel(plan.code)}`}
                 accessibilityState={{ expanded: expandedPlanCode === plan.code }}
               >
-                <Text style={s.disclosureText}>{expandedPlanCode === plan.code ? 'Réduire' : 'En savoir plus'}</Text>
+                <Text style={s.disclosureText}>{expandedPlanCode === plan.code ? 'Moins' : 'Plus'}</Text>
                 <Text style={s.disclosureChevron}>{expandedPlanCode === plan.code ? '⌃' : '⌄'}</Text>
               </TouchableOpacity>
               {expandedPlanCode === plan.code ? <View style={s.planDetails}>
@@ -582,7 +582,7 @@ export default function OffersScreen({ navigation, route }: any) {
             accessibilityLabel="En savoir plus sur les règles"
             accessibilityState={{ expanded: rulesExpanded }}
           >
-            <Text style={s.disclosureText}>{rulesExpanded ? 'Réduire' : 'En savoir plus'}</Text>
+            <Text style={s.disclosureText}>{rulesExpanded ? 'Moins' : 'Plus'}</Text>
             <Text style={s.disclosureChevron}>{rulesExpanded ? '⌃' : '⌄'}</Text>
           </TouchableOpacity>
           {rulesExpanded ? <View style={s.rulesDetails}>
@@ -601,7 +601,7 @@ export default function OffersScreen({ navigation, route }: any) {
             accessibilityLabel="En savoir plus sur le fonctionnement de Loki Music"
             accessibilityState={{ expanded: introExpanded }}
           >
-            <Text style={s.disclosureText}>{introExpanded ? 'Réduire' : 'En savoir plus : comment Loki Music grandit avec toi'}</Text>
+            <Text style={s.disclosureText}>{introExpanded ? 'Moins' : 'Plus'}</Text>
             <Text style={s.disclosureChevron}>{introExpanded ? '⌃' : '⌄'}</Text>
           </TouchableOpacity>
           {introExpanded ? <>
@@ -636,7 +636,7 @@ export default function OffersScreen({ navigation, route }: any) {
               accessibilityLabel="En savoir plus sur l'attribution des découvertes"
               accessibilityState={{ expanded: discoveryExpanded }}
             >
-              <Text style={s.disclosureText}>{discoveryExpanded ? 'Réduire' : 'En savoir plus'}</Text>
+              <Text style={s.disclosureText}>{discoveryExpanded ? 'Moins' : 'Plus'}</Text>
               <Text style={s.disclosureChevron}>{discoveryExpanded ? '⌃' : '⌄'}</Text>
             </TouchableOpacity>
             {discoveryExpanded ? <View style={s.discoveryDetails}>
@@ -759,7 +759,7 @@ export default function OffersScreen({ navigation, route }: any) {
               accessibilityLabel="En savoir plus sur les Loki Music Battles"
               accessibilityState={{ expanded: battleExpanded }}
             >
-              <Text style={s.disclosureText}>{battleExpanded ? 'Reduire' : 'En savoir plus'}</Text>
+              <Text style={s.disclosureText}>{battleExpanded ? 'Moins' : 'Plus'}</Text>
               <Text style={s.disclosureChevron}>{battleExpanded ? 'v' : '>'}</Text>
             </TouchableOpacity>
             {/* Adel (04/09/2026) : "oublie pas de rajouter aussi dans les
