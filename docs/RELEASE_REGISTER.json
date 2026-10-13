@@ -1,5 +1,14 @@
 [
   {
+    "commit": "3ce1cca0986affdc9eb641ea446994ee5a497047",
+    "web": "3ce1cca0986affdc9eb641ea446994ee5a497047",
+    "testflight": "iOS #234 success (release f8eacf5)",
+    "ota": "OTA #1025 success (release f8eacf5)",
+    "date": "2026-10-13 18:09",
+    "tests": "pass",
+    "changes": "fix(desktop): Swipe immersif + Stories stables sur version Pulse fusionnée (#181)"
+  },
+  {
     "commit": "b1a6d5f64faa8b407d200b2f98a278647eb0acec",
     "web": "b1a6d5f64faa8b407d200b2f98a278647eb0acec",
     "testflight": "iOS #234 success (release f8eacf5)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 18:37",
     "tests": "pass",
     "changes": "fix(keep): honor Public/Private once without a redundant second confirmation"
-  },
-  {
-    "commit": "0a928516fec00bf93bb416fa6b3aa3cfce74a59c",
-    "web": "0a928516fec00bf93bb416fa6b3aa3cfce74a59c",
-    "testflight": "iOS #229 success (release a18e390)",
-    "ota": "OTA #1020 success (release a18e390)",
-    "date": "2026-10-12 18:31",
-    "tests": "pass",
-    "changes": "fix(listen): show server-backed identifications consumed instead of duplicate detected counter, surface tab audio on PC home"
   }
 ]

@@ -143,6 +143,7 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
+| `3ce1cca` | `3ce1cca` | iOS #234 success (release f8eacf5) | OTA #1025 success (release f8eacf5) | 2026-10-13 18:09 | pass | fix(desktop): Swipe immersif + Stories stables sur version Pulse fusionnée (#181) |
 | `b1a6d5f` | `b1a6d5f` | iOS #234 success (release f8eacf5) | OTA #1025 success (release f8eacf5) | 2026-10-13 17:53 | pass | fix(stories/pulse): éviter les pubs intégrées, découvrir des profils de même style (#180) |
 | `09c32b0` | `09c32b0` | iOS #234 success (release f8eacf5) | OTA #1025 success (release f8eacf5) | 2026-10-13 17:46 | pass | fix(sessions/ios/web): préécoute immédiate, lien partagé audible et UI Swipe cohérente (#178) |
 | `1193d76` | `1193d76` | iOS #234 success (release f8eacf5) | OTA #1025 success (release f8eacf5) | 2026-10-13 17:19 | pass | fix(solo): 4 noms uniques, pays cohérent, plus d'artistes et styles crédibles (#176) |
@@ -182,7 +183,6 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 | `bcbdd94` | `bcbdd94` | iOS #230 in_progress (release 1f44ee1) | OTA #1021 in_progress (release 1f44ee1) | 2026-10-12 18:51 | pass | feat(storefront): highlight personalized discovery in boutique hero without changing navigation |
 | `fbb446f` | `fbb446f` | iOS #230 in_progress (release 1f44ee1) | OTA #1021 in_progress (release 1f44ee1) | 2026-10-12 18:45 | pass | fix(home): place manual title and link search beside tab audio on Loki Music home |
 | `49910c1` | `49910c1` | iOS #229 success (release a18e390) | OTA #1020 success (release a18e390) | 2026-10-12 18:37 | pass | fix(keep): honor Public/Private once without a redundant second confirmation |
-| `0a92851` | `0a92851` | iOS #229 success (release a18e390) | OTA #1020 success (release a18e390) | 2026-10-12 18:31 | pass | fix(listen): show server-backed identifications consumed instead of duplicate detected counter, surface tab audio on PC home |
 <!-- AUTO:RELEASE-REGISTER:END -->
 
 
