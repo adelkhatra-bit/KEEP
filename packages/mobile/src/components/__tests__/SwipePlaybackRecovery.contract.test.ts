@@ -19,6 +19,13 @@ describe('Loki Music Swipe iPhone / desktop audio recovery', () => {
     expect(modal).toContain('if (!isSaleStoryTrack(current) && resolveEmbeddedMusicPlayer(source)) return;');
   });
 
+  it('does not freeze the queue after the 30-second official YouTube/Spotify story embed', () => {
+    expect(modal).toContain('const scheduleEmbeddedStoryNext = () => {');
+    expect(modal).toContain('if (!trackAddedAt || !(index + 1 < deckTracks.length || loop)) return;');
+    expect(modal).toContain('}, 30000);');
+    expect(modal).toContain('scheduleEmbeddedStoryNext();');
+  });
+
   it('distinguishes a Safari autoplay permission from broken previews', () => {
     expect(modal).toContain('isWebAudioGestureRequired(initialPlayError)');
     expect(modal).toContain('isWebAudioGestureRequired(playError)');
