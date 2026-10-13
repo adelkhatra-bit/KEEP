@@ -20,7 +20,9 @@ describe('TikTok-style upward swipe contract', () => {
     expect(modal).toContain('onSwipeUp={() => {');
     expect(modal).toContain('void advance().finally');
     expect(modal).toContain('upLabel="SUIVANT"');
-    expect(modal).toContain('↑ suivant · ← passer');
+    expect(modal).toContain('testID="swipe-next-without-gesture"');
+    expect(modal).not.toContain('testID="desktop-story-next-track"');
+    expect(modal).toContain('hint={undefined}'); // one visual next action, while upward gesture still works
   });
 
   it('maps swipe up to next detected track in Listen too', () => {
