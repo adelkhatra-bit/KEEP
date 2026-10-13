@@ -119,13 +119,13 @@ function popupJourney(mode) {
       const btn = page.locator('[aria-label^="Débloquer la collection"], [aria-label^="Commencer ma transaction PayPal"], [aria-label^="FREE insuffisants"], [aria-label^="Tu as déjà tous"]').last();
       r.desactive_avant_case = (await btn.getAttribute('aria-disabled')) === 'true';
       const box0 = page.locator('[role="checkbox"]').first();
-      r.liens_en_savoir_plus = await page.getByText('en savoir plus').count();
+      r.liens_en_savoir_plus = await page.getByText('Plus', { exact: true }).count();
       if (mode !== 'FREE') {
-        await box0.getByText('en savoir plus').click();
+        await box0.getByText('Plus', { exact: true }).click();
         await page.waitForTimeout(300);
         r.texte_complet_apres_clic = (await page.getByText(/je renonce à mon droit de rétractation/).count()) > 0;
         r.case_toujours_decochee = (await box0.getByText('✓').count()) === 0;
-        await box0.getByText('réduire').click();
+        await box0.getByText('Moins', { exact: true }).click();
         await page.waitForTimeout(200);
       }
       await shot('avant');
@@ -155,9 +155,9 @@ function popupJourney(mode) {
         ['bouton toujours visible après dépliage', r.bouton_visible_apres_depli],
       ];
       if (mode !== 'FREE') {
-        checks.push(['lien « en savoir plus » présent', r.liens_en_savoir_plus > 0]);
-        checks.push(['texte de rétractation complet après « en savoir plus »', r.texte_complet_apres_clic]);
-        checks.push(['« en savoir plus » ne coche pas la case', r.case_toujours_decochee]);
+        checks.push(['lien « Plus » présent', r.liens_en_savoir_plus > 0]);
+        checks.push(['texte de rétractation complet après « Plus »', r.texte_complet_apres_clic]);
+        checks.push(['« Plus » ne coche pas la case', r.case_toujours_decochee]);
       }
       return { details: r, failures: failed(checks), ok: 'case obligatoire, détail, bouton visible' };
     },
@@ -710,7 +710,7 @@ const battleArenaLayoutJourney = {
 // son prix réglés dans le Super Admin + « En savoir plus » clair.
 const soloRechargeJourney = {
   id: 'battle-recharger-solos',
-  titre: 'Battle — Solos épuisés : packs dynamiques du Super Admin + En savoir plus',
+  titre: 'Battle — Solos épuisés : packs dynamiques du Super Admin + Plus',
   devices: [ANDROID, MOBILE_SE, PC],
   mobileFlags: true,
   fakeOptions: { soloExhausted: true },
@@ -722,7 +722,7 @@ const soloRechargeJourney = {
     const body = await page.locator('body').innerText();
     r.prix_sous_bouton = body.includes('+12 Solos pour 4 Free') && body.includes('+30 Solos pour 7 Free');
     r.ancienne_phrase = body.includes('attends la recharge');
-    await page.getByRole('button', { name: /Deux packs au choix\. En savoir plus/ }).first().click();
+    await page.getByRole('button', { name: /Deux packs au choix\. Plus/ }).first().click();
     await page.waitForTimeout(400);
     r.explication = (await page.getByText(/Packs disponibles : \+12 Solos pour 4 Free · \+30 Solos pour 7 Free/).count()) > 0;
     await shot('recharger');
@@ -747,7 +747,7 @@ const soloRechargeJourney = {
       ['popup à 3 boutons : une seule ligne en bas, même largeur, toute la largeur', r.popup_alignee],
       ['sous le bouton : packs et prix du Super Admin (+12/4 et +30/7)', r.prix_sous_bouton],
       ['plus de « ou attends la recharge de 2 h »', !r.ancienne_phrase],
-      ['« En savoir plus » reprend exactement les packs dynamiques', r.explication],
+      ['« Plus » reprend exactement les packs dynamiques', r.explication],
     ];
     return { details: r, failures: failed(checks), ok: 'prix affiché, explication claire' };
   },
@@ -903,8 +903,17 @@ const desktopHomeStoryJourney = {
     checks.push(['compteur des spectateurs non coupé dans la Story', inViewport(viewerChip) && !!viewerChip && viewerChip.height >= 34]);
     checks.push(['lecteur Story entièrement contenu dans le viewport', inViewport(storyRect)]);
     checks.push(['titre Story accessible en haut', !!headerRect && headerRect.y >= 0 && headerRect.y <= viewport.height * 0.35]);
-    if (desktop) checks.push(['Story centrée horizontalement en fenêtre de téléphone',
-      !!storyRect && storyRect.width <= 525 && Math.abs(storyRect.x + storyRect.width / 2 - viewport.width / 2) < 15]);
+    if (desktop) {
+      // Design bureau « Swipe immersif » (#181) : lecteur Story (≤ 560 px) + panneau d'aide à droite,
+      // l'ENSEMBLE doit être centré dans la fenêtre et rester entièrement visible.
+      const aside = await page.locator('[data-testid="loki-desktop-story-aside"]').boundingBox();
+      const left = storyRect ? storyRect.x : 0;
+      const right = aside ? aside.x + aside.width : (storyRect ? storyRect.x + storyRect.width : 0);
+      checks.push(['lecteur Story ≤ 560 px de large (fenêtre de téléphone)', !!storyRect && storyRect.width <= 562]);
+      checks.push(['panneau d’aide Story présent à droite du lecteur', !!aside && !!storyRect && aside.x >= storyRect.x + storyRect.width - 2]);
+      checks.push(['Story + panneau centrés horizontalement et entièrement dans la fenêtre',
+        !!storyRect && left >= -2 && right <= viewport.width + 2 && Math.abs((left + right) / 2 - viewport.width / 2) < 15]);
+    }
     await shot('story-cadree');
     return {
       details: { homeRect, buttonRect, storyRect, headerRect, viewerChip },
@@ -973,11 +982,14 @@ const desktopPartiesBattleSidebarJourney = {
     ['PC compact 1024x560', { width: 1024, height: 560 }],
     ['PC HP 1098x620', { width: 1098, height: 620 }],
     ['PC standard 1440x900', { width: 1440, height: 900 }],
+    ['PC large 1920x1080', { width: 1920, height: 1080 }],
   ],
   mobileFlags: false,
   fakeOptions: { pcSession: true },
   async run({ page, viewport, shot }) {
     const checks = [];
+    // Règle produit (PartiesScreen.desktopBattleWide) : panneaux latéraux seulement à partir de 1800 px de large.
+    const wide = viewport.width >= 1800 && viewport.height >= 550;
     const fit = (rect) => Boolean(rect && rect.y >= -2 && rect.y + rect.height <= viewport.height + 2 && rect.x >= -2 && rect.x + rect.width <= viewport.width + 2);
     await page.goto(`${BASE}/Main/Parties/`, { waitUntil: 'load' });
     const sidebar = page.getByTestId('desktop-sidebar');
@@ -1013,11 +1025,19 @@ const desktopPartiesBattleSidebarJourney = {
     const sidebarRect = await sidebar.boundingBox();
     checks.push(['Battle occupe toute la largeur hors barre latérale', !!stageRect && !!sidebarRect && stageRect.width >= viewport.width - sidebarRect.width - 18]);
     checks.push(['fond Battle violet présent sur la totalité du bureau', await page.getByTestId('desktop-battle-atmosphere').isVisible()]);
-    checks.push(['panneau informations gauche présent sans chevauchement', await page.getByTestId('desktop-battle-left').isVisible()]);
-    checks.push(['panneau informations droit présent sans chevauchement', await page.getByTestId('desktop-battle-right').isVisible()]);
-    const left = await page.getByTestId('desktop-battle-left').boundingBox();
-    const right = await page.getByTestId('desktop-battle-right').boundingBox();
-    checks.push(['panneaux desktop entièrement dans leur zone', !!left && !!right && !!stageRect && left.x >= stageRect.x && right.x + right.width <= stageRect.x + stageRect.width + 2 && left.x + left.width < right.x]);
+    const leftPanel = page.getByTestId('desktop-battle-left');
+    const rightPanel = page.getByTestId('desktop-battle-right');
+    let left = null; let right = null;
+    if (wide) {
+      checks.push(['panneau informations gauche présent sans chevauchement', await leftPanel.isVisible()]);
+      checks.push(['panneau informations droit présent sans chevauchement', await rightPanel.isVisible()]);
+      left = await leftPanel.boundingBox();
+      right = await rightPanel.boundingBox();
+      checks.push(['panneaux desktop entièrement dans leur zone', !!left && !!right && !!stageRect && left.x >= stageRect.x && right.x + right.width <= stageRect.x + stageRect.width + 2 && left.x + left.width < right.x]);
+    } else {
+      // Fenêtre < 1800 px : aucun panneau latéral (il écraserait le cockpit) — la zone centrale garde toute la largeur.
+      checks.push(['sous 1800 px : aucun panneau latéral qui rogne le cockpit Battle', (await leftPanel.count()) === 0 && (await rightPanel.count()) === 0]);
+    }
     await shot('battle-pleine-largeur');
     const docWidth = await page.evaluate(() => document.documentElement.scrollWidth);
     checks.push(['aucun débordement horizontal page', docWidth <= viewport.width + 4]);
