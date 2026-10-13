@@ -10,7 +10,9 @@ describe('desktop immersive Story/Swipe layout and reliable rehydration', () => 
     expect(deck).toContain('desktopSwipeLayout && s.desktopOuter');
     expect(deck).toContain('desktopSwipeLayout && s.desktopPlayer');
     expect(deck).toContain('width:560');
-    expect(deck).toContain('width:350');
+    expect(deck).toContain('width:340');
+    expect(deck).toContain("maxWidth:'35%'");
+    expect(deck).toContain("maxWidth:'55%'");
     expect(deck).toContain('testID="loki-desktop-story-aside"');
     expect(deck).not.toContain('false && desktopStoryLayout');
   });
