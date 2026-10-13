@@ -143,6 +143,7 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
+| `421946a` | `421946a` | iOS #236 cancelled (release 7e85c52) | OTA #1027 success (release 7e85c52) | 2026-10-13 18:55 | pass | fix(preview): secours YouTube automatique + réactions remontées et « Plus » (#185) |
 | `7e85c52` | `7e85c52` | iOS #236 in_progress (release 7e85c52) | OTA #1027 in_progress (release 7e85c52) | 2026-10-13 18:24 | pass | release(iOS+Web): publier réellement Sessions + Loki Pulse + Swipe/Stories PR178/180/181 (#183) |
 | `3b439c1` | `3b439c1` | iOS #235 cancelled (release 3b439c1) | OTA #1026 in_progress (release 3b439c1) | 2026-10-13 18:17 | pass | release(ios+web): publish tested #181 Swipe audio, full-cover UI, Sessions and Pulse parity |
 | `3ce1cca` | `3ce1cca` | iOS #234 success (release f8eacf5) | OTA #1025 success (release f8eacf5) | 2026-10-13 18:09 | pass | fix(desktop): Swipe immersif + Stories stables sur version Pulse fusionnée (#181) |
@@ -182,7 +183,6 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 | `c0684fb` | `c0684fb` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 19:18 | pass | fix(listen): offer link-search recovery for denied tab-audio permission |
 | `9b70980` | `9b70980` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 19:09 | pass | fix(web): repair tab capture JSX and avoid starting microphone before browser share prompt |
 | `d3cbeae` | `d3cbeae` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 18:59 | pass | feat(home): show found music directly below Loki Music logo |
-| `bcbdd94` | `bcbdd94` | iOS #230 in_progress (release 1f44ee1) | OTA #1021 in_progress (release 1f44ee1) | 2026-10-12 18:51 | pass | feat(storefront): highlight personalized discovery in boutique hero without changing navigation |
 <!-- AUTO:RELEASE-REGISTER:END -->
 
 
