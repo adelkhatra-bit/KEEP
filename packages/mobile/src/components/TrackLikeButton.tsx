@@ -88,17 +88,19 @@ export function ReactionStatPills({ likes, mehs, dislikes, testID = 'deck-like-c
   return (
     <View style={s.row} testID={testID} accessibilityLabel={`${likes} j’aime, ${mehs} bof et ${dislikes} pas aimé sur cette musique`}>
       {items.map((it) => (
-        <View key={it.k} style={[s.pill, { borderColor: STAT_COLORS[it.k], backgroundColor: `${STAT_COLORS[it.k]}26` }]} testID={`${testID}-${it.k.toLowerCase()}`}>
+        <LinearGradient key={it.k} colors={[`${STAT_COLORS[it.k]}80`, '#302445', '#100B1B']} start={{ x: 0, y: 0 }} end={{ x: 0.95, y: 1 }} style={[s.pill, { borderColor: STAT_COLORS[it.k], shadowColor: STAT_COLORS[it.k] }]} testID={`${testID}-${it.k.toLowerCase()}`}>
+          <View pointerEvents="none" style={s.pillGloss} />
           <Text style={s.pillEmoji}>{it.e}</Text>
-          <Text style={[s.pillNum, { color: STAT_COLORS[it.k] }]}>{it.n}</Text>
-        </View>
+          <Text style={[s.pillNum, { color: '#FFFFFF' }]}>{it.n}</Text>
+        </LinearGradient>
       ))}
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  pill: { width: 42, height: 42, borderRadius: 21, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  pill: { width: 42, height: 42, borderRadius: 21, borderWidth: 2, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', shadowOpacity: 0.7, shadowRadius: 12, shadowOffset: { width: 0, height: 3 }, elevation: 4 },
+  pillGloss: { position: 'absolute', left: 4, right: 4, top: 3, height: 12, borderTopLeftRadius: 20, borderTopRightRadius: 20, borderBottomLeftRadius: 9, borderBottomRightRadius: 9, backgroundColor: 'rgba(255,255,255,.24)' }
   pillEmoji: { fontSize: 13, lineHeight: 15 },
   pillNum: { fontSize: 14, lineHeight: 16, fontWeight: '900' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
