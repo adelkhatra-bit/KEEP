@@ -3,7 +3,7 @@ import path from 'path';
 
 const migration = fs.readFileSync(
   path.resolve(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations',
-    '20261013180000_solo_unique_country_style_variety.sql'),
+    '20261013235000_solo_unique_country_style_variety.sql'),
   'utf8',
 );
 
