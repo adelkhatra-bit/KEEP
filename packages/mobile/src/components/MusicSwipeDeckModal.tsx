@@ -1064,9 +1064,10 @@ export default function MusicSwipeDeckModal({
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   // La présentation des stories est indépendante du mobile : un lecteur 9:16
   // centré et un panneau éditorial occupant la largeur utile du desktop.
-  const desktopStoryLayout = Platform.OS === 'web' && windowWidth >= DESKTOP_MIN_WIDTH && Boolean(trackAddedAt);
+  const desktopSwipeLayout = Platform.OS === 'web' && windowWidth >= Math.max(1040, DESKTOP_MIN_WIDTH);
+  const desktopStoryLayout = desktopSwipeLayout && Boolean(trackAddedAt);
   // Fenêtre PC réduite : la Story doit conserver les actions accessibles.
-  const compactDeck = windowHeight < 640 || (desktopStoryLayout && windowHeight < 780);
+  const compactDeck = windowHeight < 640 || (desktopSwipeLayout && windowHeight < 760);
   const swipeHint = currentAlreadyKept && !previewOnly
     ? '↑ suivant · ← passer'
     : `↑ suivant · ← passer · → garder${keepDebitAmount && keepDebitAmount > 0 ? ` · ${keepDebitAmount} FREE` : ''}`;
@@ -1183,9 +1184,9 @@ export default function MusicSwipeDeckModal({
     : emptyTitle;
 
   return <KeepModal visible={visible} animationType="slide" onRequestClose={() => { void close(); }} presentationStyle="fullScreen">
-    <View style={[s.outer, desktopStoryLayout && s.desktopOuter]} testID="story-viewport">
-    <SafeAreaView style={[s.container, desktopStoryLayout && s.desktopPlayer, desktopStoryLayout && { height: Math.max(360, windowHeight - 24) }]} testID="story-player">
-      <View style={[s.header, desktopStoryLayout && compactDeck && s.desktopHeaderCompact]}>
+    <View style={[s.outer, desktopSwipeLayout && s.desktopOuter]} testID="story-viewport">
+    <SafeAreaView style={[s.container, desktopSwipeLayout && s.desktopPlayer, desktopSwipeLayout && { height: Math.max(410, windowHeight - 32) }]} testID="story-player">
+      <View style={[s.header, desktopSwipeLayout && compactDeck && s.desktopHeaderCompact]}>
         <View style={s.headerText}>
           <Text style={s.eyebrow}>Loki Music SWIPE</Text>
           <View style={s.titleRow}>{onTitlePress ? <TouchableOpacity onPress={onTitlePress} accessibilityRole="button" accessibilityLabel={`Voir la fiche : ${title}`} testID="deck-title-profile" style={{ flexShrink: 1 }}><Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title} ›</Text></TouchableOpacity> : <Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title}</Text>}{titleBadge ? <View style={s.titleBadge}>{titleBadge}</View> : null}</View>
@@ -1241,7 +1242,7 @@ export default function MusicSwipeDeckModal({
               hint={swipeHint}
               fill
             >
-              <View style={[s.card, compactDeck && s.cardCompact]}>
+              <View style={[s.card, desktopSwipeLayout && s.desktopStoryCard, compactDeck && s.cardCompact]}>
                 {ownerMasked ? <View style={[s.cover,s.coverFallback]}><MysteryArtwork caption="Titre masqué · aperçu de tes abonnés" /></View> : current.artworkUrl ? <Image source={{ uri: current.artworkUrl }} style={s.cover as any} resizeMode="cover" /> : <View style={[s.cover,s.coverFallback]}>{isSaleStoryTrack(current) ? <MysteryArtwork caption={priceBadge ? '' : 'Titre masqué · garde pour révéler'} /> : <Text style={s.coverK}>K</Text>}</View>}
                 {currentSourceUsername ? <TouchableOpacity style={s.sourceOverlay} onPress={() => setSourceQuick(currentSourceUsername.replace(/^@/, ''))} disabled={!onOpenSourceProfile} accessibilityLabel={`Découvert par ${currentSourceUsername.replace(/^@/, '')}. Ouvrir son profil`}><GlowRing radius={14} testID="deck-source-glow" /><Text style={s.sourceOverlayText}>Découvert par @{currentSourceUsername.replace(/^@/, '')}</Text></TouchableOpacity> : null}
                 {/* Adel 05/10/2026 : « il faut que ce soit très lisible, que les utilisateurs ne se fassent pas tromper » -- PAYANT (PayPal) ou GRATUIT, toujours dit en clair sur la carte. */}
@@ -1399,16 +1400,41 @@ export default function MusicSwipeDeckModal({
       ) : null}
       {overlay ? <View style={{ position: 'absolute', zIndex: 100, elevation: 100, top: 0, left: 0, right: 0, bottom: 0 }}>{overlay}</View> : null}
     </SafeAreaView>
-    {false && desktopStoryLayout ? <View style={s.desktopStoryAside} testID="loki-desktop-story-aside">
-      <Text style={s.desktopAsideKicker}>LOKI MUSIC · STORIES</Text>
-      <Text style={s.desktopAsideTitle}>Les découvertes de ta communauté.</Text>
-      <Text style={s.desktopAsideBody}>Chaque story dure 24 heures. Écoute les trouvailles, découvre leur auteur et partage à ton tour les morceaux qui te plaisent.</Text>
+    {desktopSwipeLayout ? <View style={s.desktopStoryAside} testID="loki-desktop-story-aside">
+      <View style={s.desktopAsideBrandRow}>
+        <View style={s.desktopAsideDot} />
+        <Text style={s.desktopAsideKicker}>LOKI MUSIC · {trackAddedAt ? 'STORY LIVE' : 'SWIPE IMMERSIF'}</Text>
+      </View>
+      <Text style={s.desktopAsideTitle}>{trackAddedAt ? 'Une Story, une découverte.' : 'Découvre ton prochain son.'}</Text>
+      <Text style={s.desktopAsideBody}>Écoute, ressens, passe ou garde. Ton expérience musicale reste synchronisée avec ton profil.</Text>
       <View style={s.desktopAsideDivider} />
-      <Text style={s.desktopAsideSection}>PENDANT TA VISITE</Text>
-      <Text style={s.desktopAsideHint}>01   Écouter l'extrait</Text>
-      <Text style={s.desktopAsideHint}>02   Passer ou garder une découverte</Text>
-      <Text style={s.desktopAsideHint}>03   Mettre un morceau dans ta story</Text>
-      <Text style={s.desktopAsideFoot}>Les morceaux proposés à l'achat conservent leurs protections. Aucune publication ou transaction ne se fait automatiquement.</Text>
+      {current ? <View testID="desktop-story-now-playing" style={s.desktopNowPlaying}>
+        {current.artworkUrl && !ownerMasked && !isSaleStoryTrack(current)
+          ? <Image source={{ uri: current.artworkUrl }} style={s.desktopNowCover} />
+          : <View style={[s.desktopNowCover, s.desktopNowFallback]}><Text style={s.desktopNowFallbackText}>♫</Text></View>}
+        <View style={s.desktopNowText}>
+          <Text style={s.desktopNowLabel}>À L'ÉCOUTE · {index + 1} / {deckTracks.length}</Text>
+          <Text style={s.desktopNowTitle} numberOfLines={2}>{ownerMasked || isSaleStoryTrack(current) ? 'Extrait protégé' : current.title}</Text>
+          <Text style={s.desktopNowArtist} numberOfLines={1}>{ownerMasked || isSaleStoryTrack(current) ? 'Découverte en boutique' : current.artist}</Text>
+        </View>
+      </View> : null}
+      <View style={s.desktopProgressTrack} accessibilityLabel={deckTracks.length ? `Morceau ${Math.min(index + 1, deckTracks.length)} sur ${deckTracks.length}` : 'Aucun morceau'}>
+        <View style={[s.desktopProgressFill, { width: `${deckTracks.length ? Math.min(100, Math.max(0, (index + 1) / deckTracks.length * 100)) : 0}%` }]} />
+      </View>
+      {current && !controlsLocked ? <TouchableOpacity testID="desktop-story-next-track" onPress={() => { void advance(); }}
+        accessibilityRole="button" accessibilityLabel="Écouter le morceau suivant" style={s.desktopNextButton}>
+        <Text style={s.desktopNextText}>↑ MORCEAU SUIVANT</Text>
+      </TouchableOpacity> : null}
+      <Text style={s.desktopAsideSection}>À TOI DE CHOISIR</Text>
+      <View style={s.desktopTips}>
+        <Text style={s.desktopAsideHint}>← PASSER   ·   GARDER →</Text>
+        <Text style={s.desktopAsideHint}>↑ Le morceau suivant</Text>
+        <Text style={s.desktopAsideHint}>▶ Préécoute sans quitter Loki</Text>
+      </View>
+      <View style={s.desktopAsideDivider} />
+      <Text style={s.desktopAsideFoot}>{trackAddedAt
+        ? 'Story de 24 h. Un extrait peut être indisponible si son fournisseur ne permet pas la diffusion sans publicité.'
+        : 'Le Swipe conserve tes décisions. Un morceau indisponible ne bloque pas la découverte.'}</Text>
     </View> : null}
     </View>
   <ChatDockHost active={visible} />
@@ -1417,20 +1443,27 @@ export default function MusicSwipeDeckModal({
 
 const s = StyleSheet.create({
   outer:{flex:1,minHeight:0,width:'100%',backgroundColor:'#090610',alignItems:'center'},
-  desktopOuter:{flexDirection:'column',justifyContent:'center',alignItems:'center',paddingHorizontal:16,paddingVertical:12,gap:0},
+  desktopOuter:{flexDirection:'row',justifyContent:'center',alignItems:'center',paddingHorizontal:24,paddingVertical:16,gap:22,backgroundColor:'#0B0713'},
   // RN Web: `flex:1` + `flexGrow:0` without a fixed height collapses the
   // modal child to zero, leaving the Story header halfway down the viewport.
-  desktopPlayer:{flex:0,flexBasis:'auto',flexGrow:0,flexShrink:0,width:'100%',maxWidth:520,minHeight:0,overflow:'hidden',borderLeftWidth:1,borderRightWidth:1,borderColor:'#312348'},
+  desktopPlayer:{flex:0,flexBasis:'auto',flexGrow:0,flexShrink:0,width:560,maxWidth:'57%',minHeight:0,overflow:'hidden',borderWidth:1.5,borderColor:'#7E5AB8',borderRadius:26,backgroundColor:'#110D1D',shadowColor:'#A78BFA',shadowOpacity:.24,shadowRadius:28,shadowOffset:{width:0,height:10}},
   desktopHeaderCompact:{minHeight:68,paddingVertical:8},
-  desktopStoryAside:{width:310,maxWidth:'30%',alignSelf:'center',backgroundColor:'#171020',borderWidth:1,borderColor:'#403052',borderRadius:24,padding:24,gap:12},
-  desktopAsideKicker:{color:'#B79CFF',fontSize:12,fontWeight:'900',letterSpacing:1.6},
+  desktopStoryAside:{width:350,maxWidth:'38%',minHeight:420,maxHeight:'97%',alignSelf:'center',backgroundColor:'#171020',borderWidth:1.5,borderColor:'#604787',borderRadius:24,padding:26,gap:14,justifyContent:'center'},
+  desktopAsideKicker:{color:'#D5C4FF',fontSize:11,fontWeight:'900',letterSpacing:1.4},
+  desktopAsideBrandRow:{flexDirection:'row',alignItems:'center',gap:9},desktopAsideDot:{width:9,height:9,borderRadius:5,backgroundColor:'#68F2B1',shadowColor:'#68F2B1',shadowOpacity:.9,shadowRadius:10},
+  desktopNowPlaying:{flexDirection:'row',gap:12,alignItems:'center',padding:12,borderRadius:18,backgroundColor:'#231936',borderWidth:1,borderColor:'#604787'},
+  desktopNowCover:{width:72,height:72,borderRadius:12},desktopNowFallback:{alignItems:'center',justifyContent:'center',backgroundColor:'#33234D'},desktopNowFallbackText:{fontSize:27,color:'#CBB1FF'},
+  desktopNowText:{flex:1,minWidth:0},desktopNowLabel:{color:'#68F2B1',fontSize:10,fontWeight:'900',marginBottom:5},desktopNowTitle:{color:'#FFFFFF',fontSize:16,lineHeight:20,fontWeight:'900'},desktopNowArtist:{color:'#E0D5F2',fontSize:12,marginTop:4},
+  desktopProgressTrack:{height:7,width:'100%',borderRadius:6,backgroundColor:'#302444',overflow:'hidden'},desktopProgressFill:{height:'100%',borderRadius:6,backgroundColor:'#68F2B1'},
+  desktopNextButton:{minHeight:52,borderRadius:16,borderWidth:1.5,borderColor:'#68F2B1',backgroundColor:'rgba(104,242,177,.12)',alignItems:'center',justifyContent:'center'},desktopNextText:{color:'#68F2B1',fontSize:14,fontWeight:'900',letterSpacing:.8},desktopTips:{gap:7},
+  desktopStoryCard:{maxHeight:720,borderWidth:2,borderColor:'#7454A9',borderRadius:26},
   desktopAsideTitle:{color:'#FFFFFF',fontSize:24,lineHeight:30,fontWeight:'900'},
   desktopAsideBody:{color:'#E5DFED',fontSize:14,lineHeight:22},
   desktopAsideDivider:{height:1,backgroundColor:'#403052',marginVertical:5},
   desktopAsideSection:{color:'#B79CFF',fontSize:12,fontWeight:'900',letterSpacing:1},
   desktopAsideHint:{color:'#FFFFFF',fontSize:14,lineHeight:22},
   desktopAsideFoot:{color:colors.textSecondary,fontSize:12,lineHeight:18,marginTop:9},
-  container:{flex:1,width:'100%',maxWidth:520,backgroundColor:'#090610'},
+  container:{flex:1,width:'100%',maxWidth:560,backgroundColor:'#090610'},
   header:{zIndex:30,minHeight:92,paddingHorizontal:18,paddingVertical:16,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#241A32'},
   headerText:{flex:1,paddingRight:12},eyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1.5},title:{color:'#F8F6FC',fontSize:20,fontWeight:'900',marginTop:2},subtitle:{color:'#FFFFFF',fontSize:14,lineHeight:20,marginTop:6,paddingBottom:2},
   sourceIdentity:{marginTop:8,flexDirection:'row',alignItems:'center',gap:9,alignSelf:'flex-start',paddingVertical:6,paddingHorizontal:8,borderRadius:16,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary},sourceIdentityBottom:{marginHorizontal:18,marginBottom:7,flexDirection:'row',alignItems:'center',gap:9,paddingVertical:6,paddingHorizontal:10,borderRadius:16,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary},
