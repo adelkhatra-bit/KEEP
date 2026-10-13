@@ -444,19 +444,20 @@ export default function MusicSwipeDeckModal({
     }
   };
   // Bouton « story » : allumé tant qu'on peut ajouter, vert + message de félicitations juste après, gris « déjà » seulement ensuite.
-  const renderStoryAdd = (kind: 'main' | 'popup') => {
+  const renderStoryAdd = (kind: 'main' | 'popup' | 'desktop') => {
     if (!canAddToStory) return null;
     const popup = kind === 'popup';
-    const buttonStyle = popup ? s.ownerStoryButton : s.addStoryButton;
+    const desktop = kind === 'desktop';
+    const buttonStyle = popup ? s.ownerStoryButton : desktop ? s.desktopSourcePill : s.addStoryButton;
     const textStyle = popup ? s.ownerStoryButtonText : s.addStoryText;
     const checking = !storyIdsReady && !justAddedNow;
-    const label = checking ? '⏳ PATIENTE… VÉRIFICATION DE TA STORY' : justAddedNow ? '✓ EN STORY · 24 H' : alreadyInStory ? '✓ DÉJÀ EN STORY' : (currentOffered ? '＋ METTRE EN STORY (MASQUÉE)' : popup ? '＋ METTRE EN STORY' : '＋ AJOUTER À MA STORY');
+    const label = checking ? (desktop ? '…' : '⏳ PATIENTE… VÉRIFICATION DE TA STORY') : justAddedNow ? '✓ STORY' : alreadyInStory ? '✓ STORY' : desktop ? '＋ STORY' : (currentOffered ? '＋ METTRE EN STORY (MASQUÉE)' : popup ? '＋ METTRE EN STORY' : '＋ AJOUTER À MA STORY');
     return <View>
       <TouchableOpacity disabled={checking || alreadyInStory || justAddedNow} style={[buttonStyle, checking || justAddedNow || alreadyInStory ? s.addStoryButtonDone : s.addStoryButtonLit]} onPress={() => { void addCurrentToStory(); }} accessibilityRole="button" accessibilityLabel={checking ? 'Vérification de ta story en cours' : alreadyInStory ? 'Déjà dans ma story' : 'Ajouter ce morceau à ma story'} testID={popup ? 'deck-info-add-story' : 'deck-add-story'}>
         <Text style={[textStyle, (alreadyInStory || checking || justAddedNow) && s.addStoryTextDone]}>{label}</Text>
       </TouchableOpacity>
-      {currentOffered && !justAddedNow ? <Text style={s.storySaleNote2} testID="deck-story-sale-note">{alreadyInStory ? '🏷 En vente : elle est déjà dans ta story, jaquette et artiste masqués.' : '🏷 Cette musique est en vente : dans ta story, la jaquette et le nom de l’artiste restent masqués.'}</Text> : null}
-      {justAddedNow ? <Text style={s.storyCongrats} testID="deck-story-congrats">🎉 Tu viens de l’ajouter à ta story : elle sera visible pendant 24 heures. Ta photo s’allume sur ton profil.</Text> : null}
+      {!desktop && currentOffered && !justAddedNow ? <Text style={s.storySaleNote2} testID="deck-story-sale-note">{alreadyInStory ? '🏷 En vente : elle est déjà dans ta story, jaquette et artiste masqués.' : '🏷 Cette musique est en vente : dans ta story, la jaquette et le nom de l’artiste restent masqués.'}</Text> : null}
+      {!desktop && justAddedNow ? <Text style={s.storyCongrats} testID="deck-story-congrats">🎉 Tu viens de l’ajouter à ta story : elle sera visible pendant 24 heures. Ta photo s’allume sur ton profil.</Text> : null}
     </View>;
   };
   const openFullTrack = useCallback(() => {
@@ -589,12 +590,11 @@ export default function MusicSwipeDeckModal({
     const scheduleEmbeddedStoryNext = () => {
       // Provider iframe end events cannot be trusted across iPhone/Chrome.
       // Source-only music still advances in a Swipe without manual dragging.
-      if (!(index + 1 < deckTracks.length || loop)) return;
-      if (endAdvanceTimer.current) clearTimeout(endAdvanceTimer.current);
-      endAdvanceTimer.current = setTimeout(() => {
-        endAdvanceTimer.current = null;
-        if (alive && playbackGeneration.current === generation && !actionInFlight.current) advanceIndex();
-      }, 30000);
+      // Never infer that an iframe actually started or finished playing.
+      // Official embedded players have no reliable media-ended callback;
+      // auto-skipping after 30 seconds could discard a song unheard.
+      // The user retains the visible Next control and vertical swipe.
+      return;
     };
     const skipUnavailablePreview = (reason: string) => {
       if (!alive || playbackGeneration.current !== generation || !current) return;
@@ -603,13 +603,9 @@ export default function MusicSwipeDeckModal({
         // Never load YouTube/Spotify ads inside a public Story. Try an exact
         // catalogue audio clip first; without one, let the clean card progress.
         reportAutoDiagnostic('STORY_PREVIEW_NO_AD_FREE_AUDIO', String(current.id).slice(0, 36));
-        if (index + 1 < deckTracks.length || loop) {
-          if (endAdvanceTimer.current) clearTimeout(endAdvanceTimer.current);
-          endAdvanceTimer.current = setTimeout(() => {
-            endAdvanceTimer.current = null;
-            if (alive && playbackGeneration.current === generation && !actionInFlight.current) advanceIndex();
-          }, 2400);
-        }
+        // A missing clean preview isn't evidence that the listener heard
+        // a song. Leave the cover and retry/source/Next actions available.
+        setPreviewEnded(true);
         return;
       }
       if (!isSaleStoryTrack(current) && resolveEmbeddedMusicPlayer(source)) {
@@ -618,13 +614,9 @@ export default function MusicSwipeDeckModal({
         return;
       }
       reportAutoDiagnostic('SWIPE_PREVIEW_UNAVAILABLE', `${reason} id=${String(current.id).slice(0, 36)}`);
-      if (index + 1 < deckTracks.length || loop) {
-        if (endAdvanceTimer.current) clearTimeout(endAdvanceTimer.current);
-        endAdvanceTimer.current = setTimeout(() => {
-          endAdvanceTimer.current = null;
-          if (alive && playbackGeneration.current === generation && !actionInFlight.current) advanceIndex();
-        }, 450);
-      }
+      // Never silently skip an unavailable preview in 450 ms: this feels
+      // like a broken Swipe and hides tracks across *all* user profiles.
+      setPreviewEnded(true);
     };
 
     if (!visible || preparingDeck || !current) {
@@ -681,7 +673,16 @@ export default function MusicSwipeDeckModal({
                 const waited = Date.now() - cardShownAt;
                 if (waited > 2500) reportAutoDiagnostic('SWIPE_SLOW', `${Math.round(waited / 100) / 10}s host=${String(previewUrl ?? '').replace(/^https?:\/\//, '').split('/')[0] || 'none'}`);
               }
-              if (playing) recordSwipeListenOnce(current.id, currentSourceProfileId);
+              if (playing) {
+                setAutoplayBlocked(false);
+                setPreviewEnded(false);
+                recordSwipeListenOnce(current.id, currentSourceProfileId);
+              } else if (alive && playbackGeneration.current === generation && !isTrackPreviewActive(playbackKey)) {
+                // A stalled iOS buffer stopped without onEnded: show Retry,
+                // keep the same cover and never count it as heard.
+                setAutoplayBlocked(true);
+                setPreviewEnded(true);
+              }
             },
             () => {
               if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
@@ -727,7 +728,14 @@ export default function MusicSwipeDeckModal({
               playbackKey,
               refreshedUrl,
               (playing) => {
-                if (playing) recordSwipeListenOnce(current.id, currentSourceProfileId);
+                if (playing) {
+                  setAutoplayBlocked(false);
+                  setPreviewEnded(false);
+                  recordSwipeListenOnce(current.id, currentSourceProfileId);
+                } else if (alive && playbackGeneration.current === generation && !isTrackPreviewActive(playbackKey)) {
+                  setAutoplayBlocked(true);
+                  setPreviewEnded(true);
+                }
               },
               () => {
                 if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
@@ -762,7 +770,14 @@ export default function MusicSwipeDeckModal({
                     playbackKey,
                     retryUrl,
                     (playing) => {
-                      if (playing) recordSwipeListenOnce(current.id, currentSourceProfileId);
+                      if (playing) {
+                        setAutoplayBlocked(false);
+                        setPreviewEnded(false);
+                        recordSwipeListenOnce(current.id, currentSourceProfileId);
+                      } else if (alive && playbackGeneration.current === generation && !isTrackPreviewActive(playbackKey)) {
+                        setAutoplayBlocked(true);
+                        setPreviewEnded(true);
+                      }
                     },
                     () => {
                       if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
@@ -783,14 +798,10 @@ export default function MusicSwipeDeckModal({
               // Dans un flux automatique, un extrait réellement illisible ne
               // doit jamais bloquer l'utilisateur sur une carte silencieuse.
               setAutoplayBlocked(false);
-              if ((index + 1 < deckTracks.length || loop) && !actionInFlight.current) {
-                endAdvanceTimer.current = setTimeout(() => {
-                  endAdvanceTimer.current = null;
-                  if (alive && !actionInFlight.current) advanceIndex();
-                }, 220);
-              } else {
-                setResolvedPreviewUrl(null);
-              }
+              // Keep the exact track visible for retry rather than silently
+              // skipping after 220 ms. A failed CDN request isn't a vote PASSER.
+              setResolvedPreviewUrl(null);
+              setPreviewEnded(true);
               return;
             }
             // Only actual browser gesture restrictions merit a tap. A failed
@@ -1075,7 +1086,7 @@ export default function MusicSwipeDeckModal({
   const previewLabel = previewResolving
     ? 'Recherche de l’extrait…'
     : !resolvedPreviewUrl
-      ? (trackAddedAt ? 'Extrait indisponible · Story suivante' : sourcePlayer ? 'Source vidéo officielle · lecture selon autorisation' : 'Extrait indisponible')
+      ? (sourcePlayer ? 'Extrait indisponible · source disponible' : 'Extrait indisponible · à toi de passer')
       : autoplayBlocked
         ? 'Appuie ci-dessous pour écouter'
         : previewEnded
@@ -1205,30 +1216,10 @@ export default function MusicSwipeDeckModal({
       : 'Tu as terminé toutes les nouvelles musiques de ce profil.'
     : emptyTitle;
 
-  return <KeepModal visible={visible} animationType="slide" onRequestClose={() => { void close(); }} presentationStyle="fullScreen">
-    <View style={[s.outer, desktopSwipeLayout && s.desktopOuter]} testID="story-viewport">
-    <SafeAreaView style={[s.container, desktopSwipeLayout && s.desktopPlayer, desktopSwipeLayout && { height: Math.max(410, windowHeight - 32) }]} testID="story-player">
-      <View style={[s.header, desktopSwipeLayout && compactDeck && s.desktopHeaderCompact]}>
-        <View style={s.headerText}>
-          <Text style={s.eyebrow}>Loki Music SWIPE</Text>
-          <View style={s.titleRow}>{onTitlePress ? <TouchableOpacity onPress={onTitlePress} accessibilityRole="button" accessibilityLabel={`Voir la fiche : ${title}`} testID="deck-title-profile" style={{ flexShrink: 1 }}><Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title} ›</Text></TouchableOpacity> : <Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title}</Text>}{titleBadge ? <View style={s.titleBadge}>{titleBadge}</View> : null}</View>
-          {resolvedSubtitle ? <ClampedText style={s.subtitle} text={resolvedSubtitle} /> : null}
-          {storyAgeLine ? <Text style={s.storyAge} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} testID="deck-story-age">⏱ {storyAgeLine}</Text> : null}
-        </View>
-        <TouchableOpacity style={s.close} onPress={() => { void close(); }} accessibilityLabel="Fermer le swipe"><Text style={s.closeText}>✕</Text></TouchableOpacity>
-      </View>
-      {/* Les étiquettes PAYANT / GRATUIT sont dans le flux, jamais posées sur la jaquette ni sur le nom du découvreur. */}
-      {priceBadge ? (
-        <View style={s.priceBadgeRow} testID="deck-price-badge">
-          <View style={[s.priceBadge, priceBadge.paid ? s.priceBadgePaid : s.priceBadgeFree]}>
-            <Text style={[s.priceBadgeText, priceBadge.paid ? s.priceBadgeTextPaid : s.priceBadgeTextFree]} numberOfLines={2}>{priceBadge.label}</Text>
-          </View>
-        </View>
-      ) : null}
-      {headerExtra || (likesActive && current && isUuidKey(likeKey(current.id))) ? (
-            <View style={s.headerLikeRow} testID="deck-like-bar">
-              {ask ? <Animated.View pointerEvents="none" style={[s.askBubble, { opacity: askFade, transform: [{ translateY: askFade.interpolate({ inputRange: [0, 1], outputRange: [-6, 0] }) }] }]} testID="deck-like-ask"><View style={s.askArrow} /><Text style={s.askText} numberOfLines={1}>{ask}</Text></Animated.View> : null}
-              <View style={[{ flexShrink: 0, maxWidth: '100%' }, compactDeck ? s.headerExtraCompact : null]}>{headerExtra}</View>
+  const feedbackBar = headerExtra || (likesActive && current && isUuidKey(likeKey(current.id))) ? (
+            <View style={[s.headerLikeRow, desktopSwipeLayout && s.desktopLikeRow]} testID="deck-like-bar">
+              {/* Keep the music artwork visible: no chat bubble floating over the image. */}
+              <View style={[{ flexShrink: 0, maxWidth: '100%' }, desktopSwipeLayout ? s.desktopFeedbackExtra : null, compactDeck ? s.headerExtraCompact : null]}>{headerExtra}</View>
               {likesActive && current && isUuidKey(likeKey(current.id)) ? (() => {
                 const key = likeKey(current.id);
                 const count = trackLikes.counts[key] ?? 0;
@@ -1242,12 +1233,35 @@ export default function MusicSwipeDeckModal({
                 return <View style={s.likeRight}><TrackLikeButton reaction={reaction} count={count} onReact={(kind) => { void reactTo(kind); }} onClear={() => { void trackLikes.clear(current.id); }} /></View>;
               })() : null}
             </View>
-          ) : null}
+          ) : null;
 
-      <View style={s.body}>
+  return <KeepModal visible={visible} animationType="slide" onRequestClose={() => { void close(); }} presentationStyle="fullScreen">
+    <View style={[s.outer, desktopSwipeLayout && s.desktopOuter]} testID="story-viewport">
+    <SafeAreaView style={[s.container, desktopSwipeLayout && s.desktopPlayer, desktopSwipeLayout && { height: Math.max(410, windowHeight - 32) }]} testID="story-player">
+      <View style={[s.header, desktopSwipeLayout && s.desktopHeaderCompact]}>
+        <View style={s.headerText}>
+          <Text style={s.eyebrow}>Loki Music SWIPE</Text>
+          <View style={s.titleRow}>{onTitlePress ? <TouchableOpacity onPress={onTitlePress} accessibilityRole="button" accessibilityLabel={`Voir la fiche : ${title}`} testID="deck-title-profile" style={{ flexShrink: 1 }}><Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title} ›</Text></TouchableOpacity> : <Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title}</Text>}{titleBadge ? <View style={s.titleBadge}>{titleBadge}</View> : null}</View>
+          {resolvedSubtitle ? <ClampedText style={s.subtitle} text={resolvedSubtitle} /> : null}
+          {storyAgeLine ? <Text style={s.storyAge} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} testID="deck-story-age">⏱ {storyAgeLine}</Text> : null}
+        </View>
+        {desktopSwipeLayout ? feedbackBar : null}
+        <TouchableOpacity style={s.close} onPress={() => { void close(); }} accessibilityLabel="Fermer le swipe"><Text style={s.closeText}>✕</Text></TouchableOpacity>
+      </View>
+      {/* Les étiquettes PAYANT / GRATUIT sont dans le flux, jamais posées sur la jaquette ni sur le nom du découvreur. */}
+      {priceBadge ? (
+        <View style={s.priceBadgeRow} testID="deck-price-badge">
+          <View style={[s.priceBadge, priceBadge.paid ? s.priceBadgePaid : s.priceBadgeFree]}>
+            <Text style={[s.priceBadgeText, priceBadge.paid ? s.priceBadgeTextPaid : s.priceBadgeTextFree]} numberOfLines={2}>{priceBadge.label}</Text>
+          </View>
+        </View>
+      ) : null}
+      {!desktopSwipeLayout ? feedbackBar : null}
+
+      <View style={[s.body, desktopSwipeLayout && s.desktopBody]}>
         {preparingDeck ? <View style={s.empty}><ActivityIndicator color={colors.primaryLight} size="large" /><Text style={s.emptyTitle}>Préparation des nouvelles musiques…</Text><Text style={s.preparingHint}>Loki Music prépare les extraits de ce profil.</Text></View> : !current ? <View style={s.empty}><Text style={s.emptyIcon}>♪</Text><Text style={s.emptyTitle}>{resolvedEmptyTitle}</Text>{endExtra}<TouchableOpacity style={s.backButton} onPress={() => { void close(); }}><Text style={s.backText}>{resolvedBackLabel}</Text></TouchableOpacity></View> : <>
-          <View style={s.deckArea}>
-            {nudge ? <View pointerEvents="none" style={s.nudgePill} testID="deck-like-nudge"><Text style={s.nudgeText} numberOfLines={3}>{nudge}</Text></View> : null}
+          <View style={[s.deckArea, desktopSwipeLayout && s.desktopDeckArea]}>
+
             <SwipeDeck
               resetKey={`${current.id}-${index}`}
               enabled={!controlsLocked}
@@ -1270,7 +1284,7 @@ export default function MusicSwipeDeckModal({
                 {/* Adel 05/10/2026 : « il faut que ce soit très lisible, que les utilisateurs ne se fassent pas tromper » -- PAYANT (PayPal) ou GRATUIT, toujours dit en clair sur la carte. */}
                 {storyEmbeddedSource ? <View style={s.storyEmbeddedInCard} testID="story-official-inline-area"><StoryEmbeddedSourcePlayer sourceUrl={storyEmbeddedSource} compact={compactDeck} /></View> : null}
                 {Boolean(trackAddedAt) && !resolvedPreviewUrl && !previewResolving && sourcePlayer ? <Text testID="story-no-provider-ads" style={s.cleanStoryNotice}>Lecture sans publicité intégrée · extrait indisponible</Text> : null}
-                {!trackAddedAt && sourcePlayerOpen && !resolvedPreviewUrl && sourcePlayer ? (
+                {sourcePlayerOpen && !resolvedPreviewUrl && sourcePlayer && !isSaleStoryTrack(current) ? (
                   <View testID="swipe-exact-source-player" style={s.sourcePlayerOverlay}>
                     <View style={s.sourcePlayerToolbar}>
                     <TouchableOpacity style={s.sourcePlayerClose} accessibilityRole="button" accessibilityLabel="Fermer le lecteur et revoir la jaquette" onPress={() => setSourcePlayerOpen(false)}>
@@ -1300,32 +1314,38 @@ export default function MusicSwipeDeckModal({
                           javaScriptEnabled: true,
                           style: { flex: 1, width: '100%' },
                         })}
+                    {trackAddedAt ? <Text testID="story-provider-ad-notice" style={s.sourcePlayerError}>Le lecteur officiel peut commencer par une publicité. Patiente pendant son chargement ; Loki ne supprime pas les publicités du fournisseur.</Text> : null}
                     {sourcePlayerFailed ? <Text style={s.sourcePlayerError}>Le fournisseur bloque la lecture intégrée. Utilise ↻ RELANCER ou ↗ SOURCE.</Text> : null}
                   </View>
                 ) : null}
                 </View>
                 <View style={[s.gradientFake, compactDeck && s.gradientCompact, storyEmbeddedSource && s.gradientStoryEmbed]} testID="swipe-metadata-below-artwork">
                   {!desktopSwipeLayout && currentSourceUsername ? <TouchableOpacity style={s.sourceOverlay} onPress={() => setSourceQuick(currentSourceUsername.replace(/^@/, ''))} disabled={!onOpenSourceProfile} accessibilityLabel={`Découvert par ${currentSourceUsername.replace(/^@/, '')}. Ouvrir son profil`}><GlowRing radius={14} testID="deck-source-glow" /><Text style={s.sourceOverlayText} numberOfLines={1}>Découvert par @{currentSourceUsername.replace(/^@/, '')}</Text></TouchableOpacity> : null}
-                  <View style={s.autoRow}>
+                  <View style={[s.autoRow, desktopSwipeLayout && s.desktopAutoRow]}>
                     <View style={[s.dot,resolvedPreviewUrl ? s.dotOn : s.dotOff]} />
-                    <Text style={s.autoText} numberOfLines={2}>{previewLabel}</Text>
-                    <TouchableOpacity testID="swipe-next-without-gesture" accessibilityRole="button" accessibilityLabel="Morceau suivant" style={s.nextInlineButton} disabled={controlsLocked} onPress={() => { void advance(); }}>
+                    <Text style={s.autoText} numberOfLines={2}>{!resolvedPreviewUrl && !previewResolving && sourcePlayer ? (trackAddedAt ? 'Source disponible · lecture sur demande' : 'Source officielle disponible') : previewLabel}</Text>
+                    {!desktopSwipeLayout ? <TouchableOpacity testID="swipe-next-without-gesture" accessibilityRole="button" accessibilityLabel="Morceau suivant" style={s.nextInlineButton} disabled={controlsLocked} onPress={() => { void advance(); }}>
                       <Text style={s.nextInlineText}>↑ SUIVANT</Text>
-                    </TouchableOpacity>
+                    </TouchableOpacity> : null}
                   </View>
-                  {!trackAddedAt && !resolvedPreviewUrl && sourcePlayer && !sourcePlayerOpen ? (
-                    <TouchableOpacity testID="story-open-source-player" style={s.manualPlayButton} accessibilityRole="button" accessibilityLabel="Écouter la vidéo originale dans Loki Music" onPress={() => { stopTrackPreviewFast(); setSourcePlayerOpen(true); }}>
-                      <Text style={s.manualPlayText}>▶ ÉCOUTER DANS LOKI</Text>
+                  {!resolvedPreviewUrl && !previewResolving && sourcePlayer && !sourcePlayerOpen && !isSaleStoryTrack(current) ? (
+                    <TouchableOpacity testID="story-open-source-player" style={s.manualPlayButton} accessibilityRole="button" accessibilityLabel="Écouter la vidéo originale dans Loki Music" onPress={() => {
+                      stopTrackPreviewFast();
+                      if (endAdvanceTimer.current) { clearTimeout(endAdvanceTimer.current); endAdvanceTimer.current = null; }
+                      setSourcePlayerOpen(true);
+                    }}>
+                      <Text style={s.manualPlayText}>{trackAddedAt ? '▶ SOURCE · PUB POSSIBLE' : '▶ ÉCOUTER'}</Text>
                     </TouchableOpacity>
                   ) : null}
-                  {Platform.OS === 'web' && (autoplayBlocked || previewEnded) && resolvedPreviewUrl ? (
-                    <TouchableOpacity style={s.manualPlayButton} onPress={() => { unlockWebAudioForGesture(); setPreviewEnded(false); void manualPlay(); }} accessibilityLabel={previewEnded ? "Réécouter l’extrait" : "Lancer l’extrait"}>
+                  {(autoplayBlocked || previewEnded) && resolvedPreviewUrl ? (
+                    <TouchableOpacity testID="swipe-retry-audio" style={s.manualPlayButton} onPress={() => { unlockWebAudioForGesture(); setPreviewEnded(false); void manualPlay(); }} accessibilityLabel={previewEnded ? "Réécouter l’extrait" : "Lancer l’extrait"}>
                       <Text style={s.manualPlayText}>{previewEnded ? '↻ RÉÉCOUTER' : '▶ ÉCOUTER L’EXTRAIT'}</Text>
                     </TouchableOpacity>
                   ) : null}
                   <Text style={[s.trackTitle, storyEmbeddedSource && s.embeddedTrackTitle]} numberOfLines={2}>{ownerMasked ? 'Musique en vente' : current.title}</Text>
                   <Text style={s.artist} numberOfLines={1}>{ownerMasked ? 'Ta boutique' : current.artist}</Text>
                   {current.album && !ownerMasked && !storyEmbeddedSource && !compactDeck ? <Text style={s.album} numberOfLines={1}>{current.album}</Text> : null}
+                  {nudge ? <Text testID="deck-like-nudge" style={s.nudgeInline} numberOfLines={1}>{nudge}</Text> : ask ? <Text testID="deck-like-ask" style={s.nudgeInline} numberOfLines={1}>{ask}</Text> : null}
                 </View>
 
               </View>
@@ -1333,16 +1353,15 @@ export default function MusicSwipeDeckModal({
           </View>
 
 
-          {desktopSwipeLayout && currentSourceUsername && onOpenSourceProfile ? <TouchableOpacity style={s.sourceProfileButton} onPress={() => setSourceQuick(currentSourceUsername.replace(/^@/, ''))} accessibilityLabel={`Voir le profil du premier découvreur ${currentSourceUsername.replace(/^@/, '')}`}><GlowRing radius={21} testID="deck-source-button-glow" /><Text style={s.sourceProfileButtonText}>◎ DÉCOUVERT PAR @{currentSourceUsername.replace(/^@/, '')} · VOIR / SUIVRE</Text></TouchableOpacity> : null}
-          {renderStoryAdd('main')}
-                    <View style={s.decisionBand}>
+          {!desktopSwipeLayout ? renderStoryAdd('main') : null}
+                    <View style={[s.decisionBand, desktopSwipeLayout && s.desktopDecisionBand]}>
             <View style={s.decisionRow}>
               <TouchableOpacity style={[s.decisionButton, s.passButton]} onPress={() => { void pass(); }} disabled={controlsLocked} accessibilityLabel="Passer cette musique">
                 <Text style={s.passButtonText}>PASSER</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[s.decisionButton, s.backDecisionButton]} onPress={() => { void close(); }} disabled={controlsLocked} accessibilityLabel="Arrêter l’écoute et revenir">
+              {!desktopSwipeLayout ? <TouchableOpacity style={[s.decisionButton, s.backDecisionButton]} onPress={() => { void close(); }} disabled={controlsLocked} accessibilityLabel="Arrêter l’écoute et revenir">
                 <Text style={s.backDecisionText}>ARRÊTER</Text>
-              </TouchableOpacity>
+              </TouchableOpacity> : null}
               <TouchableOpacity
                 style={[s.decisionButton, s.keepButton, currentAlreadyKept && s.keepButtonAlready]}
                 onPress={() => { void requestKeep(); }}
@@ -1353,8 +1372,8 @@ export default function MusicSwipeDeckModal({
               </TouchableOpacity>
             </View>
           </View>
-          {fullTrackDestination && fullListenLocked ? <Text style={s.fullTrackLocked} accessibilityLabel="Écoute complète disponible après GARDER">🔒 Écoute complète disponible après GARDER</Text> : null}
-          {fullTrackDestination && !fullListenLocked ? <TouchableOpacity style={s.fullTrackButton} onPress={openFullTrack} accessibilityLabel={fullTrackDestination.label}><Text style={s.fullTrackButtonText}>↗ {fullTrackDestination.label}</Text></TouchableOpacity> : null}
+          {!desktopSwipeLayout && fullTrackDestination && fullListenLocked ? <Text style={s.fullTrackLocked} accessibilityLabel="Écoute complète disponible après GARDER">🔒 Écoute complète disponible après GARDER</Text> : null}
+          {!desktopSwipeLayout && fullTrackDestination && !fullListenLocked ? <TouchableOpacity style={s.fullTrackButton} onPress={openFullTrack} accessibilityLabel={fullTrackDestination.label}><Text style={s.fullTrackButtonText}>↗ {fullTrackDestination.label}</Text></TouchableOpacity> : null}
         </>}
       </View>
 
@@ -1439,8 +1458,8 @@ export default function MusicSwipeDeckModal({
         <View style={s.desktopAsideDot} />
         <Text style={s.desktopAsideKicker}>LOKI MUSIC · {trackAddedAt ? 'STORY LIVE' : 'SWIPE IMMERSIF'}</Text>
       </View>
-      <Text style={s.desktopAsideTitle}>{trackAddedAt ? 'Une Story, une découverte.' : 'Découvre ton prochain son.'}</Text>
-      <Text style={s.desktopAsideBody}>Écoute, ressens, passe ou garde. Ton expérience musicale reste synchronisée avec ton profil.</Text>
+      <Text style={s.desktopAsideTitle}>{trackAddedAt ? 'Story' : 'Swipe'}</Text>
+      <Text style={s.desktopAsideBody}>← Passer · → Garder · ↑ Suivant</Text>
       <View style={s.desktopAsideDivider} />
       {current ? <View testID="desktop-story-now-playing" style={s.desktopNowPlaying}>
         {current.artworkUrl && !ownerMasked && !isSaleStoryTrack(current)
@@ -1459,16 +1478,9 @@ export default function MusicSwipeDeckModal({
         accessibilityRole="button" accessibilityLabel="Écouter le morceau suivant" style={s.desktopNextButton}>
         <Text style={s.desktopNextText}>↑ MORCEAU SUIVANT</Text>
       </TouchableOpacity> : null}
-      <Text style={s.desktopAsideSection}>À TOI DE CHOISIR</Text>
-      <View style={s.desktopTips}>
-        <Text style={s.desktopAsideHint}>← PASSER   ·   GARDER →</Text>
-        <Text style={s.desktopAsideHint}>↑ Le morceau suivant</Text>
-        <Text style={s.desktopAsideHint}>▶ Préécoute sans quitter Loki</Text>
-      </View>
-      <View style={s.desktopAsideDivider} />
-      <Text style={s.desktopAsideFoot}>{trackAddedAt
-        ? 'Story de 24 h. Un extrait peut être indisponible si son fournisseur ne permet pas la diffusion sans publicité.'
-        : 'Le Swipe conserve tes décisions. Un morceau indisponible ne bloque pas la découverte.'}</Text>
+      {currentSourceUsername && onOpenSourceProfile ? <TouchableOpacity testID="desktop-short-discoverer" style={s.desktopSourcePill} onPress={() => setSourceQuick(currentSourceUsername.replace(/^@/, ''))} accessibilityRole="button" accessibilityLabel={`Voir le profil du découvreur @${currentSourceUsername.replace(/^@/, '')}`}><Text style={s.desktopSourceText} numberOfLines={1}>◎ @${currentSourceUsername.replace(/^@/, '')} · PROFIL</Text></TouchableOpacity> : null}
+      {renderStoryAdd('desktop')}
+      {fullTrackDestination && !fullListenLocked ? <TouchableOpacity style={s.desktopSourcePill} onPress={openFullTrack} accessibilityRole="button" accessibilityLabel={fullTrackDestination.label}><Text style={s.desktopSourceText} numberOfLines={1}>↗ SOURCE</Text></TouchableOpacity> : null}
     </View> : null}
     </View>
   <ChatDockHost active={visible} />
@@ -1480,9 +1492,17 @@ const s = StyleSheet.create({
   desktopOuter:{flexDirection:'row',justifyContent:'center',alignItems:'center',paddingHorizontal:24,paddingVertical:16,gap:22,backgroundColor:'#0B0713'},
   // RN Web: `flex:1` + `flexGrow:0` without a fixed height collapses the
   // modal child to zero, leaving the Story header halfway down the viewport.
-  desktopPlayer:{flex:0,flexBasis:'auto',flexGrow:0,flexShrink:0,width:560,maxWidth:'57%',minHeight:0,overflow:'hidden',borderWidth:1.5,borderColor:'#7E5AB8',borderRadius:26,backgroundColor:'#110D1D',shadowColor:'#A78BFA',shadowOpacity:.24,shadowRadius:28,shadowOffset:{width:0,height:10}},
-  desktopHeaderCompact:{minHeight:68,paddingVertical:8},
-  desktopStoryAside:{width:350,maxWidth:'38%',minHeight:420,maxHeight:'97%',alignSelf:'center',backgroundColor:'#171020',borderWidth:1.5,borderColor:'#604787',borderRadius:24,padding:26,gap:14,justifyContent:'center'},
+  desktopPlayer:{flex:0,flexBasis:'auto',flexGrow:0,flexShrink:0,width:690,maxWidth:'65%',minHeight:0,overflow:'hidden',borderWidth:1.5,borderColor:'#7E5AB8',borderRadius:26,backgroundColor:'#110D1D',shadowColor:'#A78BFA',shadowOpacity:.24,shadowRadius:28,shadowOffset:{width:0,height:10}},
+  desktopHeaderCompact:{minHeight:62,paddingVertical:8},
+  desktopStoryAside:{width:270,maxWidth:'32%',minHeight:340,maxHeight:'94%',alignSelf:'center',backgroundColor:'#171020',borderWidth:1.5,borderColor:'#604787',borderRadius:24,padding:18,gap:10,justifyContent:'center'},
+  desktopSourcePill:{minHeight:42,borderRadius:13,borderWidth:1,borderColor:'#8B6CC2',backgroundColor:'#211A30',alignItems:'center',justifyContent:'center',paddingHorizontal:10},
+  desktopSourceText:{color:'#E6DAFF',fontSize:12,fontWeight:'900'},
+  desktopAutoRow:{marginBottom:5},
+  desktopLikeRow:{flex:0,flexShrink:1,maxWidth:'55%',flexWrap:'nowrap',gap:6,paddingHorizontal:4,paddingVertical:0,borderBottomWidth:0,alignItems:'center'},
+  desktopFeedbackExtra:{flexShrink:1,maxWidth:'100%'},
+  desktopDecisionBand:{paddingTop:6,paddingBottom:8},
+  desktopBody:{paddingTop:6},
+  desktopDeckArea:{paddingTop:2,paddingBottom:6},
   desktopAsideKicker:{color:'#D5C4FF',fontSize:11,fontWeight:'900',letterSpacing:1.4},
   desktopAsideBrandRow:{flexDirection:'row',alignItems:'center',gap:9},desktopAsideDot:{width:9,height:9,borderRadius:5,backgroundColor:'#68F2B1',shadowColor:'#68F2B1',shadowOpacity:.9,shadowRadius:10},
   desktopNowPlaying:{flexDirection:'row',gap:12,alignItems:'center',padding:12,borderRadius:18,backgroundColor:'#231936',borderWidth:1,borderColor:'#604787'},
@@ -1534,6 +1554,7 @@ const s = StyleSheet.create({
   addStoryTextDone:{color:'#E6E0EE'},
   addStoryText:{color:'#FFFFFF',fontSize:13,fontWeight:'900',letterSpacing:.5,textAlign:'center'},
   nudgePill:{position:'absolute',top:100,left:22,right:22,zIndex:8,alignItems:'center',paddingVertical:11,paddingHorizontal:16,borderRadius:16,backgroundColor:'rgba(20,14,31,.94)',borderWidth:1.5,borderColor:'#FF5C8A'},
+  nudgeInline:{color:'#F9D8F5',fontSize:11,fontWeight:'800',lineHeight:16,marginTop:5,marginBottom:1,textAlign:'left'},
   nudgeText:{color:'#FFFFFF',fontSize:16,lineHeight:22,fontWeight:'800',textAlign:'center'},
   askBubble:{position:'absolute',right:18,top:'100%',marginTop:4,zIndex:9,paddingVertical:8,paddingHorizontal:14,borderRadius:14,backgroundColor:'#FFE08A',alignItems:'center'},
   askArrow:{position:'absolute',top:-5,right:56,width:10,height:10,backgroundColor:'#FFE08A',transform:[{rotate:'45deg'}]},

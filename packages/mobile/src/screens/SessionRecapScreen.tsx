@@ -143,7 +143,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   };
 
   useEffect(() => {
-    if (!isFocused || !route.params?.openSwipe || !pendingSwipeTracks.length || swipeOpen) return;
+    if (!isFocused || !route.params?.openSwipe || !session?.tracks.length || swipeOpen) return;
     // iOS : ne pas monter une deuxième Modal ni lancer l'audio tant que le changement de route n'est pas achevé.
     let cancelled = false;
     const task = InteractionManager.runAfterInteractions(() => {
@@ -155,7 +155,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
       cancelled = true;
       task.cancel?.();
     };
-  }, [isFocused, route.params?.openSwipe, pendingSwipeTracks.length, swipeOpen]);
+  }, [isFocused, route.params?.openSwipe, session?.tracks.length, swipeOpen]);
 
   if (!session) {
     return (

@@ -20,7 +20,7 @@ export default function ClampedText({ text, style, max = CLAMP_WORDS }: { text: 
         accessibilityLabel={open ? 'Réduire le texte' : 'En savoir plus'}
         accessibilityState={{ expanded: open }}
       >
-        {open ? 'Réduire' : 'En savoir plus'}
+        {open ? 'Moins' : 'Plus'}
       </Text>
     </Text>
   );
