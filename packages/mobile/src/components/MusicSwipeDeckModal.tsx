@@ -1080,7 +1080,7 @@ export default function MusicSwipeDeckModal({
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   // La présentation des stories est indépendante du mobile : un lecteur 9:16
   // centré et un panneau éditorial occupant la largeur utile du desktop.
-  const desktopStoryLayout = Platform.OS === 'web' && windowWidth >= DESKTOP_MIN_WIDTH && Boolean(trackAddedAt);
+  const desktopStoryLayout = Platform.OS === 'web' && windowWidth >= Math.max(1024, DESKTOP_MIN_WIDTH);
   // Fenêtre PC réduite : la Story doit conserver les actions accessibles.
   const compactDeck = windowHeight < 640 || (desktopStoryLayout && windowHeight < 780);
   const swipeHint = currentAlreadyKept && !previewOnly
@@ -1200,7 +1200,7 @@ export default function MusicSwipeDeckModal({
 
   return <KeepModal visible={visible} animationType="slide" onRequestClose={() => { void close(); }} presentationStyle="fullScreen">
     <View style={[s.outer, desktopStoryLayout && s.desktopOuter]} testID="story-viewport">
-    <SafeAreaView style={[s.container, desktopStoryLayout && s.desktopPlayer, desktopStoryLayout && { height: Math.max(360, windowHeight - 24) }]} testID="story-player">
+    <SafeAreaView style={[s.container, desktopStoryLayout && s.desktopPlayer, desktopStoryLayout && { height: Math.max(320, windowHeight - 32) }]} testID="story-player">
       <View style={[s.header, desktopStoryLayout && compactDeck && s.desktopHeaderCompact]}>
         <View style={s.headerText}>
           <Text style={s.eyebrow}>Loki Music SWIPE</Text>
@@ -1257,13 +1257,15 @@ export default function MusicSwipeDeckModal({
               hint={swipeHint}
               fill
             >
-              <View style={[s.card, compactDeck && s.cardCompact]}>
-                {ownerMasked ? <View style={[s.cover,s.coverFallback]}><MysteryArtwork caption="Titre masqué · aperçu de tes abonnés" /></View> : current.artworkUrl ? <Image source={{ uri: current.artworkUrl }} style={s.cover as any} resizeMode="cover" /> : <View style={[s.cover,s.coverFallback]}>{isSaleStoryTrack(current) ? <MysteryArtwork caption={priceBadge ? '' : 'Titre masqué · garde pour révéler'} /> : <Text style={s.coverK}>K</Text>}</View>}
-                {currentSourceUsername ? <TouchableOpacity style={s.sourceOverlay} onPress={() => setSourceQuick(currentSourceUsername.replace(/^@/, ''))} disabled={!onOpenSourceProfile} accessibilityLabel={`Découvert par ${currentSourceUsername.replace(/^@/, '')}. Ouvrir son profil`}><GlowRing radius={14} testID="deck-source-glow" /><Text style={s.sourceOverlayText}>Découvert par @{currentSourceUsername.replace(/^@/, '')}</Text></TouchableOpacity> : null}
+              <View style={[s.card, compactDeck && s.cardCompact, desktopStoryLayout && s.desktopArtworkCard]} testID="swipe-card-artwork-safe">
+                <View style={s.artworkFrame} testID="swipe-cover-unobstructed">
+                {ownerMasked ? <View style={[s.cover,s.coverFallback]}><MysteryArtwork caption="Titre masqué · aperçu de tes abonnés" /></View> : current.artworkUrl ? <Image source={{ uri: current.artworkUrl }} style={s.cover as any} resizeMode="contain" /> : <View style={[s.cover,s.coverFallback]}>{isSaleStoryTrack(current) ? <MysteryArtwork caption={priceBadge ? '' : 'Titre masqué · garde pour révéler'} /> : <Text style={s.coverK}>K</Text>}</View>}
+                </View>
+                {currentSourceUsername ? <TouchableOpacity style={s.sourceIdentityOnCard} onPress={() => setSourceQuick(currentSourceUsername.replace(/^@/, ''))} disabled={!onOpenSourceProfile} accessibilityLabel={`Découvert par ${currentSourceUsername.replace(/^@/, '')}. Ouvrir son profil`}><GlowRing radius={14} testID="deck-source-glow" /><Text style={s.sourceOverlayText}>Découvert par @{currentSourceUsername.replace(/^@/, '')}</Text></TouchableOpacity> : null}
                 {/* Adel 05/10/2026 : « il faut que ce soit très lisible, que les utilisateurs ne se fassent pas tromper » -- PAYANT (PayPal) ou GRATUIT, toujours dit en clair sur la carte. */}
                 {storyEmbeddedSource ? <View style={s.storyEmbeddedInCard} testID="story-official-inline-area"><StoryEmbeddedSourcePlayer sourceUrl={storyEmbeddedSource} compact={compactDeck} /></View> : null}
                 {Boolean(trackAddedAt) && !resolvedPreviewUrl && !previewResolving && sourcePlayer ? <Text testID="story-no-provider-ads" style={s.cleanStoryNotice}>Lecture sans publicité intégrée · extrait indisponible</Text> : null}
-                <View style={[s.gradientFake, compactDeck && s.gradientCompact, storyEmbeddedSource && s.gradientStoryEmbed]}>
+                <View style={[s.gradientFake, compactDeck && s.gradientCompact, desktopStoryLayout && s.desktopCardDetails, storyEmbeddedSource && s.gradientStoryEmbed]} testID="swipe-metadata-below-cover">
                   <View style={s.autoRow}>
                     <View style={[s.dot,resolvedPreviewUrl ? s.dotOn : s.dotOff]} />
                     <Text style={s.autoText} numberOfLines={2}>{previewLabel}</Text>
@@ -1416,15 +1418,18 @@ export default function MusicSwipeDeckModal({
       ) : null}
       {overlay ? <View style={{ position: 'absolute', zIndex: 100, elevation: 100, top: 0, left: 0, right: 0, bottom: 0 }}>{overlay}</View> : null}
     </SafeAreaView>
-    {false && desktopStoryLayout ? <View style={s.desktopStoryAside} testID="loki-desktop-story-aside">
-      <Text style={s.desktopAsideKicker}>LOKI MUSIC · STORIES</Text>
-      <Text style={s.desktopAsideTitle}>Les découvertes de ta communauté.</Text>
-      <Text style={s.desktopAsideBody}>Chaque story dure 24 heures. Écoute les trouvailles, découvre leur auteur et partage à ton tour les morceaux qui te plaisent.</Text>
+    {desktopStoryLayout ? <View style={s.desktopStoryAside} testID="loki-desktop-story-aside">
+      <Text style={s.desktopAsideKicker}>LOKI MUSIC · {trackAddedAt ? 'STORIES' : 'SWIPE IMMERSIF'}</Text>
+      <Text style={s.desktopAsideTitle} numberOfLines={3}>{current?.title ?? 'À toi de découvrir.'}</Text>
+      <Text style={s.desktopAsideArtist} numberOfLines={2}>{current?.artist ?? 'Loki Music'}</Text>
+      <Text style={s.desktopAsideCounter}>{current ? `${index + 1} / ${deckTracks.length} · ${trackAddedAt ? 'STORY' : 'DÉCOUVERTE'}` : 'FIN DE SÉLECTION'}</Text>
+      <Text style={s.desktopAsideBody}>{trackAddedAt ? 'Une Story dure 24 heures. Les extraits autorisés évitent les lecteurs externes publicitaires.' : 'Une jaquette, un morceau : écoute et découvre sans perdre la carte de vue.'}</Text>
       <View style={s.desktopAsideDivider} />
-      <Text style={s.desktopAsideSection}>PENDANT TA VISITE</Text>
-      <Text style={s.desktopAsideHint}>01   Écouter l'extrait</Text>
-      <Text style={s.desktopAsideHint}>02   Passer ou garder une découverte</Text>
-      <Text style={s.desktopAsideHint}>03   Mettre un morceau dans ta story</Text>
+      <Text style={s.desktopAsideSection}>TON PARCOURS</Text>
+      <Text style={s.desktopAsideHint}>01   Écouter un extrait</Text>
+      <Text style={s.desktopAsideHint}>02   Passer ou garder</Text>
+      <Text style={s.desktopAsideHint}>03   Découvrir le suivant</Text>
+      <TouchableOpacity testID="desktop-swipe-next" accessibilityRole="button" accessibilityLabel="Découvrir le morceau suivant" onPress={() => { void advance(); }} disabled={!current || controlsLocked} style={s.desktopNextButton}><Text style={s.desktopNextText}>MORCEAU SUIVANT ↑</Text></TouchableOpacity>
       <Text style={s.desktopAsideFoot}>Les morceaux proposés à l'achat conservent leurs protections. Aucune publication ou transaction ne se fait automatiquement.</Text>
     </View> : null}
     </View>
@@ -1434,15 +1439,15 @@ export default function MusicSwipeDeckModal({
 
 const s = StyleSheet.create({
   outer:{flex:1,minHeight:0,width:'100%',backgroundColor:'#090610',alignItems:'center'},
-  desktopOuter:{flexDirection:'column',justifyContent:'center',alignItems:'center',paddingHorizontal:16,paddingVertical:12,gap:0},
+  desktopOuter:{flexDirection:'row',justifyContent:'center',alignItems:'center',paddingHorizontal:20,paddingVertical:14,gap:18,backgroundColor:'#0B0817'},
   // RN Web: `flex:1` + `flexGrow:0` without a fixed height collapses the
   // modal child to zero, leaving the Story header halfway down the viewport.
-  desktopPlayer:{flex:0,flexBasis:'auto',flexGrow:0,flexShrink:0,width:'100%',maxWidth:520,minHeight:0,overflow:'hidden',borderLeftWidth:1,borderRightWidth:1,borderColor:'#312348'},
+  desktopPlayer:{flex:1,flexBasis:0,flexGrow:1,flexShrink:1,width:'100%',maxWidth:740,minHeight:0,overflow:'hidden',borderRadius:24,borderWidth:1.5,borderColor:'#654B8F',backgroundColor:'#0C0916'},
   desktopHeaderCompact:{minHeight:68,paddingVertical:8},
-  desktopStoryAside:{width:310,maxWidth:'30%',alignSelf:'center',backgroundColor:'#171020',borderWidth:1,borderColor:'#403052',borderRadius:24,padding:24,gap:12},
+  desktopStoryAside:{width:280,maxWidth:'28%',alignSelf:'center',maxHeight:'94%',backgroundColor:'#191329',borderWidth:1.5,borderColor:'#604A89',borderRadius:24,padding:20,gap:12},
   desktopAsideKicker:{color:'#B79CFF',fontSize:12,fontWeight:'900',letterSpacing:1.6},
   desktopAsideTitle:{color:'#FFFFFF',fontSize:24,lineHeight:30,fontWeight:'900'},
-  desktopAsideBody:{color:'#E5DFED',fontSize:14,lineHeight:22},
+  desktopAsideBody:{color:'#E5DFED',fontSize:13,lineHeight:20},desktopAsideArtist:{color:'#C8B2EB',fontSize:15,lineHeight:20,fontWeight:'800'},desktopAsideCounter:{color:'#68F2B1',fontSize:12,fontWeight:'900',letterSpacing:1.2},desktopNextButton:{minHeight:52,paddingHorizontal:14,borderRadius:14,alignItems:'center',justifyContent:'center',backgroundColor:'#68F2B1',borderWidth:1,borderColor:'#B4FFDC',marginTop:8},desktopNextText:{color:'#0A1220',fontSize:13,fontWeight:'900'},desktopArtworkCard:{maxHeight:860},desktopCardDetails:{paddingHorizontal:22,paddingVertical:14},
   desktopAsideDivider:{height:1,backgroundColor:'#403052',marginVertical:5},
   desktopAsideSection:{color:'#B79CFF',fontSize:12,fontWeight:'900',letterSpacing:1},
   desktopAsideHint:{color:'#FFFFFF',fontSize:14,lineHeight:22},
@@ -1461,12 +1466,12 @@ const s = StyleSheet.create({
   sourcePlayerOverlay:{position:'absolute',top:0,left:0,right:0,bottom:0,zIndex:15,backgroundColor:'#100B18',padding:8},
   sourcePlayerClose:{minHeight:44,alignItems:'center',justifyContent:'center',backgroundColor:'#32224A',borderRadius:10,marginBottom:5},
   sourcePlayerCloseText:{color:'#FFFFFF',fontWeight:'800',fontSize:12},
-  cover:{...StyleSheet.absoluteFillObject,width:'100%',height:'100%'},coverFallback:{alignItems:'center',justifyContent:'center',backgroundColor:'#241936'},coverK:{color:colors.primaryLight,fontSize:72,fontWeight:'900',letterSpacing:6},
+  artworkFrame:{flex:1,minHeight:60,width:'100%',padding:10,alignItems:'center',justifyContent:'center',backgroundColor:'#0B0914'},sourceIdentityOnCard:{minHeight:35,width:'100%',paddingHorizontal:14,paddingVertical:6,flexDirection:'row',alignItems:'center',justifyContent:'center',backgroundColor:'#241A36',borderTopWidth:1,borderTopColor:'#443158'},cover:{width:'100%',height:'100%'},coverFallback:{alignItems:'center',justifyContent:'center',backgroundColor:'#241936'},coverK:{color:colors.primaryLight,fontSize:72,fontWeight:'900',letterSpacing:6},
   storyEmbeddedInCard:{flex:1,minHeight:0,width:'100%',paddingHorizontal:6,paddingTop:38,justifyContent:'center'},
   cleanStoryNotice:{color:'#E1D6F4',fontSize:12,lineHeight:17,textAlign:'center',paddingTop:18,paddingHorizontal:14},
   gradientStoryEmbed:{paddingHorizontal:14,paddingTop:8,paddingBottom:10,backgroundColor:'rgba(9,6,16,.86)'},
   embeddedTrackTitle:{fontSize:19,lineHeight:23},
-  gradientFake:{padding:20,paddingTop:90,backgroundColor:'rgba(9,6,16,.68)'},autoRow:{flexDirection:'row',alignItems:'center',marginBottom:8,gap:5},dot:{width:8,height:8,borderRadius:4,marginRight:6},dotOn:{backgroundColor:'#68F2B1'},dotOff:{backgroundColor:'#756B84'},autoText:{flex:1,minWidth:0,color:'#FFFFFF',fontSize:10,fontWeight:'800'},nextInlineButton:{minHeight:36,paddingHorizontal:10,borderRadius:12,alignItems:'center',justifyContent:'center',backgroundColor:'#342653',borderWidth:1,borderColor:'#B79CFF'},nextInlineText:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},manualPlayButton:{alignSelf:'flex-start',minHeight:minTouchTarget,paddingHorizontal:14,borderRadius:17,backgroundColor:colors.keep,marginBottom:9},manualPlayText:{color:'#0B0E0B',fontSize:11,fontWeight:'900',lineHeight:34},trackTitle:{color:'#FFF',fontSize:28,lineHeight:32,fontWeight:'900'},artist:{color:'#F0EAF7',fontSize:16,fontWeight:'800',marginTop:6},album:{color:'#FFFFFF',fontSize:12,marginTop:3},
+  gradientFake:{flexShrink:0,paddingHorizontal:14,paddingTop:10,paddingBottom:12,backgroundColor:'#171123',borderTopWidth:1,borderTopColor:'#493369'},autoRow:{flexDirection:'row',alignItems:'center',marginBottom:8,gap:5},dot:{width:8,height:8,borderRadius:4,marginRight:6},dotOn:{backgroundColor:'#68F2B1'},dotOff:{backgroundColor:'#756B84'},autoText:{flex:1,minWidth:0,color:'#FFFFFF',fontSize:10,fontWeight:'800'},nextInlineButton:{minHeight:44,paddingHorizontal:10,borderRadius:12,alignItems:'center',justifyContent:'center',backgroundColor:'#342653',borderWidth:1,borderColor:'#B79CFF'},nextInlineText:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},manualPlayButton:{alignSelf:'flex-start',minHeight:minTouchTarget,paddingHorizontal:14,borderRadius:17,backgroundColor:colors.keep,marginBottom:9},manualPlayText:{color:'#0B0E0B',fontSize:11,fontWeight:'900',lineHeight:34},trackTitle:{color:'#FFF',fontSize:28,lineHeight:32,fontWeight:'900'},artist:{color:'#F0EAF7',fontSize:16,fontWeight:'800',marginTop:6},album:{color:'#FFFFFF',fontSize:12,marginTop:3},
   sourceProfileButton:{minHeight:minTouchTarget,marginHorizontal:4,marginBottom:8,borderRadius:21,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center',paddingHorizontal:12},sourceProfileButtonText:{color:'#FFF',fontSize:11,fontWeight:'900',letterSpacing:.25,textAlign:'center'},
   deckHint:{marginTop:14,marginBottom:6,paddingHorizontal:6,color:'#FFFFFF',fontSize:13,lineHeight:19,fontWeight:'800',textAlign:'center'},
   addStoryButton:{minHeight:minTouchTarget,marginHorizontal:4,marginBottom:8,borderRadius:20,borderWidth:1,borderColor:'#7C5CFC',backgroundColor:'#1B1230',alignItems:'center',justifyContent:'center',paddingHorizontal:12},
