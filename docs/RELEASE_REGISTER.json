@@ -1,5 +1,14 @@
 [
   {
+    "commit": "92a903692752980cce32a33249eccb4b90e62ea7",
+    "web": "92a903692752980cce32a33249eccb4b90e62ea7",
+    "testflight": "iOS #239 in_progress (release 92a9036)",
+    "ota": "OTA #1030 in_progress (release 92a9036)",
+    "date": "2026-10-13 20:21",
+    "tests": "pass",
+    "changes": "release(loki): ship PR189 raised reaction counters, 3D neon Swipe and compact Plus to Web/TestFlight/OTA"
+  },
+  {
     "commit": "d5012e6e2b3e41a79a4ce62065e660e9f2a574ad",
     "web": "d5012e6e2b3e41a79a4ce62065e660e9f2a574ad",
     "testflight": "iOS #238 cancelled (release 98d3a9a)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 19:31",
     "tests": "pass",
     "changes": "fix(music): align direct music-link confidence with server and allow catalog lookup to complete"
-  },
-  {
-    "commit": "0f73066c3eaa4180db6b04774914c4d4fe751688",
-    "web": "0f73066c3eaa4180db6b04774914c4d4fe751688",
-    "testflight": "iOS #230 success (release 1f44ee1)",
-    "ota": "OTA #1021 success (release 1f44ee1)",
-    "date": "2026-10-12 19:24",
-    "tests": "pass",
-    "changes": "fix(music): restore safe shared-link validator required by PC clipboard import"
   }
 ]
