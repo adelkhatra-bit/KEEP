@@ -21,13 +21,13 @@ describe('Desktop Home and Story viewport contracts', () => {
   it('gives the desktop Story modal a real viewport-bound height instead of a zero-height flex child', () => {
     expect(deck).toContain('testID="story-viewport"');
     expect(deck).toContain('testID="story-player"');
-    expect(deck).toContain('height: Math.max(360, windowHeight - 24)');
+    expect(deck).toContain('height: Math.max(410, windowHeight - 32)');
     expect(deck).toContain("desktopPlayer:{flex:0,flexBasis:'auto',flexGrow:0,flexShrink:0");
     expect(deck).toContain('desktopHeaderCompact');
   });
   it('keeps the previous full-height mobile Story layout', () => {
-    expect(deck).toContain('s.container, desktopStoryLayout && s.desktopPlayer');
-    expect(deck).toContain("container:{flex:1,width:'100%',maxWidth:520");
+    expect(deck).toContain('s.container, desktopSwipeLayout && s.desktopPlayer');
+    expect(deck).toContain("container:{flex:1,width:'100%',maxWidth:560");
     expect(deck).toContain("outer:{flex:1,minHeight:0,width:'100%'");
   });
 });
