@@ -1,5 +1,14 @@
 [
   {
+    "commit": "98d3a9a0dbff0d9bc4ed795cb29b270d4a354f2c",
+    "web": "98d3a9a0dbff0d9bc4ed795cb29b270d4a354f2c",
+    "testflight": "iOS #238 in_progress (release 98d3a9a)",
+    "ota": "OTA #1029 in_progress (release 98d3a9a)",
+    "date": "2026-10-13 19:50",
+    "tests": "pass",
+    "changes": "fix(desktop/story): 3 compteurs lumineux au-dessus du titre et aide compacte Plus partout (#186)"
+  },
+  {
     "commit": "d73e160ddb8c2333e4258ee9c17377782aa10f31",
     "web": "d73e160ddb8c2333e4258ee9c17377782aa10f31",
     "testflight": "iOS #237 in_progress (release d73e160)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 19:18",
     "tests": "pass",
     "changes": "fix(listen): offer link-search recovery for denied tab-audio permission"
-  },
-  {
-    "commit": "9b70980600a88654bea9a06e8333a512dd88b430",
-    "web": "9b70980600a88654bea9a06e8333a512dd88b430",
-    "testflight": "iOS #230 success (release 1f44ee1)",
-    "ota": "OTA #1021 success (release 1f44ee1)",
-    "date": "2026-10-12 19:09",
-    "tests": "pass",
-    "changes": "fix(web): repair tab capture JSX and avoid starting microphone before browser share prompt"
   }
 ]

@@ -143,6 +143,7 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
+| `98d3a9a` | `98d3a9a` | iOS #238 in_progress (release 98d3a9a) | OTA #1029 in_progress (release 98d3a9a) | 2026-10-13 19:50 | pass | fix(desktop/story): 3 compteurs lumineux au-dessus du titre et aide compacte Plus partout (#186) |
 | `d73e160` | `d73e160` | iOS #237 in_progress (release d73e160) | OTA #1028 in_progress (release d73e160) | 2026-10-13 19:02 | pass | release(ios+web): publish profile preview YouTube autoplay fallback and header UX, PR185 validated |
 | `421946a` | `421946a` | iOS #236 cancelled (release 7e85c52) | OTA #1027 success (release 7e85c52) | 2026-10-13 18:55 | pass | fix(preview): secours YouTube automatique + réactions remontées et « Plus » (#185) |
 | `7e85c52` | `7e85c52` | iOS #236 in_progress (release 7e85c52) | OTA #1027 in_progress (release 7e85c52) | 2026-10-13 18:24 | pass | release(iOS+Web): publier réellement Sessions + Loki Pulse + Swipe/Stories PR178/180/181 (#183) |
@@ -182,7 +183,6 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 | `7e9b32d` | `7e9b32d` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 19:31 | pass | fix(music): align direct music-link confidence with server and allow catalog lookup to complete |
 | `0f73066` | `0f73066` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 19:24 | pass | fix(music): restore safe shared-link validator required by PC clipboard import |
 | `c0684fb` | `c0684fb` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 19:18 | pass | fix(listen): offer link-search recovery for denied tab-audio permission |
-| `9b70980` | `9b70980` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 19:09 | pass | fix(web): repair tab capture JSX and avoid starting microphone before browser share prompt |
 <!-- AUTO:RELEASE-REGISTER:END -->
 
 
