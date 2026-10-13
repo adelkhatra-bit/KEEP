@@ -589,12 +589,11 @@ export default function MusicSwipeDeckModal({
     const scheduleEmbeddedStoryNext = () => {
       // Provider iframe end events cannot be trusted across iPhone/Chrome.
       // Source-only music still advances in a Swipe without manual dragging.
-      if (!(index + 1 < deckTracks.length || loop)) return;
-      if (endAdvanceTimer.current) clearTimeout(endAdvanceTimer.current);
-      endAdvanceTimer.current = setTimeout(() => {
-        endAdvanceTimer.current = null;
-        if (alive && playbackGeneration.current === generation && !actionInFlight.current) advanceIndex();
-      }, 30000);
+      // Never infer that an iframe actually started or finished playing.
+      // Official embedded players have no reliable media-ended callback;
+      // auto-skipping after 30 seconds could discard a song unheard.
+      // The user retains the visible Next control and vertical swipe.
+      return;
     };
     const skipUnavailablePreview = (reason: string) => {
       if (!alive || playbackGeneration.current !== generation || !current) return;
@@ -603,13 +602,9 @@ export default function MusicSwipeDeckModal({
         // Never load YouTube/Spotify ads inside a public Story. Try an exact
         // catalogue audio clip first; without one, let the clean card progress.
         reportAutoDiagnostic('STORY_PREVIEW_NO_AD_FREE_AUDIO', String(current.id).slice(0, 36));
-        if (index + 1 < deckTracks.length || loop) {
-          if (endAdvanceTimer.current) clearTimeout(endAdvanceTimer.current);
-          endAdvanceTimer.current = setTimeout(() => {
-            endAdvanceTimer.current = null;
-            if (alive && playbackGeneration.current === generation && !actionInFlight.current) advanceIndex();
-          }, source && resolveEmbeddedMusicPlayer(source) ? 10000 : 2400);
-        }
+        // A missing clean preview isn't evidence that the listener heard
+        // a song. Leave the cover and retry/source/Next actions available.
+        setPreviewEnded(true);
         return;
       }
       if (!isSaleStoryTrack(current) && resolveEmbeddedMusicPlayer(source)) {
@@ -618,13 +613,9 @@ export default function MusicSwipeDeckModal({
         return;
       }
       reportAutoDiagnostic('SWIPE_PREVIEW_UNAVAILABLE', `${reason} id=${String(current.id).slice(0, 36)}`);
-      if (index + 1 < deckTracks.length || loop) {
-        if (endAdvanceTimer.current) clearTimeout(endAdvanceTimer.current);
-        endAdvanceTimer.current = setTimeout(() => {
-          endAdvanceTimer.current = null;
-          if (alive && playbackGeneration.current === generation && !actionInFlight.current) advanceIndex();
-        }, 450);
-      }
+      // Never silently skip an unavailable preview in 450 ms: this feels
+      // like a broken Swipe and hides tracks across *all* user profiles.
+      setPreviewEnded(true);
     };
 
     if (!visible || preparingDeck || !current) {
@@ -783,14 +774,10 @@ export default function MusicSwipeDeckModal({
               // Dans un flux automatique, un extrait réellement illisible ne
               // doit jamais bloquer l'utilisateur sur une carte silencieuse.
               setAutoplayBlocked(false);
-              if ((index + 1 < deckTracks.length || loop) && !actionInFlight.current) {
-                endAdvanceTimer.current = setTimeout(() => {
-                  endAdvanceTimer.current = null;
-                  if (alive && !actionInFlight.current) advanceIndex();
-                }, 220);
-              } else {
-                setResolvedPreviewUrl(null);
-              }
+              // Keep the exact track visible for retry rather than silently
+              // skipping after 220 ms. A failed CDN request isn't a vote PASSER.
+              setResolvedPreviewUrl(null);
+              setPreviewEnded(true);
               return;
             }
             // Only actual browser gesture restrictions merit a tap. A failed
