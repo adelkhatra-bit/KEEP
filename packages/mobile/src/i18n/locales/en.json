@@ -30,7 +30,7 @@
     "endPromptBody": "No new track detected for a while. End the session?",
     "continueListening": "Keep session going",
     "recapNotFound": "Session not found.",
-    "recapTitle": "Your {{appName}} session",
+    "recapTitle": "Session",
     "namePlaceholder": "Name this session (e.g. At Paul's, Ibiza…)",
     "keepAll": "Keep all ({{count}})",
     "chooseDestination": "Choose where to file this track",

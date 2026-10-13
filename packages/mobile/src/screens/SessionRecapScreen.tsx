@@ -42,6 +42,16 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   const [firstShareOffered, setFirstShareOffered] = useState(false);
   const [keepCostPerKeep, setKeepCostPerKeep] = useState(3);
 
+  // Navigation can reuse this component for another session; do not display
+  // the previous session name, swipe queue or saved confirmation.
+  useEffect(() => {
+    setTitleDraft(session?.title ?? '');
+    setTitleSaved(false);
+    setSwipeOpen(false);
+    setSwipeTracks([]);
+    setShowPassed(false);
+  }, [sessionId]);
+
   useEffect(() => {
     const refreshCredits = () => {
       void refreshCreditLocks().catch(() => {});
@@ -238,7 +248,12 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     const entry = findPendingEntry(track);
     if (!entry) return true;
     await refreshCreditLocks().catch(() => {});
-    await keepTrackInSession(sessionId, entry.id, undefined, visibility);
+    try {
+      await keepTrackInSession(sessionId, entry.id, undefined, visibility);
+    } catch {
+      Alert.alert('GARDER indisponible', 'La sauvegarde n’a pas été confirmée. Le morceau reste disponible dans ta session.');
+      return false;
+    }
     await refreshCreditLocks().catch(() => {});
     const refreshed = useSessionHistoryStore.getState().sessions.find((item) => item.id === sessionId)?.tracks.find((item) => item.id === entry.id);
     if (refreshed?.creditLocked) {
@@ -276,7 +291,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
         <TouchableOpacity style={styles.backButton} onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))} hitSlop={8} accessibilityRole="button" accessibilityLabel="Retour">
           <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
-        <View style={styles.headerCopy}><Text style={styles.headerEyebrow}>SESSION</Text><Text style={styles.title}>{t('session.recapTitle')}</Text></View>
+        <View style={styles.headerCopy}><Text style={styles.title}>{t('session.recapTitle')}</Text></View>
         <TouchableOpacity onPress={handleShare} hitSlop={8} style={styles.shareBtn} accessibilityRole="button" accessibilityLabel="Partager la session">
           <Text style={styles.shareBtnText}>🔗</Text>
         </TouchableOpacity>
@@ -306,7 +321,6 @@ export default function SessionRecapScreen({ route, navigation }: any) {
           <Text style={styles.statsDot}>·</Text>
           <Text style={[styles.statsText, styles.statsKept]}>{t('session.kept', { count: keptCount })}</Text>
         </View>
-        {pendingCount > 0 ? <TouchableOpacity style={styles.pendingPill} onPress={openSwipe} accessibilityRole="button" accessibilityLabel={`Swiper ${pendingCount} musiques`}><Text style={styles.pendingPillText}>SWIPER TOUTES · {pendingCount}</Text></TouchableOpacity> : null}
       </View>
 
       {lockedCount > 0 ? (
@@ -316,12 +330,11 @@ export default function SessionRecapScreen({ route, navigation }: any) {
         </TouchableOpacity>
       ) : null}
 
-      {pendingCount > 0 ? (
-        <Text testID="session-recap-pending-total" style={[styles.visibilityHint, { color: colors.textPrimary, fontWeight: '800' }]}>
-          {pendingCount} musique{pendingCount > 1 ? 's' : ''} en attente · SWIPER TOUTES pour décider sans perdre ta session.
-        </Text>
-      ) : null}
-      <Text style={styles.visibilityHint}>À swiper en premier · Public = visible sur ton profil Loki Music · Privé = visible seulement par toi.</Text>
+      <Text testID="session-recap-pending-total" style={styles.visibilityHint}>
+        {pendingCount > 0
+          ? `${pendingCount} morceau${pendingCount > 1 ? 'x' : ''} à écouter ou trier · Public sur ton profil, Privé pour toi.`
+          : 'Pré-écoute disponible sur chaque morceau. Public sur ton profil, Privé pour toi.'}
+      </Text>
 
       <FlatList
         data={sortedTracks}
@@ -360,25 +373,31 @@ export default function SessionRecapScreen({ route, navigation }: any) {
 
       <View style={styles.sessionActionsRow}>
         {pendingCount > 0 ? (
-          <TouchableOpacity style={[styles.compactAction, styles.swipeAction]} onPress={openSwipe} accessibilityRole="button" accessibilityLabel="Swiper la session">
-            <Text style={styles.swipeActionText}>↔ SWIPER TOUTES · {pendingCount}</Text>
-          </TouchableOpacity>
-        ) : null}
-        {pendingCount > 0 ? (
-          <TouchableOpacity
-            style={[styles.compactAction, styles.keepAllButton, lockedCount >= pendingCount && styles.keepAllButtonLocked]}
-            onPress={lockedCount >= pendingCount ? () => { void openUnlock(); } : handleKeepAll}
-            disabled={processing}
-            accessibilityRole="button"
-            accessibilityLabel="Garder tous les morceaux en attente"
-          >
-            <Text style={[styles.keepAllButtonText, lockedCount >= pendingCount && styles.keepAllButtonTextLocked]}>
-              {processing ? '…' : lockedCount >= pendingCount ? `🔒 Free insuffisant (${pendingCount})` : `♡ GARDER TOUT (${pendingCount})`}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.primaryActionsRow}>
+            <TouchableOpacity
+              testID="session-open-swipe"
+              style={[styles.compactAction, styles.swipeAction]}
+              onPress={openSwipe}
+              accessibilityRole="button"
+              accessibilityLabel={`Pré-écouter et swiper ${pendingCount} morceaux`}
+            >
+              <Text numberOfLines={1} style={styles.swipeActionText}>↕ SWIPER · {pendingCount}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.compactAction, styles.keepAllButton, lockedCount >= pendingCount && styles.keepAllButtonLocked]}
+              onPress={lockedCount >= pendingCount ? () => { void openUnlock(); } : handleKeepAll}
+              disabled={processing}
+              accessibilityRole="button"
+              accessibilityLabel="Garder tous les morceaux en attente"
+            >
+              <Text numberOfLines={2} style={[styles.keepAllButtonText, lockedCount >= pendingCount && styles.keepAllButtonTextLocked]}>
+                {processing ? '…' : lockedCount >= pendingCount ? '🔒 FREE INSUFFISANT' : `♡ GARDER TOUT · ${pendingCount}`}
+              </Text>
+            </TouchableOpacity>
+          </View>
         ) : null}
         <TouchableOpacity style={[styles.compactAction, styles.deleteSessionButton]} onPress={handleDelete} accessibilityRole="button" accessibilityLabel="Supprimer cette session">
-          <Text style={styles.deleteSessionText}>SUPPRIMER</Text>
+          <Text style={styles.deleteSessionText}>SUPPRIMER LA SESSION</Text>
         </TouchableOpacity>
       </View>
 
@@ -395,6 +414,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
         subtitle={`${swipeTracks.length} musique${swipeTracks.length > 1 ? 's' : ''} · PASSER = la retire de la liste (récupérable dans RETIRÉS) · GARDER l’ajoute à ta collection.`}
         emptyTitle="Swipe terminé. Toutes les musiques ont été validées."
         loop={false}
+        optimisticPass
         askVisibilityOnKeep
         keepCostNotice={`GARDER ce morceau débitera ${keepCostPerKeep} FREE après ton choix Public ou Privé. PASSER reste gratuit.`}
         keepDebitAmount={keepCostPerKeep}
@@ -412,7 +432,7 @@ const styles = StyleSheet.create({
   emptyText: { color: colors.textSecondary, fontSize: 15, marginBottom: spacing.lg },
   backLink: { paddingVertical: spacing.sm },
   backLinkText: { color: colors.primaryLight, fontWeight: '700' },
-  header: { minHeight:68, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderBottomWidth:1, borderBottomColor:colors.border },
+  header: { minHeight:60, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: 7, borderBottomWidth:1, borderBottomColor:colors.border },
   backButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},
   backArrow: { color: colors.textPrimary, fontSize: 24, lineHeight:26, fontWeight:'800' },
   headerCopy:{flex:1,minWidth:0},
@@ -420,14 +440,14 @@ const styles = StyleSheet.create({
   title: { ...typography.h2, color: colors.textPrimary, marginTop:1 },
   shareBtn: { width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border },
   shareBtnText: { fontSize: 18 },
-  nameLabel: { marginHorizontal: spacing.xl, marginTop: spacing.xs, color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: .8 },
-  titleEditRow: { marginHorizontal: spacing.xl, marginTop: spacing.xs, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  nameLabel: { marginHorizontal: spacing.md, marginTop: spacing.sm, color: colors.primaryLight, fontSize: 11, fontWeight: '900', letterSpacing: .8 },
+  titleEditRow: { marginHorizontal: spacing.md, marginTop: spacing.xs, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   titleInput: { flex: 1, minHeight: 48, color: colors.textPrimary, fontSize: 15, fontWeight: '700', borderWidth: 1, borderColor: colors.border, backgroundColor:colors.backgroundElevated, borderRadius:14, paddingHorizontal:12, paddingVertical: spacing.sm },
   validateTitleButton: { minHeight: 48, paddingHorizontal: 14, borderRadius: 24, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   validateTitleText: { color: colors.white, fontSize: 11, fontWeight: '900', letterSpacing: .4 },
-  titleHint: { marginHorizontal: spacing.xl, marginTop: 4, color: colors.textMuted, fontSize: 9 },
-  titleSaved: { marginHorizontal: spacing.xl, marginTop: 4, color: colors.keep, fontSize: 9, fontWeight: '800' },
-  statsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, paddingHorizontal: spacing.xl, marginTop: spacing.lg },
+  titleHint: { marginHorizontal: spacing.md, marginTop: 4, color: colors.textMuted, fontSize: 11 },
+  titleSaved: { marginHorizontal: spacing.md, marginTop: 4, color: colors.keep, fontSize: 11, fontWeight: '800' },
+  statsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, paddingHorizontal: spacing.md, marginTop: spacing.sm },
   statsCopy: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexShrink: 1 },
   statsText: { color: colors.textSecondary, fontSize: 14, fontWeight: '600' },
   statsKept: { color: colors.keep },
@@ -437,20 +457,21 @@ const styles = StyleSheet.create({
   lockedBanner: { marginHorizontal: spacing.xl, marginTop: spacing.md, minHeight:64, padding: spacing.md, borderRadius: 18, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.primaryLight, justifyContent:'center' },
   lockedBannerTitle: { color: colors.primaryLight, fontSize: 12, fontWeight: '900' },
   lockedBannerText: { color: colors.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 4 },
-  visibilityHint: { color: colors.textMuted, fontSize: 11, lineHeight: 16, textAlign: 'center', marginTop: spacing.md, paddingHorizontal: spacing.xl },
-  list: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.sm },
+  visibilityHint: { color: colors.textSecondary, fontSize: 11, lineHeight: 16, textAlign: 'center', marginTop: spacing.sm, paddingHorizontal: spacing.md },
+  list: { paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.sm },
   passedSection: { marginTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.sm },
   passedHeader: { minHeight:44, justifyContent:'center', paddingVertical: 8 },
   passedHeaderText: { color: colors.textMuted, fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
-  sessionActionsRow: { flexDirection: 'row', alignItems: 'stretch', gap: 7, marginHorizontal: spacing.xl, marginBottom: spacing.md },
+  sessionActionsRow: { alignItems: 'stretch', gap: 8, marginHorizontal: spacing.md, marginVertical: spacing.sm },
+  primaryActionsRow: { flexDirection: 'row', alignItems: 'stretch', gap: 8 },
   compactAction: { flex: 1, minHeight: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
   swipeAction: { backgroundColor: colors.keep, borderWidth: 1, borderColor: colors.keep },
-  swipeActionText: { color: colors.black, fontSize: 11, fontWeight: '900' },
+  swipeActionText: { color: colors.black, fontSize: 12, fontWeight: '900' },
   keepAllButton: { backgroundColor: colors.keep, borderWidth: 1, borderColor: colors.keep },
   keepAllButtonLocked: { backgroundColor: colors.backgroundElevated, borderColor: colors.border },
   keepAllButtonText: { color: colors.black, fontWeight: '900', fontSize: 11, textAlign: 'center' },
   keepAllButtonTextLocked: { color: colors.textPrimary },
-  deleteSessionButton: { borderWidth: 1, borderColor: colors.danger, backgroundColor: colors.backgroundCard },
+  deleteSessionButton: { flex: 0, minHeight: 44, alignSelf: 'flex-end', paddingHorizontal: 14, borderWidth: 1, borderColor: colors.danger, backgroundColor: colors.backgroundCard },
   deleteSessionText: { color: colors.danger, fontSize: 11, fontWeight: '900' },
   demoBadge: { marginHorizontal: spacing.xl, marginBottom: spacing.md, backgroundColor: colors.demoBadgeBg, borderWidth: 1, borderColor: colors.demoBadgeBorder, borderRadius: radius.md, paddingVertical: spacing.sm, alignItems: 'center' },
   demoText: { color: colors.demoBadgeText, fontSize: 11, fontWeight: '600' },
