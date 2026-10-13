@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 
 describe('Solo difficulty: coherent artist origin, genre and era', () => {
-  const migration = fs.readFileSync(path.resolve(__dirname, '../../../../supabase/migrations/20261013174500_solo_same_country_harder_distractors.sql'), 'utf8');
+  const migration = fs.readFileSync(path.resolve(__dirname, '../../../../../supabase/migrations/20261013174500_solo_same_country_harder_distractors.sql'), 'utf8');
 
   it('never mixes known countries inside one four-choice question', () => {
     expect(migration).toContain('d.country_code is not distinct from p.country_code');
