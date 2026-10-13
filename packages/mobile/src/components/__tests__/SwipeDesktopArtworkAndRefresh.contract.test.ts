@@ -27,6 +27,17 @@ describe('Shared Swipe on desktop and iPhone', () => {
     expect(swipe).toContain('minHeight:44');
   });
 
+  it('plays source-only exact YouTube links without substituting unrelated music', () => {
+    expect(swipe).not.toContain('// Share-linked YouTube videos are their own playback source.');
+    expect(swipe).toContain('const exactSource = current.externalUrls?.source || current.externalUrls?.youtube || null');
+    expect(swipe).toContain('resolveEmbeddedMusicPlayer(exactSource)');
+    expect(swipe).toContain('setSourcePlayerOpen(true)');
+    expect(swipe).toContain('}, 30000);');
+    expect(swipe).toContain("Referer: 'https://com.adelkhatra.keep'");
+    expect(swipe).toContain("&autoplay=1");
+    expect(swipe).toContain("if (!trackAddedAt && !isSaleStoryTrack(current)");
+  });
+
   it('preserves purchases, creator credit and all keep/pass/story actions', () => {
     expect(swipe).toContain('ownerMasked ?');
     expect(swipe).toContain('priceBadge');
