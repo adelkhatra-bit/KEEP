@@ -224,11 +224,8 @@ export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8, 
     return first.length > 28 ? `${first.slice(0, 26).trim()}…` : first;
   };
   const rounds = Array.isArray(raw.rounds) ? raw.rounds.map((round: any) => {
-    const rawChoices: string[] = Array.isArray(round.choices) ? round.choices.map(String) : [];
-    const cleanedChoices = rawChoices.map(primaryArtistLabel);
-    const rawCorrect = String(round.correctAnswer || round.artist || '');
-    const correctIndex = rawChoices.indexOf(rawCorrect);
-    const correctAnswer = correctIndex >= 0 ? cleanedChoices[correctIndex] : primaryArtistLabel(rawCorrect);
+    const rawChoices: string[] = Array.isArray(round.choices) ? round.choices.map((value: unknown) => String(value ?? '').trim()) : [];
+    const correctAnswer = String(round.correctAnswer || round.artist || '').trim();
     return {
       position: Number(round.position || 0),
       trackId: String(round.trackId || ''),
@@ -237,43 +234,23 @@ export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8, 
       artworkUrl: round.artworkUrl ? String(round.artworkUrl) : null,
       previewUrl: String(round.previewUrl || ''),
       themeCode: round.themeCode ? String(round.themeCode).toUpperCase() : null,
-      choices: cleanedChoices,
+      choices: rawChoices,
       correctAnswer,
     };
   }).filter((round: KeepBattleSoloRound) => round.trackId && round.previewUrl && round.correctAnswer) : [];
   if (rounds.length < 5) throw new Error('BATTLE_CATALOG_TOO_SMALL');
-  // Adel (18/09/2026) : "il faut au moins quatre réponses ... aucun doublon ...
-  // une seule bonne réponse" -- le serveur historique renvoie 3 choix. Pour
-  // conserver la même source musicale et garantir EXACTEMENT 4 réponses sans
-  // doublons ni inventer d'artiste, on complète chaque manche avec un artiste
-  // d'une autre manche du pack, déjà validé par le catalogue et distinct des
-  // choix présents.
-  rounds.forEach((round: KeepBattleSoloRound) => {
-    const unique = Array.from(new Set(round.choices.filter(Boolean)));
-    // Adel (18/09/2026, CRITICAL BUG) : les candidats étaient les BONNES
-    // RÉPONSES d'autres manches, créant ainsi 2+ bonnes réponses par manche.
-    // Solution: utiliser les CHOICES (mauvaises réponses) d'autres manches.
-    // IMPORTANT: s'assurer que correctAnswer est TOUJOURS incluse dans les 4 réponses.
-    // Adel (19/09/2026) : les choix incorrects doivent rester dans le même genre
-    // musical (même themeCode) pour que le jeu soit cohérent et pas trop facile.
-    // Priorité 1: même themeCode ; Priorité 2: autres themeCode si pas assez.
-    const sameThemeCandidates = rounds
-      .filter((item: KeepBattleSoloRound) => item.artist !== round.artist && item.themeCode === round.themeCode)
-      .flatMap((item: KeepBattleSoloRound) => item.choices);
-    const otherThemeCandidates = rounds
-      .filter((item: KeepBattleSoloRound) => item.artist !== round.artist && item.themeCode !== round.themeCode)
-      .flatMap((item: KeepBattleSoloRound) => item.choices);
-    const allCandidates = [...sameThemeCandidates, ...otherThemeCandidates];
-    for (const candidate of allCandidates) {
-      if (unique.length >= 4) break;
-      if (candidate && !unique.some((value) => value.toLocaleLowerCase() === candidate.toLocaleLowerCase())) unique.push(candidate);
+  // The database already returns four verified options per round. Never
+  // fill missing artists from a different theme or country on the phone.
+  // Reject invalid server data BEFORE charging a Solo to the player.
+  for (const round of rounds) {
+    const normalize = (value: string) => value.trim().toLocaleLowerCase();
+    const labels: string[] = (round.choices as string[]).map((choice: string) => normalize(choice));
+    if (labels.length !== 4 || labels.some((label: string) => !label)
+      || new Set(labels).size !== 4
+      || labels.filter((label: string) => label === normalize(round.correctAnswer)).length !== 1) {
+      throw new Error('BATTLE_SOLO_CHOICES_INVALID');
     }
-    // S'assurer que correctAnswer est dans unique (obligatoire pour le composant)
-    if (!unique.some((value) => value.toLocaleLowerCase() === round.correctAnswer.toLocaleLowerCase())) {
-      unique.unshift(round.correctAnswer);
-    }
-    round.choices = unique.slice(0, 4);
-  });
+  }
   return {
     mode: 'SOLO_TRAINING',
     themeCode: String(raw.themeCode || themeCode).toUpperCase(),
