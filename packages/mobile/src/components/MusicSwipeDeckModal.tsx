@@ -156,7 +156,20 @@ export default function MusicSwipeDeckModal({
   onWatchEventRef.current = onWatchEvent;
   // Musiques dont l'écoute a vraiment démarré (pour le petit message « tu zappes sans réagir ? »).
   const listenedIdsRef = useRef(new Set<string>());
-  const markListened = (trackId: string) => { listenedIdsRef.current.add(trackId); onWatchEventRef.current?.({ type: 'listen', trackId }); };
+  const profileListenSentRef = useRef(new Set<string>());
+  // expo-av may publish a playing status many times per second. One card
+  // must produce ONE view event and at most ONE Supabase RPC, not dozens.
+  const markListened = (trackId: string) => {
+    if (listenedIdsRef.current.has(trackId)) return;
+    listenedIdsRef.current.add(trackId);
+    onWatchEventRef.current?.({ type: 'listen', trackId });
+  };
+  const recordSwipeListenOnce = (trackId: string, fromProfileId?: string) => {
+    markListened(trackId);
+    if (!fromProfileId || profileListenSentRef.current.has(trackId)) return;
+    profileListenSentRef.current.add(trackId);
+    void recordProfileSwipeListen(fromProfileId, trackId);
+  };
   const [index, setIndex] = useState(0);
   const [deckTracks, setDeckTracks] = useState<CanonicalTrack[]>([]);
   const [processing, setProcessing] = useState(false);
@@ -484,6 +497,8 @@ export default function MusicSwipeDeckModal({
     wasVisible.current = true;
     setPreparingDeck(true);
     actionInFlight.current = false;
+    listenedIdsRef.current.clear();
+    profileListenSentRef.current.clear();
     setKeepPromptOpen(false);
     setKeepSuccess(null);
     setPreviewInfoOpen(false);
@@ -629,9 +644,7 @@ export default function MusicSwipeDeckModal({
                 const waited = Date.now() - cardShownAt;
                 if (waited > 2500) reportAutoDiagnostic('SWIPE_SLOW', `${Math.round(waited / 100) / 10}s host=${String(previewUrl ?? '').replace(/^https?:\/\//, '').split('/')[0] || 'none'}`);
               }
-              if (playing && currentSourceProfileId) {
-                void recordProfileSwipeListen(currentSourceProfileId, current.id); markListened(current.id);
-              }
+              if (playing) recordSwipeListenOnce(current.id, currentSourceProfileId);
             },
             () => {
               if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
@@ -677,9 +690,7 @@ export default function MusicSwipeDeckModal({
               playbackKey,
               refreshedUrl,
               (playing) => {
-                if (playing && currentSourceProfileId) {
-                  void recordProfileSwipeListen(currentSourceProfileId, current.id); markListened(current.id);
-                }
+                if (playing) recordSwipeListenOnce(current.id, currentSourceProfileId);
               },
               () => {
                 if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
@@ -714,9 +725,7 @@ export default function MusicSwipeDeckModal({
                     playbackKey,
                     retryUrl,
                     (playing) => {
-                      if (playing && currentSourceProfileId) {
-                        void recordProfileSwipeListen(currentSourceProfileId, current.id); markListened(current.id);
-                      }
+                      if (playing) recordSwipeListenOnce(current.id, currentSourceProfileId);
                     },
                     () => {
                       if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
@@ -784,9 +793,7 @@ export default function MusicSwipeDeckModal({
         `swipe-${current.id}-${index}`,
         resolvedPreviewUrl,
         (playing) => {
-          if (playing && currentSourceProfileId) {
-            void recordProfileSwipeListen(currentSourceProfileId, current.id); markListened(current.id);
-          }
+          if (playing) recordSwipeListenOnce(current.id, currentSourceProfileId);
         },
         () => {
           setPreviewEnded(true);
@@ -816,9 +823,7 @@ export default function MusicSwipeDeckModal({
           `swipe-${current.id}-${index}`,
           refreshedUrl,
           (playing) => {
-            if (playing && currentSourceProfileId) {
-              void recordProfileSwipeListen(currentSourceProfileId, current.id); markListened(current.id);
-            }
+            if (playing) recordSwipeListenOnce(current.id, currentSourceProfileId);
           },
           () => {
             setPreviewEnded(true);
