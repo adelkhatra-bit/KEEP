@@ -52,3 +52,4 @@ release: PR116 cockpit + Stories approuvées + Loki Pulse + boutique, correction
 release: 2026-10-12 — Écouter consommations Supabase, quota FREE 10, son onglet PC, liens audio, garde Public une seule fois; validation CI complète SHA 49910c15e0e3b69847621d41aa3d2234e7604781
 release: Stories partage musical — aperçu automatique 30 s, vues uniques et morceau réellement visionné, RPC Supabase synchronisées PC/iOS, CI validée (2026-10-13, SHA 163e700c032925211904412a56dfa440fb4a7f8e)
 release: 2026-10-13 — PR158 QR attend session Supabase, refus jumelage sans deconnexion ; source officielle cbacd1ac0d02f45fafed727318f0eb33c2274f6c
+release: 2026-10-13 — PR161 protection naissance/genre Supabase et PR162 suppression ancienne modale GARDER, sans changement de design; build natif + OTA liés au même SHA
