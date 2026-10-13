@@ -128,7 +128,7 @@ describe('Exclusive collection privacy + ownership contracts', () => {
     expect(salePanel).toContain('TES COLLECTIONS PUBLIÉES');
     expect(salePanel).toContain('✎ MODIFIER');
     expect(salePanel).toContain('€ / FREE');
-    expect(immersivePreview).toContain('PÉPITES À DÉCOUVRIR');
+    expect(immersivePreview).toContain('eyebrow}>BOUTIQUE<');
     expect(immersivePreview).toContain("freeAccess ? `DÉBLOQUER LA COLLECTION · ${priceLabel}` : `COMMENCER MA TRANSACTION · ${priceLabel}`");
   });
 

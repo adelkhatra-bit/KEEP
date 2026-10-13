@@ -11,14 +11,14 @@ describe('règles d’Adel du 05/10/2026 (IDEA-115 / IDEA-116)', () => {
     expect(btn).toContain("LIKE: '#35E08A'");
     expect(btn).not.toContain('#FF2D55');
   });
-  it('boutique et ventes privées du chat : masquables, état mémorisé par profil', () => {
+  it('ventes privées du chat : masquables, état mémorisé par profil ; la Boutique, elle, est toujours visible (Lot 5, 12/10/2026)', () => {
     const hook = read('../useCollapsedSection.ts');
     expect(hook).toContain('AsyncStorage.setItem');
     const screen = read('../../screens/ProfilePublicScreen.tsx');
-    expect(screen).toContain("useCollapsedSection(user?.id ?? 'guest', 'boutique', true)");
     expect(screen).toContain("useCollapsedSection(user?.id ?? 'guest', 'private-chat-sales', false)");
-    expect(screen).toContain('testID="owner-boutique-toggle"');
-    expect(screen).toContain('{ownerBoutiqueOpen ? <SellerBoutique');
+    expect(screen).not.toContain('owner-boutique-toggle');
+    expect(screen).not.toContain("'Masquer ma boutique musicale'");
+    expect(screen).toContain('<SellerBoutique');
   });
   it('clé de mémorisation propre à chaque profil et chaque section', () => {
     const { collapsedSectionKey } = jest.requireActual('../useCollapsedSection') as any;

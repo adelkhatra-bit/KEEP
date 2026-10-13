@@ -9,16 +9,22 @@ import { supabase } from '../services/supabaseClient';
 import type { PlaylistSaleOverlap, PublicPlaylistSaleOffer } from '../services/playlistSaleService';
 import KeepModal from './KeepModal';
 import { offerDisplayName } from '../services/offerDisplayName';
+import { boutiqueVitrineCopy, boutiqueVitrineMode } from '../services/boutiqueVitrine';
+import { useBoutiqueConfig } from '../services/useBoutiqueConfig';
 
-// Adel (02/10/2026) : « boutique vendeur » validée (maquette Boutique Pépites
-// Loki). La Boutique musicale met en avant 3 collections « à la une » ;
+// Adel (02/10/2026) : « boutique vendeur » validée. La Boutique met en avant
+// une offre « à la une » (3 aperçus enchaînés par défaut, réglable Super Admin) ;
 // toutes les autres vont dans une étagère (10 max) puis une boutique complète,
 // filtrable (Tout / FREE / € / styles) et triable, sans limite de nombre.
 // Deux identités : FREE = pièce ronde violette, € = ticket doré.
 // Sur iPhone, les collections en € restent masquées (règle Apple 3.1.1) tant
 // que l'achat intégré n'est pas branché.
 // Les données, prix et achats ne changent pas : toucher une carte ouvre la
-// même fenêtre d'écoute « Pépites à découvrir » qu'avant.
+// même fenêtre d'écoute qu'avant.
+// Lot 5 (12/10/2026) : un seul vocabulaire (« Boutique » / « Vendre »), la
+// vitrine existe toujours (propriétaire sans offre : « Créer ma boutique » ;
+// visiteur : « n'a rien en vente » + Suivre), plus de bloc « comment acheter »,
+// plus de remerciement de fin de page, plus d'étiquette en double.
 
 export const DROP_FEATURED_MAX = 3;
 export const SHELF_MAX = 10;
@@ -54,7 +60,7 @@ type Props = {
   overlaps: Record<string, PlaylistSaleOverlap>;
   unlockedOfferIds: Set<string>;
   onOpenOffer: (offer: PublicPlaylistSaleOffer) => void;
-  /** Le gros CTA "LES APERÇUS" enchaîne les Pépites à la une en une seule action. */
+  /** Le gros CTA "LES APERÇUS" enchaîne les aperçus des collections à la une en une seule action. */
   onOpenAllOffers?: (offers: PublicPlaylistSaleOffer[]) => void;
   /** Achat groupé des collections encore verrouillées, sans supprimer l'achat unitaire. */
   onBuyAllOffers?: (offers: PublicPlaylistSaleOffer[]) => void;
@@ -63,6 +69,14 @@ type Props = {
   ownerMode?: boolean;
   /** Nom naturel du visiteur pour une personnalisation légère, jamais affiché avec @. */
   viewerUsername?: string;
+  /** Vitrine vide : abonnés du profil affiché (compteur « N / seuil » du propriétaire). */
+  followers?: number;
+  /** Propriétaire sans offre : ouvre « Vendre ». */
+  onCreateBoutique?: () => void;
+  /** Visiteur sans offre : Suivre (le parent gère la connexion/l'intention de suivre). */
+  onFollow?: () => void;
+  isFollowing?: boolean;
+  followBusy?: boolean;
 };
 
 export function salePriceLabel(offer: PublicPlaylistSaleOffer): string {
@@ -106,7 +120,7 @@ function PriceToken({ offer, unlocked }: { offer: PublicPlaylistSaleOffer; unloc
   return (
     <View style={[s.token, free ? s.tokenFree : s.tokenMoney]}>
       <Text style={[s.tokenText, free ? s.tokenTextFree : s.tokenTextMoney]} numberOfLines={1}>
-        {nativeMoneyProtected ? 'PROTÉGÉE' : dual ? `✦ ${salePriceLabel(offer)}` : free ? `✦ ${salePriceLabel(offer)}` : `€ ${salePriceLabel(offer).replace(' €', '')}`}
+        {nativeMoneyProtected ? '€ bientôt' : dual ? `✦ ${salePriceLabel(offer)}` : free ? `✦ ${salePriceLabel(offer)}` : `€ ${salePriceLabel(offer).replace(' €', '')}`}
       </Text>
     </View>
   );
@@ -122,7 +136,7 @@ function OfferCard({ offer, overlaps, unlocked, onPress, width }: { offer: Publi
       onPressIn={unlockWebAudioForGesture}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Écouter l'aperçu de ${offerDisplayName(offer)}, ${offer.trackCount} titres, ${unlocked ? 'débloquée' : offer.paymentMode !== 'FREE' && Platform.OS !== 'web' ? 'protégée' : salePriceLabel(offer)}`}
+      accessibilityLabel={`Écouter l'aperçu de ${offerDisplayName(offer)}, ${offer.trackCount} titres, ${unlocked ? 'débloquée' : offer.paymentMode !== 'FREE' && Platform.OS !== 'web' ? 'euros bientôt' : salePriceLabel(offer)}`}
     >
       <LinearGradient colors={genreGradient(genre)} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.cover}>
         {ownedAll ? <Text style={s.coverOwned}>✓ DÉJÀ CHEZ TOI</Text> : overlap && overlap.missingCount > 0 ? <Text style={s.coverNew}>{overlap.missingCount} NOUVEAU{overlap.missingCount > 1 ? 'X' : ''}</Text> : null}
@@ -135,8 +149,10 @@ function OfferCard({ offer, overlaps, unlocked, onPress, width }: { offer: Publi
   );
 }
 
-export default function SellerBoutique({ offers, sellerUsername, overlaps, unlockedOfferIds, onOpenOffer, onOpenAllOffers, onBuyAllOffers, buyAllBusy = false, ownerMode = false, viewerUsername }: Props) {
+export default function SellerBoutique({ offers, sellerUsername, overlaps, unlockedOfferIds, onOpenOffer, onOpenAllOffers, onBuyAllOffers, buyAllBusy = false, ownerMode = false, viewerUsername, followers = 0, onCreateBoutique, onFollow, isFollowing = false, followBusy = false }: Props) {
   const { width: windowWidth } = useWindowDimensions();
+  const boutiqueConfig = useBoutiqueConfig();
+  const featuredMax = Math.min(boutiqueConfig.featuredCount, DROP_FEATURED_MAX * 2);
   // Présentation distincte sur grand écran : la même boutique et les mêmes
   // droits/achats, mais une grille qui exploite la largeur de l'ordinateur.
   const desktopStore = Platform.OS === 'web' && windowWidth >= DESKTOP_MIN_WIDTH;
@@ -248,7 +264,37 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
     });
   }, [ranked, visibleOffers, storeFilter, storeSort, storeQuery]);
 
-  if (!visibleOffers.length) return null;
+  if (!visibleOffers.length) {
+    const mode = boutiqueVitrineMode({ isOwner: ownerMode, offerCount: 0, followers, threshold: boutiqueConfig.threshold, freeWithoutThreshold: boutiqueConfig.freeWithoutThreshold });
+    const copy = boutiqueVitrineCopy(mode, { sellerName, followers, threshold: boutiqueConfig.threshold });
+    return (
+      <View style={s.root} testID="boutique-vitrine-vide">
+        <View style={s.banner}>
+          <View style={s.bannerHead}>
+            <View style={s.liveDot} />
+            <Text style={s.bannerKicker} numberOfLines={1}>{ownerMode ? 'MA BOUTIQUE' : `BOUTIQUE · @${sellerName}`}</Text>
+          </View>
+          <Text style={s.bannerTitle}>{copy.title}</Text>
+          <Text style={s.bannerPersonal} numberOfLines={3}>{copy.body}</Text>
+          {mode === 'OWNER_LOCKED' ? (
+            <View style={s.progressTrack} accessibilityRole="progressbar" accessibilityLabel={`${followers} abonnés sur ${boutiqueConfig.threshold}`}>
+              <View style={[s.progressFill, { width: `${Math.min(100, Math.round((followers / Math.max(1, boutiqueConfig.threshold)) * 100))}%` }]} />
+            </View>
+          ) : null}
+          {copy.cta === 'CREATE' && onCreateBoutique ? (
+            <TouchableOpacity style={s.bannerCta} onPress={onCreateBoutique} accessibilityRole="button" accessibilityLabel="Créer ma boutique">
+              <Text style={s.bannerCtaText}>CRÉER MA BOUTIQUE</Text>
+            </TouchableOpacity>
+          ) : null}
+          {copy.cta === 'FOLLOW' && onFollow && !isFollowing ? (
+            <TouchableOpacity style={s.bannerCta} disabled={followBusy} onPress={onFollow} accessibilityRole="button" accessibilityLabel={`Suivre ${sellerName}`}>
+              <Text style={s.bannerCtaText}>{followBusy ? '…' : '+ SUIVRE'}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      </View>
+    );
+  }
   const drop = featured[0] ?? null;
   const dropNew = drop ? newForViewer(drop, overlaps) : 0;
   // 2 colonnes : largeur utile = fenêtre (640 max) - marges 16 - bordures - espace 10.
@@ -266,52 +312,36 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
           <View style={s.liveDot} />
           <Text style={s.bannerKicker} numberOfLines={1}>{ownerMode ? 'MA BOUTIQUE' : `BOUTIQUE · @${sellerName}`}</Text>
         </View>
-        <Text style={s.bannerTitle}>{`${visibleOffers.length} collection${visibleOffers.length > 1 ? 's' : ''} à découvrir`}</Text>
-        <Text style={s.bannerPersonal} numberOfLines={3}>
-          {ownerMode
-            ? 'Écoute tes collections ou ouvre Vendre pour les gérer.'
-            : viewerName
-              ? `${viewerName}, découvre la sélection de ${sellerName}.`
-              : `Découvre la sélection de ${sellerName}.`}
+        <Text style={s.bannerTitle}>{`${visibleOffers.length} collection${visibleOffers.length > 1 ? 's' : ''} en vente`}</Text>
+        <Text style={s.bannerPersonal} numberOfLines={2}>
+          {ownerMode ? 'Écoute tes collections ou ouvre Vendre pour les gérer.' : viewerName ? `${viewerName}, voici la sélection de ${sellerName}.` : `La sélection de ${sellerName}.`}
         </Text>
-        <View style={s.buyerGuide}>
-          <Text style={s.buyerGuideTitle}>{ownerMode ? 'COMMENT VENDRE MES COLLECTIONS' : 'COMMENT ACHETER UNE COLLECTION'}</Text>
-          <Text style={s.buyerGuideText}>{ownerMode
-            ? '1. Ouvre Vendre dans ton profil · 2. Publie tes titres · 3. Configure ton PayPal pour recevoir les achats en euros.'
-            : Platform.OS === 'web'
-              ? '1. Écoute un extrait · 2. Choisis ta collection · 3. Débloque en FREE ou suis le paiement PayPal et la confirmation du vendeur.'
-              : '1. Écoute un extrait · 2. Choisis ta collection · 3. Débloque en FREE ou consulte les conditions de vente.'}</Text>
-        </View>
         <View style={s.bannerPills}>
           {freeCount > 0 ? <View style={[s.bannerPill, s.tokenFree]}><Text style={[s.bannerPillText, s.tokenTextFree]}>✦ {freeCount} en FREE</Text></View> : null}
-          {moneyCount > 0 ? <View style={[s.bannerPill, s.tokenMoney]}><Text style={[s.bannerPillText, s.tokenTextMoney]}>{Platform.OS === 'web' ? `€ ${moneyCount}` : `${moneyCount} PROTÉGÉE${moneyCount > 1 ? 'S' : ''}`}</Text></View> : null}
+          {moneyCount > 0 ? <View style={[s.bannerPill, s.tokenMoney]}><Text style={[s.bannerPillText, s.tokenTextMoney]}>{Platform.OS === 'web' ? `€ ${moneyCount}` : '€ bientôt'}</Text></View> : null}
           {newTracksForViewer > 0 ? <View style={[s.bannerPill, s.bannerPillNew]}><Text style={[s.bannerPillText, s.bannerPillNewText]}>{newTracksForViewer} nouveauté{newTracksForViewer > 1 ? 's' : ''} pour toi</Text></View> : null}
         </View>
         <TouchableOpacity
           style={s.bannerCta}
           onPressIn={unlockWebAudioForGesture}
           onPress={() => {
-            const queue = featured.length ? featured : ranked.slice(0, 1);
+            // Aperçus enchaînés : nombre réglable dans Super Admin (boutique_featured_count).
+            const pool = ownerMode ? ranked : ranked.filter((offer) => !unlockedOfferIds.has(offer.offerId));
+            const queue = pool.length ? pool.slice(0, featuredMax) : ranked.slice(0, 1);
             if (!queue.length) return;
             if (onOpenAllOffers) onOpenAllOffers(queue);
             else onOpenOffer(queue[0]);
           }}
           accessibilityRole="button"
-          accessibilityLabel="Écouter tous les aperçus des pépites à la une"
+          accessibilityLabel="Écouter les aperçus des collections à la une"
         >
           <Text style={s.bannerCtaText}>▶ ÉCOUTER LES APERÇUS</Text>
         </TouchableOpacity>
       </View>
 
       {drop ? (
-        <TouchableOpacity style={s.drop} onPressIn={unlockWebAudioForGesture} onPress={() => onOpenOffer(drop)} accessibilityRole="button" accessibilityLabel={`Pépite à la une : ${offerDisplayName(drop)}, ${drop.paymentMode !== 'FREE' && Platform.OS !== 'web' ? 'protégée' : salePriceLabel(drop)}`}>
+        <TouchableOpacity style={s.drop} onPressIn={unlockWebAudioForGesture} onPress={() => onOpenOffer(drop)} accessibilityRole="button" accessibilityLabel={`À la une : ${offerDisplayName(drop)}, ${drop.paymentMode !== 'FREE' && Platform.OS !== 'web' ? 'protégée' : salePriceLabel(drop)}`}>
           <LinearGradient colors={genreGradient(drop.genres?.[0] || 'Mix')} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.dropGradient}>
-            <View style={s.dropHead}>
-              <View style={s.dropLive}>
-                <View style={s.dropLiveDot} />
-                <Text style={s.dropKicker}>SÉLECTION</Text>
-              </View>
-            </View>
             <View style={s.dropMain}>
               <View style={s.dropCopy}>
                 <Text style={s.dropFeatured}>★ À LA UNE</Text>
@@ -334,13 +364,13 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
       ) : null}
 
       <View style={s.shelfHead}>
-        <Text style={s.shelfTitle} numberOfLines={1}>{ownerMode ? 'Collections' : 'Explorer'}</Text>
-        <TouchableOpacity onPress={() => setStoreOpen(true)} accessibilityRole="button" accessibilityLabel={`Voir toute la boutique musicale, ${visibleOffers.length} collections`}>
+        <Text style={s.shelfTitle} numberOfLines={1}>{ownerMode ? 'Collections' : 'Toute la boutique'}</Text>
+        <TouchableOpacity onPress={() => setStoreOpen(true)} accessibilityRole="button" accessibilityLabel={`Voir toute la boutique, ${visibleOffers.length} collections`}>
           <Text style={s.seeAll}>Tout voir · {visibleOffers.length} ›</Text>
         </TouchableOpacity>
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipRow} contentContainerStyle={s.chips}>
-        {([['ALL', `Tout ${visibleOffers.length}`], ['FREE', `FREE ${freeCount}`], ...(moneyCount > 0 ? [['MONEY', Platform.OS === 'web' ? `€ ${moneyCount}` : `PROTÉGÉES ${moneyCount}`]] : []), ['NEW', 'Nouveautés']] as [typeof shelfFilter, string][]).map(([key, label]) => (
+        {([['ALL', `Tout ${visibleOffers.length}`], ['FREE', `FREE ${freeCount}`], ...(moneyCount > 0 ? [['MONEY', Platform.OS === 'web' ? `€ ${moneyCount}` : '€ bientôt']] : []), ['NEW', 'Nouveautés']] as [typeof shelfFilter, string][]).map(([key, label]) => (
           <TouchableOpacity key={key} style={[s.chip, shelfFilter === key && s.chipOn]} onPress={() => setShelfFilter(key)} accessibilityRole="button" accessibilityState={{ selected: shelfFilter === key }}>
             <Text style={[s.chipText, shelfFilter === key && s.chipTextOn]}>{label}</Text>
           </TouchableOpacity>
@@ -349,7 +379,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
       {!ownerMode && onBuyAllOffers && actionableBundleOffers.length > 1 ? (
         <View style={s.bundleBar}>
           <View style={s.bundleCopy}>
-            <Text style={s.bundleTitle}>TOTAL DES PÉPITES · {actionableBundleOffers.length}</Text>
+            <Text style={s.bundleTitle}>TOTAL · {actionableBundleOffers.length}</Text>
             <Text style={s.bundleTotal}>{bundleTotalLabel || 'Prix à confirmer'}</Text>
             <Text style={s.bundleHint}>Tu peux toujours débloquer une collection seule.</Text>
           </View>
@@ -372,19 +402,15 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
           <OfferCard key={offer.offerId} offer={offer} overlaps={overlaps} unlocked={unlockedOfferIds.has(offer.offerId)} onPress={() => onOpenOffer(offer)} width={desktopStore ? Math.min(220, Math.floor((storeMaxWidth - 70) / 4)) : 142} />
         ))}
       </ScrollView>
-      <Text style={s.hint}>{ownerMode
-        ? 'Pour publier ou modifier une collection, appuie sur Vendre dans ton profil.'
-        : `Merci pour ta visite${viewerName ? ` ${viewerName}` : ''} · écoute, puis garde seulement ce qui te ressemble.`}</Text>
-
       <KeepModal visible={storeOpen} animationType="slide" transparent onRequestClose={() => setStoreOpen(false)}>
         <View style={s.storeBackdrop}>
           <View style={[s.store, desktopStore && { maxWidth: storeMaxWidth, borderRadius: 24, maxHeight: '88%' }]}>
             <View style={s.storeHead}>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={s.storeKicker}>BOUTIQUE MUSICALE</Text>
-                <Text style={s.storeTitle} numberOfLines={1}>{ownerMode ? 'MES COLLECTIONS' : 'PÉPITES LOKI'}</Text>
+                <Text style={s.storeKicker}>BOUTIQUE</Text>
+                <Text style={s.storeTitle} numberOfLines={1}>{ownerMode ? 'MES COLLECTIONS' : 'BOUTIQUE'}</Text>
               </View>
-              <TouchableOpacity style={s.storeClose} onPress={() => setStoreOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer la boutique musicale">
+              <TouchableOpacity style={s.storeClose} onPress={() => setStoreOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer la boutique">
                 <Text style={s.storeCloseText}>×</Text>
               </TouchableOpacity>
             </View>
@@ -404,7 +430,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
               ))}
             </ScrollView>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipRow} contentContainerStyle={s.chips}>
-              {([['ALL', 'Tout'], ['FREE', 'FREE'], ...(moneyCount > 0 ? [['MONEY', Platform.OS === 'web' ? '€' : 'PROTÉGÉES']] : []), ...(selectedGenre && !topGenres.includes(selectedGenre) ? [selectedGenre, ...topGenres] : topGenres).map((genre) => [`GENRE:${genre}`, genre])] as [FilterKey, string][]).map(([key, label]) => (
+              {([['ALL', 'Tout'], ['FREE', 'FREE'], ...(moneyCount > 0 ? [['MONEY', Platform.OS === 'web' ? '€' : '€ bientôt']] : []), ...(selectedGenre && !topGenres.includes(selectedGenre) ? [selectedGenre, ...topGenres] : topGenres).map((genre) => [`GENRE:${genre}`, genre])] as [FilterKey, string][]).map(([key, label]) => (
                 <TouchableOpacity key={key} style={[s.chip, storeFilter === key && s.chipOn]} onPress={() => setStoreFilter(key)} accessibilityRole="button" accessibilityState={{ selected: storeFilter === key }}>
                   <Text style={[s.chipText, storeFilter === key && s.chipTextOn]}>{label}</Text>
                 </TouchableOpacity>
@@ -459,9 +485,6 @@ const s = StyleSheet.create({
   bannerKicker: { flex: 1, color: colors.primaryLight, fontSize: 11, fontWeight: '900', letterSpacing: 1.3 },
   bannerTitle: { color: '#FFFFFF', fontSize: 21, lineHeight: 28, fontWeight: '900' },
   bannerPersonal: { color: '#F2EDFF', fontSize: 13, lineHeight: 19, fontWeight: '700' },
-  buyerGuide: { backgroundColor: 'rgba(255,255,255,.08)', borderColor: 'rgba(255,255,255,.28)', borderWidth: 1, borderRadius: 14, padding: 12, gap: 5 },
-  buyerGuideTitle: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
-  buyerGuideText: { color: '#F2EDFF', fontSize: 13, lineHeight: 19, fontWeight: '700' },
   bubbleGenre: { fontWeight: '900', textAlign: 'center' },
   bannerPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   bannerPill: { minHeight: 28, paddingHorizontal: 10, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
@@ -477,9 +500,6 @@ const s = StyleSheet.create({
   universeMeta: { color: '#FFFFFF', fontSize: 12, fontWeight: '700', marginTop: 2 },
   drop: { borderRadius: 20, borderWidth: 1, borderColor: colors.primaryLight, backgroundColor: 'rgba(124,92,252,.10)', padding: 14, overflow: 'hidden' },
   dropGradient: { margin: -14, padding: 14, borderRadius: 19 },
-  dropHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  dropLive: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dropLiveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.keep },
   dropMain: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
   dropCopy: { flex: 1, minWidth: 0, padding: 10, borderRadius: 12, backgroundColor: 'rgba(0,0,0,.72)' },
   dropPlay: { width: 42, height: 42, borderRadius: 21, borderWidth: 1, borderColor: 'rgba(255,255,255,.55)', backgroundColor: 'rgba(255,255,255,.13)', alignItems: 'center', justifyContent: 'center' },
@@ -487,7 +507,6 @@ const s = StyleSheet.create({
   dropListenStrip: { minHeight: 34, marginTop: 12, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,.28)', backgroundColor: 'rgba(0,0,0,.18)', flexDirection: 'row', alignItems: 'center', gap: 8 },
   dropListenText: { flex: 1, color: '#FFFFFF', fontSize: 12, fontWeight: '900', letterSpacing: .45 },
   dropListenArrow: { color: '#FFFFFF', fontSize: 21, fontWeight: '900', lineHeight: 23 },
-  dropKicker: { color: '#FFFFFF', fontSize: 11, fontWeight: '900', letterSpacing: 1.2 },
   dropFeatured: { color: GOLD, fontSize: 11, fontWeight: '900', letterSpacing: .8, marginTop: 6 },
   dropTitle: { color: '#FFFFFF', fontSize: 19, fontWeight: '900', marginTop: 4 },
   dropMeta: { color: '#F2EDFF', fontSize: 12, fontWeight: '700', marginTop: 4 },
@@ -526,7 +545,8 @@ const s = StyleSheet.create({
   tokenTextFree: { color: '#FFFFFF' },
   tokenTextMoney: { color: GOLD_DARK },
   tokenTextUnlocked: { color: colors.keep },
-  hint: { color: '#F2EDFF', fontSize: 12, fontWeight: '600' },
+  progressTrack: { height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,.18)', overflow: 'hidden' },
+  progressFill: { height: 8, borderRadius: 4, backgroundColor: colors.keep },
   storeBackdrop: { flex: 1, backgroundColor: 'rgba(3,2,7,.86)', justifyContent: 'flex-end', alignItems: 'center' },
   store: { width: '100%', maxWidth: 640, maxHeight: '92%', flexShrink: 1, backgroundColor: colors.backgroundElevated, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderColor: colors.border, padding: 16, gap: 10 },
   storeHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },

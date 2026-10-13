@@ -27,7 +27,7 @@ describe('PublicUserProfileScreen — Boutique musicale et titres nouveaux', () 
   });
 
   it('affiche la Boutique musicale sans toucher aux compteurs du profil', () => {
-    expect(source).toContain('BOUTIQUE MUSICALE');
+    expect(source).toContain('<SellerBoutique');
     expect(boutique).toContain("ownerMode ? 'MA BOUTIQUE' : `BOUTIQUE · @${sellerName}`");
   });
 
@@ -61,7 +61,7 @@ describe('PublicUserProfileScreen — Boutique musicale et titres nouveaux', () 
   });
 
   it('affiche le total et garde achat groupé + achat individuel', () => {
-    expect(boutique).toContain('TOTAL DES PÉPITES');
+    expect(boutique).toContain('TOTAL · ');
     expect(boutique).toContain('TOUT PRENDRE');
     expect(boutique).toContain('onOpenOffer(drop)');
     expect(source).toContain('buyAllPlaylistOffers');
@@ -95,7 +95,7 @@ describe('PublicUserProfileScreen — Boutique musicale et titres nouveaux', () 
     expect(ownerSource).toContain("navigation.navigate('PlaylistSale'");
     expect(boutique).toContain('viewerUsername?: string;');
     expect(boutique).toContain("replace(/^@+/, '')");
-    expect(boutique).toContain('Merci pour ta visite');
+    expect(boutique).not.toContain('Merci pour ta visite');
     expect(boutique).not.toContain('LES PÉPITES DE @');
   });
 });

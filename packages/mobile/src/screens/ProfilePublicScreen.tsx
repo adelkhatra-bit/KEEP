@@ -62,6 +62,9 @@ import LoginPill from '../components/LoginPill';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import PlaylistSaleImmersivePreview from '../components/PlaylistSaleImmersivePreview';
 import SellerBoutique, { SELLER_BOUTIQUE_SECTION_STYLE } from '../components/SellerBoutique';
+import { useBoutiqueConfig } from '../services/useBoutiqueConfig';
+import { publishRobotScreenState } from '../services/robotScreenContext';
+import { robotContextHint } from '../services/robotCoachService';
 import { buildPayoutCheckoutUrl } from '../services/payoutLinkService';
 import { loadProfileSaleSuggestions, ProfileSaleSuggestion } from '../services/profileSaleSuggestionService';
 import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
@@ -375,7 +378,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [freeCostPerKeep, setFreeCostPerKeep] = useState(3);
   const [playlistSaleOffers, setPlaylistSaleOffers] = useState<PlaylistSaleOffer[]>([]);
   const [ownerPrivateChatOpen, toggleOwnerPrivateChat] = useCollapsedSection(user?.id ?? 'guest', 'private-chat-sales', false);
-  const [ownerBoutiqueOpen, toggleOwnerBoutique] = useCollapsedSection(user?.id ?? 'guest', 'boutique', true);
   const [ownerMusicInfoOpen, setOwnerMusicInfoOpen] = useState(false);
   // Une seule présentation du Drop : le propriétaire et les visiteurs rendent
   // SellerBoutique. Ainsi tout changement de design reste automatiquement lié.
@@ -1389,6 +1391,23 @@ export default function ProfilePublicScreen({ navigation }: any) {
     return () => { live = false; };
   }, [accountRequired, profileFollowerCount]);
 
+  // Lot 6 (12/10/2026) : le robot connaît l'état de la Boutique de ce profil (règles pures : robotScreenContext).
+  const boutiqueConfig = useBoutiqueConfig();
+  const robotFocused = useIsFocused();
+  useEffect(() => {
+    if (accountRequired || !robotFocused) return undefined;
+    const remove = publishRobotScreenState('profile-owner', {
+      isOwnerProfile: true,
+      offerCount: marketplaceEnabled ? ownerBoutiqueOffers.length : undefined,
+      followers: profileFollowerCount,
+      saleThreshold: boutiqueConfig.threshold,
+      freeWithoutThreshold: boutiqueConfig.freeWithoutThreshold,
+      freeBalance,
+    });
+    void robotContextHint('Profile');
+    return remove;
+  }, [accountRequired, robotFocused, marketplaceEnabled, ownerBoutiqueOffers.length, profileFollowerCount, boutiqueConfig.threshold, boutiqueConfig.freeWithoutThreshold, freeBalance]);
+
   useEffect(() => {
     if (!marketplaceEnabled || !user || accountRequired) { setPlaylistSaleOffers([]); return undefined; }
     let live = true;
@@ -2178,7 +2197,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
               onPress={() => {
                 if (accountRequired) {
                   Alert.alert(
-                    'Publier une Pépite',
+                    'Mettre en vente',
                     'L’écoute reste disponible en mode essai. Pour publier une collection exclusive et recevoir des FREE ou un paiement, connecte-toi ou crée ton compte Loki Music.',
                     [
                       { text: 'Plus tard', style: 'cancel' },
@@ -2190,7 +2209,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
                 }
                 navigation.navigate('PlaylistSale');
               }}
-              accessibilityLabel={accountRequired ? 'Comprendre comment publier une Pépite' : 'Vendre mes musiques ou gérer ma boutique'}
+              accessibilityLabel={accountRequired ? 'Comprendre comment vendre' : 'Vendre mes musiques ou gérer ma boutique'}
             >
               ◆ VENDRE
             </MotionActionButton>
@@ -2219,24 +2238,20 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
       </ProfileMotionReveal>
 
-      {desktopProfile && !accountRequired ? (
+      {!accountRequired ? (
         <CreatorSalesCockpit
+          onHistory={() => navigation.navigate('PlaylistSaleHistory')}
           onMusicSales={() => navigation.navigate('PlaylistSale', { openPaymentHistory: true })}
           onEventSales={() => navigation.navigate('Main', { screen: 'Parties', params: { openMyEvents: true } })}
         />
       ) : null}
 
-      {!accountRequired && ownerBoutiqueOffers.length ? (
+      {/* Lot 5 (12/10/2026) : Boutique toujours présente, sans bouton Masquer ; vide = « Créer ma boutique » + compteur d'abonnés. */}
+      {!accountRequired ? (
         <ProfileMotionReveal motionKey={`owner-drop:${user.id}:${ownerBoutiqueOffers.length}`} compact style={SELLER_BOUTIQUE_SECTION_STYLE}>
-          <TouchableOpacity style={s.ownerBoutiqueHeader} onPress={toggleOwnerBoutique} accessibilityRole="button" accessibilityLabel={ownerBoutiqueOpen ? 'Masquer ma boutique musicale' : 'Afficher ma boutique musicale'} testID="owner-boutique-toggle">
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={s.ownerClubKicker}>MA BOUTIQUE MUSICALE · {user.username.replace(/^@+/, '')}</Text>
-              {!ownerBoutiqueOpen ? <Text style={s.ownerPrivateChatCollapsedHint}>Masquée pour garder ton profil compact.</Text> : null}
-            </View>
-            <Text style={s.ownerPrivateChatCount}>{ownerBoutiqueOffers.length}</Text>
-            <Text style={s.ownerBoutiqueToggle}>{ownerBoutiqueOpen ? 'Masquer ⌃' : 'Afficher ⌄'}</Text>
-          </TouchableOpacity>
-          {ownerBoutiqueOpen ? <SellerBoutique
+          <SellerBoutique
+            followers={profileFollowerCount}
+            onCreateBoutique={() => navigation.navigate('PlaylistSale')}
             offers={ownerBoutiqueOffers}
             sellerUsername={user.username}
             overlaps={{}}
@@ -2250,23 +2265,23 @@ export default function ProfilePublicScreen({ navigation }: any) {
                   // pas tous les morceaux de la première collection.
                   const tracks = groups.map((group) => group[0]).filter(Boolean) as CanonicalTrack[];
                   if (!tracks.length) {
-                    Alert.alert('Pépites', 'Aucun morceau accessible dans tes Pépites à la une.');
+                    Alert.alert('Boutique', 'Aucun morceau accessible dans tes collections à la une.');
                     return;
                   }
                   openSelectionSwipe({
-                    title: 'Mes Pépites à la une',
+                    title: 'Mes collections à la une',
                     subtitle: `${tracks.length} aperçu${tracks.length > 1 ? 's' : ''} · un par collection.`,
                     tracks,
                   });
                 })
-                .catch(() => Alert.alert('Pépites', 'Impossible de lancer tes aperçus pour le moment.'));
+                .catch(() => Alert.alert('Boutique', 'Impossible de lancer tes aperçus pour le moment.'));
             }}
             onOpenOffer={(offer) => {
               unlockWebAudioForGesture();
               void loadOwnPlaylistSaleOfferTracks(offer.offerId)
                 .then((tracks) => {
                   if (!tracks.length) {
-                    Alert.alert('Pépite', 'Cette collection ne contient aucun morceau accessible pour le moment.');
+                    Alert.alert('Boutique', 'Cette collection ne contient aucun morceau accessible pour le moment.');
                     return;
                   }
                   openSelectionSwipe({
@@ -2275,9 +2290,9 @@ export default function ProfilePublicScreen({ navigation }: any) {
                     tracks,
                   });
                 })
-                .catch(() => Alert.alert('Pépite', 'Impossible d’ouvrir cette collection pour le moment.'));
+                .catch(() => Alert.alert('Boutique', 'Impossible d’ouvrir cette collection pour le moment.'));
             }}
-          /> : null}
+          />
         </ProfileMotionReveal>
       ) : null}
 
@@ -2324,7 +2339,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
                     accessibilityLabel={`Ouvrir la vente privée du chat, ${price}, ${offer.isActive ? 'active' : 'historique'}`}
                   >
                     <View style={s.ownerPrivateChatCopy}>
-                      <Text style={s.ownerPrivateChatTitle}>{offer.playlistName || 'Pépite du chat'}</Text>
+                      <Text style={s.ownerPrivateChatTitle}>{offer.playlistName || 'Collection du chat'}</Text>
                       <Text style={s.ownerPrivateChatMeta}>{offer.trackCount ?? 0} morceau{(offer.trackCount ?? 0) > 1 ? 'x' : ''} · {price}</Text>
                     </View>
                     <View style={[s.ownerPrivateChatStatus, offer.isActive ? s.ownerPrivateChatStatusOn : s.ownerPrivateChatStatusOff]}>
@@ -2333,7 +2348,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
                   </TouchableOpacity>
                 );
               })}
-              {ownerPrivateChatOffers.length > 6 ? <Text style={s.ownerPrivateChatMore}>+ {ownerPrivateChatOffers.length - 6} autre{ownerPrivateChatOffers.length - 6 > 1 ? 's' : ''} dans l’historique Pépites</Text> : null}
+              {ownerPrivateChatOffers.length > 6 ? <Text style={s.ownerPrivateChatMore}>+ {ownerPrivateChatOffers.length - 6} autre{ownerPrivateChatOffers.length - 6 > 1 ? 's' : ''} dans l’historique des ventes</Text> : null}
             </>
           ) : null}
         </ProfileMotionReveal>

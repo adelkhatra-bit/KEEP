@@ -4,18 +4,16 @@ import path from 'path';
 const source = fs.readFileSync(path.resolve(__dirname, '..', 'SellerBoutique.tsx'), 'utf8');
 
 describe('boutique musicale readable buying journey', () => {
-  it('explains the buyer and seller journeys without promising automatic PayPal settlement', () => {
-    expect(source).toContain('COMMENT ACHETER UNE COLLECTION');
-    expect(source).toContain('COMMENT VENDRE MES COLLECTIONS');
-    expect(source).toContain('paiement PayPal et la confirmation du vendeur');
-    expect(source).toContain('Configure ton PayPal');
+  it('no longer repeats a buyer/seller how-to block inside the Boutique (Lot 5)', () => {
+    expect(source).not.toContain('COMMENT ACHETER UNE COLLECTION');
+    expect(source).not.toContain('COMMENT VENDRE MES COLLECTIONS');
+    expect(source).not.toContain('buyerGuideText');
     expect(source).toContain("Platform.OS === 'web'");
   });
   it('makes featured cards readable regardless of music genre gradient', () => {
     expect(source).toContain("backgroundColor: 'rgba(0,0,0,.72)'");
     expect(source).toContain("dropTitle: { color: '#FFFFFF'");
     expect(source).toContain("dropMeta: { color: '#F2EDFF'");
-    expect(source).toContain('buyerGuideText:');
   });
   it('avoids tiny 9px promotional text', () => {
     expect(source).toContain("dropListenText: { flex: 1, color: '#FFFFFF', fontSize: 12");

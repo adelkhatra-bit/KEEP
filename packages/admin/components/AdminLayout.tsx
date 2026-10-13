@@ -11,6 +11,7 @@ type NavItem = { href: string; label: string; roles?: AdminRole[] };
 type NavGroup = { title: string; items: NavItem[] };
 
 const ALL_ROLES: AdminRole[] = ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'FINANCE', 'MARKETING', 'MODERATOR', 'TECH'];
+// Rôles alignés sur les RPC (12/10/2026) : admin_remote_config_list/set = SUPER_ADMIN, ADMIN ; admin_feature_flag_set = SUPER_ADMIN, ADMIN, TECH.
 // Menu en 8 rubriques (Adel, 06/10/2026) : mêmes écrans qu'avant, rien supprimé, une seule entrée par écran.
 // « Signalements » est nouveau (secousses et diagnostics de l'app, jusqu'ici invisibles).
 const NAV_GROUPS: NavGroup[] = [
@@ -34,9 +35,11 @@ const NAV_GROUPS: NavGroup[] = [
     { href: '/plans', label: 'Formules', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
     { href: '/costs', label: 'Comptabilité', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
     { href: '/marketplace', label: 'Ventes', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
+    { href: '/boutique', label: 'Boutique', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
   ] },
   { title: 'Musique', items: [
     { href: '/music-brain', label: 'Musique', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
+    { href: '/solo-battle', label: 'Solo / Battle', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE', 'MODERATOR', 'TECH'] },
   ] },
   { title: 'Technique', items: [
     { href: '/integrations', label: 'Clés', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
@@ -44,7 +47,7 @@ const NAV_GROUPS: NavGroup[] = [
     { href: '/operations', label: 'Santé', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
     { href: '/launch-center', label: 'Lancement', roles: ['SUPER_ADMIN'] },
     { href: '/feature-flags', label: 'Fonctions', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
-    { href: '/remote-config', label: 'Réglages', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH', 'MARKETING'] },
+    { href: '/remote-config', label: 'Réglages', roles: ['SUPER_ADMIN', 'ADMIN'] },
   ] },
   { title: 'Sécurité', items: [
     { href: '/team', label: 'Équipe', roles: ['SUPER_ADMIN'] },

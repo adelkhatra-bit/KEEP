@@ -23,10 +23,12 @@ export function summarizeSellerActivity(music: PaidSale[], tickets: PaidSale[], 
   };
 }
 
-/** Desktop creator workspace: one shared accounting view for music and real-world event tickets. */
-export default function CreatorSalesCockpit({ onMusicSales, onEventSales }: {
+/** Cockpit créateur COMMUN mobile + ordinateur (Lot 5, 12/10/2026) : 3 chiffres, une seule vue pour la musique et les billets. */
+export default function CreatorSalesCockpit({ onMusicSales, onEventSales, onHistory }: {
   onMusicSales: () => void;
   onEventSales: () => void;
+  /** Historique comptable complet (écran PlaylistSaleHistory, lecture seule). */
+  onHistory?: () => void;
 }) {
   const focused = useIsFocused();
   const [music, setMusic] = React.useState<PlaylistSaleHistoryEntry[]>([]);
@@ -54,7 +56,7 @@ export default function CreatorSalesCockpit({ onMusicSales, onEventSales }: {
   const data = React.useMemo(() => summarizeSellerActivity(music, tickets), [music, tickets]);
 
   return (
-    <View style={s.shell} testID="desktop-seller-statistics">
+    <View style={s.shell} testID="seller-statistics">
       <View style={s.header}>
         <View style={{ flex: 1 }}>
           <Text style={s.eyebrow}>ESPACE CRÉATEUR</Text>
@@ -67,8 +69,7 @@ export default function CreatorSalesCockpit({ onMusicSales, onEventSales }: {
       ) : (
         <>
           <View style={s.statRow}>
-            <View style={s.stat}><Text style={s.number}>{data.musicSales}</Text><Text style={s.label}>Collections vendues</Text></View>
-            <View style={s.stat}><Text style={s.number}>{data.ticketSales}</Text><Text style={s.label}>Billets confirmés</Text></View>
+            <View style={s.stat}><Text style={s.number}>{data.musicSales + data.ticketSales}</Text><Text style={s.label}>Ventes confirmées</Text></View>
             <View style={s.stat}><Text style={s.number}>{data.pending}</Text><Text style={s.label}>À confirmer</Text></View>
             <View style={s.stat}><Text style={s.number}>{(data.euros30Days / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</Text><Text style={s.label}>Déclarés · 30 j</Text></View>
           </View>
@@ -78,6 +79,7 @@ export default function CreatorSalesCockpit({ onMusicSales, onEventSales }: {
       <View style={s.actions}>
         <TouchableOpacity style={s.button} onPress={onMusicSales} accessibilityRole="button" accessibilityLabel="Voir le détail des ventes de musique"><Text style={s.buttonText}>Ventes musique ›</Text></TouchableOpacity>
         <TouchableOpacity style={s.button} onPress={onEventSales} accessibilityRole="button" accessibilityLabel="Voir les billets et les soirées"><Text style={s.buttonText}>Billets ›</Text></TouchableOpacity>
+        {onHistory ? <TouchableOpacity style={s.button} onPress={onHistory} accessibilityRole="button" accessibilityLabel="Voir l’historique complet des ventes"><Text style={s.buttonText}>Historique ›</Text></TouchableOpacity> : null}
       </View>
     </View>
   );
@@ -89,7 +91,7 @@ const s = StyleSheet.create({
   eyebrow: { color: colors.primaryLight, fontSize: 11, fontWeight: '900', letterSpacing: 1.3 },
   title: { color: colors.textPrimary, fontSize: 20, fontWeight: '900', marginTop: 3 },
   statRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  stat: { flex: 1, minWidth: 135, borderRadius: 14, padding: 12, borderWidth: 1, borderColor: '#403554', backgroundColor: '#221934' },
+  stat: { flex: 1, minWidth: 96, borderRadius: 14, padding: 12, borderWidth: 1, borderColor: '#403554', backgroundColor: '#221934' },
   number: { color: colors.textPrimary, fontSize: 23, fontWeight: '900' },
   label: { color: colors.textSecondary, fontSize: 11, marginTop: 5 },
   note: { color: colors.textSecondary, fontSize: 11, lineHeight: 16 },

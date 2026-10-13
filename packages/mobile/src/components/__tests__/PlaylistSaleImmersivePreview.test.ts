@@ -43,7 +43,11 @@ describe('PlaylistSaleImmersivePreview — compact unlock popup', () => {
   it('keeps explicit confirmation but uses short FREE wording', () => {
     expect(source).toContain('const [waiverAccepted, setWaiverAccepted] = useState(false);');
     expect(source).toContain('setWaiverAccepted(false);');
-    expect(source).not.toContain("loadMarketplacePaymentTermsAccepted()");
+    // Lot 5 (12/10/2026) : en FREE uniquement, l'acceptation déjà enregistrée sur le compte
+    // (état serveur keep_marketplace_terms_status) est réutilisée ; le paiement en devise
+    // exige toujours la case explicite (renonciation au droit de rétractation).
+    expect(source).toContain("loadMarketplacePaymentTermsAccepted()");
+    expect(source).toContain('termsRemembered && freeAccess');
     expect(source).toContain("acceptMarketplacePaymentTerms('playlist_sale')");
     expect(source).toContain('CONDITIONS À ACCEPTER');
     expect(source).toContain('CONDITIONS ACCEPTÉES');

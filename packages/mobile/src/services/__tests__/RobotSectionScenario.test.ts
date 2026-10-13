@@ -23,7 +23,11 @@ describe('Robot : scénario par rubrique', () => {
       expect(out.actions.at(-1)?.key).toBe('REPORT');
       expect(out.actions.length).toBeGreaterThanOrEqual(3);
       expect(out.text.length).toBeLessThan(100);
-      expect(out.actions.map((action) => action.key)).toEqual(['PULSE', 'COMMUNITY', 'PLAYLISTS', 'SEARCH', 'STORY', 'SOLO', 'REPORT']);
+      // Lot 6 : menu général sans la rubrique où l'on est déjà, « Un souci » toujours dernier, jamais plus de 9 propositions.
+      const keys = out.actions.map((action) => action.key);
+      expect(keys.length).toBeLessThanOrEqual(9);
+      expect(keys).toEqual(expect.arrayContaining(['BOUTIQUE', 'SELL', 'SOLO']));
+      expect(keys).not.toContain(({ PULSE: 'PULSE', DISCOVER: 'SEARCH', PLAYLISTS: 'PLAYLISTS', PARTIES: 'PARTIES', PROFILE: 'COMMUNITY' } as Record<string, string>)[section]);
     }
   });
   it('le profil propose playlist / soirée / story / partage PC', () => {
@@ -37,6 +41,23 @@ describe('Robot : scénario par rubrique', () => {
     expect(scenarioForRoute('Offers', 'adel', 0).text).toContain("Qu'est-ce que je peux faire pour toi");
     expect(src('src/components/ProblemReportHost.tsx')).toContain('currentScreenName())');
     expect(src('src/services/robotCoachService.ts')).toContain("sectionOfRoute(routeName) !== 'OTHER'");
+  });
+  it('SECTION_SCENARIOS est relu : la 2e secousse sur la même rubrique donne un conseil de rubrique, un autre à la 3e', () => {
+    const first = scenarioForRoute('Profile', 'adel', 0, { shakeCount: 0 }).text;
+    const second = scenarioForRoute('Profile', 'adel', 0, { shakeCount: 1 }).text;
+    const third = scenarioForRoute('Profile', 'adel', 0, { shakeCount: 2 }).text;
+    expect(first).toContain("Qu'est-ce que je peux faire pour toi");
+    expect(SECTION_SCENARIOS.PROFILE.tips).toContain(second);
+    expect(SECTION_SCENARIOS.PROFILE.tips).toContain(third);
+    expect(second).not.toBe(third);
+    expect(scenarioForRoute('Offers', 'adel', 0, { shakeCount: 3 }).text).toContain("Qu'est-ce que je peux faire pour toi");
+  });
+  it('un conseil contextuel passe avant tout et ses actions sont en tête', () => {
+    const out = scenarioForRoute('Profile', 'adel', 0, { rules: [{ id: 'X', text: 'Crée ta boutique', actions: [{ key: 'SELL', label: '🛍️ Créer ma boutique', route: 'PlaylistSale' }] }], shakeCount: 2 });
+    expect(out.text).toBe('Crée ta boutique');
+    expect(out.actions[0].key).toBe('SELL');
+    expect(out.actions.filter((a) => a.key === 'SELL')).toHaveLength(1);
+    expect(out.actions.at(-1)?.key).toBe('REPORT');
   });
 });
 
