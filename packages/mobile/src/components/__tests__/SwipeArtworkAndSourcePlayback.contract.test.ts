@@ -18,6 +18,10 @@ describe('shared iPhone / desktop Swipe: album art, metadata and exact source pl
     expect(deck).toContain("artworkStage:{flex:1,minHeight:90");
     expect(deck).toContain("card:{flex:1,minHeight:0");
     expect(deck).not.toContain("gradientFake:{padding:20,paddingTop:90");
+    expect(deck).toContain('nudge && !compactDeck');
+    expect(deck).toContain("nudgePill:{flexShrink:0");
+    expect(deck).toContain("askBubble:{position:'relative'");
+    expect(deck).not.toContain("nudgePill:{position:'absolute'");
   });
 
   it('moves discoverer identity outside the cover and keeps buttons accessible without scrolling', () => {
