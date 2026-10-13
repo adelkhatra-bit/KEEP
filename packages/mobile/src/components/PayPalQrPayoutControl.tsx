@@ -84,7 +84,7 @@ export default function PayPalQrPayoutControl({ profileId, qrUrl, onChange, disa
         accessibilityState={{ expanded: helpOpen }}
         accessibilityLabel="En savoir plus sur le cadrage du QR PayPal"
       >
-        <Text style={s.helpToggleText}>RECADRAGE DU QR · {helpOpen ? 'MASQUER' : 'EN SAVOIR PLUS'} {helpOpen ? '˄' : '˅'}</Text>
+        <Text style={s.helpToggleText}>RECADRAGE DU QR · {helpOpen ? 'MOINS' : 'PLUS'} {helpOpen ? '˄' : '˅'}</Text>
       </TouchableOpacity>
       {helpOpen ? (
         <View style={s.helpBox}>
