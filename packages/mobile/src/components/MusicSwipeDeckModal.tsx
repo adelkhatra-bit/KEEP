@@ -1243,11 +1243,13 @@ export default function MusicSwipeDeckModal({
               fill
             >
               <View style={[s.card, desktopSwipeLayout && s.desktopStoryCard, compactDeck && s.cardCompact]}>
-                {ownerMasked ? <View style={[s.cover,s.coverFallback]}><MysteryArtwork caption="Titre masqué · aperçu de tes abonnés" /></View> : current.artworkUrl ? <Image source={{ uri: current.artworkUrl }} style={s.cover as any} resizeMode="cover" /> : <View style={[s.cover,s.coverFallback]}>{isSaleStoryTrack(current) ? <MysteryArtwork caption={priceBadge ? '' : 'Titre masqué · garde pour révéler'} /> : <Text style={s.coverK}>K</Text>}</View>}
-                {currentSourceUsername ? <TouchableOpacity style={s.sourceOverlay} onPress={() => setSourceQuick(currentSourceUsername.replace(/^@/, ''))} disabled={!onOpenSourceProfile} accessibilityLabel={`Découvert par ${currentSourceUsername.replace(/^@/, '')}. Ouvrir son profil`}><GlowRing radius={14} testID="deck-source-glow" /><Text style={s.sourceOverlayText}>Découvert par @{currentSourceUsername.replace(/^@/, '')}</Text></TouchableOpacity> : null}
+                <View testID="swipe-artwork-stage" style={s.artworkStage}>
+                {ownerMasked ? <View style={[s.cover,s.coverFallback]}><MysteryArtwork caption="Titre masqué · aperçu de tes abonnés" /></View> : current.artworkUrl ? <Image source={{ uri: current.artworkUrl }} style={s.cover as any} resizeMode="contain" /> : <View style={[s.cover,s.coverFallback]}>{isSaleStoryTrack(current) ? <MysteryArtwork caption={priceBadge ? '' : 'Titre masqué · garde pour révéler'} /> : <Text style={s.coverK}>K</Text>}</View>}
                 {/* Adel 05/10/2026 : « il faut que ce soit très lisible, que les utilisateurs ne se fassent pas tromper » -- PAYANT (PayPal) ou GRATUIT, toujours dit en clair sur la carte. */}
                 {storyEmbeddedSource ? <View style={s.storyEmbeddedInCard} testID="story-official-inline-area"><StoryEmbeddedSourcePlayer sourceUrl={storyEmbeddedSource} compact={compactDeck} /></View> : null}
-                <View style={[s.gradientFake, compactDeck && s.gradientCompact, storyEmbeddedSource && s.gradientStoryEmbed]}>
+                </View>
+                <View style={[s.gradientFake, compactDeck && s.gradientCompact, storyEmbeddedSource && s.gradientStoryEmbed]} testID="swipe-metadata-below-artwork">
+                  {!desktopSwipeLayout && currentSourceUsername ? <TouchableOpacity style={s.sourceOverlay} onPress={() => setSourceQuick(currentSourceUsername.replace(/^@/, ''))} disabled={!onOpenSourceProfile} accessibilityLabel={`Découvert par ${currentSourceUsername.replace(/^@/, '')}. Ouvrir son profil`}><GlowRing radius={14} testID="deck-source-glow" /><Text style={s.sourceOverlayText} numberOfLines={1}>Découvert par @{currentSourceUsername.replace(/^@/, '')}</Text></TouchableOpacity> : null}
                   <View style={s.autoRow}>
                     <View style={[s.dot,resolvedPreviewUrl ? s.dotOn : s.dotOff]} />
                     <Text style={s.autoText} numberOfLines={2}>{previewLabel}</Text>
@@ -1267,7 +1269,7 @@ export default function MusicSwipeDeckModal({
                   ) : null}
                   <Text style={[s.trackTitle, storyEmbeddedSource && s.embeddedTrackTitle]} numberOfLines={2}>{ownerMasked ? 'Musique en vente' : current.title}</Text>
                   <Text style={s.artist} numberOfLines={1}>{ownerMasked ? 'Ta boutique' : current.artist}</Text>
-                  {current.album && !ownerMasked && !storyEmbeddedSource ? <Text style={s.album} numberOfLines={1}>{current.album}</Text> : null}
+                  {current.album && !ownerMasked && !storyEmbeddedSource && !compactDeck ? <Text style={s.album} numberOfLines={1}>{current.album}</Text> : null}
                 </View>
                 {!trackAddedAt && sourcePlayerOpen && !resolvedPreviewUrl && sourcePlayer ? (
                   <View testID="story-source-player" style={s.sourcePlayerOverlay}>
@@ -1299,7 +1301,7 @@ export default function MusicSwipeDeckModal({
           </View>
 
 
-          {currentSourceUsername && onOpenSourceProfile ? <TouchableOpacity style={s.sourceProfileButton} onPress={() => setSourceQuick(currentSourceUsername.replace(/^@/, ''))} accessibilityLabel={`Voir le profil du premier découvreur ${currentSourceUsername.replace(/^@/, '')}`}><GlowRing radius={21} testID="deck-source-button-glow" /><Text style={s.sourceProfileButtonText}>◎ DÉCOUVERT PAR @{currentSourceUsername.replace(/^@/, '')} · VOIR / SUIVRE</Text></TouchableOpacity> : null}
+          {desktopSwipeLayout && currentSourceUsername && onOpenSourceProfile ? <TouchableOpacity style={s.sourceProfileButton} onPress={() => setSourceQuick(currentSourceUsername.replace(/^@/, ''))} accessibilityLabel={`Voir le profil du premier découvreur ${currentSourceUsername.replace(/^@/, '')}`}><GlowRing radius={21} testID="deck-source-button-glow" /><Text style={s.sourceProfileButtonText}>◎ DÉCOUVERT PAR @{currentSourceUsername.replace(/^@/, '')} · VOIR / SUIVRE</Text></TouchableOpacity> : null}
           {renderStoryAdd('main')}
                     <View style={s.decisionBand}>
             <View style={s.decisionRow}>
@@ -1472,8 +1474,9 @@ const s = StyleSheet.create({
   body:{flex:1,paddingHorizontal:18,paddingTop:16},deckArea:{flex:1,minHeight:0,paddingTop:8,paddingBottom:12},
   priceBadgeRow:{flexShrink:0,paddingHorizontal:18,paddingVertical:8,alignItems:'flex-start',borderBottomWidth:1,borderBottomColor:'#241A32'},
   priceBadge:{minHeight:32,maxWidth:'100%',paddingHorizontal:12,paddingVertical:6,borderRadius:14,borderWidth:1.5,alignItems:'center',justifyContent:'center'},priceBadgePaid:{backgroundColor:'#FFB020',borderColor:'#FFFFFF'},priceBadgeFree:{backgroundColor:'#2DE1C2',borderColor:'#FFFFFF'},priceBadgeText:{fontSize:12,lineHeight:17,fontWeight:'900',letterSpacing:.3,textAlign:'center'},priceBadgeTextPaid:{color:'#1A1100'},priceBadgeTextFree:{color:'#04130F'},
-  sourceOverlay:{position:'absolute',left:12,top:12,zIndex:4,minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'rgba(4,3,10,.76)',borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},sourceOverlayText:{color:'#FFF',fontSize:10,fontWeight:'900'},
-  card:{flex:1,minHeight:200,maxHeight:560,borderRadius:28,overflow:'hidden',backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',justifyContent:'flex-end'},
+  sourceOverlay:{position:'relative',alignSelf:'flex-start',minHeight:26,maxWidth:'100%',marginBottom:5,paddingHorizontal:8,borderRadius:12,backgroundColor:'#251A39',borderWidth:1,borderColor:'#9B78D3',alignItems:'center',justifyContent:'center'},sourceOverlayText:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},
+  card:{flex:1,minHeight:0,maxHeight:720,borderRadius:24,overflow:'hidden',backgroundColor:'#151020',borderWidth:1.5,borderColor:'#684A93',justifyContent:'flex-start'},
+  artworkStage:{flex:1,minHeight:90,width:'100%',overflow:'hidden',position:'relative',alignItems:'center',justifyContent:'center',backgroundColor:'#090610'},
   sourcePlayerOverlay:{position:'absolute',top:0,left:0,right:0,bottom:0,zIndex:15,backgroundColor:'#100B18',padding:8},
   sourcePlayerClose:{minHeight:44,alignItems:'center',justifyContent:'center',backgroundColor:'#32224A',borderRadius:10,marginBottom:5},
   sourcePlayerCloseText:{color:'#FFFFFF',fontWeight:'800',fontSize:12},
@@ -1481,7 +1484,7 @@ const s = StyleSheet.create({
   storyEmbeddedInCard:{flex:1,minHeight:0,width:'100%',paddingHorizontal:6,paddingTop:38,justifyContent:'center'},
   gradientStoryEmbed:{paddingHorizontal:14,paddingTop:8,paddingBottom:10,backgroundColor:'rgba(9,6,16,.86)'},
   embeddedTrackTitle:{fontSize:19,lineHeight:23},
-  gradientFake:{padding:20,paddingTop:90,backgroundColor:'rgba(9,6,16,.68)'},autoRow:{flexDirection:'row',alignItems:'center',marginBottom:8,gap:5},dot:{width:8,height:8,borderRadius:4,marginRight:6},dotOn:{backgroundColor:'#68F2B1'},dotOff:{backgroundColor:'#756B84'},autoText:{flex:1,minWidth:0,color:'#FFFFFF',fontSize:10,fontWeight:'800'},nextInlineButton:{minHeight:36,paddingHorizontal:10,borderRadius:12,alignItems:'center',justifyContent:'center',backgroundColor:'#342653',borderWidth:1,borderColor:'#B79CFF'},nextInlineText:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},manualPlayButton:{alignSelf:'flex-start',minHeight:minTouchTarget,paddingHorizontal:14,borderRadius:17,backgroundColor:colors.keep,marginBottom:9},manualPlayText:{color:'#0B0E0B',fontSize:11,fontWeight:'900',lineHeight:34},trackTitle:{color:'#FFF',fontSize:28,lineHeight:32,fontWeight:'900'},artist:{color:'#F0EAF7',fontSize:16,fontWeight:'800',marginTop:6},album:{color:'#FFFFFF',fontSize:12,marginTop:3},
+  gradientFake:{flexShrink:0,paddingHorizontal:12,paddingTop:9,paddingBottom:11,backgroundColor:'#181024',borderTopWidth:1,borderTopColor:'#684A93'},autoRow:{flexDirection:'row',alignItems:'center',marginBottom:8,gap:5},dot:{width:8,height:8,borderRadius:4,marginRight:6},dotOn:{backgroundColor:'#68F2B1'},dotOff:{backgroundColor:'#756B84'},autoText:{flex:1,minWidth:0,color:'#FFFFFF',fontSize:10,fontWeight:'800'},nextInlineButton:{minHeight:40,paddingHorizontal:11,borderRadius:12,alignItems:'center',justifyContent:'center',backgroundColor:'#342653',borderWidth:1,borderColor:'#B79CFF'},nextInlineText:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},manualPlayButton:{alignSelf:'flex-start',minHeight:minTouchTarget,paddingHorizontal:14,borderRadius:17,backgroundColor:colors.keep,marginBottom:9},manualPlayText:{color:'#0B0E0B',fontSize:11,fontWeight:'900',lineHeight:34},trackTitle:{color:'#FFF',fontSize:18,lineHeight:22,fontWeight:'900'},artist:{color:'#F0EAF7',fontSize:13,lineHeight:18,fontWeight:'800',marginTop:4},album:{color:'#FFFFFF',fontSize:11,marginTop:2},
   sourceProfileButton:{minHeight:minTouchTarget,marginHorizontal:4,marginBottom:8,borderRadius:21,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center',paddingHorizontal:12},sourceProfileButtonText:{color:'#FFF',fontSize:11,fontWeight:'900',letterSpacing:.25,textAlign:'center'},
   deckHint:{marginTop:14,marginBottom:6,paddingHorizontal:6,color:'#FFFFFF',fontSize:13,lineHeight:19,fontWeight:'800',textAlign:'center'},
   addStoryButton:{minHeight:minTouchTarget,marginHorizontal:4,marginBottom:8,borderRadius:20,borderWidth:1,borderColor:'#7C5CFC',backgroundColor:'#1B1230',alignItems:'center',justifyContent:'center',paddingHorizontal:12},
@@ -1504,8 +1507,8 @@ const s = StyleSheet.create({
   headerLikeRow:{position:'relative',zIndex:30,flexDirection:'row',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',gap:8,paddingHorizontal:18,paddingTop:8,paddingBottom:10,borderBottomWidth:1,borderBottomColor:'#241A32'},likeRight:{marginLeft:'auto'},
   // Ne coupe jamais la pastille des spectateurs (36 px mini), même en fenêtre basse.
   headerExtraCompact:{maxHeight:48,overflow:'visible'},
-  cardCompact:{minHeight:120},
-  gradientCompact:{paddingTop:12,paddingBottom:12},
+  cardCompact:{minHeight:0},
+  gradientCompact:{paddingTop:6,paddingBottom:7},
   fullTrackLocked:{color:'#FFFFFF',fontSize:13,lineHeight:18,fontWeight:'800',textAlign:'center',marginHorizontal:4,marginBottom:12,paddingVertical:6},
   fullTrackButton:{minHeight:minTouchTarget,marginHorizontal:4,marginBottom:8,borderRadius:20,borderWidth:1,borderColor:'#6E4BA3',backgroundColor:'#171020',alignItems:'center',justifyContent:'center',paddingHorizontal:12},fullTrackButtonText:{color:'#D8C5FF',fontSize:11,fontWeight:'900',letterSpacing:.35,textAlign:'center'},decisionBand:{marginHorizontal:-18,backgroundColor:'#050408',borderTopWidth:1,borderTopColor:'#211A2B',paddingHorizontal:18,paddingTop:10,paddingBottom:12},decisionRow:{flexDirection:'row',alignItems:'stretch',gap:7},decisionButton:{flex:1,minHeight:minTouchTarget,borderRadius:14,alignItems:'center',justifyContent:'center',paddingHorizontal:5,borderWidth:1},passButton:{backgroundColor:colors.pass,borderColor:colors.pass},passButtonText:{color:colors.white,fontSize:13,fontWeight:'900'},backDecisionButton:{backgroundColor:'#171020',borderColor:'#5B3F8C'},backDecisionText:{color:'#CDB7F4',fontSize:12,fontWeight:'900',textAlign:'center'},keepButton:{backgroundColor:colors.keep,borderColor:colors.keep},keepButtonText:{color:colors.black,fontSize:13,fontWeight:'900',textAlign:'center'},keepButtonAlready:{backgroundColor:'#27222E',borderColor:'#5C5468'},keepButtonTextAlready:{color:'#FFFFFF',fontSize:12},
   storyAge:{color:'#2DE1C2',fontSize:13,lineHeight:18,fontWeight:'800',marginTop:4},
