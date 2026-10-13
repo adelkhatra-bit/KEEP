@@ -487,7 +487,7 @@ begin
               case when p.release_year is not null and d.release_year is not null and abs(p.release_year::integer-d.release_year::integer)<=6 then 0 else 1 end,
               case when p.release_year is not null and d.release_year is not null then abs(p.release_year::integer-d.release_year::integer) else 99 end,
               case when lower(trim(d.artist))=any(v_recent_artists) then 1 else 0 end,
-              random() limit 3) d) options),'[]'::jsonb)
+              random() limit 3) d) options),'[]'::jsonb) as choices from packed p)
   select jsonb_agg(jsonb_build_object('position',x.position,'trackId',x.id,'title',x.title,'artist',x.artist,'artworkUrl',x.artwork_url,
       'previewUrl',x.preview_url,'releaseYear',x.release_year,'themeCode',x.theme_code,'choices',x.choices,'correctAnswer',x.artist) order by x.position)
   into v_rounds from with_choices x where jsonb_array_length(x.choices)=4;
