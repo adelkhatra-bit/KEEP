@@ -1212,7 +1212,7 @@ export default function MusicSwipeDeckModal({
       ) : null}
       {headerExtra || (likesActive && current && isUuidKey(likeKey(current.id))) ? (
             <View style={s.headerLikeRow} testID="deck-like-bar">
-              {ask ? <Animated.View pointerEvents="none" style={[s.askBubble, { opacity: askFade, transform: [{ translateY: askFade.interpolate({ inputRange: [0, 1], outputRange: [-6, 0] }) }] }]} testID="deck-like-ask"><View style={s.askArrow} /><Text style={s.askText} numberOfLines={1}>{ask}</Text></Animated.View> : null}
+              {ask && !compactDeck ? <Animated.View pointerEvents="none" style={[s.askBubble, { opacity: askFade, transform: [{ translateY: askFade.interpolate({ inputRange: [0, 1], outputRange: [-6, 0] }) }] }]} testID="deck-like-ask"><View style={s.askArrow} /><Text style={s.askText} numberOfLines={1}>{ask}</Text></Animated.View> : null}
               <View style={[{ flexShrink: 0, maxWidth: '100%' }, compactDeck ? s.headerExtraCompact : null]}>{headerExtra}</View>
               {likesActive && current && isUuidKey(likeKey(current.id)) ? (() => {
                 const key = likeKey(current.id);
@@ -1232,7 +1232,6 @@ export default function MusicSwipeDeckModal({
       <View style={s.body}>
         {preparingDeck ? <View style={s.empty}><ActivityIndicator color={colors.primaryLight} size="large" /><Text style={s.emptyTitle}>Préparation des nouvelles musiques…</Text><Text style={s.preparingHint}>Loki Music prépare les extraits de ce profil.</Text></View> : !current ? <View style={s.empty}><Text style={s.emptyIcon}>♪</Text><Text style={s.emptyTitle}>{resolvedEmptyTitle}</Text>{endExtra}<TouchableOpacity style={s.backButton} onPress={() => { void close(); }}><Text style={s.backText}>{resolvedBackLabel}</Text></TouchableOpacity></View> : <>
           <View style={s.deckArea}>
-            {nudge ? <View pointerEvents="none" style={s.nudgePill} testID="deck-like-nudge"><Text style={s.nudgeText} numberOfLines={3}>{nudge}</Text></View> : null}
             <SwipeDeck
               resetKey={`${current.id}-${index}`}
               enabled={!controlsLocked}
@@ -1289,6 +1288,7 @@ export default function MusicSwipeDeckModal({
                 ) : null}
                 </View>
                 <View style={[s.gradientFake, compactDeck && s.gradientCompact, storyEmbeddedSource && s.gradientStoryEmbed]} testID="swipe-metadata-below-artwork">
+                  {nudge && !compactDeck ? <View pointerEvents="none" style={s.nudgePill} testID="deck-like-nudge"><Text style={s.nudgeText} numberOfLines={2}>{nudge}</Text></View> : null}
                   {!desktopSwipeLayout && currentSourceUsername ? <TouchableOpacity style={s.sourceOverlay} onPress={() => setSourceQuick(currentSourceUsername.replace(/^@/, ''))} disabled={!onOpenSourceProfile} accessibilityLabel={`Découvert par ${currentSourceUsername.replace(/^@/, '')}. Ouvrir son profil`}><GlowRing radius={14} testID="deck-source-glow" /><Text style={s.sourceOverlayText} numberOfLines={1}>Découvert par @{currentSourceUsername.replace(/^@/, '')}</Text></TouchableOpacity> : null}
                   <View style={s.autoRow}>
                     <View style={[s.dot,resolvedPreviewUrl ? s.dotOn : s.dotOff]} />
@@ -1516,11 +1516,11 @@ const s = StyleSheet.create({
   addStoryButtonDone:{borderColor:'#5C5468',backgroundColor:'#27222E'},
   addStoryTextDone:{color:'#E6E0EE'},
   addStoryText:{color:'#FFFFFF',fontSize:13,fontWeight:'900',letterSpacing:.5,textAlign:'center'},
-  nudgePill:{position:'absolute',top:100,left:22,right:22,zIndex:8,alignItems:'center',paddingVertical:11,paddingHorizontal:16,borderRadius:16,backgroundColor:'rgba(20,14,31,.94)',borderWidth:1.5,borderColor:'#FF5C8A'},
-  nudgeText:{color:'#FFFFFF',fontSize:16,lineHeight:22,fontWeight:'800',textAlign:'center'},
-  askBubble:{position:'absolute',right:18,top:'100%',marginTop:4,zIndex:9,paddingVertical:8,paddingHorizontal:14,borderRadius:14,backgroundColor:'#FFE08A',alignItems:'center'},
-  askArrow:{position:'absolute',top:-5,right:56,width:10,height:10,backgroundColor:'#FFE08A',transform:[{rotate:'45deg'}]},
-  askText:{color:'#2B1D00',fontSize:16,fontWeight:'900'},
+  nudgePill:{flexShrink:0,alignSelf:'stretch',marginBottom:6,alignItems:'center',paddingVertical:5,paddingHorizontal:9,borderRadius:11,backgroundColor:'#291733',borderWidth:1,borderColor:'#FF5C8A'},
+  nudgeText:{color:'#FFFFFF',fontSize:12,lineHeight:16,fontWeight:'800',textAlign:'center'},
+  askBubble:{position:'relative',zIndex:1,paddingVertical:6,paddingHorizontal:10,borderRadius:11,backgroundColor:'#FFE08A',alignItems:'center',maxWidth:'100%'},
+  askArrow:{display:'none'},
+  askText:{color:'#2B1D00',fontSize:12,fontWeight:'900'},
   headerLikeRow:{position:'relative',zIndex:30,flexDirection:'row',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',gap:8,paddingHorizontal:18,paddingTop:8,paddingBottom:10,borderBottomWidth:1,borderBottomColor:'#241A32'},likeRight:{marginLeft:'auto'},
   // Ne coupe jamais la pastille des spectateurs (36 px mini), même en fenêtre basse.
   headerExtraCompact:{maxHeight:48,overflow:'visible'},
