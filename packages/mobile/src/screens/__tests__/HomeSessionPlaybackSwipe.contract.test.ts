@@ -29,6 +29,15 @@ describe('Sessions / Home link playback parity (iPhone + PC)', () => {
     expect(recap).toContain("flexBasis: '100%'");
   });
 
+  it('lets a completed session be replayed through Swipe without modifying FREE or kept tracks', () => {
+    expect(recap).toContain('const [swipePreviewOnly, setSwipePreviewOnly] = useState(false);');
+    expect(recap).toContain('const playable = previewOnly ? sortedTracks.map((entry) => entry.track) : pending;');
+    expect(recap).toContain('previewOnly={swipePreviewOnly}');
+    expect(recap).toContain('askVisibilityOnKeep={!swipePreviewOnly}');
+    expect(recap).toContain('testID="session-swipe-or-replay"');
+    expect(recap).toContain('RÉÉCOUTER EN SWIPE');
+  });
+
   it('keeps source-only YouTube audio tied to exact real pasted video, not a fuzzy catalogue song', () => {
     expect(home).toContain("originalEmbed!.url.match(/\\/embed\\/([\\w-]{11})/)");
     expect(home).toContain('if (!openTemporaryMusicPreview(null, input)) setManualSearchNotFound(true)');
