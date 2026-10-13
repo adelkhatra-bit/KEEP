@@ -613,9 +613,18 @@ export default function MusicSwipeDeckModal({
         return;
       }
       if (!isSaleStoryTrack(current) && resolveEmbeddedMusicPlayer(source)) {
-        if (!trackAddedAt) { setSourcePlayerFailed(false); setSourcePlayerOpen(true); }
-        scheduleEmbeddedStoryNext();
-        return;
+        // A failed/expired catalogue preview must fall back to the EXACT
+        // public YouTube/Spotify source, never skip a playable discovery.
+        // sourcePlayer additionally prevents leaks of tracks offered for sale.
+        if (sourcePlayer && !trackAddedAt) {
+          setResolvedPreviewUrl(null);
+          setAutoplayBlocked(false);
+          setSourcePlayerFailed(false);
+          setSourcePlayerOpen(true);
+          reportAutoDiagnostic('SWIPE_EXACT_SOURCE_FALLBACK', reason);
+          scheduleEmbeddedStoryNext();
+          return;
+        }
       }
       reportAutoDiagnostic('SWIPE_PREVIEW_UNAVAILABLE', `${reason} id=${String(current.id).slice(0, 36)}`);
       if (index + 1 < deckTracks.length || loop) {
@@ -780,17 +789,10 @@ export default function MusicSwipeDeckModal({
               }
               // Journal automatique (Adel 05/10/2026 : « la musique ne part pas ») : on garde le code d'échec et l'hôte de l'extrait, jamais l'URL.
               reportAutoDiagnostic('PREVIEW_PLAY_FAILED', `${isSaleStoryTrack(current) ? 'sale' : 'track'} host=${String(current?.previewUrl ?? '').replace(/^https?:\/\//, '').split('/')[0] || 'none'} err=${String((playError as any)?.message ?? playError ?? 'inconnue').replace(/https?:\/\/\S+/g, 'url').slice(0, 110)}`);
-              // Dans un flux automatique, un extrait réellement illisible ne
-              // doit jamais bloquer l'utilisateur sur une carte silencieuse.
+              // A YouTube-discovered profile track can have a stale Apple
+              // snippet. Retry its exact original source BEFORE advancing.
               setAutoplayBlocked(false);
-              if ((index + 1 < deckTracks.length || loop) && !actionInFlight.current) {
-                endAdvanceTimer.current = setTimeout(() => {
-                  endAdvanceTimer.current = null;
-                  if (alive && !actionInFlight.current) advanceIndex();
-                }, 220);
-              } else {
-                setResolvedPreviewUrl(null);
-              }
+              skipUnavailablePreview('native_preview_play_failed');
               return;
             }
             // Only actual browser gesture restrictions merit a tap. A failed
@@ -821,7 +823,7 @@ export default function MusicSwipeDeckModal({
       // interrompre l'écoute d'un autre compte en plein extrait.
       if (playbackKey && (!visible || current?.id !== deckTracks[index]?.id)) void stopTrackPreview(playbackKey);
     };
-  }, [visible, preparingDeck, current?.id, current?.previewUrl, index]);
+  }, [visible, preparingDeck, current?.id, current?.previewUrl, current?.externalUrls?.source, current?.externalUrls?.youtube, index]);
 
   const manualPlay = async () => {
     if (!current || !resolvedPreviewUrl) return;
@@ -1282,7 +1284,7 @@ export default function MusicSwipeDeckModal({
                     {Platform.OS === 'web'
                       ? React.createElement('iframe', {
                           key: `${sourcePlayer.url}:${sourcePlayerAttempt}`,
-                          src: sourcePlayer.provider === 'YOUTUBE' ? `${sourcePlayer.url}&autoplay=1` : sourcePlayer.url,
+                          src: sourcePlayer.provider === 'YOUTUBE' ? `${sourcePlayer.url}&autoplay=1&start=0&end=30` : sourcePlayer.provider === 'SPOTIFY' ? `${sourcePlayer.url}?autoplay=1` : sourcePlayer.url,
                           title: sourcePlayer.label,
                           allow: 'autoplay; encrypted-media; picture-in-picture',
                           allowFullScreen: true,
@@ -1292,15 +1294,18 @@ export default function MusicSwipeDeckModal({
                         })
                       : React.createElement(require('react-native-webview').WebView, {
                           key: `${sourcePlayer.url}:${sourcePlayerAttempt}`,
-                          source: { uri: sourcePlayer.provider === 'YOUTUBE' ? `${sourcePlayer.url}&autoplay=1` : sourcePlayer.url, ...(sourcePlayer.provider === 'YOUTUBE' ? { headers: { Referer: 'https://com.adelkhatra.keep' } } : {}) },
+                          source: { uri: sourcePlayer.provider === 'YOUTUBE' ? `${sourcePlayer.url}&autoplay=1&start=0&end=30` : sourcePlayer.provider === 'SPOTIFY' ? `${sourcePlayer.url}?autoplay=1` : sourcePlayer.url, ...(sourcePlayer.provider === 'YOUTUBE' ? { headers: { Referer: 'https://com.adelkhatra.keep' } } : {}) },
                           allowsInlineMediaPlayback: true,
                           mediaPlaybackRequiresUserAction: false,
+                          domStorageEnabled: true,
+                          setSupportMultipleWindows: false,
                           onError: () => setSourcePlayerFailed(true),
                           onHttpError: () => setSourcePlayerFailed(true),
                           javaScriptEnabled: true,
                           style: { flex: 1, width: '100%' },
                         })}
-                    {sourcePlayerFailed ? <Text style={s.sourcePlayerError}>Le fournisseur bloque la lecture intégrée. Utilise ↻ RELANCER ou ↗ SOURCE.</Text> : null}
+                    {sourcePlayerFailed ? <Text style={s.sourcePlayerError}>La plateforme bloque cette préécoute. Essaie ↻ RELANCER ou ↗ SOURCE.</Text> :
+                      <Text testID="preview-youtube-autoplay-hint" style={s.sourcePlayerError}>Lecture automatique demandée · si le son est bloqué, touche ▶ dans le lecteur.</Text>}
                   </View>
                 ) : null}
                 </View>
