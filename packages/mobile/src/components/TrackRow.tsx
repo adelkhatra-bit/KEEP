@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
   importedPill: { alignSelf: 'flex-start', minHeight: 20, paddingHorizontal: 8, borderRadius: radius.pill, backgroundColor: 'rgba(139,92,246,.14)', borderWidth: 1, borderColor: colors.primaryLight, marginTop: 3, justifyContent: 'center' },
   importedPillText: { color: colors.primaryLight, fontSize: 9, fontWeight: '900' },
   lockedText: { color: colors.primaryLight, fontSize: 9, fontWeight: '800', marginTop: 6 },
-  actions: { flexDirection: 'row', gap: 8, paddingTop: 2 },
+  actions: { flexDirection: 'column', gap: 8, paddingTop: 2 },
   passBtn: { width: 44, height: 44, borderRadius: 13, borderWidth: 1.5, borderColor: '#FF5F83', backgroundColor: 'rgba(255,95,131,.12)', alignItems: 'center', justifyContent: 'center' },
   passBtnText: { color: '#FF5F83', fontWeight: '900', fontSize: 18 },
   keepBtn: { width: 44, height: 44, borderRadius: 13, borderWidth: 1.5, borderColor: '#68F2B1', backgroundColor: '#68F2B1', alignItems: 'center', justifyContent: 'center' },
