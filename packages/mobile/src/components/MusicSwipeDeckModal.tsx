@@ -608,7 +608,7 @@ export default function MusicSwipeDeckModal({
           endAdvanceTimer.current = setTimeout(() => {
             endAdvanceTimer.current = null;
             if (alive && playbackGeneration.current === generation && !actionInFlight.current) advanceIndex();
-          }, 2400);
+          }, source && resolveEmbeddedMusicPlayer(source) ? 10000 : 2400);
         }
         return;
       }
@@ -1270,7 +1270,7 @@ export default function MusicSwipeDeckModal({
                 {/* Adel 05/10/2026 : « il faut que ce soit très lisible, que les utilisateurs ne se fassent pas tromper » -- PAYANT (PayPal) ou GRATUIT, toujours dit en clair sur la carte. */}
                 {storyEmbeddedSource ? <View style={s.storyEmbeddedInCard} testID="story-official-inline-area"><StoryEmbeddedSourcePlayer sourceUrl={storyEmbeddedSource} compact={compactDeck} /></View> : null}
                 {Boolean(trackAddedAt) && !resolvedPreviewUrl && !previewResolving && sourcePlayer ? <Text testID="story-no-provider-ads" style={s.cleanStoryNotice}>Lecture sans publicité intégrée · extrait indisponible</Text> : null}
-                {!trackAddedAt && sourcePlayerOpen && !resolvedPreviewUrl && sourcePlayer ? (
+                {sourcePlayerOpen && !resolvedPreviewUrl && sourcePlayer && !isSaleStoryTrack(current) ? (
                   <View testID="swipe-exact-source-player" style={s.sourcePlayerOverlay}>
                     <View style={s.sourcePlayerToolbar}>
                     <TouchableOpacity style={s.sourcePlayerClose} accessibilityRole="button" accessibilityLabel="Fermer le lecteur et revoir la jaquette" onPress={() => setSourcePlayerOpen(false)}>
@@ -1300,6 +1300,7 @@ export default function MusicSwipeDeckModal({
                           javaScriptEnabled: true,
                           style: { flex: 1, width: '100%' },
                         })}
+                    {trackAddedAt ? <Text testID="story-provider-ad-notice" style={s.sourcePlayerError}>Le lecteur officiel peut commencer par une publicité. Patiente pendant son chargement ; Loki ne supprime pas les publicités du fournisseur.</Text> : null}
                     {sourcePlayerFailed ? <Text style={s.sourcePlayerError}>Le fournisseur bloque la lecture intégrée. Utilise ↻ RELANCER ou ↗ SOURCE.</Text> : null}
                   </View>
                 ) : null}
@@ -1313,9 +1314,13 @@ export default function MusicSwipeDeckModal({
                       <Text style={s.nextInlineText}>↑ SUIVANT</Text>
                     </TouchableOpacity>
                   </View>
-                  {!trackAddedAt && !resolvedPreviewUrl && sourcePlayer && !sourcePlayerOpen ? (
-                    <TouchableOpacity testID="story-open-source-player" style={s.manualPlayButton} accessibilityRole="button" accessibilityLabel="Écouter la vidéo originale dans Loki Music" onPress={() => { stopTrackPreviewFast(); setSourcePlayerOpen(true); }}>
-                      <Text style={s.manualPlayText}>▶ ÉCOUTER DANS LOKI</Text>
+                  {!resolvedPreviewUrl && !previewResolving && sourcePlayer && !sourcePlayerOpen && !isSaleStoryTrack(current) ? (
+                    <TouchableOpacity testID="story-open-source-player" style={s.manualPlayButton} accessibilityRole="button" accessibilityLabel="Écouter la vidéo originale dans Loki Music" onPress={() => {
+                      stopTrackPreviewFast();
+                      if (endAdvanceTimer.current) { clearTimeout(endAdvanceTimer.current); endAdvanceTimer.current = null; }
+                      setSourcePlayerOpen(true);
+                    }}>
+                      <Text style={s.manualPlayText}>{trackAddedAt ? '▶ SOURCE OFFICIELLE · PUB POSSIBLE' : '▶ ÉCOUTER DANS LOKI'}</Text>
                     </TouchableOpacity>
                   ) : null}
                   {Platform.OS === 'web' && (autoplayBlocked || previewEnded) && resolvedPreviewUrl ? (
