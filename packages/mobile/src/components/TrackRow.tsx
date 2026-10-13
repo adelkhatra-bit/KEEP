@@ -120,6 +120,7 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
   return (
     <>
       <View style={[styles.row, entry.creditLocked && styles.rowLocked]}>
+        <View style={styles.rowTop}>
         {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.artwork} /> : <View style={[styles.artwork, styles.artworkPlaceholder]}><Text style={styles.artworkGlyph}>♪</Text></View>}
         <View style={styles.info}>
           <Text style={styles.title} numberOfLines={1}>{track.title}</Text>
@@ -127,7 +128,6 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
           {track.album && <Text style={styles.album} numberOfLines={1}>{track.album}</Text>}
           {importedFromLabel ? <View style={styles.importedPill}><Text style={styles.importedPillText}>{importedFromLabel}</Text></View> : null}
           {availableLabel ? <Text style={styles.platforms} numberOfLines={1}>{availableLabel}</Text> : null}
-          <TrackListenControls track={track} previewKey={`session:${entry.id}`} compactSession />
           {status === 'kept' && visibility === 'PUBLIC' ? (
             <TouchableOpacity testID={`session-story-${entry.id}`} onPress={() => { void publishStory(); }} disabled={storyBusy} accessibilityRole="button" accessibilityLabel="Publier cette musique gardée dans ma Story" style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start', marginTop: 3 }}>
               <Text style={{ color: colors.keep, fontSize: 12, fontWeight: '800' }}>
@@ -157,6 +157,10 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
             {status === 'pending' && <Text style={styles.pendingText}>•</Text>}
           </View>
         )}
+        </View>
+        <View testID={`session-preview-slot-${entry.id}`} style={styles.previewSlot}>
+          <TrackListenControls track={track} previewKey={`session:${entry.id}`} compactSession />
+        </View>
       </View>
 
       <KeepVisibilityChoiceModal
@@ -186,7 +190,9 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 13, paddingHorizontal: 10, marginBottom: 8, gap: 10, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(167,139,250,.35)', backgroundColor: '#151225' },
+  row: { flexDirection: 'column', paddingVertical: 12, paddingHorizontal: 12, marginBottom: 10, gap: 8, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(167,139,250,.50)', backgroundColor: '#151225' },
+  rowTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, minWidth: 0 },
+  previewSlot: { alignSelf: 'stretch', minWidth: 0, paddingTop: 3, borderTopWidth: 1, borderTopColor: 'rgba(167,139,250,.18)' },
   rowLocked: { backgroundColor: 'rgba(139,92,246,.06)', borderRadius: radius.md, paddingHorizontal: 6 },
   artwork: { width: 52, height: 52, borderRadius: radius.sm, backgroundColor: colors.backgroundCard },
   artworkPlaceholder: { alignItems: 'center', justifyContent: 'center' },
@@ -199,7 +205,7 @@ const styles = StyleSheet.create({
   importedPill: { alignSelf: 'flex-start', minHeight: 20, paddingHorizontal: 8, borderRadius: radius.pill, backgroundColor: 'rgba(139,92,246,.14)', borderWidth: 1, borderColor: colors.primaryLight, marginTop: 3, justifyContent: 'center' },
   importedPillText: { color: colors.primaryLight, fontSize: 9, fontWeight: '900' },
   lockedText: { color: colors.primaryLight, fontSize: 9, fontWeight: '800', marginTop: 6 },
-  actions: { flexDirection: 'column', gap: 10, paddingTop: 2 },
+  actions: { flexDirection: 'row', gap: 8, paddingTop: 2 },
   passBtn: { width: 44, height: 44, borderRadius: 13, borderWidth: 1.5, borderColor: '#FF5F83', backgroundColor: 'rgba(255,95,131,.12)', alignItems: 'center', justifyContent: 'center' },
   passBtnText: { color: '#FF5F83', fontWeight: '900', fontSize: 18 },
   keepBtn: { width: 44, height: 44, borderRadius: 13, borderWidth: 1.5, borderColor: '#68F2B1', backgroundColor: '#68F2B1', alignItems: 'center', justifyContent: 'center' },
