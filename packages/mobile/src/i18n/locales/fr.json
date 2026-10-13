@@ -30,7 +30,7 @@
     "endPromptBody": "Aucun nouveau morceau détecté depuis un moment. Terminer la session ?",
     "continueListening": "Continuer la session",
     "recapNotFound": "Session introuvable.",
-    "recapTitle": "Ta session {{appName}}",
+    "recapTitle": "Session",
     "namePlaceholder": "Nommer cette session (ex. Chez Paul, Ibiza…)",
     "keepAll": "Garder tout ({{count}})",
     "chooseDestination": "Choisir où ranger ce morceau",

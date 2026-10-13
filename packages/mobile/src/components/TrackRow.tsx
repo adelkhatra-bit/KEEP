@@ -120,6 +120,7 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
   return (
     <>
       <View style={[styles.row, entry.creditLocked && styles.rowLocked]}>
+        <View style={styles.rowTop}>
         {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.artwork} /> : <View style={[styles.artwork, styles.artworkPlaceholder]}><Text style={styles.artworkGlyph}>♪</Text></View>}
         <View style={styles.info}>
           <Text style={styles.title} numberOfLines={1}>{track.title}</Text>
@@ -127,7 +128,6 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
           {track.album && <Text style={styles.album} numberOfLines={1}>{track.album}</Text>}
           {importedFromLabel ? <View style={styles.importedPill}><Text style={styles.importedPillText}>{importedFromLabel}</Text></View> : null}
           {availableLabel ? <Text style={styles.platforms} numberOfLines={1}>{availableLabel}</Text> : null}
-          <TrackListenControls track={track} previewKey={`session:${entry.id}`} />
           {status === 'kept' && visibility === 'PUBLIC' ? (
             <TouchableOpacity testID={`session-story-${entry.id}`} onPress={() => { void publishStory(); }} disabled={storyBusy} accessibilityRole="button" accessibilityLabel="Publier cette musique gardée dans ma Story" style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start', marginTop: 3 }}>
               <Text style={{ color: colors.keep, fontSize: 12, fontWeight: '800' }}>
@@ -157,6 +157,10 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
             {status === 'pending' && <Text style={styles.pendingText}>•</Text>}
           </View>
         )}
+        </View>
+        <View testID={`session-preview-slot-${entry.id}`} style={styles.previewSlot}>
+          <TrackListenControls track={track} previewKey={`session:${entry.id}`} compactSession />
+        </View>
       </View>
 
       <KeepVisibilityChoiceModal
@@ -186,26 +190,28 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: spacing.sm, gap: spacing.md },
+  row: { flexDirection: 'column', paddingVertical: 12, paddingHorizontal: 12, marginBottom: 10, gap: 8, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(167,139,250,.50)', backgroundColor: '#151225' },
+  rowTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, minWidth: 0 },
+  previewSlot: { alignSelf: 'stretch', minWidth: 0, paddingTop: 3, borderTopWidth: 1, borderTopColor: 'rgba(167,139,250,.18)' },
   rowLocked: { backgroundColor: 'rgba(139,92,246,.06)', borderRadius: radius.md, paddingHorizontal: 6 },
   artwork: { width: 52, height: 52, borderRadius: radius.sm, backgroundColor: colors.backgroundCard },
   artworkPlaceholder: { alignItems: 'center', justifyContent: 'center' },
   artworkGlyph: { color: colors.textMuted, fontSize: 20 },
-  info: { flex: 1, minWidth: 0 },
-  title: { ...typography.bodyBold, color: colors.textPrimary },
-  artist: { fontSize: 13, color: colors.textSecondary, marginTop: 1 },
+  info: { flex: 1, minWidth: 0, paddingBottom: 2 },
+  title: { ...typography.bodyBold, color: '#FFFFFF', fontSize: 14, lineHeight: 19 },
+  artist: { fontSize: 12, color: '#DBD0F3', marginTop: 3 },
   album: { fontSize: 11, color: colors.textMuted, marginTop: 1, fontStyle: 'italic' },
   platforms: { fontSize: 10, color: colors.primaryLight, marginTop: 3, fontWeight: '700' },
   importedPill: { alignSelf: 'flex-start', minHeight: 20, paddingHorizontal: 8, borderRadius: radius.pill, backgroundColor: 'rgba(139,92,246,.14)', borderWidth: 1, borderColor: colors.primaryLight, marginTop: 3, justifyContent: 'center' },
   importedPillText: { color: colors.primaryLight, fontSize: 9, fontWeight: '900' },
   lockedText: { color: colors.primaryLight, fontSize: 9, fontWeight: '800', marginTop: 6 },
-  actions: { flexDirection: 'row', gap: spacing.sm, paddingTop: 8 },
-  passBtn: { width: 34, height: 34, borderRadius: radius.pill, backgroundColor: colors.pass, alignItems: 'center', justifyContent: 'center' },
-  passBtnText: { color: colors.white, fontWeight: '700', fontSize: 15 },
-  keepBtn: { width: 34, height: 34, borderRadius: radius.pill, backgroundColor: colors.keep, alignItems: 'center', justifyContent: 'center' },
+  actions: { flexDirection: 'column', gap: 8, paddingTop: 2 },
+  passBtn: { width: 44, height: 44, borderRadius: 13, borderWidth: 1.5, borderColor: '#FF5F83', backgroundColor: 'rgba(255,95,131,.12)', alignItems: 'center', justifyContent: 'center' },
+  passBtnText: { color: '#FF5F83', fontWeight: '900', fontSize: 18 },
+  keepBtn: { width: 44, height: 44, borderRadius: 13, borderWidth: 1.5, borderColor: '#68F2B1', backgroundColor: '#68F2B1', alignItems: 'center', justifyContent: 'center' },
   keepBtnText: { color: colors.black, fontWeight: '900', fontSize: 17 },
   unlockBtn: { backgroundColor: '#2B2038', borderWidth: 1, borderColor: colors.primaryLight },
-  restoreBtn: { paddingHorizontal: 12, height: 34, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  restoreBtn: { paddingHorizontal: 12, minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
   restoreBtnText: { color: colors.primaryLight, fontWeight: '800', fontSize: 11 },
   unlockBtnText: { color: colors.primaryLight, fontSize: 13 },
   statusBadge: { minWidth: 76, alignItems: 'flex-end', gap: 5, paddingTop: 8 },

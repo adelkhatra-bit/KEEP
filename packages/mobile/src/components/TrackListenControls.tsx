@@ -24,6 +24,8 @@ interface Props {
   onPreviewFinished?: () => void;
   /** Lecture automatique uniquement dans une vue focalisée (ex. Écouter/Loki Pulse). */
   autoPlay?: boolean;
+  /** Sessions: two clear, touch-sized preview actions instead of 5 tiny controls. */
+  compactSession?: boolean;
 }
 
 /**
@@ -31,8 +33,9 @@ interface Props {
  * « vient d'être détecté » (HomeScreenCompact) et les lignes d'historique
  * (TrackRow). Chaque bouton représente une vraie DURÉE, jamais un offset.
  */
-export default function TrackListenControls({ track, previewKey, onPreviewFinished, autoPlay = false }: Props) {
+export default function TrackListenControls({ track, previewKey, onPreviewFinished, autoPlay = false, compactSession = false }: Props) {
   const [previewBusy, setPreviewBusy] = useState(false);
+  const [previewPlaying, setPreviewPlaying] = useState(false);
   const [embeddedPlayerOpen, setEmbeddedPlayerOpen] = useState(false);
   const pausedByEmbeddedPlayer = useRef(false);
   // Only the component that paused the microphone may resume it.
@@ -99,6 +102,7 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
     setResolvingPreview(true);
     resolveTrackPreviewUrl(track)
       .then((url) => { if (live) setResolvedPreviewUrl(url); })
+      .catch(() => { if (live) setResolvedPreviewUrl(null); })
       .finally(() => { if (live) setResolvingPreview(false); });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -180,6 +184,7 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
   // naturelle ou stop manuel, `onStateChange` étant appelé avec false dans
   // les deux cas.
   const resumeListeningOnStop = (isPlaying: boolean) => {
+    setPreviewPlaying(isPlaying);
     if (isPlaying || !pausedMicForPreview.current) return;
     pausedMicForPreview.current = false;
     const session = useSessionStore.getState();
@@ -194,14 +199,31 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
     try {
       await playTrackPreviewSegment(previewKey, resolvedPreviewUrl, 0, durationMillis, resumeListeningOnStop, onPreviewFinished, true);
     } catch {
-      Alert.alert('Extrait indisponible', 'Impossible de lire cet extrait pour le moment.');
+      // Old CDN preview URLs expire. Refresh the SAME title and artist before
+      // giving up; never redirect to a different or guessed song.
+      try {
+        const fresh = await resolveTrackPreviewUrl(track, { forceRefresh: true });
+        if (!fresh) throw new Error('NO_FRESH_PREVIEW');
+        setResolvedPreviewUrl(fresh);
+        await stopTrackPreview(previewKey);
+        await playTrackPreviewSegment(previewKey, fresh, 0, durationMillis, resumeListeningOnStop, onPreviewFinished, true);
+      } catch {
+        resumeListeningOnStop(false);
+        Alert.alert('Préécoute indisponible', 'Cet extrait ne répond pas. Essaie la source officielle ou passe au morceau suivant.');
+      }
     } finally {
       setPreviewBusy(false);
     }
   };
 
   const playSnippet = (durationMillis: number) => {
-    if (!resolvedPreviewUrl || previewBusy) return;
+    if (previewBusy) return;
+    if (previewPlaying) {
+      stopTrackPreviewFast(previewKey);
+      resumeListeningOnStop(false);
+      return;
+    }
+    if (!resolvedPreviewUrl) return;
     unlockWebAudioForGesture();
     const session = useSessionStore.getState();
     if (session.isActive && !session.micPaused) {
@@ -251,14 +273,17 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
 
   return (
     <>
-      <View style={styles.previewRow}>
-        {resolvedPreviewUrl ? <>
+      <View style={[styles.previewRow, compactSession && styles.previewRowSession]}>
+        {resolvedPreviewUrl ? compactSession ? <>
+          <TouchableOpacity testID="session-preview-play-20" style={[styles.previewPill, styles.previewPillPrimary]} onPress={() => playSnippet(20000)} disabled={previewBusy} accessibilityRole="button" accessibilityLabel="Préécouter ce morceau pendant vingt secondes"><Text style={[styles.previewText, styles.previewTextPrimary]} numberOfLines={1}>{previewBusy ? 'CHARGEMENT…' : previewPlaying ? '■ ARRÊTER' : '▶ PRÉÉCOUTER · 20s'}</Text></TouchableOpacity>
+          <TouchableOpacity testID="session-preview-play-30" style={[styles.previewPill, styles.previewPillSecondary]} onPress={() => playSnippet(30000)} disabled={previewBusy} accessibilityRole="button" accessibilityLabel="Préécouter trente secondes"><Text style={styles.previewText} numberOfLines={1}>{previewPlaying ? '■' : '▶ 30s'}</Text></TouchableOpacity>
+        </> : <>
           <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(10000)} disabled={previewBusy} accessibilityLabel="Écouter 10 secondes"><Text style={styles.previewText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{previewBusy ? '…' : '▶ 10s'}</Text></TouchableOpacity>
           <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(20000)} disabled={previewBusy} accessibilityLabel="Écouter 20 secondes"><Text style={styles.previewText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>▶ 20s</Text></TouchableOpacity>
           <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(25000)} disabled={previewBusy} accessibilityLabel="Écouter 25 secondes"><Text style={styles.previewText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>▶ 25s</Text></TouchableOpacity>
           <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(30000)} disabled={previewBusy} accessibilityLabel="Écouter 30 secondes"><Text style={styles.previewText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>▶ 30s</Text></TouchableOpacity>
         </> : null}
-        {(embedUrl || externalPlayUrl) ? <TouchableOpacity style={styles.youtubePill} onPress={openExternal}><Text style={styles.youtubeText}>{embedUrl ? '▶ Écouter ici' : externalDestination?.exact ? '↗ Écouter sur la plateforme' : '↗ Ouvrir la recherche'}</Text></TouchableOpacity> : null}
+        {(embedUrl || externalPlayUrl) ? <TouchableOpacity style={[styles.youtubePill, compactSession && styles.youtubePillSession]} onPress={openExternal} accessibilityRole="button" accessibilityLabel={embedUrl ? 'Préécouter avec le lecteur intégré' : 'Ouvrir le morceau sur sa plateforme'}><Text style={styles.youtubeText}>{embedUrl ? '▶ ÉCOUTER LA SOURCE' : externalDestination?.exact ? '↗ ÉCOUTER SUR LA PLATEFORME' : '↗ RECHERCHER'}</Text></TouchableOpacity> : null}
       </View>
 
       {embedUrl ? (
@@ -302,12 +327,17 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
 
 const styles = StyleSheet.create({
   // Les 4 durées (10 / 20 / 25 / 30 s) tiennent toujours sur UNE ligne, de même taille, alignées (Adel, 06/10/2026) : plus de pastille seule à la ligne.
-  previewRow: { flexDirection: 'row', flexWrap: 'nowrap', gap: 6, marginTop: 6, alignSelf: 'stretch' },
+  previewRow: { flexDirection: 'row', flexWrap: 'nowrap', gap: 6, marginTop: 8, alignSelf: 'stretch' },
+  previewRowSession: { flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  previewPillPrimary: { flexBasis: '62%', minHeight: 44, borderColor: '#68F2B1', backgroundColor: 'rgba(104,242,177,.12)', borderWidth: 1.5, borderRadius: 12 },
+  previewPillSecondary: { flexBasis: '30%', minHeight: 44, borderColor: '#A78BFA', backgroundColor: '#181326', borderRadius: 12 },
+  previewTextPrimary: { color: '#68F2B1', fontSize: 11 },
+  youtubePillSession: { flexBasis: '100%', minHeight: 44, borderRadius: 12, borderColor: '#A78BFA', backgroundColor: '#211936' },
   previewPill: { flex: 1, minHeight: minTouchTarget, minWidth: 0, paddingHorizontal: 2, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard, alignItems: 'center', justifyContent: 'center' },
   previewText: { color: colors.textSecondary, fontSize: 12, fontWeight: '800', textAlign: 'center' },
   youtubePill: { minHeight: minTouchTarget, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: '#211018', borderWidth: 1, borderColor: '#7A2035', alignItems: 'center', justifyContent: 'center' },
-  youtubeText: { color: '#FF6B86', fontSize: 9, fontWeight: '900' },
-  audioUnavailable: { color: colors.textMuted, fontSize: 9, marginTop: 5 },
+  youtubeText: { color: '#DCCFFF', fontSize: 11, fontWeight: '900' },
+  audioUnavailable: { color: '#F5CE87', fontSize: 11, marginTop: 8 },
   embedOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,.78)', alignItems: 'center', justifyContent: 'center', padding: 22 },
   embedCard: { width: '100%', maxWidth: 380, borderRadius: 18, backgroundColor: '#151020', borderWidth: 1, borderColor: '#493369', padding: 14 },
   embedHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 10 },

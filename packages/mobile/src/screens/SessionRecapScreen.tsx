@@ -39,8 +39,20 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   const [titleSaved, setTitleSaved] = useState(false);
   const [swipeOpen, setSwipeOpen] = useState(false);
   const [swipeTracks, setSwipeTracks] = useState<CanonicalTrack[]>([]);
+  const [swipePreviewOnly, setSwipePreviewOnly] = useState(false);
   const [firstShareOffered, setFirstShareOffered] = useState(false);
   const [keepCostPerKeep, setKeepCostPerKeep] = useState(3);
+
+  useEffect(() => {
+    // React Navigation can reuse this screen for another session. Its old
+    // title, card stack and FREE status must not leak into a new session.
+    setTitleDraft(session?.title ?? '');
+    setTitleSaved(false);
+    setSwipeOpen(false);
+    setSwipeTracks([]);
+    setSwipePreviewOnly(false);
+    setShowPassed(false);
+  }, [sessionId]);
 
   useEffect(() => {
     const refreshCredits = () => {
@@ -111,7 +123,12 @@ export default function SessionRecapScreen({ route, navigation }: any) {
 
   const openSwipe = () => {
     const pending = pendingSwipeTracks.slice();
-    if (!pending.length) return;
+    // Even after every decision is taken, a saved Session must remain
+    // playable with the familiar Swipe deck. In replay mode PASSER/GARDER
+    // cannot modify purchased/kept music or consume FREE.
+    const previewOnly = pending.length === 0;
+    const playable = previewOnly ? sortedTracks.map((entry) => entry.track) : pending;
+    if (!playable.length) return;
     // Adel (20/09/2026) : même correctif que Battle -- débloquer l'élément
     // <audio> partagé PENDANT ce tap pour que la première lecture
     // programmatique du Swipe (arrivant après resolveTrackPreviewUrl, donc
@@ -120,7 +137,8 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     // Snapshot volontaire : le parent met à jour le statut après chaque choix.
     // Garder la liste stable évite le double saut qui obligeait à fermer puis
     // rouvrir le Swipe après PASSER/GARDER.
-    setSwipeTracks(pending);
+    setSwipePreviewOnly(previewOnly);
+    setSwipeTracks(playable);
     setSwipeOpen(true);
   };
 
@@ -238,7 +256,12 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     const entry = findPendingEntry(track);
     if (!entry) return true;
     await refreshCreditLocks().catch(() => {});
-    await keepTrackInSession(sessionId, entry.id, undefined, visibility);
+    try {
+      await keepTrackInSession(sessionId, entry.id, undefined, visibility);
+    } catch {
+      Alert.alert('GARDER indisponible', 'Le serveur n’a pas confirmé la sauvegarde. Ta musique reste dans ta session.');
+      return false;
+    }
     await refreshCreditLocks().catch(() => {});
     const refreshed = useSessionHistoryStore.getState().sessions.find((item) => item.id === sessionId)?.tracks.find((item) => item.id === entry.id);
     if (refreshed?.creditLocked) {
@@ -268,6 +291,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   const closeSwipe = () => {
     setSwipeOpen(false);
     setSwipeTracks([]);
+    setSwipePreviewOnly(false);
   };
 
   return (
@@ -276,7 +300,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
         <TouchableOpacity style={styles.backButton} onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))} hitSlop={8} accessibilityRole="button" accessibilityLabel="Retour">
           <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
-        <View style={styles.headerCopy}><Text style={styles.headerEyebrow}>SESSION</Text><Text style={styles.title}>{t('session.recapTitle')}</Text></View>
+        <View style={styles.headerCopy}><Text testID="session-short-header" style={styles.title}>{t('session.recapTitle')}</Text></View>
         <TouchableOpacity onPress={handleShare} hitSlop={8} style={styles.shareBtn} accessibilityRole="button" accessibilityLabel="Partager la session">
           <Text style={styles.shareBtnText}>🔗</Text>
         </TouchableOpacity>
@@ -306,7 +330,6 @@ export default function SessionRecapScreen({ route, navigation }: any) {
           <Text style={styles.statsDot}>·</Text>
           <Text style={[styles.statsText, styles.statsKept]}>{t('session.kept', { count: keptCount })}</Text>
         </View>
-        {pendingCount > 0 ? <TouchableOpacity style={styles.pendingPill} onPress={openSwipe} accessibilityRole="button" accessibilityLabel={`Swiper ${pendingCount} musiques`}><Text style={styles.pendingPillText}>SWIPER TOUTES · {pendingCount}</Text></TouchableOpacity> : null}
       </View>
 
       {lockedCount > 0 ? (
@@ -316,12 +339,11 @@ export default function SessionRecapScreen({ route, navigation }: any) {
         </TouchableOpacity>
       ) : null}
 
-      {pendingCount > 0 ? (
-        <Text testID="session-recap-pending-total" style={[styles.visibilityHint, { color: colors.textPrimary, fontWeight: '800' }]}>
-          {pendingCount} musique{pendingCount > 1 ? 's' : ''} en attente · SWIPER TOUTES pour décider sans perdre ta session.
-        </Text>
-      ) : null}
-      <Text style={styles.visibilityHint}>À swiper en premier · Public = visible sur ton profil Loki Music · Privé = visible seulement par toi.</Text>
+      <Text testID="session-recap-pending-total" style={styles.visibilityHint}>
+        {pendingCount > 0
+          ? `${pendingCount} musique${pendingCount > 1 ? 's' : ''} à préécouter ou trier · Public sur ton profil, Privé pour toi.`
+          : 'Tu peux réécouter tes morceaux. Public sur ton profil, Privé pour toi.'}
+      </Text>
 
       <FlatList
         data={sortedTracks}
@@ -359,9 +381,9 @@ export default function SessionRecapScreen({ route, navigation }: any) {
       />
 
       <View style={styles.sessionActionsRow}>
-        {pendingCount > 0 ? (
-          <TouchableOpacity style={[styles.compactAction, styles.swipeAction]} onPress={openSwipe} accessibilityRole="button" accessibilityLabel="Swiper la session">
-            <Text style={styles.swipeActionText}>↔ SWIPER TOUTES · {pendingCount}</Text>
+        {sortedTracks.length > 0 ? (
+          <TouchableOpacity testID="session-swipe-or-replay" style={[styles.compactAction, styles.swipeAction]} onPress={openSwipe} accessibilityRole="button" accessibilityLabel={pendingCount > 0 ? 'Swiper la session et préécouter les morceaux' : 'Réécouter la session dans le Swipe, sans modifier les choix'}>
+            <Text style={styles.swipeActionText}>{pendingCount > 0 ? `↑ SWIPER / PRÉÉCOUTER · ${pendingCount}` : '▶ RÉÉCOUTER EN SWIPE'}</Text>
           </TouchableOpacity>
         ) : null}
         {pendingCount > 0 ? (
@@ -391,11 +413,12 @@ export default function SessionRecapScreen({ route, navigation }: any) {
       <MusicSwipeDeckModal
         visible={swipeOpen}
         tracks={swipeTracks}
-        title="Swiper cette session"
-        subtitle={`${swipeTracks.length} musique${swipeTracks.length > 1 ? 's' : ''} · PASSER = la retire de la liste (récupérable dans RETIRÉS) · GARDER l’ajoute à ta collection.`}
+        title={swipePreviewOnly ? 'Réécouter cette session' : 'Swiper cette session'}
+        subtitle={swipePreviewOnly ? 'Mode préécoute : GARDER/PASSER ne modifie rien. ↑ pour passer au morceau suivant.' : `${swipeTracks.length} musique${swipeTracks.length > 1 ? 's' : ''} · Préécoute gratuite · Glisse vers le haut pour avancer · PASSER est récupérable.`}
         emptyTitle="Swipe terminé. Toutes les musiques ont été validées."
         loop={false}
-        askVisibilityOnKeep
+        previewOnly={swipePreviewOnly}
+        askVisibilityOnKeep={!swipePreviewOnly}
         keepCostNotice={`GARDER ce morceau débitera ${keepCostPerKeep} FREE après ton choix Public ou Privé. PASSER reste gratuit.`}
         keepDebitAmount={keepCostPerKeep}
         onClose={closeSwipe}
@@ -425,9 +448,9 @@ const styles = StyleSheet.create({
   titleInput: { flex: 1, minHeight: 48, color: colors.textPrimary, fontSize: 15, fontWeight: '700', borderWidth: 1, borderColor: colors.border, backgroundColor:colors.backgroundElevated, borderRadius:14, paddingHorizontal:12, paddingVertical: spacing.sm },
   validateTitleButton: { minHeight: 48, paddingHorizontal: 14, borderRadius: 24, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   validateTitleText: { color: colors.white, fontSize: 11, fontWeight: '900', letterSpacing: .4 },
-  titleHint: { marginHorizontal: spacing.xl, marginTop: 4, color: colors.textMuted, fontSize: 9 },
-  titleSaved: { marginHorizontal: spacing.xl, marginTop: 4, color: colors.keep, fontSize: 9, fontWeight: '800' },
-  statsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, paddingHorizontal: spacing.xl, marginTop: spacing.lg },
+  titleHint: { marginHorizontal: spacing.xl, marginTop: 4, color: colors.textMuted, fontSize: 11 },
+  titleSaved: { marginHorizontal: spacing.xl, marginTop: 4, color: colors.keep, fontSize: 11, fontWeight: '800' },
+  statsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, paddingHorizontal: spacing.xl, marginTop: spacing.sm },
   statsCopy: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexShrink: 1 },
   statsText: { color: colors.textSecondary, fontSize: 14, fontWeight: '600' },
   statsKept: { color: colors.keep },
@@ -438,19 +461,19 @@ const styles = StyleSheet.create({
   lockedBannerTitle: { color: colors.primaryLight, fontSize: 12, fontWeight: '900' },
   lockedBannerText: { color: colors.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 4 },
   visibilityHint: { color: colors.textMuted, fontSize: 11, lineHeight: 16, textAlign: 'center', marginTop: spacing.md, paddingHorizontal: spacing.xl },
-  list: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.sm },
+  list: { paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.sm },
   passedSection: { marginTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.sm },
   passedHeader: { minHeight:44, justifyContent:'center', paddingVertical: 8 },
   passedHeaderText: { color: colors.textMuted, fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
-  sessionActionsRow: { flexDirection: 'row', alignItems: 'stretch', gap: 7, marginHorizontal: spacing.xl, marginBottom: spacing.md },
-  compactAction: { flex: 1, minHeight: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
-  swipeAction: { backgroundColor: colors.keep, borderWidth: 1, borderColor: colors.keep },
+  sessionActionsRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'stretch', gap: 10, marginHorizontal: spacing.xl, marginBottom: spacing.md },
+  compactAction: { flex: 1, minHeight: 48, borderRadius: 15, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8 },
+  swipeAction: { flexBasis: '100%', flexGrow: 0, flexShrink: 0, backgroundColor: colors.keep, borderWidth: 2, borderColor: '#68F2B1' },
   swipeActionText: { color: colors.black, fontSize: 11, fontWeight: '900' },
-  keepAllButton: { backgroundColor: colors.keep, borderWidth: 1, borderColor: colors.keep },
+  keepAllButton: { flexBasis: '42%', flexGrow: 1, backgroundColor: '#19152B', borderWidth: 1.5, borderColor: '#68F2B1' },
   keepAllButtonLocked: { backgroundColor: colors.backgroundElevated, borderColor: colors.border },
-  keepAllButtonText: { color: colors.black, fontWeight: '900', fontSize: 11, textAlign: 'center' },
+  keepAllButtonText: { color: '#68F2B1', fontWeight: '900', fontSize: 11, textAlign: 'center' },
   keepAllButtonTextLocked: { color: colors.textPrimary },
-  deleteSessionButton: { borderWidth: 1, borderColor: colors.danger, backgroundColor: colors.backgroundCard },
+  deleteSessionButton: { flexBasis: '42%', flexGrow: 1, borderWidth: 1.5, borderColor: colors.danger, backgroundColor: colors.backgroundCard },
   deleteSessionText: { color: colors.danger, fontSize: 11, fontWeight: '900' },
   demoBadge: { marginHorizontal: spacing.xl, marginBottom: spacing.md, backgroundColor: colors.demoBadgeBg, borderWidth: 1, borderColor: colors.demoBadgeBorder, borderRadius: radius.md, paddingVertical: spacing.sm, alignItems: 'center' },
   demoText: { color: colors.demoBadgeText, fontSize: 11, fontWeight: '600' },
