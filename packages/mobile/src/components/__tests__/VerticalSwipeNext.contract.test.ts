@@ -52,7 +52,8 @@ describe('swipe iPhone : PanResponder créé une seule fois + carte qui s\'adapt
     expect(deck).toContain('const latest = useRef({ enabled, onSwipeLeft, onSwipeRight, onSwipeUp });');
     expect(deck).toContain('const responder = useRef(PanResponder.create({');
     expect(deck).not.toContain('useMemo(() => PanResponder.create');
-    expect(deck).toContain('onStartShouldSetPanResponder: () => latest.current.enabled');
+    expect(deck).toContain('onStartShouldSetPanResponder: () => false');
+    expect(deck).toContain('onMoveShouldSetPanResponderCapture: (_, gesture) => latest.current.enabled');
     expect(deck).toContain('{...responder.panHandlers} style={[styles.shell');
   });
   it('the swipe card fills the free height instead of overflowing the header and the buttons', () => {
