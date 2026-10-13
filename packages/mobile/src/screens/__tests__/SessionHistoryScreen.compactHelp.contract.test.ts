@@ -24,7 +24,9 @@ describe('Mes Sessions compact header help contract', () => {
   it('keeps the recap pending count and swipe-all action across phone and computer', () => {
     const recap = fs.readFileSync(path.resolve(__dirname, '..', 'SessionRecapScreen.tsx'), 'utf8');
     expect(recap).toContain('testID="session-recap-pending-total"');
-    expect(recap).toContain('SWIPER TOUTES · {pendingCount}');
+    expect(recap).toContain('testID="session-swipe-or-replay"');
+    expect(recap).toContain('RÉÉCOUTER EN SWIPE');
+    expect(recap).not.toContain('SWIPER TOUTES · {pendingCount}'); // one clear CTA at the bottom
     expect(recap).toContain('tracks={swipeTracks}');
     expect(recap).toContain('onKeep={handleSwipeKeep}');
     expect(recap).toContain('onPass={handleSwipePass}');
