@@ -19,6 +19,7 @@ import { loadMyOfferedTrackIds } from '../services/playlistSaleService';
 import { persistOwnTrackVisibility } from '../services/keepVisibilityService';
 import { isTrackPreviewActive, playTrackPreviewFromGesture, preloadTrackPreview, stopTrackPreview, stopTrackPreviewFast, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
+import { isWebAudioGestureRequired } from '../services/webAudioError';
 import StoryEmbeddedSourcePlayer from './StoryEmbeddedSourcePlayer';
 import { resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
 import { resolveTrackExternalDestination } from '../services/trackExternalLinkService';
@@ -653,7 +654,13 @@ export default function MusicSwipeDeckModal({
               .then((nextUrl) => nextUrl ? preloadTrackPreview(nextUrl) : undefined)
               .catch(() => {});
           }
-        } catch {
+        } catch (initialPlayError) {
+          // On web, autoplay can be denied until a real tap. A catalogue
+          // re-search cannot grant a gesture; expose Play immediately instead.
+          if (Platform.OS === 'web' && isWebAudioGestureRequired(initialPlayError)) {
+            if (alive && playbackGeneration.current === generation) setAutoplayBlocked(true);
+            return;
+          }
           // Une URL de preview persistée peut expirer côté catalogue. Avant de
           // conclure à un blocage autoplay, on force UNE résolution fraîche et
           // on rejoue la même carte. Cela évite le Swipe silencieux après
@@ -740,8 +747,12 @@ export default function MusicSwipeDeckModal({
               }
               return;
             }
-            // Web uniquement : Safari/Chrome peuvent imposer un geste.
-            if (alive) setAutoplayBlocked(true);
+            // Only actual browser gesture restrictions merit a tap. A failed
+            // media URL or unsupported codec must advance, not trap the Swipe.
+            if (alive && playbackGeneration.current === generation) {
+              if (isWebAudioGestureRequired(playError)) setAutoplayBlocked(true);
+              else skipUnavailablePreview('web_preview_play_failed');
+            }
           }
         }
       })
