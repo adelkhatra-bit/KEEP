@@ -469,7 +469,8 @@ begin
   ranked as (select d.*, count(*) over(partition by coalesce(d.origin_country_code,'UNKNOWN')) as origin_artist_count,
     case when v_themes is null then 1 else row_number() over(partition by d.theme_code order by d.recent_penalty,d.rnd) end as theme_rank from artist_dedup d),
   candidates as (select * from ranked where origin_artist_count>=4
-    order by case when v_themes is null then recent_penalty else theme_rank end, case when v_themes is null then 1 else theme_ord end, recent_penalty, rnd limit v_round_count),
+    order by case when origin_country_code is not null then 0 else 1 end,
+      case when v_themes is null then recent_penalty else theme_rank end, case when v_themes is null then 1 else theme_ord end, recent_penalty, rnd limit v_round_count),
   packed as (select row_number() over(order by case when v_themes is null then recent_penalty else theme_rank end, case when v_themes is null then 1 else theme_ord end, rnd)::integer as position,
       c.id,c.title,c.artist,c.artwork_url,c.preview_url,c.release_year,c.genres,c.origin_country_code, coalesce(c.theme_code,'MIX') as theme_code from candidates c),
   -- A verified-country artist must only be compared against artists from
