@@ -25,6 +25,15 @@ describe('Loki Music Swipe iPhone / desktop audio recovery', () => {
     expect(modal).toContain('setAutoplayBlocked(true)');
   });
 
+  it('reports a genuine listen only once and never floods Supabase on each native status callback', () => {
+    expect(modal).toContain('if (listenedIdsRef.current.has(trackId)) return;');
+    expect(modal).toContain('if (!fromProfileId || profileListenSentRef.current.has(trackId)) return;');
+    expect(modal).toContain('profileListenSentRef.current.add(trackId);');
+    expect(modal.match(/recordProfileSwipeListen\(fromProfileId, trackId\)/g)).toHaveLength(1);
+    expect(modal.match(/recordSwipeListenOnce\(current.id, currentSourceProfileId\)/g)).toHaveLength(5);
+    expect(modal).toContain('listenedIdsRef.current.clear();');
+  });
+
   it('offers an accessible one-tap next control and preserves the original three action buttons', () => {
     expect(modal).toContain('testID="swipe-next-without-gesture"');
     expect(modal).toContain('accessibilityLabel="Morceau suivant"');
