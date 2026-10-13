@@ -1254,6 +1254,31 @@ export default function MusicSwipeDeckModal({
                 {ownerMasked ? <View style={[s.cover,s.coverFallback]}><MysteryArtwork caption="Titre masqué · aperçu de tes abonnés" /></View> : current.artworkUrl ? <Image source={{ uri: current.artworkUrl }} style={s.cover as any} resizeMode="contain" /> : <View style={[s.cover,s.coverFallback]}>{isSaleStoryTrack(current) ? <MysteryArtwork caption={priceBadge ? '' : 'Titre masqué · garde pour révéler'} /> : <Text style={s.coverK}>K</Text>}</View>}
                 {/* Adel 05/10/2026 : « il faut que ce soit très lisible, que les utilisateurs ne se fassent pas tromper » -- PAYANT (PayPal) ou GRATUIT, toujours dit en clair sur la carte. */}
                 {storyEmbeddedSource ? <View style={s.storyEmbeddedInCard} testID="story-official-inline-area"><StoryEmbeddedSourcePlayer sourceUrl={storyEmbeddedSource} compact={compactDeck} /></View> : null}
+                {!trackAddedAt && sourcePlayerOpen && !resolvedPreviewUrl && sourcePlayer ? (
+                  <View testID="swipe-exact-source-player" style={s.sourcePlayerOverlay}>
+                    <TouchableOpacity style={s.sourcePlayerClose} accessibilityRole="button" accessibilityLabel="Arrêter la vidéo sans quitter la Story" onPress={() => setSourcePlayerOpen(false)}>
+                      <Text style={s.sourcePlayerCloseText}>✕ FERMER LA VIDÉO</Text>
+                    </TouchableOpacity>
+                    {Platform.OS === 'web'
+                      ? React.createElement('iframe', {
+                          key: sourcePlayer.url,
+                          src: sourcePlayer.url,
+                          title: sourcePlayer.label,
+                          allow: 'autoplay; encrypted-media; picture-in-picture',
+                          allowFullScreen: true,
+                          referrerPolicy: 'strict-origin-when-cross-origin',
+                          style: { width: '100%', height: '84%', border: 0, borderRadius: 12 },
+                        })
+                      : React.createElement(require('react-native-webview').WebView, {
+                          key: sourcePlayer.url,
+                          source: { uri: sourcePlayer.url, ...(sourcePlayer.provider === 'YOUTUBE' ? { headers: { Referer: 'https://com.adelkhatra.keep' } } : {}) },
+                          allowsInlineMediaPlayback: true,
+                          mediaPlaybackRequiresUserAction: false,
+                          javaScriptEnabled: true,
+                          style: { flex: 1, width: '100%' },
+                        })}
+                  </View>
+                ) : null}
                 </View>
                 <View style={[s.gradientFake, compactDeck && s.gradientCompact, storyEmbeddedSource && s.gradientStoryEmbed]} testID="swipe-metadata-below-artwork">
                   {!desktopSwipeLayout && currentSourceUsername ? <TouchableOpacity style={s.sourceOverlay} onPress={() => setSourceQuick(currentSourceUsername.replace(/^@/, ''))} disabled={!onOpenSourceProfile} accessibilityLabel={`Découvert par ${currentSourceUsername.replace(/^@/, '')}. Ouvrir son profil`}><GlowRing radius={14} testID="deck-source-glow" /><Text style={s.sourceOverlayText} numberOfLines={1}>Découvert par @{currentSourceUsername.replace(/^@/, '')}</Text></TouchableOpacity> : null}
@@ -1278,31 +1303,7 @@ export default function MusicSwipeDeckModal({
                   <Text style={s.artist} numberOfLines={1}>{ownerMasked ? 'Ta boutique' : current.artist}</Text>
                   {current.album && !ownerMasked && !storyEmbeddedSource && !compactDeck ? <Text style={s.album} numberOfLines={1}>{current.album}</Text> : null}
                 </View>
-                {!trackAddedAt && sourcePlayerOpen && !resolvedPreviewUrl && sourcePlayer ? (
-                  <View testID="story-source-player" style={s.sourcePlayerOverlay}>
-                    <TouchableOpacity style={s.sourcePlayerClose} accessibilityRole="button" accessibilityLabel="Arrêter la vidéo sans quitter la Story" onPress={() => setSourcePlayerOpen(false)}>
-                      <Text style={s.sourcePlayerCloseText}>✕ FERMER LA VIDÉO</Text>
-                    </TouchableOpacity>
-                    {Platform.OS === 'web'
-                      ? React.createElement('iframe', {
-                          key: sourcePlayer.url,
-                          src: sourcePlayer.url,
-                          title: sourcePlayer.label,
-                          allow: 'autoplay; encrypted-media; picture-in-picture',
-                          allowFullScreen: true,
-                          referrerPolicy: 'strict-origin-when-cross-origin',
-                          style: { width: '100%', height: '84%', border: 0, borderRadius: 12 },
-                        })
-                      : React.createElement(require('react-native-webview').WebView, {
-                          key: sourcePlayer.url,
-                          source: { uri: sourcePlayer.url, ...(sourcePlayer.provider === 'YOUTUBE' ? { headers: { Referer: 'https://com.adelkhatra.keep' } } : {}) },
-                          allowsInlineMediaPlayback: true,
-                          mediaPlaybackRequiresUserAction: false,
-                          javaScriptEnabled: true,
-                          style: { flex: 1, width: '100%' },
-                        })}
-                  </View>
-                ) : null}
+
               </View>
             </SwipeDeck>
           </View>
