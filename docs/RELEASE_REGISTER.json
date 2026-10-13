@@ -1,5 +1,14 @@
 [
   {
+    "commit": "0346112aebc9fbce4aaa48157cbcdeb09f023bfd",
+    "web": "0346112aebc9fbce4aaa48157cbcdeb09f023bfd",
+    "testflight": "iOS #233 success (release c7f97df)",
+    "ota": "OTA #1024 success (release c7f97df)",
+    "date": "2026-10-13 14:55",
+    "tests": "pass",
+    "changes": "fix(ios): corriger le lecteur YouTube erreur 153 avec Referer WebView (#166)"
+  },
+  {
     "commit": "84e3fbdc482f44e142dc17e3538ffb2af47ec43c",
     "web": "84e3fbdc482f44e142dc17e3538ffb2af47ec43c",
     "testflight": "iOS #233 success (release c7f97df)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 11:37",
     "tests": "pass",
     "changes": "fix(events): badge rouge TERMINÉE sur la version avec Stories et cockpit PC (#141)"
-  },
-  {
-    "commit": "326173cf83e1f60518e269b9a04deddd5ecaa4b8",
-    "web": "326173cf83e1f60518e269b9a04deddd5ecaa4b8",
-    "testflight": "iOS #228 success (release f8dbd60)",
-    "ota": "OTA #1019 success (release f8dbd60)",
-    "date": "2026-10-12 11:29",
-    "tests": "pass",
-    "changes": "fix(listen): YouTube PC — capture d'onglet intégrée et liens reconnus (#136)"
   }
 ]
