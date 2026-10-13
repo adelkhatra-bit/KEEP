@@ -580,10 +580,24 @@ export default function MusicSwipeDeckModal({
     // A missing/expired Apple preview must never freeze the entire Swipe on
     // a silent card. Only keep the card when there is a legitimate provider
     // player to offer (or when this is the last card in a finite deck).
+    const scheduleEmbeddedStoryNext = () => {
+      // Provider iframes (YouTube/Spotify) do not invoke our audio onEnded.
+      // A Story with only an official embedded 30-second player must still
+      // reach the next card, even when the provider suppresses autoplay.
+      if (!trackAddedAt || !(index + 1 < deckTracks.length || loop)) return;
+      if (endAdvanceTimer.current) clearTimeout(endAdvanceTimer.current);
+      endAdvanceTimer.current = setTimeout(() => {
+        endAdvanceTimer.current = null;
+        if (alive && playbackGeneration.current === generation && !actionInFlight.current) advanceIndex();
+      }, 30000);
+    };
     const skipUnavailablePreview = (reason: string) => {
       if (!alive || playbackGeneration.current !== generation || !current) return;
       const source = current.externalUrls?.source || current.externalUrls?.youtube || null;
-      if (!isSaleStoryTrack(current) && resolveEmbeddedMusicPlayer(source)) return;
+      if (!isSaleStoryTrack(current) && resolveEmbeddedMusicPlayer(source)) {
+        scheduleEmbeddedStoryNext();
+        return;
+      }
       reportAutoDiagnostic('SWIPE_PREVIEW_UNAVAILABLE', `${reason} id=${String(current.id).slice(0, 36)}`);
       if (index + 1 < deckTracks.length || loop) {
         if (endAdvanceTimer.current) clearTimeout(endAdvanceTimer.current);
@@ -603,9 +617,10 @@ export default function MusicSwipeDeckModal({
     // Share-linked YouTube videos are their own playback source.
     // Never substitute a different iTunes song based on loosely parsed titles.
     if (!current.previewUrl?.trim() && !isSaleStoryTrack(current)
-        && resolveEmbeddedMusicPlayer(current.externalUrls?.source || null)) {
+        && resolveEmbeddedMusicPlayer(current.externalUrls?.source || current.externalUrls?.youtube || null)) {
       setPreviewResolving(false);
       setResolvedPreviewUrl(null);
+      scheduleEmbeddedStoryNext();
       return () => { alive = false; };
     }
     setPreviewResolving(!current.previewUrl?.trim());
