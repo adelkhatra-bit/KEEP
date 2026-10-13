@@ -1192,27 +1192,7 @@ export default function MusicSwipeDeckModal({
       : 'Tu as terminé toutes les nouvelles musiques de ce profil.'
     : emptyTitle;
 
-  return <KeepModal visible={visible} animationType="slide" onRequestClose={() => { void close(); }} presentationStyle="fullScreen">
-    <View style={[s.outer, desktopSwipeLayout && s.desktopOuter]} testID="story-viewport">
-    <SafeAreaView style={[s.container, desktopSwipeLayout && s.desktopPlayer, desktopSwipeLayout && { height: Math.max(410, windowHeight - 32) }]} testID="story-player">
-      <View style={[s.header, desktopSwipeLayout && compactDeck && s.desktopHeaderCompact]}>
-        <View style={s.headerText}>
-          <Text style={s.eyebrow}>Loki Music SWIPE</Text>
-          <View style={s.titleRow}>{onTitlePress ? <TouchableOpacity onPress={onTitlePress} accessibilityRole="button" accessibilityLabel={`Voir la fiche : ${title}`} testID="deck-title-profile" style={{ flexShrink: 1 }}><Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title} ›</Text></TouchableOpacity> : <Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title}</Text>}{titleBadge ? <View style={s.titleBadge}>{titleBadge}</View> : null}</View>
-          {resolvedSubtitle ? <ClampedText style={s.subtitle} text={resolvedSubtitle} /> : null}
-          {storyAgeLine ? <Text style={s.storyAge} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} testID="deck-story-age">⏱ {storyAgeLine}</Text> : null}
-        </View>
-        <TouchableOpacity style={s.close} onPress={() => { void close(); }} accessibilityLabel="Fermer le swipe"><Text style={s.closeText}>✕</Text></TouchableOpacity>
-      </View>
-      {/* Les étiquettes PAYANT / GRATUIT sont dans le flux, jamais posées sur la jaquette ni sur le nom du découvreur. */}
-      {priceBadge ? (
-        <View style={s.priceBadgeRow} testID="deck-price-badge">
-          <View style={[s.priceBadge, priceBadge.paid ? s.priceBadgePaid : s.priceBadgeFree]}>
-            <Text style={[s.priceBadgeText, priceBadge.paid ? s.priceBadgeTextPaid : s.priceBadgeTextFree]} numberOfLines={2}>{priceBadge.label}</Text>
-          </View>
-        </View>
-      ) : null}
-      {headerExtra || (likesActive && current && isUuidKey(likeKey(current.id))) ? (
+  const feedbackBar = headerExtra || (likesActive && current && isUuidKey(likeKey(current.id))) ? (
             <View style={s.headerLikeRow} testID="deck-like-bar">
               {ask ? <Animated.View pointerEvents="none" style={[s.askBubble, { opacity: askFade, transform: [{ translateY: askFade.interpolate({ inputRange: [0, 1], outputRange: [-6, 0] }) }] }]} testID="deck-like-ask"><View style={s.askArrow} /><Text style={s.askText} numberOfLines={1}>{ask}</Text></Animated.View> : null}
               <View style={[{ flexShrink: 0, maxWidth: '100%' }, compactDeck ? s.headerExtraCompact : null]}>{headerExtra}</View>
@@ -1229,7 +1209,30 @@ export default function MusicSwipeDeckModal({
                 return <View style={s.likeRight}><TrackLikeButton reaction={reaction} count={count} onReact={(kind) => { void reactTo(kind); }} onClear={() => { void trackLikes.clear(current.id); }} /></View>;
               })() : null}
             </View>
-          ) : null}
+          ) : null;
+
+  return <KeepModal visible={visible} animationType="slide" onRequestClose={() => { void close(); }} presentationStyle="fullScreen">
+    <View style={[s.outer, desktopSwipeLayout && s.desktopOuter]} testID="story-viewport">
+    <SafeAreaView style={[s.container, desktopSwipeLayout && s.desktopPlayer, desktopSwipeLayout && { height: Math.max(410, windowHeight - 32) }]} testID="story-player">
+      <View style={[s.header, desktopSwipeLayout && compactDeck && s.desktopHeaderCompact]}>
+        <View style={s.headerText}>
+          <Text style={s.eyebrow}>Loki Music SWIPE</Text>
+          <View style={s.titleRow}>{onTitlePress ? <TouchableOpacity onPress={onTitlePress} accessibilityRole="button" accessibilityLabel={`Voir la fiche : ${title}`} testID="deck-title-profile" style={{ flexShrink: 1 }}><Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title} ›</Text></TouchableOpacity> : <Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title}</Text>}{titleBadge ? <View style={s.titleBadge}>{titleBadge}</View> : null}</View>
+          {resolvedSubtitle ? <ClampedText style={s.subtitle} text={resolvedSubtitle} /> : null}
+          {storyAgeLine ? <Text style={s.storyAge} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} testID="deck-story-age">⏱ {storyAgeLine}</Text> : null}
+        </View>
+        {desktopSwipeLayout ? feedbackBar : null}
+        <TouchableOpacity style={s.close} onPress={() => { void close(); }} accessibilityLabel="Fermer le swipe"><Text style={s.closeText}>✕</Text></TouchableOpacity>
+      </View>
+      {/* Les étiquettes PAYANT / GRATUIT sont dans le flux, jamais posées sur la jaquette ni sur le nom du découvreur. */}
+      {priceBadge ? (
+        <View style={s.priceBadgeRow} testID="deck-price-badge">
+          <View style={[s.priceBadge, priceBadge.paid ? s.priceBadgePaid : s.priceBadgeFree]}>
+            <Text style={[s.priceBadgeText, priceBadge.paid ? s.priceBadgeTextPaid : s.priceBadgeTextFree]} numberOfLines={2}>{priceBadge.label}</Text>
+          </View>
+        </View>
+      ) : null}
+      {!desktopSwipeLayout ? feedbackBar : null}
 
       <View style={s.body}>
         {preparingDeck ? <View style={s.empty}><ActivityIndicator color={colors.primaryLight} size="large" /><Text style={s.emptyTitle}>Préparation des nouvelles musiques…</Text><Text style={s.preparingHint}>Loki Music prépare les extraits de ce profil.</Text></View> : !current ? <View style={s.empty}><Text style={s.emptyIcon}>♪</Text><Text style={s.emptyTitle}>{resolvedEmptyTitle}</Text>{endExtra}<TouchableOpacity style={s.backButton} onPress={() => { void close(); }}><Text style={s.backText}>{resolvedBackLabel}</Text></TouchableOpacity></View> : <>
