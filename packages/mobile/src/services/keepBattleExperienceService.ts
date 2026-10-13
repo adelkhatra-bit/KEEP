@@ -244,10 +244,10 @@ export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8, 
   // Reject invalid server data BEFORE charging a Solo to the player.
   for (const round of rounds) {
     const normalize = (value: string) => value.trim().toLocaleLowerCase();
-    const labels = round.choices.map(normalize);
-    if (labels.length !== 4 || labels.some((label) => !label)
+    const labels: string[] = (round.choices as string[]).map((choice: string) => normalize(choice));
+    if (labels.length !== 4 || labels.some((label: string) => !label)
       || new Set(labels).size !== 4
-      || labels.filter((label) => label === normalize(round.correctAnswer)).length !== 1) {
+      || labels.filter((label: string) => label === normalize(round.correctAnswer)).length !== 1) {
       throw new Error('BATTLE_SOLO_CHOICES_INVALID');
     }
   }
