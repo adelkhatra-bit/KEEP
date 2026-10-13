@@ -143,6 +143,7 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
+| `70d1b4a` | `70d1b4a` | iOS #234 success (release f8eacf5) | OTA #1025 success (release f8eacf5) | 2026-10-13 16:58 | pass | fix(audio): déblocage des recherches Apple iTunes pendant Swipe et session (#173) |
 | `404f669` | `404f669` | iOS #234 in_progress (release f8eacf5) | OTA #1025 in_progress (release f8eacf5) | 2026-10-13 16:29 | pass | fix(solo): réponses difficiles par pays d’origine vérifié, genre et époque (#169) |
 | `f8eacf5` | `f8eacf5` | iOS #234 in_progress (release f8eacf5) | OTA #1025 in_progress (release f8eacf5) | 2026-10-13 16:21 | pass | release(ios+web): publish tested Story YouTube 153 and Swipe fixes |
 | `43afe85` | `43afe85` | iOS #233 success (release c7f97df) | OTA #1024 success (release c7f97df) | 2026-10-13 16:13 | pass | fix(story/ios): corriger YouTube 153 dans le vrai lecteur Story et le chevauchement Swipe (#167) |
@@ -182,7 +183,6 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 | `97b3d1a` | `97b3d1a` | iOS #229 success (release a18e390) | OTA #1020 success (release a18e390) | 2026-10-12 18:12 | pass | fix(soirées): rendre Story automatique et Loki Pulse visibles aux organisateurs (#151) |
 | `0e903ad` | `0e903ad` | iOS #229 in_progress (release a18e390) | OTA #1020 in_progress (release a18e390) | 2026-10-12 12:50 | pass | fix(web): afficher les corrections publiées sans quitter l’onglet PC (#148) |
 | `0acadc6` | `0acadc6` | iOS #229 in_progress (release a18e390) | OTA #1020 in_progress (release a18e390) | 2026-10-12 12:43 | pass | fix(listen): supprimer enfin RESTANTES et réduire le bandeau (rebasé) (#145) |
-| `a18e390` | `a18e390` | iOS #229 in_progress (release a18e390) | OTA #1020 in_progress (release a18e390) | 2026-10-12 12:34 | pass | release(ios): trigger TestFlight and OTA for merged PR116 web/mobile updates |
 <!-- AUTO:RELEASE-REGISTER:END -->
 
 

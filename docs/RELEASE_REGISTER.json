@@ -1,5 +1,14 @@
 [
   {
+    "commit": "70d1b4a28080e4c5f354ec5938934ed19e2736af",
+    "web": "70d1b4a28080e4c5f354ec5938934ed19e2736af",
+    "testflight": "iOS #234 success (release f8eacf5)",
+    "ota": "OTA #1025 success (release f8eacf5)",
+    "date": "2026-10-13 16:58",
+    "tests": "pass",
+    "changes": "fix(audio): déblocage des recherches Apple iTunes pendant Swipe et session (#173)"
+  },
+  {
     "commit": "404f6694966f087e2f7433e689b4bf340815531a",
     "web": "404f6694966f087e2f7433e689b4bf340815531a",
     "testflight": "iOS #234 in_progress (release f8eacf5)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 12:43",
     "tests": "pass",
     "changes": "fix(listen): supprimer enfin RESTANTES et réduire le bandeau (rebasé) (#145)"
-  },
-  {
-    "commit": "a18e3902441335047829572108001fe8decb78c0",
-    "web": "a18e3902441335047829572108001fe8decb78c0",
-    "testflight": "iOS #229 in_progress (release a18e390)",
-    "ota": "OTA #1020 in_progress (release a18e390)",
-    "date": "2026-10-12 12:34",
-    "tests": "pass",
-    "changes": "release(ios): trigger TestFlight and OTA for merged PR116 web/mobile updates"
   }
 ]
