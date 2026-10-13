@@ -184,6 +184,8 @@ export default function MusicSwipeDeckModal({
   const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState<string | null>(null);
   const [previewResolving, setPreviewResolving] = useState(false);
   const [sourcePlayerOpen, setSourcePlayerOpen] = useState(false);
+  const [sourcePlayerFailed, setSourcePlayerFailed] = useState(false);
+  const [sourcePlayerAttempt, setSourcePlayerAttempt] = useState(0);
   // BUG RÉEL (Adel, 01/09/2026 : "je les swipe pour les écouter, les
   // musiques ne partent pas") : la lecture automatique part d'un effet
   // asynchrone (résolution d'URL puis .play()), donc sur web elle perd le
@@ -575,16 +577,17 @@ export default function MusicSwipeDeckModal({
     setAutoplayBlocked(false);
     setPreviewEnded(false);
     setSourcePlayerOpen(false);
+    setSourcePlayerFailed(false);
+    setSourcePlayerAttempt(0);
     setResolvedPreviewUrl(current?.previewUrl?.trim() || null);
 
     // A missing/expired Apple preview must never freeze the entire Swipe on
     // a silent card. Only keep the card when there is a legitimate provider
     // player to offer (or when this is the last card in a finite deck).
     const scheduleEmbeddedStoryNext = () => {
-      // Provider iframes (YouTube/Spotify) do not invoke our audio onEnded.
-      // A Story with only an official embedded 30-second player must still
-      // reach the next card, even when the provider suppresses autoplay.
-      if (!trackAddedAt || !(index + 1 < deckTracks.length || loop)) return;
+      // Provider iframe end events cannot be trusted across iPhone/Chrome.
+      // Source-only music still advances in a Swipe without manual dragging.
+      if (!(index + 1 < deckTracks.length || loop)) return;
       if (endAdvanceTimer.current) clearTimeout(endAdvanceTimer.current);
       endAdvanceTimer.current = setTimeout(() => {
         endAdvanceTimer.current = null;
@@ -595,6 +598,7 @@ export default function MusicSwipeDeckModal({
       if (!alive || playbackGeneration.current !== generation || !current) return;
       const source = current.externalUrls?.source || current.externalUrls?.youtube || null;
       if (!isSaleStoryTrack(current) && resolveEmbeddedMusicPlayer(source)) {
+        if (!trackAddedAt) { setSourcePlayerFailed(false); setSourcePlayerOpen(true); }
         scheduleEmbeddedStoryNext();
         return;
       }
@@ -614,12 +618,15 @@ export default function MusicSwipeDeckModal({
       return () => { alive = false; };
     }
 
-    // Share-linked YouTube videos are their own playback source.
-    // Never substitute a different iTunes song based on loosely parsed titles.
-    if (!current.previewUrl?.trim() && !isSaleStoryTrack(current)
+    // Source-only user discoveries are exact YouTube videos, often without an
+    // ISRC. Never guess a different song from an unrelated catalogue result.
+    // Verified catalogue tracks still get a licensed snippet lookup first.
+    const hasCatalogIdentity = Boolean(current.isrc || current.providerIds?.appleMusic || current.providerIds?.spotify || current.providerIds?.deezer);
+    if (!current.previewUrl?.trim() && !hasCatalogIdentity && !isSaleStoryTrack(current)
         && resolveEmbeddedMusicPlayer(current.externalUrls?.source || current.externalUrls?.youtube || null)) {
       setPreviewResolving(false);
       setResolvedPreviewUrl(null);
+      if (!trackAddedAt) { setSourcePlayerFailed(false); setSourcePlayerOpen(true); }
       scheduleEmbeddedStoryNext();
       return () => { alive = false; };
     }
@@ -1053,7 +1060,7 @@ export default function MusicSwipeDeckModal({
   const previewLabel = previewResolving
     ? 'Recherche de l’extrait…'
     : !resolvedPreviewUrl
-      ? (sourcePlayer ? 'Écoute intégrée de la vidéo originale' : 'Extrait indisponible')
+      ? (sourcePlayer ? 'Source vidéo officielle · lecture selon autorisation' : 'Extrait indisponible')
       : autoplayBlocked
         ? 'Appuie ci-dessous pour écouter'
         : previewEnded
