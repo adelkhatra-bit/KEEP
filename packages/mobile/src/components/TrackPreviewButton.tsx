@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Linking, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Linking, Platform, View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import type { CanonicalTrack } from '@keep/music';
 import { isTrackPreviewActive, stopTrackPreview, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
@@ -8,6 +8,8 @@ import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { supabase } from '../services/supabaseClient';
 import { useSessionStore } from '../store/useSessionStore';
 import { colors } from '../theme/colors';
+import KeepModal from './KeepModal';
+import { resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
 
 type Props = {
   trackKey: string;
@@ -71,8 +73,24 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
   const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState(previewUrl?.trim() || '');
   const [resolvedFallbackUrl, setResolvedFallbackUrl] = useState(fallbackUrl?.trim() || '');
   const [resolving, setResolving] = useState(!previewUrl);
+  const [providerOpen, setProviderOpen] = useState(false);
+  const [providerLoading, setProviderLoading] = useState(false);
+  const [providerFailed, setProviderFailed] = useState(false);
+  const micPausedByPlayer = useRef(false);
+  const embedded = resolveEmbeddedMusicPlayer(resolvedFallbackUrl);
+  const NativeWebView = Platform.OS === 'web' ? null : require('react-native-webview').WebView;
+  const providerUrl = embedded?.provider === 'YOUTUBE' ? `${embedded.url}&autoplay=1` : embedded?.url;
+  const closeProvider = () => {
+    setProviderOpen(false);
+    if (micPausedByPlayer.current) {
+      micPausedByPlayer.current = false;
+      // Wait until the WebView is unmounted before unpausing the mic.
+      setTimeout(() => { const session = useSessionStore.getState(); if (session.isActive && session.micPaused) session.resumeListening(); }, 350);
+    }
+  };
 
   useEffect(() => () => { if (playing) void stopTrackPreview(trackKey); }, [playing, trackKey]);
+  useEffect(() => { setProviderOpen(false); setProviderFailed(false); }, [trackKey]);
 
   useEffect(() => {
     setResolvedPreviewUrl(previewUrl?.trim() || '');
@@ -206,6 +224,14 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
       return;
     }
 
+    if (embedded) {
+      const session = useSessionStore.getState();
+      if (session.isActive && !session.micPaused) { session.pauseListening(); micPausedByPlayer.current = true; }
+      setProviderLoading(true);
+      setProviderFailed(false);
+      setProviderOpen(true);
+      return;
+    }
     if (useSessionStore.getState().isActive) {
       Alert.alert(
         'Écoute Loki Music en cours',
@@ -218,13 +244,53 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
       return;
     }
 
-    if (resolvedFallbackUrl) void openFallback();
+    // ▶ must never unexpectedly send someone to YouTube or another app.
+    // Keep the explicit external-link action separate from pre-listening.
+    Alert.alert('Préécoute indisponible', 'Cette source ne propose aucun extrait intégrable. Tu peux ouvrir sa plateforme séparément, si tu le souhaites.');
   };
 
   if (resolving) {
     if (square) return <TouchableOpacity style={styles.squareDisabled} disabled accessibilityLabel="Recherche audio en cours"><Text style={styles.squareText}>…</Text></TouchableOpacity>;
     return <Text style={[styles.unavailable, fullWidth && styles.unavailableFullWidth]}>Recherche audio…</Text>;
   }
+
+  const embeddedModal = embedded && providerUrl ? (
+    <KeepModal visible={providerOpen} transparent animationType="fade" onRequestClose={closeProvider}>
+      <View style={styles.providerBackdrop}>
+        <View style={styles.providerCard} testID="playlist-preview-inline-player">
+          <View style={styles.providerHeader}>
+            <Text style={styles.providerTitle}>Préécoute dans Loki Music</Text>
+            <TouchableOpacity onPress={closeProvider} accessibilityRole="button" accessibilityLabel="Fermer la préécoute" style={styles.providerClose}><Text style={styles.providerCloseLabel}>✕</Text></TouchableOpacity>
+          </View>
+          {providerLoading ? <Text testID="provider-audio-loading" style={styles.providerHint}>Chargement du lecteur… Une publicité du fournisseur peut précéder le morceau ; patiente ou appuie sur ▶ dans le lecteur.</Text> : null}
+          {providerFailed ? <Text style={styles.providerWarning}>La plateforme refuse ce lecteur. Essaie un autre morceau ou consulte sa source officielle.</Text> : null}
+          {providerOpen ? Platform.OS === 'web'
+            ? React.createElement('iframe' as any, {
+                src: providerUrl,
+                title: `Préécoute ${trackKey} dans Loki Music`,
+                width: '100%', height: embedded.provider === 'YOUTUBE' ? 246 : 194,
+                style: { border: 0, borderRadius: 12 },
+                allow: 'autoplay; encrypted-media; picture-in-picture; fullscreen',
+                allowFullScreen: true,
+                onLoad: () => setProviderLoading(false),
+                referrerPolicy: 'strict-origin-when-cross-origin',
+              })
+            : NativeWebView ? <NativeWebView
+                source={{ uri: providerUrl, ...(embedded.provider === 'YOUTUBE' ? { headers: { Referer: 'https://com.adelkhatra.keep' } } : {}) }}
+                style={{ height: embedded.provider === 'YOUTUBE' ? 246 : 194 }}
+                javaScriptEnabled domStorageEnabled allowsInlineMediaPlayback
+                mediaPlaybackRequiresUserAction={false}
+                setSupportMultipleWindows={false}
+                onLoadEnd={() => setProviderLoading(false)}
+                onError={() => { setProviderLoading(false); setProviderFailed(true); }}
+                onHttpError={() => { setProviderLoading(false); setProviderFailed(true); }}
+                onShouldStartLoadWithRequest={(request: { url: string; isTopFrame?: boolean }) => request.isTopFrame === false || request.url.startsWith(providerUrl!.split('?')[0])}
+              /> : null : null}
+          <Text style={styles.providerHint}>Lecteur officiel {embedded.provider}. Si le fournisseur diffuse une publicité, elle fait partie de sa lecture et ne peut pas être supprimée par Loki.</Text>
+        </View>
+      </View>
+    </KeepModal>
+  ) : null;
 
   if (!resolvedPreviewUrl && !resolvedFallbackUrl) {
     if (square) return <TouchableOpacity style={styles.squareDisabled} disabled accessibilityLabel="Audio indisponible"><Text style={styles.squareText}>♪</Text></TouchableOpacity>;
@@ -233,28 +299,35 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
 
   if (square) {
     return (
+      <>
       <TouchableOpacity
         style={[styles.square, playing && styles.squarePlaying]}
         onPress={toggle}
         disabled={busy}
         accessibilityRole="button"
-        accessibilityLabel={resolvedPreviewUrl ? (playing ? 'Arrêter la pré-écoute' : 'Pré-écouter ce morceau') : 'Écouter ce morceau sur sa plateforme'}
+        accessibilityLabel={resolvedPreviewUrl ? (playing ? 'Arrêter la pré-écoute' : 'Pré-écouter ce morceau') : embedded ? 'Préécouter dans Loki Music' : 'Extrait indisponible dans Loki Music'}
       >
         <Text style={[styles.squareText, playing && styles.squareTextPlaying]}>{busy ? '…' : playing ? '■' : '▶'}</Text>
       </TouchableOpacity>
+      {embeddedModal}
+      </>
     );
   }
 
   return (
+    <> 
     <TouchableOpacity
       style={[styles.button, compact && styles.compact, fullWidth && styles.fullWidth, small && styles.small]}
       onPress={toggle}
       disabled={busy}
       accessibilityRole="button"
-      accessibilityLabel={resolvedPreviewUrl ? (playing ? 'Arrêter la pré-écoute' : 'Pré-écouter ce morceau') : 'Écouter ce morceau sur sa plateforme'}
+      accessibilityLabel={resolvedPreviewUrl ? (playing ? 'Arrêter la pré-écoute' : 'Pré-écouter ce morceau') : embedded ? 'Préécouter dans Loki Music' : 'Extrait indisponible dans Loki Music'}
     >
-      <Text style={[styles.text, compact && styles.compactText, small && styles.smallText]}>{busy ? '…' : resolvedPreviewUrl ? (playing ? '■ Stop' : '▶ Jouer') : '▶ Ouvrir'}</Text>
+      <Text style={[styles.text, compact && styles.compactText, small && styles.smallText]}>{busy ? '…' : resolvedPreviewUrl ? (playing ? '■ Stop' : '▶ Jouer') : embedded ? '▶ Écouter ici' : '♪ Indisponible'}</Text>
     </TouchableOpacity>
+    {embeddedModal}
+    {!resolvedPreviewUrl && !embedded && resolvedFallbackUrl ? <TouchableOpacity onPress={openFallback} accessibilityRole="link" accessibilityLabel="Ouvrir volontairement la plateforme musicale" style={styles.sourceLink}><Text style={styles.sourceLinkText}>↗ Voir sur la plateforme</Text></TouchableOpacity> : null}
+    </>
   );
 }
 
@@ -290,6 +363,16 @@ const styles = StyleSheet.create({
   // #1A1A2E pour tous les carrés d'action -- gris au repos, vert menthe
   // pendant la lecture, jamais de remplissage violet (contrairement à la
   // première maquette, corrigée depuis).
+  providerBackdrop:{flex:1,backgroundColor:'rgba(3,2,12,.88)',justifyContent:'center',alignItems:'center',padding:14},
+  providerCard:{width:'100%',maxWidth:520,borderWidth:1.5,borderColor:'#A78BFA',backgroundColor:'#171020',borderRadius:18,padding:14,gap:10},
+  providerHeader:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',gap:10},
+  providerTitle:{flex:1,color:'#FFFFFF',fontSize:15,fontWeight:'900'},
+  providerClose:{minWidth:44,minHeight:44,alignItems:'center',justifyContent:'center'},
+  providerCloseLabel:{color:'#FFFFFF',fontSize:22},
+  providerHint:{color:'#DCCFFF',fontSize:12,lineHeight:18},
+  providerWarning:{color:'#FFCD93',fontSize:12,lineHeight:18},
+  sourceLink:{minHeight:36,paddingHorizontal:9,justifyContent:'center',alignItems:'center'},
+  sourceLinkText:{fontSize:11,color:'#DCCFFF',textDecorationLine:'underline'},
   square: { width: 40, height: 40, borderRadius: 10, borderWidth: 1.5, borderColor: '#8B87A0', backgroundColor: '#1A1A2E', alignItems: 'center', justifyContent: 'center' },
   squarePlaying: { borderColor: colors.success },
   squareDisabled: { width: 40, height: 40, borderRadius: 10, borderWidth: 1.5, borderColor: colors.border, backgroundColor: '#1A1A2E', alignItems: 'center', justifyContent: 'center', opacity: 0.6 },
