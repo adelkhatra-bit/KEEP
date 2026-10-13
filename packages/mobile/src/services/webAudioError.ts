@@ -7,5 +7,5 @@ export function isWebAudioGestureRequired(error: unknown): boolean {
   const name = String(candidate?.name || '').toLowerCase();
   const message = String(candidate?.message || error || '').toLowerCase();
   return name === 'notallowederror'
-    || /(?:user\s*(?:gesture|interaction|activation)|autoplay\s*(?:blocked|denied|policy)|play\(\).*not allowed|playback\s*not\s*allowed)/i.test(message);
+    || /(?:notallowederror|user.{0,80}(?:interact|gesture|activation|click)|autoplay\s*(?:blocked|denied|policy)|play\(\).*not allowed|playback\s*not\s*allowed)/i.test(message);
 }
