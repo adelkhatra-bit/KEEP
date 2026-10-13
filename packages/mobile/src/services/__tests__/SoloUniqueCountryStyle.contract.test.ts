@@ -10,7 +10,7 @@ const migration = fs.readFileSync(
 describe('Solo: exactly one answer and three non-repeating plausible alternatives', () => {
   test('deduplicates artist identities across accents, punctuation and whitespace', () => {
     expect(migration).toContain("regexp_replace(translate(lower(trim(p.artist))");
-    expect(migration).toContain("partition by regexp_replace(translate(lower(trim(p.artist))");
+    expect(migration).toContain("partition by regexp_replace(translate(lower(trim(split_part(split_part(");
     expect(migration).toContain('d.normalized_artist<>p.normalized_artist');
     expect(migration).toContain('count(distinct regexp_replace(translate(lower(trim(choice.value))');
     expect(migration).toContain("jsonb_array_length(x.choices)=4");
