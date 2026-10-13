@@ -7,7 +7,10 @@ const service = fs.readFileSync(path.resolve(__dirname, '..', 'profileService.ts
 
 describe('Profile explicit save persists the requested state in Supabase', () => {
   it('allows explicit user edits to clear bio, website, city and birthday while preserving unrelated social links', () => {
-    expect(screen).toContain('saveOwnProfile(nextUser, { allowClearing: true, preserveUneditedCollections: true })');
+    expect(screen).toContain('saveOwnProfile(nextUser, {');
+    expect(screen).toContain('allowClearing: true');
+    expect(screen).toContain('preserveUneditedCollections: true');
+    expect(screen).toContain('preserveUneditedPrivateFields:');
     expect(service).toContain('const desiredSocialLinks = options.preserveUneditedCollections');
     expect(service).toContain(': mergeSocialLinks(existingSocialLinks, user.socialLinks, collectionClearing)');
     expect(service).toContain('const favoriteGenres = options.preserveUneditedCollections');
@@ -16,7 +19,9 @@ describe('Profile explicit save persists the requested state in Supabase', () =>
     expect(service).toContain('const persistedAvatar = collectionClearing ? uploadedAvatar');
     expect(service).toContain('if (collectionClearing) {');
     expect(service).toContain('.delete()');
-    expect(service).toContain('const birthDate = allowClearing');
+    expect(service).toContain('const birthDate = options.preserveUneditedPrivateFields?.birthDate');
+    expect(service).toContain('const gender = options.preserveUneditedPrivateFields?.gender');
+    expect(service).toContain('allowClearing');
     expect(service).toContain('keepTextUnlessExplicitlyCleared(user.bio');
     expect(service).toContain('keepTextUnlessExplicitlyCleared(user.website');
   });
