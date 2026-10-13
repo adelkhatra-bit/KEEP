@@ -35,6 +35,7 @@ interface Props {
  */
 export default function TrackListenControls({ track, previewKey, onPreviewFinished, autoPlay = false, compactSession = false }: Props) {
   const [previewBusy, setPreviewBusy] = useState(false);
+  const [previewPlaying, setPreviewPlaying] = useState(false);
   const [embeddedPlayerOpen, setEmbeddedPlayerOpen] = useState(false);
   const pausedByEmbeddedPlayer = useRef(false);
   // Only the component that paused the microphone may resume it.
@@ -101,6 +102,7 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
     setResolvingPreview(true);
     resolveTrackPreviewUrl(track)
       .then((url) => { if (live) setResolvedPreviewUrl(url); })
+      .catch(() => { if (live) setResolvedPreviewUrl(null); })
       .finally(() => { if (live) setResolvingPreview(false); });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -182,6 +184,7 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
   // naturelle ou stop manuel, `onStateChange` étant appelé avec false dans
   // les deux cas.
   const resumeListeningOnStop = (isPlaying: boolean) => {
+    setPreviewPlaying(isPlaying);
     if (isPlaying || !pausedMicForPreview.current) return;
     pausedMicForPreview.current = false;
     const session = useSessionStore.getState();
@@ -196,14 +199,31 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
     try {
       await playTrackPreviewSegment(previewKey, resolvedPreviewUrl, 0, durationMillis, resumeListeningOnStop, onPreviewFinished, true);
     } catch {
-      Alert.alert('Extrait indisponible', 'Impossible de lire cet extrait pour le moment.');
+      // Old CDN preview URLs expire. Refresh the SAME title and artist before
+      // giving up; never redirect to a different or guessed song.
+      try {
+        const fresh = await resolveTrackPreviewUrl(track, { forceRefresh: true });
+        if (!fresh) throw new Error('NO_FRESH_PREVIEW');
+        setResolvedPreviewUrl(fresh);
+        await stopTrackPreview(previewKey);
+        await playTrackPreviewSegment(previewKey, fresh, 0, durationMillis, resumeListeningOnStop, onPreviewFinished, true);
+      } catch {
+        resumeListeningOnStop(false);
+        Alert.alert('Préécoute indisponible', 'Cet extrait ne répond pas. Essaie la source officielle ou passe au morceau suivant.');
+      }
     } finally {
       setPreviewBusy(false);
     }
   };
 
   const playSnippet = (durationMillis: number) => {
-    if (!resolvedPreviewUrl || previewBusy) return;
+    if (previewBusy) return;
+    if (previewPlaying) {
+      stopTrackPreviewFast(previewKey);
+      resumeListeningOnStop(false);
+      return;
+    }
+    if (!resolvedPreviewUrl) return;
     unlockWebAudioForGesture();
     const session = useSessionStore.getState();
     if (session.isActive && !session.micPaused) {
@@ -255,8 +275,8 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
     <>
       <View style={[styles.previewRow, compactSession && styles.previewRowSession]}>
         {resolvedPreviewUrl ? compactSession ? <>
-          <TouchableOpacity testID="session-preview-play-20" style={[styles.previewPill, styles.previewPillPrimary]} onPress={() => playSnippet(20000)} disabled={previewBusy} accessibilityRole="button" accessibilityLabel="Préécouter ce morceau pendant vingt secondes"><Text style={[styles.previewText, styles.previewTextPrimary]} numberOfLines={1}>{previewBusy ? 'CHARGEMENT…' : '▶ PRÉÉCOUTER · 20s'}</Text></TouchableOpacity>
-          <TouchableOpacity testID="session-preview-play-30" style={[styles.previewPill, styles.previewPillSecondary]} onPress={() => playSnippet(30000)} disabled={previewBusy} accessibilityRole="button" accessibilityLabel="Préécouter trente secondes"><Text style={styles.previewText} numberOfLines={1}>▶ 30s</Text></TouchableOpacity>
+          <TouchableOpacity testID="session-preview-play-20" style={[styles.previewPill, styles.previewPillPrimary]} onPress={() => playSnippet(20000)} disabled={previewBusy} accessibilityRole="button" accessibilityLabel="Préécouter ce morceau pendant vingt secondes"><Text style={[styles.previewText, styles.previewTextPrimary]} numberOfLines={1}>{previewBusy ? 'CHARGEMENT…' : previewPlaying ? '■ ARRÊTER' : '▶ PRÉÉCOUTER · 20s'}</Text></TouchableOpacity>
+          <TouchableOpacity testID="session-preview-play-30" style={[styles.previewPill, styles.previewPillSecondary]} onPress={() => playSnippet(30000)} disabled={previewBusy} accessibilityRole="button" accessibilityLabel="Préécouter trente secondes"><Text style={styles.previewText} numberOfLines={1}>{previewPlaying ? '■' : '▶ 30s'}</Text></TouchableOpacity>
         </> : <>
           <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(10000)} disabled={previewBusy} accessibilityLabel="Écouter 10 secondes"><Text style={styles.previewText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{previewBusy ? '…' : '▶ 10s'}</Text></TouchableOpacity>
           <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(20000)} disabled={previewBusy} accessibilityLabel="Écouter 20 secondes"><Text style={styles.previewText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>▶ 20s</Text></TouchableOpacity>
