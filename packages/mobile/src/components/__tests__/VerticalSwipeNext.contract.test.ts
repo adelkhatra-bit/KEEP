@@ -58,7 +58,8 @@ describe('swipe iPhone : PanResponder créé une seule fois + carte qui s\'adapt
   });
   it('the swipe card fills the free height instead of overflowing the header and the buttons', () => {
     const modal = read('MusicSwipeDeckModal.tsx');
-    expect(modal).toContain("card:{flex:1,minHeight:200,maxHeight:560,");
+    expect(modal).toContain("card:{flex:1,minHeight:0,maxHeight:720,");
+    expect(modal).toContain('desktopSwipeLayout && s.desktopStoryCard');
     expect(modal).not.toContain("card:{height:500,maxHeight:'70%'");
     expect(modal).toMatch(/hint=\{swipeHint\}\s+fill/);
   });
