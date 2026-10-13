@@ -5,6 +5,7 @@ describe('distinguish media failure from browser autoplay permission', () => {
     expect(isWebAudioGestureRequired({ name: 'NotAllowedError', message: 'play() failed' })).toBe(true);
     expect(isWebAudioGestureRequired(new Error('Autoplay blocked by browser policy'))).toBe(true);
     expect(isWebAudioGestureRequired(new Error('User activation required'))).toBe(true);
+    expect(isWebAudioGestureRequired(new Error("play() failed because the user didn't interact with the document first"))).toBe(true);
   });
 
   test('unavailable music file does not falsely ask the listener to repeat Play', () => {
