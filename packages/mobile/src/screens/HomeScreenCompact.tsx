@@ -1068,7 +1068,7 @@ export default function HomeScreenCompact({ navigation }: any) {
           {manualSearchNotFound ? <Text style={s.manualSearchNotFound}>Aucun titre confirmé à partir de cette recherche. Essaie « Artiste – Titre », une autre vidéo YouTube ou la capture audio de l’onglet sur PC.</Text> : null}
           <View style={[s.modalActions, s.manualSearchActions]}>
             <TouchableOpacity style={[s.modalBtn, s.manualSearchCancel]} onPress={closeManualSearchPreview} accessibilityRole="button"><Text style={s.modalBtnText}>ANNULER</Text></TouchableOpacity>
-            <TouchableOpacity style={[s.modalBtn, s.manualSearchSubmit]} accessibilityRole="button" onPress={() => { void runManualSearch(); }} disabled={manualSearchBusy || !manualSearchQuery.trim()}>
+            <TouchableOpacity testID="home-manual-search-submit" style={[s.modalBtn, s.manualSearchSubmit]} accessibilityRole="button" accessibilityLabel="Lancer la recherche et la préécoute musicale" onPress={() => { void runManualSearch(); }} disabled={manualSearchBusy || !manualSearchQuery.trim()}>
               <Text style={s.manualSearchSubmitText}>{manualSearchBusy ? 'RECHERCHE…' : '▶ ÉCOUTER'}</Text>
             </TouchableOpacity>
           </View>
@@ -1122,7 +1122,7 @@ export default function HomeScreenCompact({ navigation }: any) {
               accessibilityLabel="En savoir plus sur Loki Music"
               accessibilityState={{ expanded: homeAboutOpen }}
             >
-              <Text style={s.idleLearnMoreText}>{homeAboutOpen ? 'Réduire' : 'En savoir plus'}</Text>
+              <Text style={s.idleLearnMoreText}>{homeAboutOpen ? 'Moins' : 'Plus'}</Text>
             </TouchableOpacity>
             <View style={s.idleLearnMoreSlot}>
               {homeAboutOpen ? (

@@ -1213,10 +1213,10 @@ export default function MusicSwipeDeckModal({
     <SafeAreaView style={[s.container, desktopSwipeLayout && s.desktopPlayer, desktopSwipeLayout && { height: Math.max(410, windowHeight - 32) }]} testID="story-player">
       <View style={[s.header, desktopSwipeLayout && compactDeck && s.desktopHeaderCompact]}>
         <View style={s.headerText}>
-          <View style={s.headerTopLine}>
+          <View style={[s.headerTopLine, desktopSwipeLayout && s.headerTopLineDesktop]}>
             <Text style={s.eyebrow}>Loki Music SWIPE</Text>
             {showHeaderCountPills && current ? (
-              <View style={s.headerCountHalo} testID="deck-reactions-near-title">
+              <View style={[s.headerCountHalo, desktopSwipeLayout && s.headerCountHaloDesktop]} testID="deck-reactions-near-title" accessibilityLabel="Réactions de la musique">
                 <GlowRing radius={18} color="#A78BFA" testID="deck-reactions-animated-edge" />
                 <ReactionStatPills
                   likes={trackLikes.counts[likeKey(current.id)] ?? 0}
@@ -1516,8 +1516,8 @@ const s = StyleSheet.create({
   desktopAsideHint:{color:'#FFFFFF',fontSize:14,lineHeight:22},
   desktopAsideFoot:{color:colors.textSecondary,fontSize:12,lineHeight:18,marginTop:9},
   container:{flex:1,width:'100%',maxWidth:560,backgroundColor:'#090610'},
-  header:{zIndex:30,minHeight:92,paddingHorizontal:18,paddingVertical:16,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#241A32'},
-  headerText:{flex:1,paddingRight:12},headerTopLine:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',gap:10,justifyContent:'space-between',paddingBottom:7},headerCountHalo:{position:'relative',alignSelf:'flex-end',minHeight:45,paddingVertical:3,paddingHorizontal:8,borderRadius:18,backgroundColor:'#1B1330',shadowColor:'#A78BFA',shadowOpacity:.36,shadowRadius:12,shadowOffset:{width:0,height:3}},eyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1.5},title:{color:'#F8F6FC',fontSize:20,fontWeight:'900',marginTop:2},subtitle:{color:'#FFFFFF',fontSize:14,lineHeight:20,marginTop:6,paddingBottom:2},
+  header:{position:'relative',zIndex:30,minHeight:92,paddingHorizontal:18,paddingVertical:12,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#241A32'},
+  headerText:{flex:1,paddingRight:12},headerTopLine:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',gap:10,justifyContent:'space-between',paddingBottom:7},headerTopLineDesktop:{position:'relative',minHeight:54,justifyContent:'flex-start',paddingRight:165,alignItems:'flex-start',paddingTop:8},headerCountHalo:{position:'relative',alignSelf:'flex-end',minHeight:45,paddingVertical:3,paddingHorizontal:8,borderRadius:18,backgroundColor:'#1B1330',shadowColor:'#A78BFA',shadowOpacity:.36,shadowRadius:12,shadowOffset:{width:0,height:3}},headerCountHaloDesktop:{position:'absolute',top:0,right:0,alignSelf:'auto',marginBottom:0,borderWidth:1,borderColor:'#B69BFF',backgroundColor:'#24153B',shadowColor:'#A78BFA',shadowOpacity:.8,shadowRadius:18,shadowOffset:{width:0,height:5},elevation:8,transform:[{perspective:900},{translateY:-3}]},eyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1.5},title:{color:'#F8F6FC',fontSize:20,fontWeight:'900',marginTop:2},subtitle:{color:'#FFFFFF',fontSize:14,lineHeight:20,marginTop:6,paddingBottom:2},
   sourceIdentity:{marginTop:8,flexDirection:'row',alignItems:'center',gap:9,alignSelf:'flex-start',paddingVertical:6,paddingHorizontal:8,borderRadius:16,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary},sourceIdentityBottom:{marginHorizontal:18,marginBottom:7,flexDirection:'row',alignItems:'center',gap:9,paddingVertical:6,paddingHorizontal:10,borderRadius:16,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary},
   sourceAvatar:{width:30,height:30,borderRadius:15},sourceAvatarFallback:{width:30,height:30,borderRadius:15,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.primaryLight},sourceAvatarText:{color:'#FFF',fontSize:12,fontWeight:'900'},sourceIdentityCopy:{minWidth:0},sourceIdentityKicker:{color:colors.textMutedGrey,fontSize:8,fontWeight:'900',letterSpacing:.7},sourceIdentityName:{color:'#FFF',fontSize:12,fontWeight:'900',marginTop:1},
   close:{width:40,height:40,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:'#171020',borderWidth:1,borderColor:'#312348'},closeText:{color:'#FFF',fontSize:18,fontWeight:'900'},

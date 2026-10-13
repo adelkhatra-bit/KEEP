@@ -37,7 +37,7 @@ async function check(viewport,label,browser) {
       const field=page.getByPlaceholder(/Artiste.*Titre.*lien YouTube/).last();
       await field.waitFor({state:'visible',timeout:10000});
       await field.fill('https://m.youtube.com/watch?v=dQw4w9WgXcQ');
-      await page.getByText('Chercher',{exact:true}).filter({visible:true}).last().click({timeout:10000});
+      await page.getByTestId('home-manual-search-submit').filter({visible:true}).last().click({timeout:10000});
       await page.getByTestId('home-manual-search-result').waitFor({state:'visible',timeout:15000});
       await page.getByText('Aperçu non enregistré',{exact:false}).filter({visible:true}).last().waitFor({state:'visible',timeout:10000});
     };
