@@ -1122,7 +1122,7 @@ export default function HomeScreenCompact({ navigation }: any) {
               accessibilityLabel="En savoir plus sur Loki Music"
               accessibilityState={{ expanded: homeAboutOpen }}
             >
-              <Text style={s.idleLearnMoreText}>{homeAboutOpen ? 'Réduire' : 'En savoir plus'}</Text>
+              <Text style={s.idleLearnMoreText}>{homeAboutOpen ? 'Moins' : 'Plus'}</Text>
             </TouchableOpacity>
             <View style={s.idleLearnMoreSlot}>
               {homeAboutOpen ? (
