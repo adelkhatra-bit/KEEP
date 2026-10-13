@@ -143,6 +143,7 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
+| `3b439c1` | `3b439c1` | iOS #235 cancelled (release 3b439c1) | OTA #1026 in_progress (release 3b439c1) | 2026-10-13 18:17 | pass | release(ios+web): publish tested #181 Swipe audio, full-cover UI, Sessions and Pulse parity |
 | `3ce1cca` | `3ce1cca` | iOS #234 success (release f8eacf5) | OTA #1025 success (release f8eacf5) | 2026-10-13 18:09 | pass | fix(desktop): Swipe immersif + Stories stables sur version Pulse fusionnée (#181) |
 | `b1a6d5f` | `b1a6d5f` | iOS #234 success (release f8eacf5) | OTA #1025 success (release f8eacf5) | 2026-10-13 17:53 | pass | fix(stories/pulse): éviter les pubs intégrées, découvrir des profils de même style (#180) |
 | `09c32b0` | `09c32b0` | iOS #234 success (release f8eacf5) | OTA #1025 success (release f8eacf5) | 2026-10-13 17:46 | pass | fix(sessions/ios/web): préécoute immédiate, lien partagé audible et UI Swipe cohérente (#178) |
@@ -182,7 +183,6 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 | `d3cbeae` | `d3cbeae` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 18:59 | pass | feat(home): show found music directly below Loki Music logo |
 | `bcbdd94` | `bcbdd94` | iOS #230 in_progress (release 1f44ee1) | OTA #1021 in_progress (release 1f44ee1) | 2026-10-12 18:51 | pass | feat(storefront): highlight personalized discovery in boutique hero without changing navigation |
 | `fbb446f` | `fbb446f` | iOS #230 in_progress (release 1f44ee1) | OTA #1021 in_progress (release 1f44ee1) | 2026-10-12 18:45 | pass | fix(home): place manual title and link search beside tab audio on Loki Music home |
-| `49910c1` | `49910c1` | iOS #229 success (release a18e390) | OTA #1020 success (release a18e390) | 2026-10-12 18:37 | pass | fix(keep): honor Public/Private once without a redundant second confirmation |
 <!-- AUTO:RELEASE-REGISTER:END -->
 
 

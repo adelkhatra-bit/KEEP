@@ -1,5 +1,14 @@
 [
   {
+    "commit": "3b439c1487520d8b2a05b696140093346059bd4a",
+    "web": "3b439c1487520d8b2a05b696140093346059bd4a",
+    "testflight": "iOS #235 cancelled (release 3b439c1)",
+    "ota": "OTA #1026 in_progress (release 3b439c1)",
+    "date": "2026-10-13 18:17",
+    "tests": "pass",
+    "changes": "release(ios+web): publish tested #181 Swipe audio, full-cover UI, Sessions and Pulse parity"
+  },
+  {
     "commit": "3ce1cca0986affdc9eb641ea446994ee5a497047",
     "web": "3ce1cca0986affdc9eb641ea446994ee5a497047",
     "testflight": "iOS #234 success (release f8eacf5)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 18:45",
     "tests": "pass",
     "changes": "fix(home): place manual title and link search beside tab audio on Loki Music home"
-  },
-  {
-    "commit": "49910c15e0e3b69847621d41aa3d2234e7604781",
-    "web": "49910c15e0e3b69847621d41aa3d2234e7604781",
-    "testflight": "iOS #229 success (release a18e390)",
-    "ota": "OTA #1020 success (release a18e390)",
-    "date": "2026-10-12 18:37",
-    "tests": "pass",
-    "changes": "fix(keep): honor Public/Private once without a redundant second confirmation"
   }
 ]
