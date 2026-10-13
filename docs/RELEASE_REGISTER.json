@@ -1,5 +1,14 @@
 [
   {
+    "commit": "3868a14cdbf1061681f5201e89c076d65af8f4be",
+    "web": "3868a14cdbf1061681f5201e89c076d65af8f4be",
+    "testflight": "iOS #241 in_progress (release 3868a14)",
+    "ota": "OTA #1032 in_progress (release 3868a14)",
+    "date": "2026-10-13 23:26",
+    "tests": "pass",
+    "changes": "release(loki): OTA production alignée sur le build TestFlight 439 (#197)"
+  },
+  {
     "commit": "5696a081f4ec904f1a38961633904c066a184c72",
     "web": "5696a081f4ec904f1a38961633904c066a184c72",
     "testflight": "iOS #null null (release 12219bc)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 19:53",
     "tests": "pass",
     "changes": "test(music): require explicit saved link sessions while keeping searches read-only"
-  },
-  {
-    "commit": "d8e54f1cc9e36b7bfedebc681824637e0c56ecc2",
-    "web": "d8e54f1cc9e36b7bfedebc681824637e0c56ecc2",
-    "testflight": "iOS #230 success (release 1f44ee1)",
-    "ota": "OTA #1021 success (release 1f44ee1)",
-    "date": "2026-10-12 19:47",
-    "tests": "pass",
-    "changes": "fix(listen): monitor successive PC tab songs into real session with preview and FREE KEEP"
   }
 ]

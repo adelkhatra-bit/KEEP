@@ -143,6 +143,7 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
+| `3868a14` | `3868a14` | iOS #241 in_progress (release 3868a14) | OTA #1032 in_progress (release 3868a14) | 2026-10-13 23:26 | pass | release(loki): OTA production alignée sur le build TestFlight 439 (#197) |
 | `5696a08` | `5696a08` | iOS #null null (release 12219bc) | OTA #null null (release 12219bc) | 2026-10-13 22:52 | pass | release(loki): ship Vibes→Styles, Recharges FREE Super Admin et Robot de parcours 50/50 to Web/TestFlight/OTA (#196) |
 | `13a6e68` | `13a6e68` | iOS #239 success (release 92a9036) | OTA #1030 success (release 92a9036) | 2026-10-13 20:49 | pass | feat(offres): Vibes → Styles, prix en dur retirés, recharges FREE réglables (#194) |
 | `92a9036` | `92a9036` | iOS #239 in_progress (release 92a9036) | OTA #1030 in_progress (release 92a9036) | 2026-10-13 20:21 | pass | release(loki): ship PR189 raised reaction counters, 3D neon Swipe and compact Plus to Web/TestFlight/OTA |
@@ -182,7 +183,6 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 | `ce8b585` | `ce8b585` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 20:10 | pass | fix(swipe): advance only after server confirms KEEP and FREE debit |
 | `1b02f9a` | `1b02f9a` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 20:01 | pass | fix(listen): keep PC tab monitoring through song changes, preserve previews and honest FREE keeps |
 | `e1bad17` | `e1bad17` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 19:53 | pass | test(music): require explicit saved link sessions while keeping searches read-only |
-| `d8e54f1` | `d8e54f1` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 19:47 | pass | fix(listen): monitor successive PC tab songs into real session with preview and FREE KEEP |
 <!-- AUTO:RELEASE-REGISTER:END -->
 
 
