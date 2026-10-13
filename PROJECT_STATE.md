@@ -143,6 +143,7 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
+| `cbacd1a` | `cbacd1a` | iOS #231 success (release 5447724) | OTA #1022 success (release 5447724) | 2026-10-13 00:34 | pass | fix(qr): attendre la session restaurée avant popup de connexion |
 | `f028cd0` | `f028cd0` | iOS #231 success (release 5447724) | OTA #1022 success (release 5447724) | 2026-10-13 00:06 | pass | test(stories): guard paid/free labels against artwork overlap |
 | `134632f` | `134632f` | iOS #231 success (release 5447724) | OTA #1022 success (release 5447724) | 2026-10-12 23:58 | pass | fix(stories): keep paid/free labels in layout flow outside cover |
 | `9c59676` | `9c59676` | iOS #231 in_progress (release 5447724) | OTA #1022 in_progress (release 5447724) | 2026-10-12 22:28 | pass | fix(guard): compare newline escapes correctly in exact story SQL syntax exception |
@@ -182,7 +183,6 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 | `43f1f94` | `43f1f94` | iOS #228 success (release f8dbd60) | OTA #1019 success (release f8dbd60) | 2026-10-12 01:55 | pass | fix(mobile/web): ouvrir réellement Swipe depuis les sessions et centrer les fenêtres (#120) |
 | `f8dbd60` | `f8dbd60` | iOS #228 in_progress (release f8dbd60) | OTA #1019 in_progress (release f8dbd60) | 2026-10-11 23:35 | pass | feat(loki): unify iPhone and desktop quota, sessions, events and Pulse (#112) |
 | `d678e56` | `d678e56` | iOS #227 success (release a1d7ac3) | OTA #1018 success (release a1d7ac3) | 2026-10-11 19:06 | pass | fix(desktop): accueil et Stories cadrés, sans contrôles superposés (#111) |
-| `a1d7ac3` | `a1d7ac3` | iOS #227 in_progress (release a1d7ac3) | OTA #1018 in_progress (release a1d7ac3) | 2026-10-11 18:24 | pass | release(ios+web): publish verified PR110 on unified TestFlight and desktop source |
 <!-- AUTO:RELEASE-REGISTER:END -->
 
 

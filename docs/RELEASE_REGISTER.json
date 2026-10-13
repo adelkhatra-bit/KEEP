@@ -1,5 +1,14 @@
 [
   {
+    "commit": "cbacd1ac0d02f45fafed727318f0eb33c2274f6c",
+    "web": "cbacd1ac0d02f45fafed727318f0eb33c2274f6c",
+    "testflight": "iOS #231 success (release 5447724)",
+    "ota": "OTA #1022 success (release 5447724)",
+    "date": "2026-10-13 00:34",
+    "tests": "pass",
+    "changes": "fix(qr): attendre la session restaurée avant popup de connexion"
+  },
+  {
     "commit": "f028cd025fb11fc4097e02f3e90534aef16aef78",
     "web": "f028cd025fb11fc4097e02f3e90534aef16aef78",
     "testflight": "iOS #231 success (release 5447724)",
@@ -349,14 +358,5 @@
     "date": "2026-10-11 19:06",
     "tests": "pass",
     "changes": "fix(desktop): accueil et Stories cadrés, sans contrôles superposés (#111)"
-  },
-  {
-    "commit": "a1d7ac3f199ac6b45f601cee77e0ec3a12dd6e26",
-    "web": "a1d7ac3f199ac6b45f601cee77e0ec3a12dd6e26",
-    "testflight": "iOS #227 in_progress (release a1d7ac3)",
-    "ota": "OTA #1018 in_progress (release a1d7ac3)",
-    "date": "2026-10-11 18:24",
-    "tests": "pass",
-    "changes": "release(ios+web): publish verified PR110 on unified TestFlight and desktop source"
   }
 ]
