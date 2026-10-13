@@ -58,7 +58,8 @@ describe('swipe iPhone : PanResponder créé une seule fois + carte qui s\'adapt
   });
   it('the swipe card fills the free height instead of overflowing the header and the buttons', () => {
     const modal = read('MusicSwipeDeckModal.tsx');
-    expect(modal).toContain("card:{flex:1,minHeight:200,maxHeight:560,");
+    expect(modal).toContain("card:{flex:1,minHeight:0,maxHeight:720,");
+    expect(modal).toContain('desktopSwipeLayout && s.desktopStoryCard');
     expect(modal).not.toContain("card:{height:500,maxHeight:'70%'");
     expect(modal).toMatch(/hint=\{swipeHint\}\s+fill/);
   });
@@ -79,8 +80,8 @@ describe('ajouter à ma story depuis le swipe + petits écrans (Adel 05/10/2026)
     expect(modal).toContain("'deck-add-story'");
     expect(modal).toContain('pinStoryTrack(resolveKeptTrackId(current.id), current)');
     expect(modal).toContain('pinSharedStoryTrack(track.id, fromProfileId)'); // partager la musique d'un autre : gratuit, sans la garder
-    expect(modal).toContain('const compactDeck = windowHeight < 640 || (desktopStoryLayout && windowHeight < 780);');
-    expect(modal).toContain('desktopStoryLayout && compactDeck && s.desktopHeaderCompact');
+    expect(modal).toContain('const compactDeck = windowHeight < 640 || (desktopSwipeLayout && windowHeight < 760);');
+    expect(modal).toContain('desktopSwipeLayout && compactDeck && s.desktopHeaderCompact');
   });
 });
 

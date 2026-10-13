@@ -49,7 +49,8 @@ describe('Rangée de stories : ne se vide jamais + garder en public épingle (Ad
   it('un rechargement garde les bulles affichées tant que les données ne sont pas complètes', () => {
     expect(bar).toContain('const previous = new Map(storiesRef.current.map');
     expect(bar).toContain('let degraded = false;');
-    expect(bar).toContain('if (!degraded) setStories(Array.from(collected.values()));');
+    expect(bar).toContain('if (!degraded) {');
+    expect(bar).toContain('reconcileStoryRefresh(storiesRef.current, Array.from(collected.values())');
   });
   it('un nouveau GARDER public rallume le cercle sans seconde épingle (keep_decisions auto), mais garde une action explicite pour les anciennes musiques', () => {
     const freshKeep = deck.slice(deck.indexOf('const confirmKeep = async ('), deck.indexOf('const continueAfterKeepSuccess = async'));
@@ -91,7 +92,8 @@ describe('Mémoire locale du profil : affichage instantané (Adel 05/10/2026)', 
   });
   it('profil et rangée de stories sont écrits en mémoire seulement avec des données serveur complètes', () => {
     expect(screen).toContain("writeProfileMemory(user.id, 'public', publicState.value)");
-    expect(bar).toContain("if (!degraded) writeProfileMemory(viewer.id, 'story-rail'");
+    expect(bar).toContain("void writeProfileMemory(viewer.id, 'story-rail', stable.slice(0, 12)");
+    expect(bar).toContain('if (!degraded) {');
   });
 });
 
