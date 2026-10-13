@@ -1119,7 +1119,7 @@ export default function HomeScreenCompact({ navigation }: any) {
               style={s.idleLearnMore}
               onPress={toggleHomeAbout}
               accessibilityRole="button"
-              accessibilityLabel="En savoir plus sur Loki Music"
+              accessibilityLabel="Plus : Loki Music"
               accessibilityState={{ expanded: homeAboutOpen }}
             >
               <Text style={s.idleLearnMoreText}>{homeAboutOpen ? 'Moins' : 'Plus'}</Text>

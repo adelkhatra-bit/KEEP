@@ -1665,7 +1665,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
               style={s.ownerMusicInfoToggle}
               onPress={() => setOwnerMusicInfoOpen((open) => !open)}
               accessibilityRole="button"
-              accessibilityLabel={ownerMusicInfoOpen ? 'Réduire les explications Loki Music' : 'En savoir plus sur Loki Music'}
+              accessibilityLabel={ownerMusicInfoOpen ? 'Réduire les explications Loki Music' : 'Plus : Loki Music'}
             >
               <Text style={s.ownerMusicInfoToggleText}>{ownerMusicInfoOpen ? 'Moins' : 'Plus'}</Text>
               <Text style={s.ownerMusicInfoChevron}>{ownerMusicInfoOpen ? '⌃' : '⌄'}</Text>
