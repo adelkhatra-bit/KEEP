@@ -53,5 +53,13 @@ describe('silent app update contract', () => {
     expect(source).toContain('Updates.fetchUpdateAsync()');
     expect(source).toContain('Updates.reloadAsync()');
     expect(source).toContain("!authReady || Platform.OS === 'web' || __DEV__");
+    expect(source).toContain("AppState.addEventListener('change'");
+    expect(source).toContain("state === 'active'");
+    expect(source).toContain("AppState.currentState === 'active'");
+    expect(source).toContain('5 * 60_000');
+    expect(source).toContain('if (!active || checking || installQueued) return;');
+    expect(source).toContain('onAppStateChange.remove()');
+    expect(source).toContain('clearInterval(checkInterval)');
+    expect(source).toContain('runWhenNoGameInProgress');
   });
 });

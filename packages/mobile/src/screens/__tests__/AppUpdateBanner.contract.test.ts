@@ -46,6 +46,11 @@ describe('silent deployment update contract', () => {
     expect(banner).toContain('Updates.checkForUpdateAsync()');
     expect(banner).toContain('Updates.fetchUpdateAsync()');
     expect(banner).toContain('Updates.reloadAsync()');
+    expect(banner).toContain("AppState.addEventListener('change'");
+    expect(banner).toContain("if (state === 'active') void applySilently()");
+    expect(banner).toContain('onAppStateChange.remove()');
+    expect(banner).toContain('clearInterval(checkInterval)');
+    expect(banner).toContain('runWhenNoGameInProgress');
   });
 
   it('publishes the exact deployed SHA through version.json', () => {
