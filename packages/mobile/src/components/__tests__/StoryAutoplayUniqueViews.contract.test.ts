@@ -16,7 +16,8 @@ describe('Story player: same behavior on mobile and PC', () => {
     expect(embed).toContain('&end=30&autoplay=1');
     expect(embed).toContain('mediaPlaybackRequiresUserAction: false');
     expect(embed).toContain("allow: 'autoplay; encrypted-media; picture-in-picture'");
-    expect(deck).toContain('<StoryEmbeddedSourcePlayer key={storyEmbeddedSource} sourceUrl={storyEmbeddedSource} />');
+    expect(deck).toContain('<StoryEmbeddedSourcePlayer sourceUrl={storyEmbeddedSource} compact={compactDeck} />');
+    expect(deck).toContain('style={s.storyEmbeddedInCard}');
     expect(deck).toContain('!trackAddedAt && !resolvedPreviewUrl && sourcePlayer && !sourcePlayerOpen');
   });
   it('keeps the paid story music hidden and does not expose the provider player', () => {
