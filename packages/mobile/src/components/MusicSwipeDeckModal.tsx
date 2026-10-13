@@ -1256,27 +1256,35 @@ export default function MusicSwipeDeckModal({
                 {storyEmbeddedSource ? <View style={s.storyEmbeddedInCard} testID="story-official-inline-area"><StoryEmbeddedSourcePlayer sourceUrl={storyEmbeddedSource} compact={compactDeck} /></View> : null}
                 {!trackAddedAt && sourcePlayerOpen && !resolvedPreviewUrl && sourcePlayer ? (
                   <View testID="swipe-exact-source-player" style={s.sourcePlayerOverlay}>
-                    <TouchableOpacity style={s.sourcePlayerClose} accessibilityRole="button" accessibilityLabel="Arrêter la vidéo sans quitter la Story" onPress={() => setSourcePlayerOpen(false)}>
-                      <Text style={s.sourcePlayerCloseText}>✕ FERMER LA VIDÉO</Text>
+                    <View style={s.sourcePlayerToolbar}>
+                    <TouchableOpacity style={s.sourcePlayerClose} accessibilityRole="button" accessibilityLabel="Fermer le lecteur et revoir la jaquette" onPress={() => setSourcePlayerOpen(false)}>
+                      <Text style={s.sourcePlayerCloseText}>✕ JAQUETTE</Text>
                     </TouchableOpacity>
+                    <TouchableOpacity style={s.sourcePlayerClose} accessibilityRole="button" accessibilityLabel="Relancer le lecteur officiel" onPress={() => { setSourcePlayerFailed(false); setSourcePlayerAttempt((n) => n + 1); }}><Text style={s.sourcePlayerCloseText}>↻ RELANCER</Text></TouchableOpacity>
+                    <TouchableOpacity style={s.sourcePlayerClose} accessibilityRole="button" accessibilityLabel="Ouvrir la vidéo originale si la lecture intégrée ne fonctionne pas" onPress={() => { const exact = current.externalUrls?.source || current.externalUrls?.youtube || ''; if (resolveEmbeddedMusicPlayer(exact)) void Linking.openURL(exact).catch(() => {}); }}><Text style={s.sourcePlayerCloseText}>↗ SOURCE</Text></TouchableOpacity>
+                    </View>
                     {Platform.OS === 'web'
                       ? React.createElement('iframe', {
-                          key: sourcePlayer.url,
-                          src: sourcePlayer.url,
+                          key: `${sourcePlayer.url}:${sourcePlayerAttempt}`,
+                          src: sourcePlayer.provider === 'YOUTUBE' ? `${sourcePlayer.url}&autoplay=1` : sourcePlayer.url,
                           title: sourcePlayer.label,
                           allow: 'autoplay; encrypted-media; picture-in-picture',
                           allowFullScreen: true,
                           referrerPolicy: 'strict-origin-when-cross-origin',
-                          style: { width: '100%', height: '84%', border: 0, borderRadius: 12 },
+                          onError: () => setSourcePlayerFailed(true),
+                          style: { width: '100%', flex: 1, minHeight: 0, border: 0, borderRadius: 12 },
                         })
                       : React.createElement(require('react-native-webview').WebView, {
-                          key: sourcePlayer.url,
-                          source: { uri: sourcePlayer.url, ...(sourcePlayer.provider === 'YOUTUBE' ? { headers: { Referer: 'https://com.adelkhatra.keep' } } : {}) },
+                          key: `${sourcePlayer.url}:${sourcePlayerAttempt}`,
+                          source: { uri: sourcePlayer.provider === 'YOUTUBE' ? `${sourcePlayer.url}&autoplay=1` : sourcePlayer.url, ...(sourcePlayer.provider === 'YOUTUBE' ? { headers: { Referer: 'https://com.adelkhatra.keep' } } : {}) },
                           allowsInlineMediaPlayback: true,
                           mediaPlaybackRequiresUserAction: false,
+                          onError: () => setSourcePlayerFailed(true),
+                          onHttpError: () => setSourcePlayerFailed(true),
                           javaScriptEnabled: true,
                           style: { flex: 1, width: '100%' },
                         })}
+                    {sourcePlayerFailed ? <Text style={s.sourcePlayerError}>Le fournisseur bloque la lecture intégrée. Utilise ↻ RELANCER ou ↗ SOURCE.</Text> : null}
                   </View>
                 ) : null}
                 </View>
@@ -1485,8 +1493,9 @@ const s = StyleSheet.create({
   sourceOverlay:{position:'relative',alignSelf:'flex-start',minHeight:26,maxWidth:'100%',marginBottom:5,paddingHorizontal:8,borderRadius:12,backgroundColor:'#251A39',borderWidth:1,borderColor:'#9B78D3',alignItems:'center',justifyContent:'center'},sourceOverlayText:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},
   card:{flex:1,minHeight:0,maxHeight:720,borderRadius:24,overflow:'hidden',backgroundColor:'#151020',borderWidth:1.5,borderColor:'#684A93',justifyContent:'flex-start'},
   artworkStage:{flex:1,minHeight:90,width:'100%',overflow:'hidden',position:'relative',alignItems:'center',justifyContent:'center',backgroundColor:'#090610'},
-  sourcePlayerOverlay:{position:'absolute',top:0,left:0,right:0,bottom:0,zIndex:15,backgroundColor:'#100B18',padding:8},
-  sourcePlayerClose:{minHeight:44,alignItems:'center',justifyContent:'center',backgroundColor:'#32224A',borderRadius:10,marginBottom:5},
+  sourcePlayerOverlay:{position:'absolute',top:0,left:0,right:0,bottom:0,zIndex:15,backgroundColor:'#100B18',padding:8,justifyContent:'flex-start'},
+  sourcePlayerToolbar:{flexDirection:'row',gap:6,paddingBottom:6},sourcePlayerError:{color:'#F5CE87',fontSize:11,lineHeight:15,paddingTop:5,textAlign:'center'},
+  sourcePlayerClose:{flex:1,minHeight:40,alignItems:'center',justifyContent:'center',backgroundColor:'#32224A',borderWidth:1,borderColor:'#7E5AB8',borderRadius:10,paddingHorizontal:3},
   sourcePlayerCloseText:{color:'#FFFFFF',fontWeight:'800',fontSize:12},
   cover:{...StyleSheet.absoluteFillObject,width:'100%',height:'100%'},coverFallback:{alignItems:'center',justifyContent:'center',backgroundColor:'#241936'},coverK:{color:colors.primaryLight,fontSize:72,fontWeight:'900',letterSpacing:6},
   storyEmbeddedInCard:{flex:1,minHeight:0,width:'100%',paddingHorizontal:6,paddingTop:38,justifyContent:'center'},
