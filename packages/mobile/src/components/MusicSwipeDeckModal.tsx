@@ -1345,7 +1345,7 @@ export default function MusicSwipeDeckModal({
                   <Text style={[s.trackTitle, storyEmbeddedSource && s.embeddedTrackTitle]} numberOfLines={2}>{ownerMasked ? 'Musique en vente' : current.title}</Text>
                   <Text style={s.artist} numberOfLines={1}>{ownerMasked ? 'Ta boutique' : current.artist}</Text>
                   {current.album && !ownerMasked && !storyEmbeddedSource && !compactDeck ? <Text style={s.album} numberOfLines={1}>{current.album}</Text> : null}
-                  {nudge || ask ? <Text testID="deck-like-nudge" style={s.nudgeInline} numberOfLines={1}>{nudge || ask}</Text> : null}
+                  {nudge ? <Text testID="deck-like-nudge" style={s.nudgeInline} numberOfLines={1}>{nudge}</Text> : ask ? <Text testID="deck-like-ask" style={s.nudgeInline} numberOfLines={1}>{ask}</Text> : null}
                 </View>
 
               </View>
