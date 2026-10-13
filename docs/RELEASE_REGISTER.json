@@ -1,5 +1,14 @@
 [
   {
+    "commit": "f8eacf5396d262e939fd7bb12b38a33e4eb0cb5f",
+    "web": "f8eacf5396d262e939fd7bb12b38a33e4eb0cb5f",
+    "testflight": "iOS #234 in_progress (release f8eacf5)",
+    "ota": "OTA #1025 in_progress (release f8eacf5)",
+    "date": "2026-10-13 16:21",
+    "tests": "pass",
+    "changes": "release(ios+web): publish tested Story YouTube 153 and Swipe fixes"
+  },
+  {
     "commit": "43afe855320a59c43a9e269884bf3b6ba0d706f1",
     "web": "43afe855320a59c43a9e269884bf3b6ba0d706f1",
     "testflight": "iOS #233 success (release c7f97df)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 12:16",
     "tests": "pass",
     "changes": "build(deps): bump actions/configure-pages from 5.0.0 to 6.0.0 (#130)"
-  },
-  {
-    "commit": "cff41f487b7275eb6b2b2c0d8c0f895f99a78f06",
-    "web": "cff41f487b7275eb6b2b2c0d8c0f895f99a78f06",
-    "testflight": "iOS #228 success (release f8dbd60)",
-    "ota": "OTA #1019 success (release f8dbd60)",
-    "date": "2026-10-12 11:44",
-    "tests": "pass",
-    "changes": "fix(boutique): vitrines lisibles et parcours FREE / PayPal compréhensible PC et mobile (#143)"
   }
 ]
