@@ -143,6 +143,7 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
+| `466a4f2` | `466a4f2` | iOS #232 success (release c7cfb99) | OTA #1023 success (release c7cfb99) | 2026-10-13 10:07 | pass | fix(profile): preserve late-loaded birthday and gender on Save (#161) |
 | `c7cfb99` | `c7cfb99` | iOS #232 in_progress (release c7cfb99) | OTA #1023 in_progress (release c7cfb99) | 2026-10-13 00:45 | pass | chore(release): déclencher TestFlight et OTA du correctif QR #158 |
 | `cbacd1a` | `cbacd1a` | iOS #231 success (release 5447724) | OTA #1022 success (release 5447724) | 2026-10-13 00:34 | pass | fix(qr): attendre la session restaurée avant popup de connexion |
 | `f028cd0` | `f028cd0` | iOS #231 success (release 5447724) | OTA #1022 success (release 5447724) | 2026-10-13 00:06 | pass | test(stories): guard paid/free labels against artwork overlap |
@@ -182,7 +183,6 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 | `6259169` | `6259169` | iOS #228 success (release f8dbd60) | OTA #1019 success (release f8dbd60) | 2026-10-12 11:22 | pass | feat(events): vente lisible, Story automatique validée, Pulse social et cockpit créateur PC (#116) |
 | `58dacb5` | `58dacb5` | iOS #228 success (release f8dbd60) | OTA #1019 success (release f8dbd60) | 2026-10-12 11:03 | pass | Merge pull request #135 from adelkhatra-bit/fix/story-viewer-detail-sync-20261012 |
 | `43f1f94` | `43f1f94` | iOS #228 success (release f8dbd60) | OTA #1019 success (release f8dbd60) | 2026-10-12 01:55 | pass | fix(mobile/web): ouvrir réellement Swipe depuis les sessions et centrer les fenêtres (#120) |
-| `f8dbd60` | `f8dbd60` | iOS #228 in_progress (release f8dbd60) | OTA #1019 in_progress (release f8dbd60) | 2026-10-11 23:35 | pass | feat(loki): unify iPhone and desktop quota, sessions, events and Pulse (#112) |
 <!-- AUTO:RELEASE-REGISTER:END -->
 
 

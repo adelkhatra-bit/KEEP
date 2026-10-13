@@ -1,5 +1,14 @@
 [
   {
+    "commit": "466a4f2dd69845175213b6c32e5a40657f804315",
+    "web": "466a4f2dd69845175213b6c32e5a40657f804315",
+    "testflight": "iOS #232 success (release c7cfb99)",
+    "ota": "OTA #1023 success (release c7cfb99)",
+    "date": "2026-10-13 10:07",
+    "tests": "pass",
+    "changes": "fix(profile): preserve late-loaded birthday and gender on Save (#161)"
+  },
+  {
     "commit": "c7cfb993c2689d1e6655289351c27e7608e3f2b7",
     "web": "c7cfb993c2689d1e6655289351c27e7608e3f2b7",
     "testflight": "iOS #232 in_progress (release c7cfb99)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 01:55",
     "tests": "pass",
     "changes": "fix(mobile/web): ouvrir réellement Swipe depuis les sessions et centrer les fenêtres (#120)"
-  },
-  {
-    "commit": "f8dbd60c9caa6ac32f804c2568f00b6387fe788c",
-    "web": "f8dbd60c9caa6ac32f804c2568f00b6387fe788c",
-    "testflight": "iOS #228 in_progress (release f8dbd60)",
-    "ota": "OTA #1019 in_progress (release f8dbd60)",
-    "date": "2026-10-11 23:35",
-    "tests": "pass",
-    "changes": "feat(loki): unify iPhone and desktop quota, sessions, events and Pulse (#112)"
   }
 ]
