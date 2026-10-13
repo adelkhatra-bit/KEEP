@@ -1124,6 +1124,7 @@ export default function MusicSwipeDeckModal({
   const likeGuest = useUserStore((state) => state.isLocalGuest);
   const likesActive = visible && Boolean(likeMeId) && !likeDemo && !likeGuest && likeMode !== 'off';
   const trackLikes = useTrackLikes(likeMeId, deckTracks.map((track) => track.id), likesActive, true);
+  const showHeaderCountPills = Boolean(likesActive && current && isUuidKey(likeKey(current.id)) && (likeMode === 'count-only' || (likeMeId && currentSourceProfileId === likeMeId)));
   // Petits messages d'encouragement (Adel 05/10/2026) : pendant l'écoute, à la fin sans réaction, après un j'aime / pas aimé. Jamais les mêmes.
   const [nudge, setNudge] = useState<string | null>(null);
   const nudgeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1212,7 +1213,19 @@ export default function MusicSwipeDeckModal({
     <SafeAreaView style={[s.container, desktopSwipeLayout && s.desktopPlayer, desktopSwipeLayout && { height: Math.max(410, windowHeight - 32) }]} testID="story-player">
       <View style={[s.header, desktopSwipeLayout && compactDeck && s.desktopHeaderCompact]}>
         <View style={s.headerText}>
-          <Text style={s.eyebrow}>Loki Music SWIPE</Text>
+          <View style={s.headerTopLine}>
+            <Text style={s.eyebrow}>Loki Music SWIPE</Text>
+            {showHeaderCountPills && current ? (
+              <View style={s.headerCountHalo} testID="deck-reactions-near-title">
+                <GlowRing radius={18} color="#A78BFA" testID="deck-reactions-animated-edge" />
+                <ReactionStatPills
+                  likes={trackLikes.counts[likeKey(current.id)] ?? 0}
+                  mehs={trackLikes.mehCounts[likeKey(current.id)] ?? 0}
+                  dislikes={trackLikes.dislikeCounts[likeKey(current.id)] ?? 0}
+                />
+              </View>
+            ) : null}
+          </View>
           <View style={s.titleRow}>{onTitlePress ? <TouchableOpacity onPress={onTitlePress} accessibilityRole="button" accessibilityLabel={`Voir la fiche : ${title}`} testID="deck-title-profile" style={{ flexShrink: 1 }}><Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title} ›</Text></TouchableOpacity> : <Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title}</Text>}{titleBadge ? <View style={s.titleBadge}>{titleBadge}</View> : null}</View>
           {resolvedSubtitle ? <ClampedText style={s.subtitle} text={resolvedSubtitle} /> : null}
           {storyAgeLine ? <Text style={s.storyAge} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} testID="deck-story-age">⏱ {storyAgeLine}</Text> : null}
@@ -1227,11 +1240,11 @@ export default function MusicSwipeDeckModal({
           </View>
         </View>
       ) : null}
-      {headerExtra || (likesActive && current && isUuidKey(likeKey(current.id))) ? (
+      {headerExtra || (likesActive && current && isUuidKey(likeKey(current.id)) && !showHeaderCountPills) ? (
             <View style={s.headerLikeRow} testID="deck-like-bar">
               {ask ? <Animated.View pointerEvents="none" style={[s.askBubble, { opacity: askFade, transform: [{ translateY: askFade.interpolate({ inputRange: [0, 1], outputRange: [-6, 0] }) }] }]} testID="deck-like-ask"><View style={s.askArrow} /><Text style={s.askText} numberOfLines={1}>{ask}</Text></Animated.View> : null}
               <View style={[{ flexShrink: 0, maxWidth: '100%' }, compactDeck ? s.headerExtraCompact : null]}>{headerExtra}</View>
-              {likesActive && current && isUuidKey(likeKey(current.id)) ? (() => {
+              {likesActive && current && isUuidKey(likeKey(current.id)) && !showHeaderCountPills ? (() => {
                 const key = likeKey(current.id);
                 const count = trackLikes.counts[key] ?? 0;
                 const isSelf = Boolean(likeMeId) && currentSourceProfileId === likeMeId;
@@ -1504,7 +1517,7 @@ const s = StyleSheet.create({
   desktopAsideFoot:{color:colors.textSecondary,fontSize:12,lineHeight:18,marginTop:9},
   container:{flex:1,width:'100%',maxWidth:560,backgroundColor:'#090610'},
   header:{zIndex:30,minHeight:92,paddingHorizontal:18,paddingVertical:16,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#241A32'},
-  headerText:{flex:1,paddingRight:12},eyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1.5},title:{color:'#F8F6FC',fontSize:20,fontWeight:'900',marginTop:2},subtitle:{color:'#FFFFFF',fontSize:14,lineHeight:20,marginTop:6,paddingBottom:2},
+  headerText:{flex:1,paddingRight:12},headerTopLine:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',gap:10,justifyContent:'space-between',paddingBottom:7},headerCountHalo:{position:'relative',alignSelf:'flex-end',minHeight:45,paddingVertical:3,paddingHorizontal:8,borderRadius:18,backgroundColor:'#1B1330',shadowColor:'#A78BFA',shadowOpacity:.36,shadowRadius:12,shadowOffset:{width:0,height:3}},eyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1.5},title:{color:'#F8F6FC',fontSize:20,fontWeight:'900',marginTop:2},subtitle:{color:'#FFFFFF',fontSize:14,lineHeight:20,marginTop:6,paddingBottom:2},
   sourceIdentity:{marginTop:8,flexDirection:'row',alignItems:'center',gap:9,alignSelf:'flex-start',paddingVertical:6,paddingHorizontal:8,borderRadius:16,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary},sourceIdentityBottom:{marginHorizontal:18,marginBottom:7,flexDirection:'row',alignItems:'center',gap:9,paddingVertical:6,paddingHorizontal:10,borderRadius:16,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary},
   sourceAvatar:{width:30,height:30,borderRadius:15},sourceAvatarFallback:{width:30,height:30,borderRadius:15,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.primaryLight},sourceAvatarText:{color:'#FFF',fontSize:12,fontWeight:'900'},sourceIdentityCopy:{minWidth:0},sourceIdentityKicker:{color:colors.textMutedGrey,fontSize:8,fontWeight:'900',letterSpacing:.7},sourceIdentityName:{color:'#FFF',fontSize:12,fontWeight:'900',marginTop:1},
   close:{width:40,height:40,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:'#171020',borderWidth:1,borderColor:'#312348'},closeText:{color:'#FFF',fontSize:18,fontWeight:'900'},
