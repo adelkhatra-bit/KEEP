@@ -42,6 +42,16 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   const [firstShareOffered, setFirstShareOffered] = useState(false);
   const [keepCostPerKeep, setKeepCostPerKeep] = useState(3);
 
+  // Navigation can reuse this component for another session; do not display
+  // the previous session name, swipe queue or saved confirmation.
+  useEffect(() => {
+    setTitleDraft(session?.title ?? '');
+    setTitleSaved(false);
+    setSwipeOpen(false);
+    setSwipeTracks([]);
+    setShowPassed(false);
+  }, [sessionId]);
+
   useEffect(() => {
     const refreshCredits = () => {
       void refreshCreditLocks().catch(() => {});
@@ -238,7 +248,12 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     const entry = findPendingEntry(track);
     if (!entry) return true;
     await refreshCreditLocks().catch(() => {});
-    await keepTrackInSession(sessionId, entry.id, undefined, visibility);
+    try {
+      await keepTrackInSession(sessionId, entry.id, undefined, visibility);
+    } catch {
+      Alert.alert('GARDER indisponible', 'La sauvegarde n’a pas été confirmée. Le morceau reste disponible dans ta session.');
+      return false;
+    }
     await refreshCreditLocks().catch(() => {});
     const refreshed = useSessionHistoryStore.getState().sessions.find((item) => item.id === sessionId)?.tracks.find((item) => item.id === entry.id);
     if (refreshed?.creditLocked) {
@@ -399,6 +414,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
         subtitle={`${swipeTracks.length} musique${swipeTracks.length > 1 ? 's' : ''} · PASSER = la retire de la liste (récupérable dans RETIRÉS) · GARDER l’ajoute à ta collection.`}
         emptyTitle="Swipe terminé. Toutes les musiques ont été validées."
         loop={false}
+        optimisticPass
         askVisibilityOnKeep
         keepCostNotice={`GARDER ce morceau débitera ${keepCostPerKeep} FREE après ton choix Public ou Privé. PASSER reste gratuit.`}
         keepDebitAmount={keepCostPerKeep}
