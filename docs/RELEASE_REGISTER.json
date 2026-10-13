@@ -1,5 +1,14 @@
 [
   {
+    "commit": "1193d76158ea9fee1c0b3e0516371dbebf60d23f",
+    "web": "1193d76158ea9fee1c0b3e0516371dbebf60d23f",
+    "testflight": "iOS #234 success (release f8eacf5)",
+    "ota": "OTA #1025 success (release f8eacf5)",
+    "date": "2026-10-13 17:19",
+    "tests": "pass",
+    "changes": "fix(solo): 4 noms uniques, pays cohérent, plus d'artistes et styles crédibles (#176)"
+  },
+  {
     "commit": "2b36c5caf2a1112490207b2e320b78eb139f0851",
     "web": "2b36c5caf2a1112490207b2e320b78eb139f0851",
     "testflight": "iOS #234 success (release f8eacf5)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 18:12",
     "tests": "pass",
     "changes": "fix(soirées): rendre Story automatique et Loki Pulse visibles aux organisateurs (#151)"
-  },
-  {
-    "commit": "0e903ad923b36c8d8fe0346acc043ff1a8c8c590",
-    "web": "0e903ad923b36c8d8fe0346acc043ff1a8c8c590",
-    "testflight": "iOS #229 in_progress (release a18e390)",
-    "ota": "OTA #1020 in_progress (release a18e390)",
-    "date": "2026-10-12 12:50",
-    "tests": "pass",
-    "changes": "fix(web): afficher les corrections publiées sans quitter l’onglet PC (#148)"
   }
 ]

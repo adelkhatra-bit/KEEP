@@ -143,6 +143,7 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
+| `1193d76` | `1193d76` | iOS #234 success (release f8eacf5) | OTA #1025 success (release f8eacf5) | 2026-10-13 17:19 | pass | fix(solo): 4 noms uniques, pays cohérent, plus d'artistes et styles crédibles (#176) |
 | `2b36c5c` | `2b36c5c` | iOS #234 success (release f8eacf5) | OTA #1025 success (release f8eacf5) | 2026-10-13 17:06 | pass | fix(swipe/iOS+PC): débloquer le Swipe et les extraits silencieux (#172) |
 | `70d1b4a` | `70d1b4a` | iOS #234 success (release f8eacf5) | OTA #1025 success (release f8eacf5) | 2026-10-13 16:58 | pass | fix(audio): déblocage des recherches Apple iTunes pendant Swipe et session (#173) |
 | `404f669` | `404f669` | iOS #234 in_progress (release f8eacf5) | OTA #1025 in_progress (release f8eacf5) | 2026-10-13 16:29 | pass | fix(solo): réponses difficiles par pays d’origine vérifié, genre et époque (#169) |
@@ -182,7 +183,6 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 | `0a92851` | `0a92851` | iOS #229 success (release a18e390) | OTA #1020 success (release a18e390) | 2026-10-12 18:31 | pass | fix(listen): show server-backed identifications consumed instead of duplicate detected counter, surface tab audio on PC home |
 | `3357ca7` | `3357ca7` | iOS #229 success (release a18e390) | OTA #1020 success (release a18e390) | 2026-10-12 18:19 | pass | feat(desktop): cockpit Battle 16:9 sans espaces inutiles, rebasé sur version officielle (#150) |
 | `97b3d1a` | `97b3d1a` | iOS #229 success (release a18e390) | OTA #1020 success (release a18e390) | 2026-10-12 18:12 | pass | fix(soirées): rendre Story automatique et Loki Pulse visibles aux organisateurs (#151) |
-| `0e903ad` | `0e903ad` | iOS #229 in_progress (release a18e390) | OTA #1020 in_progress (release a18e390) | 2026-10-12 12:50 | pass | fix(web): afficher les corrections publiées sans quitter l’onglet PC (#148) |
 <!-- AUTO:RELEASE-REGISTER:END -->
 
 
