@@ -281,7 +281,7 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
                     })
                   : NativeWebView ? (
                     <NativeWebView
-                      source={{ uri: embedUrl }}
+                      source={{ uri: embedUrl, ...(embedded?.provider === 'YOUTUBE' ? { headers: { Referer: 'https://lokimusic.app/' } } : {}) }}
                       style={{ height: embedded?.provider === 'YOUTUBE' ? 230 : 160 }}
                       javaScriptEnabled domStorageEnabled allowsInlineMediaPlayback
                       allowsFullscreenVideo mediaPlaybackRequiresUserAction
