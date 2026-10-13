@@ -92,3 +92,9 @@ Rapport d'audit externe : `docs/AUDIT_EXTERNE_2026-10-06.md`. Notifications : `d
 2026-10-11 · reconcile/claude-main-20260825 · (ce commit) · garde-fou navigateur aligné sur de vrais profils d'appareil (bureau souris = barre latérale, tablette/téléphone tactiles = barre du bas), exécuté aussi sur chaque PR ; registre de versions (scripts/release-register.cjs) ; règle « terminé = publié et vérifié » (AGENTS.md) ; répartition ChatGPT/Claude (AGENT_MESSAGES.md) · preuve : gate local PASS sur 6 profils × routes × refresh
 
 | 13/10/2026 | fix/profile-private-fields-hydration-20261013-chatgpt (PR #161) | en CI | Enregistrer n'efface plus date de naissance et genre non modifiés lorsque leurs valeurs Supabase arrivent après ouverture de l'éditeur. | Contrats de persistance actualisés, preuve CI à compléter ; iPhone réel non testé |
+
+
+## 13/10/2026 — Soirées / Battle PC — LOCAL_ONLY, validation CI requise
+Retour global Soirées explicite et réentrant : ferme le panneau Battle, revient à l’accueil événements, bloque la réouverture automatique concurrente, conserve la partie en ligne rejoignable et la confirmation de sortie Solo. PC : statistiques et réglages côte à côte, largeur jusqu’à 1100 px, petite flèche masquée sur PC seulement. Source mobile/web commune.
+Tests locaux : 333 suites / 1635 tests PASS ; tsc mobile PASS ; integration:postflight PASS ; export web produit. Chromium local interdit par l’environnement (socket EPERM), donc aucune preuve visuelle locale ni publication revendiquée. Test navigateur ajouté à Mobile CI avec captures 1440×900, 1366×650 et 390×844 ; fusion subordonnée aux contrôles réels.
+Tests de contrats mis à jour : les anciennes assertions exigeant un centre de 580 px ou l’effacement de pendingArenaId étaient incompatibles avec la demande PC large / reprise Battle. Les invariants Solo, artwork mobile 430 px, cockpit latéral et protections gameplay sont conservés.

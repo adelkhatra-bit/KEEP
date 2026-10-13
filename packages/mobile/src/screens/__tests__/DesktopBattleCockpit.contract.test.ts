@@ -12,8 +12,8 @@ describe('Desktop Battle cockpit, without changing iOS gameplay', () => {
     expect(parties).toContain('testID="desktop-battle-stage"');
     expect(parties).toContain('testID="desktop-battle-left"');
     expect(parties).toContain('testID="desktop-battle-right"');
-    expect(game).toContain('const desktopGameWidth = Math.min(580, Math.max(430, Math.floor(windowWidth * 0.48)));');
-    expect(game).toContain('rootDesktop: { maxWidth: 580');
+    expect(game).toContain('const desktopGameWidth = Math.min(1100, Math.max(430, windowWidth - 300));');
+    expect(game).toContain("rootDesktop: { width: '100%', maxWidth: 1100");
     expect(game).toContain('const battleDesignWidth = Math.min(windowWidth, 430);');
   });
 

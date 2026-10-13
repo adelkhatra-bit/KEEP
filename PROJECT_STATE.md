@@ -34,10 +34,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-10-11T12:34:48.855Z
-- Branche : `claude/desktop-layout-20261011`
-- Dernier commit : `8552d8d` (8552d8df363aa85143c93fbcccd32dca45292589) — feat(desktop): vrai mode bureau (>= 1024 px) — barre latérale, contenu centré, textes >= 11 px, erreur navigation corrigée
-- Date du dernier commit : 2026-10-11T12:18:32+00:00
+- Régénéré le : 2026-10-13T10:39:11.068Z
+- Branche : `reconcile/claude-main-20260825`
+- Dernier commit : `eb060ac1` (eb060ac154e1f6b84fc5d43655f6de37dea5d2dc) — chore(registre): release c7f97df vérifiée en ligne [skip ci]
+- Date du dernier commit : 2026-10-13T10:22:16Z
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -124,16 +124,16 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
-- `8552d8d` (2026-10-11, Claude) — feat(desktop): vrai mode bureau (>= 1024 px) — barre latérale, contenu centré, textes >= 11 px, erreur navigation corrigée
-- `0bbdaff` (2026-10-11, Claude) — docs: protocole de reprise débloquée pour ChatGPT/Codex (départ propre, contrôles, alerte release)
-- `bcd5711` (2026-10-11, Claude) — release: déblocage iPhone (PR 87 à 100) + alerte RELEASE BLOQUÉE + Mobile CI sur chaque PR
-- `485cb88` (2026-10-11, adelkhatra-bit) — Merge pull request #100 from adelkhatra-bit/fix/robot-shake-cleanup-20261011
-- `be899f5` (2026-10-11, adelkhatra-bit) — test(bot): align unknown-route shake assertion with compact menu
-- `6feccbd` (2026-10-11, adelkhatra-bit) — fix(bot): unify compact shake menu on all routes and remove unused legacy prompt
-- `c84cb79` (2026-10-11, adelkhatra-bit) — Merge pull request #99 from adelkhatra-bit/fix/shake-bot-compact-20261011
-- `7290ca8` (2026-10-11, adelkhatra-bit) — fix(bot): compact shake prompt and full navigation actions
-- `4f51375` (2026-10-11, adelkhatra-bit) — Merge pull request #97 from adelkhatra-bit/fix/qr-preserve-auth-callback-20261011
-- `2200e48` (2026-10-11, adelkhatra-bit) — fix(qr): preserve Supabase auth callback for desktop pairing
+- `eb060ac1` (2026-10-13, github-actions[bot]) — chore(registre): release c7f97df vérifiée en ligne [skip ci]
+- `5c5ff6c8` (2026-10-13, github-actions[bot]) — chore(registre): release 8e5905b vérifiée en ligne [skip ci]
+- `c7f97df0` (2026-10-13, adelkhatra-bit) — chore(release): ship profile persistence, KEEP modal and iOS OTA updater (#163)
+- `737feaa1` (2026-10-13, adelkhatra-bit) — fix(ios): check OTA on app foreground and periodically (#164)
+- `11c6126e` (2026-10-13, github-actions[bot]) — chore(registre): release 466a4f2 vérifiée en ligne [skip ci]
+- `8e5905bb` (2026-10-13, adelkhatra-bit) — refactor(keep): remove unused KEEP choice modal (#162)
+- `466a4f2d` (2026-10-13, adelkhatra-bit) — fix(profile): preserve late-loaded birthday and gender on Save (#161)
+- `9d48ef7d` (2026-10-13, github-actions[bot]) — chore(registre): release c7cfb99 vérifiée en ligne [skip ci]
+- `c7cfb993` (2026-10-13, adelkhatra-bit) — chore(release): déclencher TestFlight et OTA du correctif QR #158
+- `7e2a16ee` (2026-10-13, github-actions[bot]) — chore(registre): release cbacd1a vérifiée en ligne [skip ci]
 <!-- AUTO:RECENT-COMMITS:END -->
 
 ## Registre de versions (généré par le workflow de release, jamais à la main)
@@ -201,6 +201,8 @@ agent) et messages des sessions de chat (non versionnés).
 - Les builds iOS utilisent `--freeze-credentials` pour empêcher EAS d'essayer de réparer/créer des credentials pendant un job non interactif.
 
 ## 4. Points ouverts
+
+- 13/10 : retour global Soirées + Battle PC large préparés ; tsc et 1635 tests PASS. Validation navigateur CI et publication restent non vérifiées (Chromium local EPERM).
 
 - **07/10/2026 — IDEA-189, LOCAL_ONLY** : tableau versions/preuves dans Opérations existant, SHA/test obligatoires pour les nouveaux « Corrigé », compteurs exacts avec erreurs honnêtes, actionlint épinglé et synthèse GitHub lecture seule. Typechecks admin/mobile, build admin, 1377 tests mobile, PostgreSQL isolé et navigateur fixtures 390/1440 réussis. Migration `/home/runner/work/KEEP/KEEP/supabase/migrations/20261006235000_problem_report_evidence.sql` non appliquée ; intégration/CI/livraison restent à faire par le parent, sans PASS global. Actionlint global hérité rouge, version publique DNS indisponible, TestFlight inconnu. Détails dans `/home/runner/work/KEEP/KEEP/.context/activeContext.md` et `/home/runner/work/KEEP/KEEP/AGENT_MESSAGES.md`.
 

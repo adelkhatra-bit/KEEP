@@ -22,6 +22,8 @@
 - **P1 · Vitrine vendeurs** : mettre en avant créateur, photo, univers musical, titres, prix, aperçu 15 s, action « Voir sa boutique », états vide et erreurs ; présentation premium et lisible sur PC/mobile, sans animation lourde ou fausse promesse.
 - **P2 · Parité** : QR pairing sécurisé, états de session synchronisés, notifications non doublonnées et effaçables, cohérence commandes PC/iOS, temps de réponse et tests audio sur appareils réels.
 
+- **13/10, Soirées / PC :** correction préparée, tests locaux PASS ; preuve navigateur CI, SHA servi et OTA encore requis. Voir STATE.md.
+
 ### Critères de clôture
 Chaque ligne doit contenir : fichier/règle corrigé, scénario reproduit, test automatisé, test 390×844, test PC, CI, SHA, URL/version réellement publiée, TestFlight si applicable, et anomalie restante. **Ne jamais annoncer 100 % ni “poussé sur iPhone” sans preuve.** Le dossier #153 sert de point d'entrée commun ; aucune IA ne doit présumer que la création de ce dossier lance d'autres agents automatiquement.
 
