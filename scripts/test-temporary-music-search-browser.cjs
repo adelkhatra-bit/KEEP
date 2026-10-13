@@ -44,10 +44,14 @@ async function check(viewport,label,browser) {
     await open();
     const preview=page.getByTestId('home-manual-search-result');
     if (await preview.count()!==1) throw new Error(label+': duplicate search preview');
-    await page.getByTestId('close-manual-search-preview').click();
+    // The temporary music preview is a modal containing a provider iframe; its
+    // visible close action, not a covered control on the underlying home screen,
+    // must close the preview and remove the temporary search result.
+    await page.getByTestId('temporary-music-close').click({timeout:10000});
     await preview.waitFor({state:'detached',timeout:10000});
 
     await open();
+    await page.getByTestId('temporary-music-close').click({timeout:10000});
     await page.getByText('Découvertes',{exact:true}).filter({visible:true}).last().click();
     await page.getByText('Loki Music',{exact:true}).filter({visible:true}).last().click();
     await preview.waitFor({state:'detached',timeout:10000});
