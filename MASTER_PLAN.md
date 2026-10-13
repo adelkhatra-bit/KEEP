@@ -260,3 +260,6 @@ Existant à remplacer (sans retirer de fonction) : `robotCoachService.ts` (bulle
 5. **Correction visuelle** : le titre des bulles ne doit plus chevaucher la barre d'état (safe-area) sur iPhone et PC ; contrôle en capture 390×844 et 1440×900.
 6. **Tests avant livraison** (protocole `docs/INTEGRATION_CHECKLIST.md`) : parcours complet profil → ☰ → fonction, et soirée → secousse → fonction, sur mobile et PC, avec captures.
 Décisions à valider par Adel : (a) remplacer les bulles existantes d'un coup ou par rubrique ? (b) Lia en voix (existe déjà) ou texte seul ? (c) nom « Lia » confirmé ?
+
+## Tableau de bord des revenus réels — plan du 13/10/2026 (À VALIDER, aucun code financier)
+Audit lecture seule : `admin_dashboard_v2` (réel/test/offert) et `admin_finance_report` existent ; base à 0 € encaissé (`transactions` 0, `store_purchase_events` 0, abonnements = 4 offerts). Étapes : collecte Apple (prix/commission) → fonctions `admin_revenue_*` → écran → marge/CSV. Détail et décisions : `docs/PLAN_TABLEAU_REVENUS_20261013.md`.
