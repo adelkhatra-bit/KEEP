@@ -19,6 +19,7 @@ import { loadMyOfferedTrackIds } from '../services/playlistSaleService';
 import { persistOwnTrackVisibility } from '../services/keepVisibilityService';
 import { isTrackPreviewActive, playTrackPreviewFromGesture, preloadTrackPreview, stopTrackPreview, stopTrackPreviewFast, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
+import { isWebAudioGestureRequired } from '../services/webAudioError';
 import StoryEmbeddedSourcePlayer from './StoryEmbeddedSourcePlayer';
 import { resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
 import { resolveTrackExternalDestination } from '../services/trackExternalLinkService';
@@ -155,7 +156,20 @@ export default function MusicSwipeDeckModal({
   onWatchEventRef.current = onWatchEvent;
   // Musiques dont l'écoute a vraiment démarré (pour le petit message « tu zappes sans réagir ? »).
   const listenedIdsRef = useRef(new Set<string>());
-  const markListened = (trackId: string) => { listenedIdsRef.current.add(trackId); onWatchEventRef.current?.({ type: 'listen', trackId }); };
+  const profileListenSentRef = useRef(new Set<string>());
+  // expo-av may publish a playing status many times per second. One card
+  // must produce ONE view event and at most ONE Supabase RPC, not dozens.
+  const markListened = (trackId: string) => {
+    if (listenedIdsRef.current.has(trackId)) return;
+    listenedIdsRef.current.add(trackId);
+    onWatchEventRef.current?.({ type: 'listen', trackId });
+  };
+  const recordSwipeListenOnce = (trackId: string, fromProfileId?: string) => {
+    markListened(trackId);
+    if (!fromProfileId || profileListenSentRef.current.has(trackId)) return;
+    profileListenSentRef.current.add(trackId);
+    void recordProfileSwipeListen(fromProfileId, trackId);
+  };
   const [index, setIndex] = useState(0);
   const [deckTracks, setDeckTracks] = useState<CanonicalTrack[]>([]);
   const [processing, setProcessing] = useState(false);
@@ -182,6 +196,9 @@ export default function MusicSwipeDeckModal({
   const [previewEnded, setPreviewEnded] = useState(false);
   const actionInFlight = useRef(false);
   const playbackGeneration = useRef(0);
+  // Stop the outgoing clip as soon as the visible card changes, before a slow
+  // Apple preview lookup for the new card can leave old audio audible.
+  const lastPlaybackCardKeyRef = useRef<string | null>(null);
   const endAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wasVisible = useRef(false);
   const tracksRef = useRef(tracks);
@@ -480,6 +497,8 @@ export default function MusicSwipeDeckModal({
     wasVisible.current = true;
     setPreparingDeck(true);
     actionInFlight.current = false;
+    listenedIdsRef.current.clear();
+    profileListenSentRef.current.clear();
     setKeepPromptOpen(false);
     setKeepSuccess(null);
     setPreviewInfoOpen(false);
@@ -543,6 +562,11 @@ export default function MusicSwipeDeckModal({
     let alive = true;
     const generation = ++playbackGeneration.current;
     const playbackKey = current ? `swipe-${current.id}-${index}` : null;
+    const visiblePlaybackKey = visible && !preparingDeck ? playbackKey : null;
+    if (lastPlaybackCardKeyRef.current !== visiblePlaybackKey) {
+      lastPlaybackCardKeyRef.current = visiblePlaybackKey;
+      stopTrackPreviewFast();
+    }
     // Latence du Swipe (Adel, 06/10/2026) : délai entre l'arrivée de la carte et le début réel du son ; au-delà de 2,5 s on l'envoie au journal (3 fois max par séance) pour que l'agent réparateur la localise.
     const cardShownAt = Date.now();
     let latencyReported = false;
@@ -553,6 +577,37 @@ export default function MusicSwipeDeckModal({
     setSourcePlayerOpen(false);
     setResolvedPreviewUrl(current?.previewUrl?.trim() || null);
 
+    // A missing/expired Apple preview must never freeze the entire Swipe on
+    // a silent card. Only keep the card when there is a legitimate provider
+    // player to offer (or when this is the last card in a finite deck).
+    const scheduleEmbeddedStoryNext = () => {
+      // Provider iframes (YouTube/Spotify) do not invoke our audio onEnded.
+      // A Story with only an official embedded 30-second player must still
+      // reach the next card, even when the provider suppresses autoplay.
+      if (!trackAddedAt || !(index + 1 < deckTracks.length || loop)) return;
+      if (endAdvanceTimer.current) clearTimeout(endAdvanceTimer.current);
+      endAdvanceTimer.current = setTimeout(() => {
+        endAdvanceTimer.current = null;
+        if (alive && playbackGeneration.current === generation && !actionInFlight.current) advanceIndex();
+      }, 30000);
+    };
+    const skipUnavailablePreview = (reason: string) => {
+      if (!alive || playbackGeneration.current !== generation || !current) return;
+      const source = current.externalUrls?.source || current.externalUrls?.youtube || null;
+      if (!isSaleStoryTrack(current) && resolveEmbeddedMusicPlayer(source)) {
+        scheduleEmbeddedStoryNext();
+        return;
+      }
+      reportAutoDiagnostic('SWIPE_PREVIEW_UNAVAILABLE', `${reason} id=${String(current.id).slice(0, 36)}`);
+      if (index + 1 < deckTracks.length || loop) {
+        if (endAdvanceTimer.current) clearTimeout(endAdvanceTimer.current);
+        endAdvanceTimer.current = setTimeout(() => {
+          endAdvanceTimer.current = null;
+          if (alive && playbackGeneration.current === generation && !actionInFlight.current) advanceIndex();
+        }, 450);
+      }
+    };
+
     if (!visible || preparingDeck || !current) {
       setPreviewResolving(false);
       void stopTrackPreview();
@@ -562,9 +617,10 @@ export default function MusicSwipeDeckModal({
     // Share-linked YouTube videos are their own playback source.
     // Never substitute a different iTunes song based on loosely parsed titles.
     if (!current.previewUrl?.trim() && !isSaleStoryTrack(current)
-        && resolveEmbeddedMusicPlayer(current.externalUrls?.source || null)) {
+        && resolveEmbeddedMusicPlayer(current.externalUrls?.source || current.externalUrls?.youtube || null)) {
       setPreviewResolving(false);
       setResolvedPreviewUrl(null);
+      scheduleEmbeddedStoryNext();
       return () => { alive = false; };
     }
     setPreviewResolving(!current.previewUrl?.trim());
@@ -573,6 +629,10 @@ export default function MusicSwipeDeckModal({
         if (!alive) return;
         setPreviewResolving(false);
         setResolvedPreviewUrl(previewUrl);
+        if (!previewUrl) {
+          skipUnavailablePreview('catalog_no_playable_preview');
+          return;
+        }
 
         // IMPORTANT TestFlight : ne jamais précharger N+1 AVANT de lancer N.
         // Le lecteur natif sérialise ses opérations ; un preload réseau/décodage
@@ -599,9 +659,7 @@ export default function MusicSwipeDeckModal({
                 const waited = Date.now() - cardShownAt;
                 if (waited > 2500) reportAutoDiagnostic('SWIPE_SLOW', `${Math.round(waited / 100) / 10}s host=${String(previewUrl ?? '').replace(/^https?:\/\//, '').split('/')[0] || 'none'}`);
               }
-              if (playing && currentSourceProfileId) {
-                void recordProfileSwipeListen(currentSourceProfileId, current.id); markListened(current.id);
-              }
+              if (playing) recordSwipeListenOnce(current.id, currentSourceProfileId);
             },
             () => {
               if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
@@ -624,7 +682,13 @@ export default function MusicSwipeDeckModal({
               .then((nextUrl) => nextUrl ? preloadTrackPreview(nextUrl) : undefined)
               .catch(() => {});
           }
-        } catch {
+        } catch (initialPlayError) {
+          // On web, autoplay can be denied until a real tap. A catalogue
+          // re-search cannot grant a gesture; expose Play immediately instead.
+          if (Platform.OS === 'web' && isWebAudioGestureRequired(initialPlayError)) {
+            if (alive && playbackGeneration.current === generation) setAutoplayBlocked(true);
+            return;
+          }
           // Une URL de preview persistée peut expirer côté catalogue. Avant de
           // conclure à un blocage autoplay, on force UNE résolution fraîche et
           // on rejoue la même carte. Cela évite le Swipe silencieux après
@@ -641,9 +705,7 @@ export default function MusicSwipeDeckModal({
               playbackKey,
               refreshedUrl,
               (playing) => {
-                if (playing && currentSourceProfileId) {
-                  void recordProfileSwipeListen(currentSourceProfileId, current.id); markListened(current.id);
-                }
+                if (playing) recordSwipeListenOnce(current.id, currentSourceProfileId);
               },
               () => {
                 if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
@@ -678,9 +740,7 @@ export default function MusicSwipeDeckModal({
                     playbackKey,
                     retryUrl,
                     (playing) => {
-                      if (playing && currentSourceProfileId) {
-                        void recordProfileSwipeListen(currentSourceProfileId, current.id); markListened(current.id);
-                      }
+                      if (playing) recordSwipeListenOnce(current.id, currentSourceProfileId);
                     },
                     () => {
                       if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
@@ -711,8 +771,12 @@ export default function MusicSwipeDeckModal({
               }
               return;
             }
-            // Web uniquement : Safari/Chrome peuvent imposer un geste.
-            if (alive) setAutoplayBlocked(true);
+            // Only actual browser gesture restrictions merit a tap. A failed
+            // media URL or unsupported codec must advance, not trap the Swipe.
+            if (alive && playbackGeneration.current === generation) {
+              if (isWebAudioGestureRequired(playError)) setAutoplayBlocked(true);
+              else skipUnavailablePreview('web_preview_play_failed');
+            }
           }
         }
       })
@@ -720,6 +784,7 @@ export default function MusicSwipeDeckModal({
         if (!alive) return;
         setPreviewResolving(false);
         setResolvedPreviewUrl(null);
+        skipUnavailablePreview('catalog_preview_lookup_failed');
       });
 
     return () => {
@@ -743,9 +808,7 @@ export default function MusicSwipeDeckModal({
         `swipe-${current.id}-${index}`,
         resolvedPreviewUrl,
         (playing) => {
-          if (playing && currentSourceProfileId) {
-            void recordProfileSwipeListen(currentSourceProfileId, current.id); markListened(current.id);
-          }
+          if (playing) recordSwipeListenOnce(current.id, currentSourceProfileId);
         },
         () => {
           setPreviewEnded(true);
@@ -775,9 +838,7 @@ export default function MusicSwipeDeckModal({
           `swipe-${current.id}-${index}`,
           refreshedUrl,
           (playing) => {
-            if (playing && currentSourceProfileId) {
-              void recordProfileSwipeListen(currentSourceProfileId, current.id); markListened(current.id);
-            }
+            if (playing) recordSwipeListenOnce(current.id, currentSourceProfileId);
           },
           () => {
             setPreviewEnded(true);
@@ -1186,7 +1247,13 @@ export default function MusicSwipeDeckModal({
                 {/* Adel 05/10/2026 : « il faut que ce soit très lisible, que les utilisateurs ne se fassent pas tromper » -- PAYANT (PayPal) ou GRATUIT, toujours dit en clair sur la carte. */}
                 {storyEmbeddedSource ? <View style={s.storyEmbeddedInCard} testID="story-official-inline-area"><StoryEmbeddedSourcePlayer sourceUrl={storyEmbeddedSource} compact={compactDeck} /></View> : null}
                 <View style={[s.gradientFake, compactDeck && s.gradientCompact, storyEmbeddedSource && s.gradientStoryEmbed]}>
-                  <View style={s.autoRow}><View style={[s.dot,resolvedPreviewUrl ? s.dotOn : s.dotOff]} /><Text style={s.autoText}>{previewLabel}</Text></View>
+                  <View style={s.autoRow}>
+                    <View style={[s.dot,resolvedPreviewUrl ? s.dotOn : s.dotOff]} />
+                    <Text style={s.autoText} numberOfLines={2}>{previewLabel}</Text>
+                    <TouchableOpacity testID="swipe-next-without-gesture" accessibilityRole="button" accessibilityLabel="Morceau suivant" style={s.nextInlineButton} disabled={controlsLocked} onPress={() => { void advance(); }}>
+                      <Text style={s.nextInlineText}>↑ SUIVANT</Text>
+                    </TouchableOpacity>
+                  </View>
                   {!trackAddedAt && !resolvedPreviewUrl && sourcePlayer && !sourcePlayerOpen ? (
                     <TouchableOpacity testID="story-open-source-player" style={s.manualPlayButton} accessibilityRole="button" accessibilityLabel="Écouter la vidéo originale dans Loki Music" onPress={() => { stopTrackPreviewFast(); setSourcePlayerOpen(true); }}>
                       <Text style={s.manualPlayText}>▶ ÉCOUTER DANS LOKI</Text>
@@ -1381,7 +1448,7 @@ const s = StyleSheet.create({
   storyEmbeddedInCard:{flex:1,minHeight:0,width:'100%',paddingHorizontal:6,paddingTop:38,justifyContent:'center'},
   gradientStoryEmbed:{paddingHorizontal:14,paddingTop:8,paddingBottom:10,backgroundColor:'rgba(9,6,16,.86)'},
   embeddedTrackTitle:{fontSize:19,lineHeight:23},
-  gradientFake:{padding:20,paddingTop:90,backgroundColor:'rgba(9,6,16,.68)'},autoRow:{flexDirection:'row',alignItems:'center',marginBottom:8},dot:{width:8,height:8,borderRadius:4,marginRight:6},dotOn:{backgroundColor:'#68F2B1'},dotOff:{backgroundColor:'#756B84'},autoText:{color:'#FFFFFF',fontSize:10,fontWeight:'800'},manualPlayButton:{alignSelf:'flex-start',minHeight:minTouchTarget,paddingHorizontal:14,borderRadius:17,backgroundColor:colors.keep,marginBottom:9},manualPlayText:{color:'#0B0E0B',fontSize:11,fontWeight:'900',lineHeight:34},trackTitle:{color:'#FFF',fontSize:28,lineHeight:32,fontWeight:'900'},artist:{color:'#F0EAF7',fontSize:16,fontWeight:'800',marginTop:6},album:{color:'#FFFFFF',fontSize:12,marginTop:3},
+  gradientFake:{padding:20,paddingTop:90,backgroundColor:'rgba(9,6,16,.68)'},autoRow:{flexDirection:'row',alignItems:'center',marginBottom:8,gap:5},dot:{width:8,height:8,borderRadius:4,marginRight:6},dotOn:{backgroundColor:'#68F2B1'},dotOff:{backgroundColor:'#756B84'},autoText:{flex:1,minWidth:0,color:'#FFFFFF',fontSize:10,fontWeight:'800'},nextInlineButton:{minHeight:36,paddingHorizontal:10,borderRadius:12,alignItems:'center',justifyContent:'center',backgroundColor:'#342653',borderWidth:1,borderColor:'#B79CFF'},nextInlineText:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},manualPlayButton:{alignSelf:'flex-start',minHeight:minTouchTarget,paddingHorizontal:14,borderRadius:17,backgroundColor:colors.keep,marginBottom:9},manualPlayText:{color:'#0B0E0B',fontSize:11,fontWeight:'900',lineHeight:34},trackTitle:{color:'#FFF',fontSize:28,lineHeight:32,fontWeight:'900'},artist:{color:'#F0EAF7',fontSize:16,fontWeight:'800',marginTop:6},album:{color:'#FFFFFF',fontSize:12,marginTop:3},
   sourceProfileButton:{minHeight:minTouchTarget,marginHorizontal:4,marginBottom:8,borderRadius:21,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center',paddingHorizontal:12},sourceProfileButtonText:{color:'#FFF',fontSize:11,fontWeight:'900',letterSpacing:.25,textAlign:'center'},
   deckHint:{marginTop:14,marginBottom:6,paddingHorizontal:6,color:'#FFFFFF',fontSize:13,lineHeight:19,fontWeight:'800',textAlign:'center'},
   addStoryButton:{minHeight:minTouchTarget,marginHorizontal:4,marginBottom:8,borderRadius:20,borderWidth:1,borderColor:'#7C5CFC',backgroundColor:'#1B1230',alignItems:'center',justifyContent:'center',paddingHorizontal:12},

@@ -90,8 +90,10 @@ export default function SwipeDeck({
 
   const responder = useRef(PanResponder.create({
     // Adel (05/10/2026) : « n'importe où où j'appuie, je dois pouvoir swiper vers le haut comme sur l'ordinateur ».
-    // On réclame le geste dès le toucher (les boutons enfants gardent la priorité : le plus profond répond d'abord).
-    onStartShouldSetPanResponder: () => latest.current.enabled,
+    // Ne capture pas le premier toucher : les boutons du lecteur, l'iframe et
+    // le bouton SUIVANT doivent rester cliquables. Ne revendique le geste
+    // qu'une fois sa direction gauche/droite/haut réellement identifiée.
+    onStartShouldSetPanResponder: () => false,
     onShouldBlockNativeResponder: () => false,
     onMoveShouldSetPanResponderCapture: (_, gesture) => latest.current.enabled && (wantsHorizontal(gesture) || wantsUp(gesture)),
     onMoveShouldSetPanResponder: (_, gesture) => latest.current.enabled && (wantsHorizontal(gesture) || wantsUp(gesture)),
