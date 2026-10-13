@@ -59,3 +59,5 @@ release: 2026-10-13 — Publication unifiée APRÈS PR178 Session + PR180 Pulse 
 release: 2026-10-13 — PR185 fusionnee SHA 421946a746014c2a52ca8afbaea03914e419cb1c: profil Apercu/YouTube repli source exacte, autoplay best-effort iOS+PC, reactions remontees contour anime, libelle Plus; CI Mobile+securite+design+QR valides. TestFlight + OTA sur cette release unique.
 release: 2026-10-13 — PR186 UI PC/iPhone unifiee : trois reactions au-dessus du titre avec relief neon accessible, aide Plus partout, build Web + TestFlight + OTA sur le meme commit apres CI verte.
 release: 2026-10-13 — PR189 UI Swipe PC: 3 réactions au-dessus du titre, effet néon 3D animé, Plus sur toutes les infos; publication Web + TestFlight + OTA iOS alignés sur un seul SHA.
+
+release: 2026-10-13 — PR194 Vibes→Styles partout (app, ordinateur, Super Admin), prix en dur retirés (PREMIUM 4,99 € en base), section Super Admin « Recharges FREE » + migration admin_iap_free_products déjà appliquée ; PR195 Robot de parcours 50/50 et gardien dual-viewport alignés ; CI verte sur SHA fe279dd629b9f812d9dcf1241c317447c6328b64 ; Web + TestFlight + OTA sur ce même commit.
