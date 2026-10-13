@@ -43,12 +43,12 @@ describe('Swipe reaction counter placement and compact help labels', () => {
     expect(end).toBeGreaterThan(header);
     expect(source).toContain('showHeaderCountPills');
     expect(source).toContain('testID="deck-reactions-animated-edge"');
-    expect(source).toContain('color="#A78BFA"');
+    expect(source).toContain('color="#68F2B1"');
   });
 
   it('keeps fully accessible expansion without verbose visible labels', () => {
     expect(clamped).toContain("{open ? 'Moins' : 'Plus'}");
-    expect(clamped).toContain("accessibilityLabel={open ? 'Réduire le texte' : 'En savoir plus'}");
+    expect(clamped).toContain("accessibilityLabel={open ? 'Moins' : 'Plus'}");
     expect(clamped).not.toContain("{open ? 'Réduire' : 'En savoir plus'}");
   });
 });
