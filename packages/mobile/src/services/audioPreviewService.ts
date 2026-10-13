@@ -705,8 +705,11 @@ export async function toggleTrackPreview(
           stalled = isPreviewStillStalled(status);
         } catch { stalled = true; }
         if (!stalled || requestEpoch !== playbackRequestEpoch || activeSound !== createdSound || activeKey !== key) return;
+        // A stalled network buffer is NOT a completed musical excerpt.
+        // Calling onEnded here made Story/Swipe silently jump away from
+        // songs the listener had never heard (all users, iOS especially).
         stopTrackPreviewFast(key);
-        onEnded?.();
+        onStateChange(false);
       })();
     }, 6500);
   });
