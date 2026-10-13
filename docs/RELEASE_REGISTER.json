@@ -1,5 +1,14 @@
 [
   {
+    "commit": "5696a081f4ec904f1a38961633904c066a184c72",
+    "web": "5696a081f4ec904f1a38961633904c066a184c72",
+    "testflight": "iOS #null null (release 12219bc)",
+    "ota": "OTA #null null (release 12219bc)",
+    "date": "2026-10-13 22:52",
+    "tests": "pass",
+    "changes": "release(loki): ship Vibes→Styles, Recharges FREE Super Admin et Robot de parcours 50/50 to Web/TestFlight/OTA (#196)"
+  },
+  {
     "commit": "13a6e68ec1a811ec06311b9b7f7a3bede0deb66c",
     "web": "13a6e68ec1a811ec06311b9b7f7a3bede0deb66c",
     "testflight": "iOS #239 success (release 92a9036)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 19:47",
     "tests": "pass",
     "changes": "fix(listen): monitor successive PC tab songs into real session with preview and FREE KEEP"
-  },
-  {
-    "commit": "a487e407ccf44890a3ecc2bac6848957575f63ce",
-    "web": "a487e407ccf44890a3ecc2bac6848957575f63ce",
-    "testflight": "iOS #230 success (release 1f44ee1)",
-    "ota": "OTA #1021 success (release 1f44ee1)",
-    "date": "2026-10-12 19:39",
-    "tests": "pass",
-    "changes": "test(music): PC and iPhone YouTube link parity and ephemeral in-app preview contract"
   }
 ]
