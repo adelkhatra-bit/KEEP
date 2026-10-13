@@ -113,6 +113,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   }, [viewer.id]);
   const [stories, setStories] = useState<MusicStory[]>([]);
   const storiesRef = React.useRef<MusicStory[]>([]);
+  const storyMissingCyclesRef = React.useRef(new Map<string, number>());
   const [reloadTick, setReloadTick] = useState(0);
   const lastBumpRef = React.useRef(0);
   storiesRef.current = stories;
@@ -258,10 +259,26 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
       const storiesMeta = storiesPromise.then((withStories) => applyMeta(withStories.map((story) => story.profileId)));
       await Promise.all([bubblesMeta, storiesMeta]);
       if (!live) return;
-      // Données complètes : on retire alors les bulles qui ont disparu côté serveur (story expirée, désabonnement).
-      if (!degraded) setStories(Array.from(collected.values()));
-      // Mémoire : 12 membres, 12 musiques chacun au plus (le disque reste léger), et seulement des données complètes.
-      if (!degraded) writeProfileMemory(viewer.id, 'story-rail', Array.from(collected.values()).slice(0, 12).map((story) => ({ ...story, tracks: story.tracks.slice(0, 12) })));
+      // A temporarily incomplete yet successful API result must not erase a
+      // still-valid 24h Story (the flicker seen during a 90s refresh). Require
+      // two consecutive complete refreshes confirming its absence. Expired
+      // stories are always removed immediately; suggestions never persist.
+      if (!degraded) {
+        for (const id of collected.keys()) storyMissingCyclesRef.current.delete(id);
+        const stable = new Map(collected);
+        for (const [id, old] of previous) {
+          if (stable.has(id) || !old.tracks.length) continue;
+          const valid = pruneExpiredStory(old);
+          if (!valid?.tracks.length) { storyMissingCyclesRef.current.delete(id); continue; }
+          const count = (storyMissingCyclesRef.current.get(id) ?? 0) + 1;
+          storyMissingCyclesRef.current.set(id, count);
+          if (count < 2) stable.set(id, valid);
+          else storyMissingCyclesRef.current.delete(id);
+        }
+        const snapshot = Array.from(stable.values());
+        setStories(snapshot);
+        writeProfileMemory(viewer.id, 'story-rail', snapshot.slice(0, 12).map((story) => ({ ...story, tracks: story.tracks.slice(0, 12) })));
+      }
       if (!activityFailed) setActivityKnown(true);
       // Une seule nouvelle tentative, 6 s plus tard, si une branche a échoué (jamais de boucle : règle de résilience de connexion).
       if (degraded && attempt === 0 && live) retryTimer = setTimeout(() => { if (live) void run(1); }, 6000);
@@ -304,7 +321,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     const refreshEvents = () => {
       void loadEventStories().then((rows) => {
         if (mounted) setEventStories(rows.filter((item) => eventStoryStillVisible(item)));
-      }).catch(() => { if (mounted) setEventStories([]); });
+      }).catch(() => { /* A transient server failure must not hide valid events. */ });
     };
     refreshEvents();
     const interval = setInterval(refreshEvents, 60000);
