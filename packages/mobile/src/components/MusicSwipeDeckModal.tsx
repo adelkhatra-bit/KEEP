@@ -630,15 +630,10 @@ export default function MusicSwipeDeckModal({
       return () => { alive = false; };
     }
 
-    // Share-linked YouTube videos are their own playback source.
-    // Never substitute a different iTunes song based on loosely parsed titles.
-    if (!trackAddedAt && !current.previewUrl?.trim() && !isSaleStoryTrack(current)
-        && resolveEmbeddedMusicPlayer(current.externalUrls?.source || current.externalUrls?.youtube || null)) {
-      setPreviewResolving(false);
-      setResolvedPreviewUrl(null);
-      scheduleEmbeddedStoryNext();
-      return () => { alive = false; };
-    }
+    // A real source-only YouTube/Spotify track MAY have an exact licensed
+    // 30-second catalogue clip. Always check first; the previous early return
+    // left ten tracks on adel4A with no sound until a manual player tap.
+    // Only on failure open the SAME original provider (never a guessed song).
     setPreviewResolving(!current.previewUrl?.trim());
     void resolveTrackPreviewUrl(current)
       .then(async (previewUrl) => {
@@ -646,6 +641,20 @@ export default function MusicSwipeDeckModal({
         setPreviewResolving(false);
         setResolvedPreviewUrl(previewUrl);
         if (!previewUrl) {
+          const exactSource = current.externalUrls?.source || current.externalUrls?.youtube || null;
+          if (!trackAddedAt && !isSaleStoryTrack(current) && resolveEmbeddedMusicPlayer(exactSource)) {
+            setSourcePlayerOpen(true);
+            // Provider does not send native onEnded: keep the Swipe flowing
+            // after one promotional clip even if iframe end cannot be observed.
+            if (index + 1 < deckTracks.length || loop) {
+              if (endAdvanceTimer.current) clearTimeout(endAdvanceTimer.current);
+              endAdvanceTimer.current = setTimeout(() => {
+                endAdvanceTimer.current = null;
+                if (alive && playbackGeneration.current === generation && !actionInFlight.current) advanceIndex();
+              }, 30000);
+            }
+            return;
+          }
           skipUnavailablePreview('catalog_no_playable_preview');
           return;
         }
@@ -1295,7 +1304,7 @@ export default function MusicSwipeDeckModal({
                     {Platform.OS === 'web'
                       ? React.createElement('iframe', {
                           key: sourcePlayer.url,
-                          src: sourcePlayer.url,
+                          src: sourcePlayer.provider === 'YOUTUBE' ? `${sourcePlayer.url}&autoplay=1` : sourcePlayer.url,
                           title: sourcePlayer.label,
                           allow: 'autoplay; encrypted-media; picture-in-picture',
                           allowFullScreen: true,
@@ -1304,7 +1313,7 @@ export default function MusicSwipeDeckModal({
                         })
                       : React.createElement(require('react-native-webview').WebView, {
                           key: sourcePlayer.url,
-                          source: { uri: sourcePlayer.url, ...(sourcePlayer.provider === 'YOUTUBE' ? { headers: { Referer: 'https://com.adelkhatra.keep' } } : {}) },
+                          source: { uri: sourcePlayer.provider === 'YOUTUBE' ? `${sourcePlayer.url}&autoplay=1` : sourcePlayer.url, ...(sourcePlayer.provider === 'YOUTUBE' ? { headers: { Referer: 'https://com.adelkhatra.keep' } } : {}) },
                           allowsInlineMediaPlayback: true,
                           mediaPlaybackRequiresUserAction: false,
                           javaScriptEnabled: true,
