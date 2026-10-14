@@ -18,7 +18,7 @@ describe('Story player: same behavior on mobile and PC', () => {
     expect(embed).toContain("allow: 'autoplay; encrypted-media; picture-in-picture'");
     expect(deck).toContain('<StoryEmbeddedSourcePlayer sourceUrl={storyEmbeddedSource} compact={compactDeck} />');
     expect(deck).toContain('style={s.storyEmbeddedInCard}');
-    expect(deck).toContain('!trackAddedAt && !resolvedPreviewUrl && sourcePlayer && !sourcePlayerOpen');
+    expect(deck).toContain('!resolvedPreviewUrl && !previewResolving && sourcePlayer && !sourcePlayerOpen');
   });
   it('keeps the paid story music hidden and does not expose the provider player', () => {
     expect(deck).toContain('!isSaleStoryTrack(current) && !currentOffered && !ownerMasked');

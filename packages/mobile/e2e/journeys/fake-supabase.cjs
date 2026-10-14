@@ -285,6 +285,18 @@ function createFakeSupabase(options = {}) {
           return json(200, battleArenaState(state.arenaRevealed));
         case 'keep_free_credit_breakdown': return json(200, { remaining: opts.balance });
         case 'keep_battle_credit_status': return json(200, credit);
+        case 'keep_own_profile_tracks': {
+          // Collection publique du testeur : 2 titres catalogue + 2 titres importés via YouTube (sans extrait, source seule).
+          if (!opts.ownKeeps) return json(200, []);
+          const mk = (i, yt) => ({
+            decision_id: `0b5e7a1c-0000-4000-8000-0000000d00${i}`, kept_at: recent(3600000 + i * 1000), visibility: 'PUBLIC',
+            track_id: `0b5e7a1c-0000-4000-8000-0000000e00${i}`, isrc: yt ? null : `FRXXX000000${i}`,
+            title: yt ? `Titre YouTube ${i}` : `Titre catalogue ${i}`, artist: yt ? 'Chaîne YouTube' : 'Artiste catalogue', album: null,
+            duration_sec: 200, artwork_url: null, genres: [], provider_ids: {}, preview_url: yt ? null : `${opts.origin}/none.mp3`,
+            external_urls: yt ? { source: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' } : {}, available_on: [], context: {}, source_user_id: null, source_type: null,
+          });
+          return json(200, [mk(1, true), mk(2, true), mk(3, false), mk(4, false)]);
+        }
         case 'keep_own_profile_snapshot': return json(200, obj ? snapshot[0] : snapshot);
         case 'keep_public_profile_snapshot': return json(200, obj ? pubsnap[0] : pubsnap);
         default:
@@ -304,11 +316,18 @@ function createFakeSupabase(options = {}) {
         artwork_url: null, preview_url: null, genres: ['House'],
         provider_ids: {}, external_urls: {}, available_on: [],
       };
-      return json(200, [{
-        profile_id: UID, created_at: recent(60000),
-        track: storyTrack,
+      const count = opts.ownStory === 'multi' ? 3 : 1;
+      return json(200, Array.from({ length: count }, (_, i) => ({
+        profile_id: UID, created_at: recent(60000 + i * 1000),
+        track: i === 0 ? storyTrack : {
+          ...storyTrack,
+          id: `0b5e7a1c-0000-4000-8000-00000000c99${i}`,
+          title: `Musique de démonstration ${i + 1}`,
+          // Un titre importé via YouTube : aucun extrait catalogue, seule la source YouTube existe.
+          external_urls: i === 2 ? { source: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', youtube: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' } : {},
+        },
         profile: { username: USERNAME, avatar_url: null, discovery_hidden: false },
-      }]);
+      })));
     }
     if (p === '/rest/v1/notifications' && req.method() === 'GET') return json(200, unreadNotifications.filter((n) => !state.readNotifications.includes(n.id)).sort((a, b) => b.created_at.localeCompare(a.created_at)));
     if (p === '/rest/v1/tracks' && opts.newKeepNotif && u.searchParams.get('id') === `eq.${SECRET_TRACK.id}`) {
