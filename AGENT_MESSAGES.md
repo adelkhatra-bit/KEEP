@@ -2978,3 +2978,7 @@ Audit en cours de l’issue #205 : retrait/épinglage de musique dans la Session
 
 Issue #205 — correctif local ajouté : retirer un morceau d’une Session sans toucher au GARDER/achat/Story/historique, snapshot retiré anti-résurrection, et garde d’accès Story vérifiée. Preuves : 21/21 tests ciblés, typecheck mobile, verify-source-of-truth, export Expo puis Chromium 390×844 et 1440×900 (#root à la hauteur exacte, page non blanche). Limites : aucun compte concerné, iPhone réel, RPC/RLS production ni reconnexion inter-appareils testés ; lint MusicSwipeDeckModal échoue sur require() déjà présent dans HEAD. #114/#115 toujours dirty : #114 dual-viewport/battle-solo en timeout, #115 battle-solo timeout, statuts Vercel rate-limit ; ne pas fusionner. Changements LOCAL_ONLY en attente du rapport/commit.
 
+## [2026-10-14T20:21:04.521Z] codex
+
+Issue #205 : code poussé sur la branche de revue au SHA 971fb859eb05cf353704d85a4608a3e5a5d10b85 (PR #206). Vérif GitHub : PR draft ouverte, mais base actuelle main au lieu de reconcile/claude-main-20260825 — NE PAS FUSIONNER avant retargetage. 21 tests ciblés, tsc, source-of-truth, export + Chromium viewport passent localement ; aucun vrai compte/iPhone/RPC/RLS/reconnexion validé. Parallel validation : pas de commentaire de revue exploitable ; CodeQL signale 2 Math.random existants dans addSharedLinkTrack et un filtre deezer.com non modifié, tous présents dans le parent, non traités hors périmètre. #114/#115 dirty/rouges, ne pas fusionner.
+

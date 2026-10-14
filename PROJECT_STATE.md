@@ -34,10 +34,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-10-14T20:16:22.124Z
+- Régénéré le : 2026-10-14T20:21:12.002Z
 - Branche : `copilot/bug-session-supprimer-epingler-musique`
-- Dernier commit : `169647427` (169647427fdcb34979abac3e1f17c78061fc7e75) — Synchronize canonical branch for Session audit
-- Date du dernier commit : 2026-10-14T20:05:16Z
+- Dernier commit : `971fb859e` (971fb859eb05cf353704d85a4608a3e5a5d10b85) — Corriger le retrait et l’épinglage en Session
+- Date du dernier commit : 2026-10-14T20:17:09Z
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -124,6 +124,7 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
+- `971fb859e` (2026-10-14, copilot-swe-agent[bot]) — Corriger le retrait et l’épinglage en Session
 - `169647427` (2026-10-14, copilot-swe-agent[bot]) — Synchronize canonical branch for Session audit
 - `393fe91ee` (2026-10-14, copilot-swe-agent[bot]) — Merge remote-tracking branch 'origin/reconcile/claude-main-20260825' into copilot/bug-session-supprimer-epingler-musique Co-authored-by: adelkhatra-bit <231372518+adelkhatra-bit@users.noreply.github.com>
 - `05e3546f1` (2026-10-14, copilot-swe-agent[bot]) — Initial plan
@@ -133,7 +134,6 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 - `356e4d78f` (2026-10-14, adelkhatra-bit) — test(ci): réparer le Real Browser Web Runtime Audit (#200)
 - `9240b48ab` (2026-10-14, github-actions[bot]) — chore(registre): release 3b4bff9 vérifiée en ligne [skip ci]
 - `3b4bff95d` (2026-10-14, adelkhatra-bit) — fix(swipe): rétablir le Swipe de l'aperçu profil et des Stories avec titres YouTube (#199)
-- `d2e60096a` (2026-10-13, github-actions[bot]) — chore(registre): release 3868a14 vérifiée en ligne [skip ci]
 <!-- AUTO:RECENT-COMMITS:END -->
 
 ## Registre de versions (généré par le workflow de release, jamais à la main)
@@ -202,7 +202,7 @@ agent) et messages des sessions de chat (non versionnés).
 
 ## 4. Points ouverts
 
-- 14/10 — #205 : correctif de retrait par session et garde Story préparés sur `copilot/bug-session-supprimer-epingler-musique` (LOCAL_ONLY, commit en attente). Tests ciblés, typecheck, contrôle source et export Chromium 390×844/1440×900 locaux réussis ; session vide rendue explicitement. La reproduction sur le compte signalé, iPhone réel, RPC/RLS production et reconnexion inter-appareils restent non vérifiés. PR #114/#115 toujours ouvertes/dirty ; ne pas fusionner avant migration styles et double-trigger Story coordonnés.
+- 14/10 — #205 : correctif `971fb859eb05cf353704d85a4608a3e5a5d10b85` poussé sur la branche de revue `copilot/bug-session-supprimer-epingler-musique` (PR #206). Tests ciblés 21/21, typecheck, contrôle source et export Chromium 390×844/1440×900 locaux réussis ; compte réel, iPhone, RPC/RLS production et reconnexion inter-appareils non vérifiés. **PR #206 cible `main` au lieu de `reconcile/claude-main-20260825` : ne pas fusionner avant retargetage.** PR #114/#115 toujours ouvertes/dirty ; ne pas fusionner avant coordination des migrations styles et du double-trigger Story.
 
 - 13/10 : retour global Soirées + Battle PC large préparés ; tsc et 1635 tests PASS. Validation navigateur CI et publication restent non vérifiées (Chromium local EPERM).
 
