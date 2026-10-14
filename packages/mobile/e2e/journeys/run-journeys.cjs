@@ -1132,10 +1132,41 @@ const swipeYoutubeJourney = {
   },
 };
 
+// Lecture d'un titre importé via YouTube depuis la liste du profil / de la playlist (incident 14/10/2026) :
+// le bouton ▶ ouvrait YouTube hors de Loki. Il doit lire la source officielle DANS l'app, sur PC comme sur mobile.
+const playYoutubeInAppJourney = {
+  id: 'lecture-youtube-dans-loki',
+  titre: 'Lecture d’un titre YouTube depuis la liste du profil, sans quitter Loki Music',
+  devices: [PC, ANDROID],
+  mobileFlags: true,
+  fakeOptions: { pcSession: true, ownKeeps: true },
+  async run({ page, shot }) {
+    const checks = [];
+    await page.goto(`${BASE}/Main/Profile/`, { waitUntil: 'load' });
+    await page.getByText('Tous les morceaux', { exact: true }).first().waitFor({ state: 'visible', timeout: 35000 });
+    await page.getByText('Tous les morceaux', { exact: true }).first().click();
+    const play = page.getByLabel('Écouter ce morceau dans Loki Music').first();
+    await play.waitFor({ state: 'visible', timeout: 20000 });
+    const urlBefore = page.url();
+    const pagesBefore = page.context().pages().length;
+    await play.click();
+    await page.waitForTimeout(1200);
+    checks.push(['le lecteur officiel s’ouvre dans une fenêtre de Loki Music', await page.locator('[data-testid="embedded-source-modal"]').isVisible()]);
+    checks.push(['le lecteur YouTube intégré est chargé (iframe)', (await page.locator('iframe').count()) >= 1]);
+    checks.push(['l’utilisateur reste dans l’application (même adresse, aucun nouvel onglet)', page.url() === urlBefore && page.context().pages().length === pagesBefore]);
+    await shot('lecteur-integre');
+    await page.locator('[data-testid="embedded-source-close"]').click();
+    await page.waitForTimeout(500);
+    checks.push(['la fenêtre se ferme et le profil reste utilisable', (await page.locator('[data-testid="embedded-source-modal"]').count()) === 0]);
+    return { details: {}, failures: failed(checks), ok: 'Le ▶ d’un titre YouTube lit la source dans Loki Music, sans redirection' };
+  },
+};
+
 const JOURNEYS = [
   desktopPartiesBattleSidebarJourney,
   listenPcAndEventStoryJourney,
   swipeYoutubeJourney,
+  playYoutubeInAppJourney,
   desktopHomeStoryJourney,
   pcConnectionCountdownJourney,
   crossDeviceReadJourney,
