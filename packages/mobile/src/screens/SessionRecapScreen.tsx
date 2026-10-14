@@ -24,6 +24,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   const {
     keepTrackInSession,
     passTrackInSession,
+    removeTrackFromSession,
     restoreTrackInSession,
     keepAllPendingInSession,
     renameSession,
@@ -34,6 +35,8 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   const [showPassed, setShowPassed] = useState(false);
   const { playlists } = usePlaylistStore();
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
+  const isDemoMode = useUserStore((s) => s.isDemoMode);
+  const isAnonymous = useUserStore((s) => s.isAnonymous);
   const [processing, setProcessing] = useState(false);
   const [titleDraft, setTitleDraft] = useState(session?.title ?? '');
   const [titleSaved, setTitleSaved] = useState(false);
@@ -93,17 +96,13 @@ export default function SessionRecapScreen({ route, navigation }: any) {
       .map((entry) => entry.track);
   }, [session]);
 
-  // Adel (02/09/2026) : "dans la session, quand j'efface des choses, pourquoi
-  // ça revient, nettoie la cage" -- PASSER ne faisait que renvoyer le
-  // morceau en bas de la liste (triée par statut), il restait visible pour
-  // toujours au lieu de disparaître. Un morceau passé quitte maintenant la
-  // liste affichée -- son statut reste bien enregistré dans session.tracks
-  // (compteurs, historique), seul l'affichage l'exclut.
+  // PASSER et RETIRER masquent le morceau de la liste principale sans effacer
+  // son entrée ni ses données conservées dans session.tracks.
   const sortedTracks = useMemo(() => {
     if (!session) return [];
     // Règle d'Adel (05/10/2026), valable dans tout le système : la musique la
     // plus récente est TOUJOURS en haut, quel que soit son statut.
-    return session.tracks.filter((entry) => entry.status !== 'passed').sort((a, b) => (
+    return session.tracks.filter((entry) => entry.status !== 'passed' && entry.status !== 'removed').sort((a, b) => (
       new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime()
     ));
   }, [session]);
@@ -170,7 +169,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     );
   }
 
-  const detectedCount = session.tracks.length;
+  const detectedCount = session.tracks.filter((tr) => tr.status !== 'removed').length;
   const keptCount = session.tracks.filter((tr) => tr.status === 'kept').length;
   const pendingCount = session.tracks.filter((tr) => tr.status === 'pending').length;
   const lockedCount = session.tracks.filter((tr) => tr.status === 'pending' && tr.creditLocked).length;
@@ -237,6 +236,24 @@ export default function SessionRecapScreen({ route, navigation }: any) {
       { text: 'Annuler', style: 'cancel' },
       { text: 'Supprimer', style: 'destructive', onPress: run },
     ]);
+  };
+
+  const handleRemoveTrack = (entryId: string) => {
+    Alert.alert(
+      'Retirer ce morceau de la session ?',
+      'Il disparaîtra uniquement de cette session. Il restera dans ta collection, tes achats, tes Stories et ton historique.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Retirer',
+          style: 'destructive',
+          onPress: () => {
+            removeTrackFromSession(sessionId, entryId);
+            Alert.alert('Morceau retiré', 'Ce morceau n’apparaît plus dans cette session. Ta collection et ton historique sont conservés.');
+          },
+        },
+      ],
+    );
   };
 
   const openUnlock = async () => {
@@ -355,10 +372,12 @@ export default function SessionRecapScreen({ route, navigation }: any) {
             playlists={playlists}
             onKeep={(entryId, playlistId, visibility) => keepTrackInSession(sessionId, entryId, playlistId, visibility ?? 'PRIVATE')}
             onPass={(entryId) => passTrackInSession(sessionId, entryId)}
+            onRemove={handleRemoveTrack}
             onVisibilityChange={(entryId, visibility) => { void setTrackVisibilityInSession(sessionId, entryId, visibility); }}
             onUnlock={() => { void openUnlock(); }}
           />
         )}
+        ListEmptyComponent={<Text testID="session-empty-list" style={styles.emptyListText}>Aucun morceau à trier dans cette session.</Text>}
         ListFooterComponent={passedTracks.length > 0 ? (
           <View style={styles.passedSection}>
             <TouchableOpacity
@@ -373,6 +392,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
               <TrackRow
                 key={entry.id}
                 entry={entry}
+                onRemove={handleRemoveTrack}
                 onRestore={(entryId) => restoreTrackInSession(sessionId, entryId)}
               />
             )) : null}
@@ -424,6 +444,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
         onClose={closeSwipe}
         onKeep={handleSwipeKeep}
         onPass={handleSwipePass}
+        requiresAccount={isLocalGuest || isDemoMode || isAnonymous}
       />
     </SafeAreaView>
   );
@@ -433,6 +454,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing.xl },
   emptyText: { color: colors.textSecondary, fontSize: 15, marginBottom: spacing.lg },
+  emptyListText: { color: colors.textSecondary, fontSize: 13, textAlign: 'center', paddingHorizontal: spacing.lg, paddingVertical: spacing.xl },
   backLink: { paddingVertical: spacing.sm },
   backLinkText: { color: colors.primaryLight, fontWeight: '700' },
   header: { minHeight:68, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderBottomWidth:1, borderBottomColor:colors.border },

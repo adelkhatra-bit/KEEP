@@ -34,10 +34,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-10-13T10:39:11.068Z
-- Branche : `reconcile/claude-main-20260825`
-- Dernier commit : `eb060ac1` (eb060ac154e1f6b84fc5d43655f6de37dea5d2dc) — chore(registre): release c7f97df vérifiée en ligne [skip ci]
-- Date du dernier commit : 2026-10-13T10:22:16Z
+- Régénéré le : 2026-10-14T20:16:22.124Z
+- Branche : `copilot/bug-session-supprimer-epingler-musique`
+- Dernier commit : `169647427` (169647427fdcb34979abac3e1f17c78061fc7e75) — Synchronize canonical branch for Session audit
+- Date du dernier commit : 2026-10-14T20:05:16Z
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -124,16 +124,16 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
-- `eb060ac1` (2026-10-13, github-actions[bot]) — chore(registre): release c7f97df vérifiée en ligne [skip ci]
-- `5c5ff6c8` (2026-10-13, github-actions[bot]) — chore(registre): release 8e5905b vérifiée en ligne [skip ci]
-- `c7f97df0` (2026-10-13, adelkhatra-bit) — chore(release): ship profile persistence, KEEP modal and iOS OTA updater (#163)
-- `737feaa1` (2026-10-13, adelkhatra-bit) — fix(ios): check OTA on app foreground and periodically (#164)
-- `11c6126e` (2026-10-13, github-actions[bot]) — chore(registre): release 466a4f2 vérifiée en ligne [skip ci]
-- `8e5905bb` (2026-10-13, adelkhatra-bit) — refactor(keep): remove unused KEEP choice modal (#162)
-- `466a4f2d` (2026-10-13, adelkhatra-bit) — fix(profile): preserve late-loaded birthday and gender on Save (#161)
-- `9d48ef7d` (2026-10-13, github-actions[bot]) — chore(registre): release c7cfb99 vérifiée en ligne [skip ci]
-- `c7cfb993` (2026-10-13, adelkhatra-bit) — chore(release): déclencher TestFlight et OTA du correctif QR #158
-- `7e2a16ee` (2026-10-13, github-actions[bot]) — chore(registre): release cbacd1a vérifiée en ligne [skip ci]
+- `169647427` (2026-10-14, copilot-swe-agent[bot]) — Synchronize canonical branch for Session audit
+- `393fe91ee` (2026-10-14, copilot-swe-agent[bot]) — Merge remote-tracking branch 'origin/reconcile/claude-main-20260825' into copilot/bug-session-supprimer-epingler-musique Co-authored-by: adelkhatra-bit <231372518+adelkhatra-bit@users.noreply.github.com>
+- `05e3546f1` (2026-10-14, copilot-swe-agent[bot]) — Initial plan
+- `e0aa9d243` (2026-10-14, github-actions[bot]) — chore(registre): release 82aae49 vérifiée en ligne [skip ci]
+- `82aae496b` (2026-10-14, adelkhatra-bit) — fix(playlist): lire un titre YouTube dans Loki Music au lieu de rediriger vers YouTube (#202)
+- `0dd6516fa` (2026-10-14, adelkhatra-bit) — test(ci): audit navigateur — mocker la diffusion Realtime du tchat (#201)
+- `356e4d78f` (2026-10-14, adelkhatra-bit) — test(ci): réparer le Real Browser Web Runtime Audit (#200)
+- `9240b48ab` (2026-10-14, github-actions[bot]) — chore(registre): release 3b4bff9 vérifiée en ligne [skip ci]
+- `3b4bff95d` (2026-10-14, adelkhatra-bit) — fix(swipe): rétablir le Swipe de l'aperçu profil et des Stories avec titres YouTube (#199)
+- `d2e60096a` (2026-10-13, github-actions[bot]) — chore(registre): release 3868a14 vérifiée en ligne [skip ci]
 <!-- AUTO:RECENT-COMMITS:END -->
 
 ## Registre de versions (généré par le workflow de release, jamais à la main)
@@ -201,6 +201,8 @@ agent) et messages des sessions de chat (non versionnés).
 - Les builds iOS utilisent `--freeze-credentials` pour empêcher EAS d'essayer de réparer/créer des credentials pendant un job non interactif.
 
 ## 4. Points ouverts
+
+- 14/10 — #205 : correctif de retrait par session et garde Story préparés sur `copilot/bug-session-supprimer-epingler-musique` (LOCAL_ONLY, commit en attente). Tests ciblés, typecheck, contrôle source et export Chromium 390×844/1440×900 locaux réussis ; session vide rendue explicitement. La reproduction sur le compte signalé, iPhone réel, RPC/RLS production et reconnexion inter-appareils restent non vérifiés. PR #114/#115 toujours ouvertes/dirty ; ne pas fusionner avant migration styles et double-trigger Story coordonnés.
 
 - 13/10 : retour global Soirées + Battle PC large préparés ; tsc et 1635 tests PASS. Validation navigateur CI et publication restent non vérifiées (Chromium local EPERM).
 

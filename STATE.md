@@ -14,6 +14,7 @@ Rapport d'audit externe : `docs/AUDIT_EXTERNE_2026-10-06.md`. Notifications : `d
 
 ## Journal (récent d'abord)
 
+| 14/10/2026 | copilot/bug-session-supprimer-epingler-musique | LOCAL_ONLY, commit à suivre | #205 : retrait d’un morceau propre à la session, persistance anti-résurrection, contrôle d’accès Story et feedback | Tests ciblés/typecheck/gardes/export Chromium locaux réussis ; aucun compte réel/iPhone/RPC production ou reconnexion réelle validés |
 | 12/10/2026 | fix/web-idle-refresh-20261012 (PR en vérification) | 8e829279 (premier commit) | Mise à jour PC automatique lorsque l'onglet reste visible : vérification SHA 15 s, application après 30 s d'inactivité, aucune interruption saisie/Solo/Battle ; un seul bundle canonique | Test de contrat renforcé ; CI, publication GitHub Pages et TestFlight non encore prouvés |
 | Date | Branche | Commit | Fonction | Preuve |
 |---|---|---|---|---|

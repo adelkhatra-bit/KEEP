@@ -29,17 +29,21 @@ function validSnapshot(value: unknown): value is KeepSession {
 /**
  * A remote snapshot can arrive while a freshly copied link is being added
  * locally (especially during first login/hydration). Never erase a track that
- * exists only in the local snapshot. Remote status still wins for shared IDs,
- * and tombstoned sessions remain authoritative.
+ * exists only in the local snapshot. Remote status wins for shared IDs except
+ * for an explicit local removal, which must survive an offline reconnect.
  */
 export function mergeSessionWithUnsentTracks(remote: KeepSession, local?: KeepSession): KeepSession {
   if (!local) return remote;
   const known = new Set(remote.tracks.map((entry) => entry.id));
   const localOnly = local.tracks.filter((entry) => !known.has(entry.id));
-  if (!localOnly.length) return remote;
+  const locallyRemoved = new Set(local.tracks.filter((entry) => entry.status === 'removed').map((entry) => entry.id));
+  const mergedRemoteTracks = remote.tracks.map((entry) => locallyRemoved.has(entry.id)
+    ? { ...entry, status: 'removed' as const, creditLocked: false }
+    : entry);
+  if (!localOnly.length && mergedRemoteTracks.every((entry, index) => entry === remote.tracks[index])) return remote;
   return {
     ...remote,
-    tracks: [...remote.tracks, ...localOnly].sort((a, b) =>
+    tracks: [...mergedRemoteTracks, ...localOnly].sort((a, b) =>
       new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime()),
   };
 }

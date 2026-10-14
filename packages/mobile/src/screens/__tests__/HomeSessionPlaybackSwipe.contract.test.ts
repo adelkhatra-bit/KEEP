@@ -18,6 +18,29 @@ describe('Sessions / Home link playback parity (iPhone + PC)', () => {
     expect(recap).toContain('<MusicSwipeDeckModal');
   });
 
+  it('retire un morceau de la session sans toucher au GARDER, aux achats, aux Stories ni à l’historique', () => {
+    const store = read('store/useSessionHistoryStore.ts');
+    const sync = read('services/sessionCloudSyncService.ts');
+    expect(row).toContain('testID={`session-remove-track-${entry.id}`}');
+    expect(recap).toContain('removeTrackFromSession(sessionId, entryId)');
+    expect(recap).toContain('Il restera dans ta collection, tes achats, tes Stories et ton historique.');
+    expect(store).toContain("status: 'removed', creditLocked: false");
+    expect(store).toContain("entry.status === 'removed') return entry;");
+    expect(sync).toContain("entry.status === 'removed').map((entry) => entry.id)");
+    expect(sync).toContain("status: 'removed' as const");
+    expect(recap).toContain('testID="session-empty-list"');
+  });
+
+  it('demande un compte éligible avant toute épingle Story depuis Session', () => {
+    const storyAccess = read('services/storyAccessService.ts');
+    const deck = read('components/MusicSwipeDeckModal.tsx');
+    expect(storyAccess).toContain('isStoryAccountEligible(data.session?.user as any)');
+    expect(row).toContain('loadStoryAccess()');
+    expect(row).toContain("reportAutoDiagnostic('STORY_PIN_FAILED', error)");
+    expect(recap).toContain('requiresAccount={isLocalGuest || isDemoMode || isAnonymous}');
+    expect(deck).toContain('if (!(await loadStoryAccess()))');
+  });
+
   it('makes Session audio previews and controls touch-size and immediately visible', () => {
     expect(row).toContain('compactSession />');
     expect(controls).toContain('testID="session-preview-play-20"');

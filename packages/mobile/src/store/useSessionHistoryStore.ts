@@ -50,6 +50,7 @@ interface SessionHistoryStore {
   reconcileOrphanedLiveSessions: (activeSessionId?: string | null) => void;
   keepTrackInSession: (sessionId: string, entryId: string, playlistId?: string, visibility?: KeepVisibility) => Promise<void>;
   passTrackInSession: (sessionId: string, entryId: string) => void;
+  removeTrackFromSession: (sessionId: string, entryId: string) => void;
   restoreTrackInSession: (sessionId: string, entryId: string) => void;
   setTrackVisibilityInSession: (sessionId: string, entryId: string, visibility: KeepVisibility) => Promise<void>;
   setAllKeptVisibility: (visibility: KeepVisibility) => Promise<number>;
@@ -206,7 +207,7 @@ export function mergePersistedKeeps(sessions: KeepSession[], remoteKeeps: Persis
   let next = sessions.map((session) => ({
     ...session,
     tracks: session.tracks.map((entry): SessionTrackEntry => {
-      if (!entry.keepDecisionId) return entry;
+      if (!entry.keepDecisionId || entry.status === 'removed') return entry;
       const remote = remoteByDecision.get(entry.keepDecisionId);
       if (!remote) return entry;
       return {
@@ -419,6 +420,15 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
       },
 
       passTrackInSession: (sessionId, entryId) => set((s) => ({ sessions: updateEntryStatus(s.sessions, sessionId, entryId, 'passed', undefined, undefined, undefined, false) })),
+
+      removeTrackFromSession: (sessionId, entryId) => set((state) => ({
+        sessions: state.sessions.map((session) => session.id !== sessionId ? session : {
+          ...session,
+          tracks: session.tracks.map((entry) => entry.id === entryId && entry.status !== 'removed'
+            ? { ...entry, status: 'removed', creditLocked: false }
+            : entry),
+        }),
+      })),
 
       // Adel (20/09/2026) : "swiper ne doit plus supprimer tout de suite --
       // ça doit rester ré-écoutable et ré-ajoutable tant que je n'ai pas

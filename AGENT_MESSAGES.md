@@ -2974,3 +2974,7 @@ Reprise livraison Soirees PC: navigation officielle sans retour accueil confirme
 
 Audit en cours de l’issue #205 : retrait/épinglage de musique dans la Session. Clone de revue actualisé depuis reconcile/claude-main-20260825 ; analyse lecture seule des handlers, persistence/RPC et tests, aucune donnée production touchée. La cause doit être reproduite avant correction.
 
+## [2026-10-14T20:16:41.931Z] codex
+
+Issue #205 — correctif local ajouté : retirer un morceau d’une Session sans toucher au GARDER/achat/Story/historique, snapshot retiré anti-résurrection, et garde d’accès Story vérifiée. Preuves : 21/21 tests ciblés, typecheck mobile, verify-source-of-truth, export Expo puis Chromium 390×844 et 1440×900 (#root à la hauteur exacte, page non blanche). Limites : aucun compte concerné, iPhone réel, RPC/RLS production ni reconnexion inter-appareils testés ; lint MusicSwipeDeckModal échoue sur require() déjà présent dans HEAD. #114/#115 toujours dirty : #114 dual-viewport/battle-solo en timeout, #115 battle-solo timeout, statuts Vercel rate-limit ; ne pas fusionner. Changements LOCAL_ONLY en attente du rapport/commit.
+

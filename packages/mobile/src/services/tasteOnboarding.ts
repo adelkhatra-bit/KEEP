@@ -16,7 +16,7 @@ export function topGenresFromSessions(sessions: SessionLike[] | undefined | null
   const counts = new Map<string, { label: string; n: number }>();
   for (const session of sessions ?? []) {
     for (const entry of session.tracks ?? []) {
-      if (entry.status === 'passed') continue;
+      if (entry.status === 'passed' || entry.status === 'removed') continue;
       for (const raw of entry.track?.genres ?? []) {
         const label = String(raw ?? '').trim();
         if (!label) continue;

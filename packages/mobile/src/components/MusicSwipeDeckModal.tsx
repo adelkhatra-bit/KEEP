@@ -4,6 +4,7 @@ import ClampedText from './ClampedText';
 import SourceProfileQuickView from './SourceProfileQuickView';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import { reportAutoDiagnostic } from '../services/problemReportService';
+import { loadStoryAccess } from '../services/storyAccessService';
 import { pushReportSurface } from '../services/reportSurface';
 import ChatDockHost from './ChatDockHost';
 import KeepVisibilityChoiceModal, { KeepSuccessModal } from './KeepVisibilityChoiceModal';
@@ -313,6 +314,13 @@ export default function MusicSwipeDeckModal({
   const makeKeptPublicAndStory = async () => {
     const track = current;
     if (!track) return;
+    if (!(await loadStoryAccess())) {
+      Alert.alert('Compte requis', 'Les Stories sont réservées aux comptes avec une adresse e-mail confirmée. Connecte-toi à un compte éligible pour épingler ce morceau.', [
+        { text: 'Plus tard', style: 'cancel' },
+        { text: 'Se connecter', onPress: () => { void close(); setTimeout(() => useAccountGateStore.getState().requestAccount('login', sourceUsername ?? ''), 350); } },
+      ]);
+      return;
+    }
     try {
       await persistOwnTrackVisibility(track, 'PUBLIC');
       await pinStoryTrack(resolveKeptTrackId(track.id), track);
@@ -329,6 +337,13 @@ export default function MusicSwipeDeckModal({
     // Visiteur sans compte (lien partagé) : écouter oui, agir non → on demande un compte, rien n'est écrit.
     if (requiresAccount) {
       Alert.alert('Compte requis', 'Connecte-toi pour agir.', [
+        { text: 'Plus tard', style: 'cancel' },
+        { text: 'Se connecter', onPress: () => { void close(); setTimeout(() => useAccountGateStore.getState().requestAccount('login', sourceUsername ?? ''), 350); } },
+      ]);
+      return;
+    }
+    if (!(await loadStoryAccess())) {
+      Alert.alert('Compte requis', 'Les Stories sont réservées aux comptes avec une adresse e-mail confirmée. Connecte-toi à un compte éligible pour épingler ce morceau.', [
         { text: 'Plus tard', style: 'cancel' },
         { text: 'Se connecter', onPress: () => { void close(); setTimeout(() => useAccountGateStore.getState().requestAccount('login', sourceUsername ?? ''), 350); } },
       ]);

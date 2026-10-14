@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { pinStoryTrack, notifyOwnStoryChanged } from '../services/musicStoriesService';
+import { loadStoryAccess } from '../services/storyAccessService';
+import { reportAutoDiagnostic } from '../services/problemReportService';
+import { useAccountGateStore } from '../store/useAccountGateStore';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useTranslation } from 'react-i18next';
 import { ProviderPlaylist } from '@keep/music';
@@ -25,13 +28,14 @@ interface Props {
   entry: SessionTrackEntry;
   onKeep?: (entryId: string, playlistId?: string, visibility?: KeepVisibility) => void;
   onPass?: (entryId: string) => void;
+  onRemove?: (entryId: string) => void;
   onRestore?: (entryId: string) => void;
   onVisibilityChange?: (entryId: string, visibility: KeepVisibility) => void;
   onUnlock?: () => void;
   playlists?: ProviderPlaylist[];
 }
 
-export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilityChange, onUnlock, playlists }: Props) {
+export default function TrackRow({ entry, onKeep, onPass, onRemove, onRestore, onVisibilityChange, onUnlock, playlists }: Props) {
   const { t } = useTranslation();
   const { track, status } = entry;
   const topPlaylistName = entry.recommendations[0]?.playlistName;
@@ -98,13 +102,26 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
     if (status !== 'kept' || visibility !== 'PUBLIC' || storyBusy) return;
     setStoryBusy(true);
     try {
+      if (!(await loadStoryAccess())) {
+        Alert.alert('Compte requis', 'Les Stories sont réservées aux comptes avec une adresse e-mail confirmée. Connecte-toi à un compte éligible pour épingler ce morceau.', [
+          { text: 'Plus tard', style: 'cancel' },
+          { text: 'Se connecter', onPress: () => useAccountGateStore.getState().requestAccount('login') },
+        ]);
+        return;
+      }
       await pinStoryTrack(track.id, {
         title: track.title, artist: track.artist, album: track.album,
         artworkUrl: track.artworkUrl, previewUrl: track.previewUrl, isrc: track.isrc,
       });
       Alert.alert('Story publiée', 'Ce morceau est visible dans ta Story musicale pendant 24 h.');
     } catch (error: any) {
-      Alert.alert('Story non publiée', error?.message || 'Cette musique ne peut pas être mise en Story pour le moment.');
+      reportAutoDiagnostic('STORY_PIN_FAILED', error);
+      Alert.alert(
+        'Story non publiée',
+        String(error?.message ?? '').includes('SALE_PROTECTED')
+          ? 'Cette musique est protégée par une vente et ne peut pas être épinglée dans cette Story. Elle reste dans ta collection ; aucun achat ni historique n’a été supprimé.'
+          : 'Le serveur n’a pas confirmé l’épinglage. Ta musique et ton historique sont conservés ; vérifie ton compte puis réessaie.',
+      );
     } finally {
       setStoryBusy(false);
     }
@@ -161,6 +178,17 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
         <View testID={`session-preview-slot-${entry.id}`} style={styles.previewSlot}>
           <TrackListenControls track={track} previewKey={`session:${entry.id}`} compactSession />
         </View>
+        {onRemove ? (
+          <TouchableOpacity
+            testID={`session-remove-track-${entry.id}`}
+            style={styles.sessionRemoveButton}
+            onPress={() => onRemove(entry.id)}
+            accessibilityRole="button"
+            accessibilityLabel="Retirer ce morceau de cette session uniquement"
+          >
+            <Text style={styles.sessionRemoveButtonText}>RETIRER DE LA SESSION</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       <KeepVisibilityChoiceModal
@@ -193,6 +221,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'column', paddingVertical: 12, paddingHorizontal: 12, marginBottom: 10, gap: 8, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(167,139,250,.50)', backgroundColor: '#151225' },
   rowTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, minWidth: 0 },
   previewSlot: { alignSelf: 'stretch', minWidth: 0, paddingTop: 3, borderTopWidth: 1, borderTopColor: 'rgba(167,139,250,.18)' },
+  sessionRemoveButton: { minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: '#FF5F83', backgroundColor: 'rgba(255,95,131,.08)', alignItems: 'center', justifyContent: 'center' },
+  sessionRemoveButtonText: { color: '#FF8CA4', fontSize: 11, fontWeight: '900', letterSpacing: .4 },
   rowLocked: { backgroundColor: 'rgba(139,92,246,.06)', borderRadius: radius.md, paddingHorizontal: 6 },
   artwork: { width: 52, height: 52, borderRadius: radius.sm, backgroundColor: colors.backgroundCard },
   artworkPlaceholder: { alignItems: 'center', justifyContent: 'center' },

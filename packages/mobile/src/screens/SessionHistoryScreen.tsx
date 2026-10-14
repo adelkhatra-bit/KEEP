@@ -77,6 +77,7 @@ export default function SessionHistoryScreen({ navigation }: any) {
 
   const renderItem = ({ item }: { item: KeepSession }) => {
     const keptCount = item.tracks.filter((tr) => tr.status === 'kept').length;
+    const detectedCount = item.tracks.filter((tr) => tr.status !== 'removed').length;
     const pendingCount = pendingTracks(item);
     const lockedCount = item.tracks.filter((tr) => tr.status === 'pending' && tr.creditLocked).length;
     const time = new Date(item.startedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
@@ -93,7 +94,7 @@ export default function SessionHistoryScreen({ navigation }: any) {
             <Text style={styles.cardTime}>{time}</Text>
           </View>
           <Text style={styles.cardStats}>
-            {t('session.detected', { count: item.tracks.length })} · {t('session.kept', { count: keptCount })}
+            {t('session.detected', { count: detectedCount })} · {t('session.kept', { count: keptCount })}
             {pendingCount > 0 ? ` · ${pendingCount} à swiper` : ''}
           </Text>
           {isLive ? <Text style={styles.liveHint}>● Suivi en cours · {pendingCount} musique{pendingCount !== 1 ? 's' : ''} en attente · les morceaux sont conservés dans la session au fil de l’écoute</Text> : null}
