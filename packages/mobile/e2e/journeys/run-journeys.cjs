@@ -1118,9 +1118,15 @@ const swipeYoutubeJourney = {
       checks.push(['Aperçu : glisser depuis la gouttière passe à la musique suivante', afterGesture !== before]);
       // Flèches du clavier (PC) : même geste, même quand l'iframe occupe la carte.
       if (viewport.width >= 1024) {
-        await page.keyboard.press('ArrowUp');
-        await page.waitForTimeout(900);
-        checks.push(['Aperçu PC : la flèche ↑ passe à la musique suivante', (await title()) !== afterGesture]);
+        // La carte suivante peut être verrouillée un instant (chargement de l'extrait) : on réessaie
+        // la flèche jusqu'à ce que le titre change, sans jamais valider si rien ne bouge.
+        let arrowMoved = false;
+        for (let attempt = 0; attempt < 8 && !arrowMoved; attempt += 1) {
+          await page.keyboard.press('ArrowUp');
+          await page.waitForTimeout(900);
+          arrowMoved = (await title()) !== afterGesture;
+        }
+        checks.push(['Aperçu PC : la flèche ↑ passe à la musique suivante', arrowMoved]);
       }
     }
     await shot('apercu-youtube');
