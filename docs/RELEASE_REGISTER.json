@@ -1,5 +1,14 @@
 [
   {
+    "commit": "3b4bff95d54223ecb81641ee392826c4a5a9c9c4",
+    "web": "3b4bff95d54223ecb81641ee392826c4a5a9c9c4",
+    "testflight": "iOS #242 in_progress (release 3b4bff9)",
+    "ota": "OTA #1033 in_progress (release 3b4bff9)",
+    "date": "2026-10-14 00:31",
+    "tests": "pass",
+    "changes": "fix(swipe): rétablir le Swipe de l'aperçu profil et des Stories avec titres YouTube (#199)"
+  },
+  {
     "commit": "3868a14cdbf1061681f5201e89c076d65af8f4be",
     "web": "3868a14cdbf1061681f5201e89c076d65af8f4be",
     "testflight": "iOS #241 in_progress (release 3868a14)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 20:01",
     "tests": "pass",
     "changes": "fix(listen): keep PC tab monitoring through song changes, preserve previews and honest FREE keeps"
-  },
-  {
-    "commit": "e1bad17e8d32e5f00132eccf4a5deab242f123e3",
-    "web": "e1bad17e8d32e5f00132eccf4a5deab242f123e3",
-    "testflight": "iOS #230 success (release 1f44ee1)",
-    "ota": "OTA #1021 success (release 1f44ee1)",
-    "date": "2026-10-12 19:53",
-    "tests": "pass",
-    "changes": "test(music): require explicit saved link sessions while keeping searches read-only"
   }
 ]
