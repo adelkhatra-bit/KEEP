@@ -1,0 +1,83 @@
+name: KEEP — Deploy shared music link resolver
+# The web and iOS clients use the SAME Supabase source resolver.
+# Deploy the backend whenever its code changes; never ship a stale resolver.
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'supabase/functions/keep-music-keyless-source/**'
+      - 'supabase/functions/_shared/fingerprintSeed.ts'
+      - 'supabase/functions/_shared/audioFingerprint.ts'
+      - '.github/workflows/deploy-keyless-music-source.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keep-keyless-source-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy-and-prove:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PROJECT_REF: rrhqsqzcplvmwxizqnla
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: https://rrhqsqzcplvmwxizqnla.supabase.co
+      SUPABASE_ANON_KEY: sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru
+    steps:
+      - name: Checkout single official branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Verify official source and release credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = 'adelkhatra-bit/KEEP'
+          test "$GITHUB_REF_NAME" = 'reconcile/claude-main-20260825'
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::SUPABASE_ACCESS_TOKEN missing from GitHub Actions; remote music resolver cannot be updated."
+            exit 1
+          fi
+          test -f supabase/functions/keep-music-keyless-source/index.ts
+
+      - name: Deploy production music source resolver
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes supabase@latest functions deploy keep-music-keyless-source --project-ref "$PROJECT_REF" --no-verify-jwt
+
+      - name: Verify live resolver and public catalogue
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const base=process.env.SUPABASE_URL+'/functions/v1/keep-music-keyless-source';
+          const headers={apikey:process.env.SUPABASE_ANON_KEY,Authorization:'Bearer '+process.env.SUPABASE_ANON_KEY,'Content-Type':'application/json','x-keep-device-id':'github-keyless-deploy-proof'};
+          async function call(body) {
+            const response=await fetch(base,{method:'POST',headers,body:JSON.stringify(body),signal:AbortSignal.timeout(45000)});
+            const data=await response.json();
+            if(!response.ok||!data.ok) throw new Error('Resolver HTTP '+response.status+' reason='+String(data.reason||data.error||'unknown'));
+            return data;
+          }
+          const health=await call({action:'health'});
+          if(health.apiKeyRequired!==false||!health.catalogs?.includes('DEEZER_PUBLIC_SEARCH')||!health.catalogs?.includes('APPLE_ITUNES_SEARCH')) throw new Error('Resolver provider/health contract failed');
+          const text=await call({rawText:'Rick Astley - Never Gonna Give You Up',title:'Rick Astley - Never Gonna Give You Up',platform:'WEB'});
+          if(!text.recognition||!/never gonna give you up/i.test(text.recognition.title)||!/rick astley/i.test(text.recognition.artist)) throw new Error('Live music catalogue lookup failed');
+          console.log('KEYLESS PRODUCTION OK: '+text.recognition.artist+' — '+text.recognition.title);
+          NODE
+
+      - name: Release evidence
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### Supabase shared music resolver"
+            echo "- Source: ${GITHUB_SHA}"
+            echo "- Branch: reconcile/claude-main-20260825"
+            echo "- Project: ${PROJECT_REF}"
+            echo "- Shared by: Loki PC / iOS / Android"
+            echo "- Deployment step: ${{ steps.deploy.outcome || 'see job log' }}"
+          } >> "$GITHUB_STEP_SUMMARY"

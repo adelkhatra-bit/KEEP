@@ -5,6 +5,7 @@ import { Alert } from '../utils/keepAlert';
 import { useTranslation } from 'react-i18next';
 import { isCloudProfileRecoverySession, useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useSessionStore } from '../store/useSessionStore';
+import { isContinuousTabMusicActive, stopContinuousTabMusic } from '../services/continuousTabMusicSession';
 import { KeepSession } from '../types';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
@@ -37,6 +38,8 @@ export default function SessionHistoryScreen({ navigation }: any) {
       // Règle d'Adel (05/10/2026) : la session la plus récente est toujours en haut.
       return new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime();
     }), [sessions]);
+  const totalPending = useMemo(() => visibleSessions.reduce((total, item) => total + pendingTracks(item), 0), [visibleSessions]);
+  const totalDetected = useMemo(() => visibleSessions.reduce((total, item) => total + item.tracks.length, 0), [visibleSessions]);
   const deleteSession = useSessionHistoryStore((s) => s.deleteSession);
   const refreshCreditLocks = useSessionHistoryStore((s) => s.refreshCreditLocks);
   const reconcileOrphanedLiveSessions = useSessionHistoryStore((s) => s.reconcileOrphanedLiveSessions);
@@ -74,6 +77,7 @@ export default function SessionHistoryScreen({ navigation }: any) {
 
   const renderItem = ({ item }: { item: KeepSession }) => {
     const keptCount = item.tracks.filter((tr) => tr.status === 'kept').length;
+    const detectedCount = item.tracks.filter((tr) => tr.status !== 'removed').length;
     const pendingCount = pendingTracks(item);
     const lockedCount = item.tracks.filter((tr) => tr.status === 'pending' && tr.creditLocked).length;
     const time = new Date(item.startedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
@@ -84,22 +88,39 @@ export default function SessionHistoryScreen({ navigation }: any) {
 
     return (
       <View style={[styles.card, pendingCount > 0 && styles.cardNeedsSorting]}>
-        <TouchableOpacity style={styles.cardMain} onPress={() => !isLive && navigation.navigate('SessionRecap', { sessionId: item.id })} disabled={isLive}>
+        <TouchableOpacity style={styles.cardMain} onPress={() => !isLive && navigation.replace('SessionRecap', { sessionId: item.id })} disabled={isLive}>
           <View style={styles.cardTop}>
             <Text style={styles.cardTitle} numberOfLines={1}>{autoTitle(item)}</Text>
             <Text style={styles.cardTime}>{time}</Text>
           </View>
           <Text style={styles.cardStats}>
-            {t('session.detected', { count: item.tracks.length })} · {t('session.kept', { count: keptCount })}
+            {t('session.detected', { count: detectedCount })} · {t('session.kept', { count: keptCount })}
             {pendingCount > 0 ? ` · ${pendingCount} à swiper` : ''}
           </Text>
-          {isLive ? <Text style={styles.liveHint}>● Écoute en cours · les titres sont sauvegardés localement au fil de la session</Text> : null}
+          {isLive ? <Text style={styles.liveHint}>● Suivi en cours · {pendingCount} musique{pendingCount !== 1 ? 's' : ''} en attente · les morceaux sont conservés dans la session au fil de l’écoute</Text> : null}
           {lockedCount > 0 ? <Text style={styles.lockedHint}>🔒 {lockedCount} morceau{lockedCount > 1 ? 'x' : ''} en attente de déblocage</Text> : null}
         </TouchableOpacity>
+        {isLive && isContinuousTabMusicActive() ? (
+          <View style={styles.cardFooter}>
+            <TouchableOpacity
+              style={styles.sortButton}
+              accessibilityRole="button"
+              accessibilityLabel="Arrêter le suivi YouTube PC puis ouvrir cette session pour préécouter, swiper et garder"
+              onPress={() => {
+                stopContinuousTabMusic();
+                const current = useSessionStore.getState();
+                if (current.isActive && current.sessionId === item.id) current.requestEndSession();
+                navigation.replace('SessionRecap', { sessionId: item.id, openSwipe: pendingCount > 0 });
+              }}
+            >
+              <Text style={styles.sortText}>■ ARRÊTER ET {pendingCount > 0 ? 'SWIPER TOUTES' : 'OUVRIR'} · {pendingCount}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
         {!isLive ? <View style={styles.cardFooter}>
           {pendingCount > 0 ? (
-            <TouchableOpacity style={styles.sortButton} onPress={() => navigation.navigate('SessionRecap', { sessionId: item.id, openSwipe: true })} accessibilityRole="button" accessibilityLabel={`Swiper ${pendingCount} musiques`}>
-              <Text style={styles.sortText}>SWIPER · {pendingCount}</Text>
+            <TouchableOpacity style={styles.sortButton} onPress={() => navigation.replace('SessionRecap', { sessionId: item.id, openSwipe: true })} accessibilityRole="button" accessibilityLabel={`Swiper ${pendingCount} musiques`}>
+              <Text style={styles.sortText}>SWIPER TOUTES · {pendingCount}</Text>
             </TouchableOpacity>
           ) : null}
           <TouchableOpacity style={[styles.deleteButton, pendingCount === 0 && styles.deleteButtonFull]} onPress={() => requestDelete(item)} accessibilityRole="button" accessibilityLabel={`Supprimer ${autoTitle(item)}`}><Text style={styles.deleteText}>Supprimer</Text></TouchableOpacity>
@@ -109,14 +130,19 @@ export default function SessionHistoryScreen({ navigation }: any) {
   };
 
   return (
-    <View style={[styles.overlay, { justifyContent: desktop ? 'flex-end' : 'flex-end' }]}>
+    <View style={styles.overlay}>
       <Pressable style={styles.backdrop} onPress={() => navigation.goBack()} accessibilityLabel="Fermer les sessions" accessibilityRole="button" />
-      <SafeAreaView style={[styles.container, styles.sheet, desktop ? { width: Math.min(480, width * 0.48), height: height - 32, marginVertical: 16, marginRight: 16, borderRadius: 22 } : { width: '100%', height: Math.round(height * 0.78), borderTopLeftRadius: 24, borderTopRightRadius: 24 }]}>
+      <SafeAreaView style={[styles.container, styles.sheet, desktop ? { width: Math.min(560, width - 32), height: Math.min(height - 48, 740), borderRadius: 22 } : { width: '100%', height: Math.min(height - 40, Math.round(height * 0.80)), borderRadius: 22 }]}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.helpButton} onPress={() => setHelpOpen(true)} accessibilityRole="button" accessibilityLabel="Comprendre Mes Sessions">
           <Text style={styles.helpButtonText}>?</Text>
         </TouchableOpacity>
-        <View style={styles.headerCopy}><Text style={styles.title}>{t('history.title')}</Text></View>
+        <View style={styles.headerCopy}>
+          <Text style={styles.title}>{t('history.title')}</Text>
+          <Text testID="session-history-pending-total" style={{ color: colors.textSecondary, fontSize: 12, marginTop: 3 }}>
+            {totalDetected} musique{totalDetected !== 1 ? 's' : ''} · {totalPending} en attente
+          </Text>
+        </View>
         <TouchableOpacity style={styles.backButton} onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))} hitSlop={8} accessibilityRole="button" accessibilityLabel="Retour"><Text style={styles.backArrow}>←</Text></TouchableOpacity>
       </View>
       <ContextHelpSheet
@@ -143,7 +169,7 @@ export default function SessionHistoryScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, flexDirection: 'column', alignItems: 'flex-end', backgroundColor: 'rgba(0,0,0,0.36)' },
+  overlay: { flex: 1, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: 'rgba(0,0,0,0.62)' },
   backdrop: { ...StyleSheet.absoluteFillObject },
   sheet: { overflow: 'hidden', borderWidth: 1, borderColor: colors.border },
   container: { flex: 1, backgroundColor: colors.background },

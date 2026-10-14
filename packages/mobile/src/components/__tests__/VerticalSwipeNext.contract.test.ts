@@ -52,12 +52,14 @@ describe('swipe iPhone : PanResponder créé une seule fois + carte qui s\'adapt
     expect(deck).toContain('const latest = useRef({ enabled, onSwipeLeft, onSwipeRight, onSwipeUp });');
     expect(deck).toContain('const responder = useRef(PanResponder.create({');
     expect(deck).not.toContain('useMemo(() => PanResponder.create');
-    expect(deck).toContain('onStartShouldSetPanResponder: () => latest.current.enabled');
+    expect(deck).toContain('onStartShouldSetPanResponder: () => false');
+    expect(deck).toContain('onMoveShouldSetPanResponderCapture: (_, gesture) => latest.current.enabled');
     expect(deck).toContain('{...responder.panHandlers} style={[styles.shell');
   });
   it('the swipe card fills the free height instead of overflowing the header and the buttons', () => {
     const modal = read('MusicSwipeDeckModal.tsx');
-    expect(modal).toContain("card:{flex:1,minHeight:200,maxHeight:560,");
+    expect(modal).toContain("card:{flex:1,minHeight:0,maxHeight:720,");
+    expect(modal).toContain('desktopSwipeLayout && s.desktopStoryCard');
     expect(modal).not.toContain("card:{height:500,maxHeight:'70%'");
     expect(modal).toMatch(/hint=\{swipeHint\}\s+fill/);
   });
@@ -78,7 +80,8 @@ describe('ajouter à ma story depuis le swipe + petits écrans (Adel 05/10/2026)
     expect(modal).toContain("'deck-add-story'");
     expect(modal).toContain('pinStoryTrack(resolveKeptTrackId(current.id), current)');
     expect(modal).toContain('pinSharedStoryTrack(track.id, fromProfileId)'); // partager la musique d'un autre : gratuit, sans la garder
-    expect(modal).toContain('const compactDeck = windowHeight < 640;');
+    expect(modal).toContain('const compactDeck = windowHeight < 640 || (desktopSwipeLayout && windowHeight < 760);');
+    expect(modal).toContain('desktopSwipeLayout && compactDeck && s.desktopHeaderCompact');
   });
 });
 
@@ -87,7 +90,7 @@ describe('succès du GARDER : mettre en story / déjà en story (Adel 05/10/2026
     const fs = require('fs'); const path = require('path');
     const modal = fs.readFileSync(path.join(__dirname, '..', 'KeepVisibilityChoiceModal.tsx'), 'utf8');
     expect(modal).toContain('＋ METTRE EN STORY (LA RENDRE PUBLIQUE)');
-    expect(modal).toContain('✅ TU VIENS DE L’AJOUTER À TA STORY · 24 h');
+    expect(modal).toContain('✓ PUBLIÉ DANS TA STORY · 24 h');
     const deck = fs.readFileSync(path.join(__dirname, '..', 'MusicSwipeDeckModal.tsx'), 'utf8');
     expect(deck).toContain('makeKeptPublicAndStory');
     expect(deck).toContain("persistOwnTrackVisibility(track, 'PUBLIC')");

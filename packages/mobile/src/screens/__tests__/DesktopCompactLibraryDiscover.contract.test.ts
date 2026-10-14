@@ -1,0 +1,44 @@
+import fs from 'fs';
+import path from 'path';
+
+const source = (name: string) => fs.readFileSync(path.resolve(__dirname, '..', name), 'utf8');
+
+describe('Loki Music — compact desktop / mobile without feature loss', () => {
+  const music = source('MyMusicScreen.tsx');
+  const discover = source('DiscoverScreen.tsx');
+  const battle = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'KeepBattleMobileGameV3.tsx'), 'utf8');
+
+  it('opens the real music library and keeps every source filter', () => {
+    expect(music).toContain('Toute ma musique · {localKeptEntries.length}');
+    expect(music).toContain("!['ALL'].includes(originFilter)");
+    for (const filter of ['ALL', 'PRIVATE', 'LISTEN', 'SESSION', 'USERS', 'IDENTIFIED', 'PULSE']) {
+      expect(music).toContain("['" + filter + "',");
+    }
+    expect(music).toContain('regularPlaylists.map((playlist)');
+    expect(music).toContain('socialRepriseEntries.length');
+  });
+
+  it('makes visibility and connections one-step actions, keeping help available', () => {
+    expect(music).toContain("setMobileSection('EDIT'); setActiveTab('MUSIQUES'); setManageMusicMode(true)");
+    expect(music).toContain("onPress={() => navigation.navigate('MusicConnections')}");
+    expect(music).toContain('setVisibilityIntroOpen(true)');
+    expect(music).toContain('setWholeLibraryVisibility');
+  });
+
+  it('keeps the actual Solo quota in a small square without changing the quota source', () => {
+    expect(battle).toContain('soloQuotaSquare: { width: 58, height: 58');
+    expect(battle).toContain("soloDailyStatus?.remaining ?? '—'");
+    expect(battle).toContain('soloQuotaCopy(soloDailyStatus)');
+    expect(battle).toContain('q.detail');
+    expect(battle).toContain('consumeKeepBattleSoloDailyStart');
+  });
+
+  it('only applies wide compact styling in desktop layout', () => {
+    expect(music).toContain('isDesktopLibrary && styles.focusActionStackDesktop');
+    expect(discover).toContain('isDesktopDiscover && styles.usernameSearchDesktop');
+    expect(discover).toContain('isDesktopDiscover && styles.searchPanelDesktop');
+    expect(discover).toContain('maxWidth:640');
+    expect(discover).toContain('maxWidth:860');
+    expect(discover).toContain('onPress={() => void searchAroundMe()}');
+  });
+});

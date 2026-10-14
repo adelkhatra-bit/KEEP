@@ -17,6 +17,7 @@ on:
 # Postgres. Aucun test visuel ne doit pouvoir affamer l'auth utilisateur.
 concurrency:
   group: keep-production-supabase-browser-audits
+  queue: max
   cancel-in-progress: false
 
 permissions:
@@ -108,6 +109,11 @@ jobs:
               return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
             });
 
+            // Même règle pour Realtime : l'indicateur « en train d'écrire » du tchat POSTe vers
+            // /realtime/v1/api/broadcast quand le WebSocket n'est pas encore ouvert ; la requête réelle vers la
+            // production était coupée (ERR_ABORTED) à la fermeture de la page et faisait échouer l'audit.
+            await context.route(/\/realtime\/v1\/api\/broadcast/, route => route.fulfill({ status: 202, contentType: 'application/json', body: '{}' }));
+
             const page = await context.newPage();
             const errors = [];
             const httpFailures = [];
@@ -137,7 +143,10 @@ jobs:
                 try {
                   await locator.waitFor({ state: 'visible', timeout: 10000 });
                   await locator.scrollIntoViewIfNeeded().catch(() => {});
-                  await page.keyboard.press('Escape').catch(() => {});
+                  // Escape ferme les popovers parasites, MAIS aussi les Modal React Native Web (le tchat plein écran se ferme sur Escape) :
+                  // on ne l'envoie donc jamais quand la cible est elle-même dans le tchat, sinon le bouton visé disparaît avant le clic.
+                  const insideChatModal = await locator.evaluate((el) => Boolean(el.closest('[data-testid^="loki-chat"]'))).catch(() => false);
+                  if (!insideChatModal) await page.keyboard.press('Escape').catch(() => {});
                   await page.waitForTimeout(120 * attempt);
                   await locator.click({ timeout: 4000 });
                   return;
@@ -506,11 +515,13 @@ jobs:
             if (await playlistsBottomTab.count() === 0) throw new Error('Playlists bottom tab not found');
             await clickRobust(playlistsBottomTab, 'Playlists bottom tab');
             await page.waitForTimeout(500);
-            const myTracksEntry = page.getByText(/^Écouter mes morceaux · \d+$/).last();
-            if (await myTracksEntry.count() === 0) throw new Error('Écouter mes morceaux entry not found');
-            await clickRobust(myTracksEntry, 'Écouter mes morceaux entry');
+            // Entrée renommée « Toute ma musique · N » (refonte bibliothèque #147) ; on ouvre la liste puis on vérifie la barre de retour.
+            const myTracksEntry = page.getByText(/^Toute ma musique · \d+$/).last();
+            if (await myTracksEntry.count() === 0) throw new Error('Toute ma musique entry not found');
+            await clickRobust(myTracksEntry, 'Toute ma musique entry');
             await page.waitForTimeout(300);
-            await page.getByText('Mes morceaux', { exact: true }).last().waitFor({ state: 'visible', timeout: 10000 });
+            await page.getByLabel(/Revenir aux choix Mes musiques/).last().waitFor({ state: 'visible', timeout: 10000 });
+            await page.getByText('Écouter et retrouver mes titres', { exact: true }).waitFor({ state: 'hidden', timeout: 10000 });
             await page.screenshot({ path: 'artifacts/real-browser/keep-playlists-390x844.png', fullPage: true });
 
             const report = [

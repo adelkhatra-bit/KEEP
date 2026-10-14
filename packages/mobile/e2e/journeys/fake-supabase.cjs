@@ -185,12 +185,72 @@ function createFakeSupabase(options = {}) {
     if (p.startsWith('/realtime/')) return route.abort();
     if (p === '/auth/v1/user') return json(200, user);
     if (p === '/auth/v1/token') return json(200, session);
+    if (opts.pcSession && p.includes('/functions/v1/keep-web-pairing')) {
+      const action = body().action;
+      const createdAt = new Date(Date.now() - 75 * 60 * 1000).toISOString();
+      if (action === 'list') return json(200, { ok: true, sessions: [{
+        id: 'pc-e2e-1', device_label: 'PC Chromium test',
+        created_at: createdAt, last_seen_at: new Date().toISOString(), revoked_at: null,
+      }] });
+      if (action === 'status') return json(200, { ok: true, revoked: false });
+      return json(200, { ok: true });
+    }
     if (p.startsWith('/auth/') || p.startsWith('/functions/')) return json(200, {});
     if (p.startsWith('/rest/v1/rpc/')) {
       const name = p.split('/').pop();
       switch (name) {
+        // Le compte synthétique a déjà rempli Loki Pulse : éviter de rouvrir
+        // le questionnaire obligatoire au-dessus de chaque parcours PC/mobile.
+        case 'keep_pulse_preferences_state': return json(200, {
+          completed: true, shouldPrompt: false, favoriteGenres: profile.favorite_genres,
+          suggestedGenres: profile.favorite_genres, languageCodes: profile.music_language_codes,
+          countryCodes: profile.music_country_codes, preferredLanguageTag: profile.preferred_language_tag,
+          dismissCount: 0, version: 1,
+        });
+        case 'keep_event_story_list': {
+          if (!opts.eventStories) return json(200, []);
+          const now = Date.now();
+          return json(200, [
+            {
+              event_id: '0b5e7a1c-0000-4000-8000-00000000d101',
+              creator_id: SELLER, username: SELLER_USERNAME,
+              event_name: 'Soirée rooftop synthétique', description: 'Une soirée de démonstration, aucune vraie entrée.',
+              venue_name: 'Loki Rooftop',image_url:null,
+              starts_at: new Date(now+3*3600000).toISOString(),
+              ends_at: new Date(now+7*3600000).toISOString(),
+              shared_at: recent(60000), going_count:7, maybe_count:2,
+              checked_in_count:3, pulse_score:67, ticket_price_cents:null,
+            },
+            {
+              event_id: '0b5e7a1c-0000-4000-8000-00000000d102',
+              creator_id: UID, username: USERNAME,
+              event_name: 'Ma soirée synthétique', description: 'Soirée du compte de test.',
+              venue_name: 'Loki Test',image_url:null,
+              starts_at: new Date(now+5*3600000).toISOString(),
+              ends_at: new Date(now+9*3600000).toISOString(),
+              shared_at: recent(120000), going_count:4, maybe_count:3,
+              checked_in_count:2, pulse_score:43, ticket_price_cents:null,
+            }
+          ]);
+        }
+        case 'keep_listen_status': if (!opts.eventStories) return json(200, null); return json(200, {
+          ok:true,planCode:'PREMIUM',isAnonymous:false,featureKey:'LISTEN_DAILY',
+          periodKey:'W:'+new Date().toISOString().slice(0,10),periodMode:'WEEK',nextResetAt:new Date(Date.now()+6*86400000).toISOString(),
+          used:3,limit:10,includedRemaining:7,overQuota:false,overQuotaFreeCost:1,
+          freeBalance:34,canListen:true,canPayWithFree:true,timezone:'Europe/Paris',
+        });
         case 'keep_agora_my_shareable_tracks': return json(200, [SHAREABLE_TRACK]);
-        case 'keep_notification_action': state.readNotifications.push(body().p_notification_id); return json(200, true);
+        case 'keep_notification_action': {
+          const action = body().p_action;
+          if (action === 'read_all') {
+            for (const n of unreadNotifications) {
+              if (!state.readNotifications.includes(n.id)) state.readNotifications.push(n.id);
+            }
+          } else if (body().p_notification_id && !state.readNotifications.includes(body().p_notification_id)) {
+            state.readNotifications.push(body().p_notification_id);
+          }
+          return json(200, 1);
+        }
         case 'keep_agora_my_conversations':
           if (!opts.unreadChat) return json(200, []);
           return json(200, [{ other_profile_id: SELLER, other_username: SELLER_USERNAME, other_avatar_url: null, last_message_id: 61, last_room_slug: 'place', last_body: 'Salut', last_created_at: recent(20000), last_shared_track_id: null, last_sale_offer_id: null }]);
@@ -225,6 +285,18 @@ function createFakeSupabase(options = {}) {
           return json(200, battleArenaState(state.arenaRevealed));
         case 'keep_free_credit_breakdown': return json(200, { remaining: opts.balance });
         case 'keep_battle_credit_status': return json(200, credit);
+        case 'keep_own_profile_tracks': {
+          // Collection publique du testeur : 2 titres catalogue + 2 titres importés via YouTube (sans extrait, source seule).
+          if (!opts.ownKeeps) return json(200, []);
+          const mk = (i, yt) => ({
+            decision_id: `0b5e7a1c-0000-4000-8000-0000000d00${i}`, kept_at: recent(3600000 + i * 1000), visibility: 'PUBLIC',
+            track_id: `0b5e7a1c-0000-4000-8000-0000000e00${i}`, isrc: yt ? null : `FRXXX000000${i}`,
+            title: yt ? `Titre YouTube ${i}` : `Titre catalogue ${i}`, artist: yt ? 'Chaîne YouTube' : 'Artiste catalogue', album: null,
+            duration_sec: 200, artwork_url: null, genres: [], provider_ids: {}, preview_url: yt ? null : `${opts.origin}/none.mp3`,
+            external_urls: yt ? { source: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' } : {}, available_on: [], context: {}, source_user_id: null, source_type: null,
+          });
+          return json(200, [mk(1, true), mk(2, true), mk(3, false), mk(4, false)]);
+        }
         case 'keep_own_profile_snapshot': return json(200, obj ? snapshot[0] : snapshot);
         case 'keep_public_profile_snapshot': return json(200, obj ? pubsnap[0] : pubsnap);
         default:
@@ -234,7 +306,36 @@ function createFakeSupabase(options = {}) {
           return json(200, obj ? null : []);
       }
     }
+    if (opts.ownStory && p === '/rest/v1/keep_decisions' && req.method() === 'GET'
+      && u.searchParams.get('profile_id') === 'eq.' + UID
+      && u.searchParams.get('visibility') === 'eq.PUBLIC') {
+      const storyTrack = {
+        id: '0b5e7a1c-0000-4000-8000-00000000c999',
+        title: 'Ma musique de démonstration',
+        artist: 'Artiste de test', album: 'Album test',
+        artwork_url: null, preview_url: null, genres: ['House'],
+        provider_ids: {}, external_urls: {}, available_on: [],
+      };
+      const count = opts.ownStory === 'multi' ? 3 : 1;
+      return json(200, Array.from({ length: count }, (_, i) => ({
+        profile_id: UID, created_at: recent(60000 + i * 1000),
+        track: i === 0 ? storyTrack : {
+          ...storyTrack,
+          id: `0b5e7a1c-0000-4000-8000-00000000c99${i}`,
+          title: `Musique de démonstration ${i + 1}`,
+          // Un titre importé via YouTube : aucun extrait catalogue, seule la source YouTube existe.
+          external_urls: i === 2 ? { source: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', youtube: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' } : {},
+        },
+        profile: { username: USERNAME, avatar_url: null, discovery_hidden: false },
+      })));
+    }
     if (p === '/rest/v1/notifications' && req.method() === 'GET') return json(200, unreadNotifications.filter((n) => !state.readNotifications.includes(n.id)).sort((a, b) => b.created_at.localeCompare(a.created_at)));
+    if (p === '/rest/v1/tracks' && opts.ownKeeps && /^eq\.0b5e7a1c-0000-4000-8000-0000000e00[12]$/.test(u.searchParams.get('id') || '')) {
+      // Titre importé via YouTube : aucun extrait, seule la source officielle existe (comme en production).
+      const id = u.searchParams.get('id').replace('eq.', '');
+      const row = { id, title: `Titre YouTube ${id.slice(-1)}`, artist: 'Chaîne YouTube', preview_url: null, external_urls: { source: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' } };
+      return obj ? json(200, row) : json(200, [row]);
+    }
     if (p === '/rest/v1/tracks' && opts.newKeepNotif && u.searchParams.get('id') === `eq.${SECRET_TRACK.id}`) {
       const row = { ...SECRET_TRACK, preview_url: `${opts.origin}/none.mp3` };
       return obj ? json(200, row) : json(200, [row]);

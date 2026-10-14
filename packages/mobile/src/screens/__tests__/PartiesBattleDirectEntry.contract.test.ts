@@ -8,8 +8,7 @@ describe('Soirées → Battle direct entry', () => {
     const label = source.indexOf('accessibilityLabel="Ouvrir directement Battle"');
     const before = source.slice(Math.max(0, label - 450), label + 250);
     expect(label).toBeGreaterThanOrEqual(0);
-    expect(before).toContain('setPendingArenaId(undefined); setBattleOpen(true);');
-    expect(before).not.toContain("setPartiesTab('BATTLE')");
+    expect(before).toContain("setPartiesTab('BATTLE'); setBattleOpen(true);");
   });
 
   it('removes the redundant Salon musical launcher', () => {

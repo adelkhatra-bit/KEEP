@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { extractMusicShareLink } from './musicShareLink';
 
 const STORAGE_KEY = '@keep/shared-music-source-v1';
 const SOURCE_TTL_MS = 5 * 60 * 1000;
@@ -22,10 +23,28 @@ function enqueueStorage(operation: () => Promise<void>) {
 }
 
 function normalizeUrl(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) return '';
-  const match = trimmed.match(/https?:\/\/[^\s]+/i);
-  return (match?.[0] ?? trimmed).replace(/[),.;]+$/, '');
+  return extractMusicShareLink(value) ?? '';
+}
+
+/** Supported destinations for explicitly pasted / shared music links (no arbitrary clipboard URLs). */
+export function supportedSharedMusicUrl(value: string): string | null {
+  const candidate = extractMusicShareLink(value);
+  if (!candidate) return null;
+  try {
+    const parsed = new URL(candidate);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null;
+    const host = (parsed.hostname.toLowerCase().startsWith('www.') ? parsed.hostname.toLowerCase().slice(4) : parsed.hostname.toLowerCase());
+    const hosts = [
+      'youtube.com', 'youtu.be', 'spotify.com', 'spotify.link', 'spotify.app.link', 'link.tospotify.com',
+      'deezer.com', 'deezer.page.link', 'link.deezer.com', 'dzr.page.link', 'music.apple.com',
+      'soundcloud.com', 'on.soundcloud.com', 'listen.tidal.com', 'tidal.com',
+      'song.link', 'odesli.co', 'tiktok.com', 'instagram.com',
+      'facebook.com', 'fb.watch', 'snapchat.com', 'snap.com',
+    ];
+    return hosts.some((known) => host === known || host.endsWith('.' + known)) ? parsed.toString() : null;
+  } catch {
+    return null;
+  }
 }
 
 export function detectSharedMusicPlatform(value: string): SharedMusicPlatform {
@@ -41,7 +60,7 @@ export function detectSharedMusicPlatform(value: string): SharedMusicPlatform {
 
 export function buildSharedMusicSource(input: { webUrl?: string | null; text?: string | null; title?: string | null }): SharedMusicSource | null {
   const rawText = String(input.text ?? '').trim();
-  const url = normalizeUrl(String(input.webUrl ?? rawText));
+  const url = normalizeUrl(String(input.webUrl ?? '')) || normalizeUrl(rawText);
   if (!url) return null;
   return {
     url,

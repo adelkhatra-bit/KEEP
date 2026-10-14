@@ -58,9 +58,9 @@ function nextPlan(plan: MusicServiceSelectionState['plan']) {
 }
 
 function nextPlanLabel(plan: MusicServiceSelectionState['plan']) {
-  if (plan === 'FREE') return 'Premium 2,99 € · jusqu’à 3 services';
-  if (plan === 'PREMIUM') return 'Creator Pro 9,99 € · jusqu’à 5 services';
-  return 'Venue Pro 29,99 € · tous les services';
+  if (plan === 'FREE') return 'Premium · jusqu’à 3 services';
+  if (plan === 'PREMIUM') return 'Creator Pro · jusqu’à 5 services';
+  return 'Venue Pro · tous les services';
 }
 
 function showMessage(title: string, message: string) {
@@ -285,7 +285,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
     setQueue(null);
     setSelectedService(null);
     setTrackIndex(0);
-    Alert.alert('Loki Music', 'C’est terminé. Tes Vibes restent rangées dans Loki Music.');
+    Alert.alert('Loki Music', 'C’est terminé. Tes Styles restent rangés dans Loki Music.');
   };
 
   const nextTrack = async () => {
@@ -407,12 +407,12 @@ export default function MusicConnectionsScreen({ navigation }: any) {
 
         <View style={styles.ruleCard}>
           <Text style={styles.ruleTitle}>Loki Music range pour toi</Text>
-          <ClampedText style={styles.ruleText} text="Styles, Vibes, artistes et albums restent organisés dans Loki Music. Spotify et Deezer peuvent importer les favoris en métadonnées privées. YouTube Music et SoundCloud utilisent la passerelle sécurisée sans transmettre ton mot de passe à Loki Music." />
+          <ClampedText style={styles.ruleText} text="Styles, artistes et albums restent organisés dans Loki Music. Spotify et Deezer peuvent importer les favoris en métadonnées privées. YouTube Music et SoundCloud utilisent la passerelle sécurisée sans transmettre ton mot de passe à Loki Music." />
         </View>
 
         <View style={styles.limitCard}>
           <Text style={styles.limitTitle}>Tes emplacements</Text>
-          <Text style={styles.limitText}>FREE : 1 service · Premium 2,99 € : 3 · Creator Pro 9,99 € : 5 · Venue Pro 29,99 € : tous les services. Un service confirmé garde sa place sur ton compte.</Text>
+          <Text style={styles.limitText}>FREE : 1 service · Premium : 3 · Creator Pro : 5 · Venue Pro : tous les services. Un service confirmé garde sa place sur ton compte.</Text>
         </View>
       </ScrollView>
 

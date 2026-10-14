@@ -21,27 +21,15 @@ type Props = {
   editMode?: boolean;
 };
 
-export default function KeepVisibilityChoiceModal({
-  visible,
-  title,
-  trackLabel,
-  body = 'Choisis ce que les autres verront. Tu pourras modifier ce choix plus tard.',
-  costFree,
-  playlists = [],
-  selectedPlaylistId,
-  onSelectPlaylist,
-  onPublic,
-  onPrivate,
-  onCancel,
-  busy = false,
-  editMode = false,
-}: Props) {
+/** Shared GARDER choices: same artwork/cost/visibility layout in live Listen, Swipe and link preview. */
+export function KeepVisibilityChoiceContent({
+  title, trackLabel, body = 'Choisis ce que les autres verront. Tu pourras modifier ce choix plus tard.',
+  costFree, playlists = [], selectedPlaylistId, onSelectPlaylist, onPublic, onPrivate, onCancel,
+  busy = false, editMode = false,
+}: Omit<Props, 'visible'>) {
   const cost = Math.max(0, Number(costFree || 0));
   const showCost = !editMode && cost > 0;
-
   return (
-    <KeepModal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <View style={s.overlay}>
         <View style={s.card}>
           <Text style={s.eyebrow}>{editMode ? 'VISIBILITÉ' : 'GARDER CE MORCEAU'}</Text>
           <Text style={s.title}>{title || (editMode ? 'Modifier la visibilité' : 'Garder ce morceau')}</Text>
@@ -105,17 +93,26 @@ export default function KeepVisibilityChoiceModal({
             <Text style={s.cancelText}>ANNULER</Text>
           </TouchableOpacity>
         </View>
+  );
+}
+
+export default function KeepVisibilityChoiceModal({ visible, ...props }: Props) {
+  return (
+    <KeepModal visible={visible} transparent animationType="fade" onRequestClose={props.onCancel}>
+      <View style={s.overlay}>
+        <KeepVisibilityChoiceContent {...props} />
       </View>
     </KeepModal>
   );
 }
-
 
 type SuccessProps = {
   visible: boolean;
   trackLabel?: string | null;
   costFree?: number | null;
   visibility?: 'PUBLIC' | 'PRIVATE' | null;
+  /** True only after the Story RPC really succeeded. */
+  storyPublished?: boolean;
   continueLabel?: string;
   onContinue: () => void | Promise<void>;
   /** Gardé en Privé : propose de le rendre public ET de le mettre en story (anti-doublon géré par l'appelant). */
@@ -127,6 +124,7 @@ export function KeepSuccessModal({
   trackLabel,
   costFree,
   visibility,
+  storyPublished = false,
   continueLabel = 'PARFAIT',
   onContinue,
   onMakePublicStory,
@@ -155,8 +153,8 @@ export function KeepSuccessModal({
             </TouchableOpacity>
           ) : null}
           {visibility === 'PUBLIC' ? (
-            <View style={s.successStoryPill} accessibilityRole="text" accessibilityLabel="Tu viens de l’ajouter à ta story, visible pendant 24 heures">
-              <Text style={s.successStoryPillText}>✅ TU VIENS DE L’AJOUTER À TA STORY · 24 h</Text>
+            <View style={s.successStoryPill} accessibilityRole="text" accessibilityLabel={storyPublished ? 'Story musicale publiée pour 24 heures' : 'Morceau public : publication en Story à confirmer'}>
+              <Text style={s.successStoryPillText}>{storyPublished ? '✓ PUBLIÉ DANS TA STORY · 24 h' : 'STORY À PUBLIER DEPUIS TON PROFIL'}</Text>
             </View>
           ) : null}
         </View>

@@ -153,7 +153,18 @@ function MainTabs() {
       />
       <Tab.Screen name="Discover" component={DiscoverScreen} options={{ tabBarLabel: 'Découvertes', tabBarIcon: ({ color }) => <TabIcon icon="♫" color={color} /> }} />
       <Tab.Screen name="MyMusic" component={MyMusicScreen} options={{ tabBarLabel: 'Playlists', tabBarIcon: ({ color }) => <TabIcon icon="☷" color={color} /> }} />
-      <Tab.Screen name="Parties" component={PartiesScreen} options={{ tabBarLabel: 'Soirées', tabBarIcon: ({ color }) => <TabIcon icon="♬" color={color} /> }} />
+      <Tab.Screen name="Parties" component={PartiesScreen} listeners={({ navigation }) => ({
+        tabPress: (event) => {
+          event.preventDefault();
+          const go = () => {
+            soireesResetRequestId += 1;
+            (navigation.navigate as any)('Parties', { returnToSoireesRequestId: soireesResetRequestId });
+          };
+          const game = useGameSessionStore.getState();
+          if (game.isGameInProgress && game.gameMode === 'SOLO') confirmLeaveGame(go);
+          else go();
+        },
+      })} options={{ tabBarLabel: 'Soirées', tabBarIcon: ({ color }) => <TabIcon icon="♬" color={color} /> }} />
       <Tab.Screen name="Profile" component={ProfilePublicScreen} options={{ tabBarLabel: 'Profil', tabBarIcon: ({ color }) => <TabIcon icon="◯" color={color} /> }} />
     </Tab.Navigator>
   );
@@ -198,10 +209,22 @@ function goToTab(name: string) {
   if (!navigationRef.isReady()) return;
   // Visiteur web d'un lien partagé : même navigation que connecté, mais les onglets demandent un compte (fonction bloquée).
   if (isWebShareVisit() && useUserStore.getState().isLocalGuest) { useAccountGateStore.getState().requestAccount('create', webShareVisitUsername()); return; }
-  const go = () => (navigationRef.navigate as any)('Main', { screen: name });
-  if (useGameSessionStore.getState().isGameInProgress && name !== 'Parties') confirmLeaveGame(go);
+  const go = () => {
+    // Re-sélectionner Soirées est une action de retour à son accueil, y
+    // compris quand Parties est déjà l’onglet actif et affiche Battle.
+    if (name === 'Parties') {
+      soireesResetRequestId += 1;
+      (navigationRef.navigate as any)('Main', { screen: name, params: { returnToSoireesRequestId: soireesResetRequestId } });
+      return;
+    }
+    (navigationRef.navigate as any)('Main', { screen: name });
+  };
+  const game = useGameSessionStore.getState();
+  if (game.isGameInProgress && (name !== 'Parties' || game.gameMode === 'SOLO')) confirmLeaveGame(go);
   else go();
 }
+
+let soireesResetRequestId = 0;
 
 function PersistentTabBar() {
   const insets = useSafeAreaInsets();
@@ -259,7 +282,7 @@ export default function Navigation() {
       <View style={{ flex: 1, flexDirection: isDesktop ? 'row' : 'column' }}>
       {isDesktop ? <DesktopSidebar items={TAB_ITEMS} activeName={tab} onSelect={goToTab} onOpenSessions={() => openSessionHistoryGuarded(() => { if (navigationRef.isReady()) (navigationRef.navigate as any)('SessionHistory'); })} /> : null}
       <View style={isDesktop ? { flex: 1, alignItems: 'center' } : { flex: 1 }}>
-      <View style={isDesktop ? { flex: 1, width: '100%', maxWidth: DESKTOP_CONTENT_MAX_WIDTH } : { flex: 1 }}>
+      <View style={isDesktop ? { flex: 1, width: '100%', maxWidth: tab === 'Parties' ? '100%' : DESKTOP_CONTENT_MAX_WIDTH } : { flex: 1 }} testID="desktop-content-frame">
       <RootStack.Navigator initialRouteName="Main" screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="Main" component={MainTabs} />
         <RootStack.Screen name="SessionRecap" component={SessionRecapScreen} />

@@ -52,9 +52,13 @@ Tailles de contrôle minimales : 390×844, 430×932, 768×700, 900×700, 1440×9
 - Les 5 onglets restent visibles.
 - Aucun débordement horizontal critique.
 - Les mises à jour Web/OTA sont automatiques et silencieuses : aucun bandeau, bouton « Actualiser / Mettre à jour » ou carte de version n'est montré à l'utilisateur.
+- Web : vérifier la version réellement publiée toutes les 15 s ; si une nouvelle version existe, l'appliquer sans attendre la fermeture de l'onglet après 30 s sans interaction, hors saisie, hors partie Solo/Battle. Un onglet masqué continue de se mettre à jour automatiquement ; aucun reload pendant la restauration de session.
 - Un reload automatique attend obligatoirement la fin du bootstrap Auth Supabase ; il ne peut jamais partir pendant la restauration de session.
 - La restauration de session concurrente est dédupliquée : `getCurrentSession()` et `onAuthStateChange()` ne doivent pas hydrater deux fois le même compte en parallèle.
 - Le premier écran authentifié apparaît dès que le vrai profil Supabase est hydraté ; synchronisation historique, verrous de crédits, push et autres tâches secondaires ne bloquent pas ce premier rendu.
+
+### Écoute PC YouTube — décision du 12/10/2026
+Sur ordinateur, l'utilisateur démarre « Trouver le morceau » puis choisit dans la session soit le microphone, soit « Reconnaître le son d'un onglet YouTube (PC) » (Chrome/Edge, onglet YouTube et partage audio). La capture de l'onglet met le micro en pause, utilise le même flux de reconnaissance, le même anti-doublon et les mêmes règles FREE, puis reprend le micro si permis. La recherche manuelle accepte artiste/titre et URL YouTube ; une URL est analysée via les métadonnées publiques et ne vaut jamais preuve d'une empreinte audio. Aucun lecteur HTML parallèle. Tests réels requis avant validation de livraison.
 
 ## 5. Écouter
 
@@ -68,6 +72,8 @@ Source : `HomeScreenCompact.tsx`.
 - PASSER, GARDER, ARRÊTER et morceau courant accessibles sans swipe obligatoire.
 - L'accueil Écouter affiche Loki Pulse directement avec les bulles musicales de l'utilisateur ; le bloc « Loki Music DNA » n'y apparaît plus.
 - Le bloc Loki Pulse d'accueil ne redirige pas vers le profil : les bulles sont visibles directement sur place, tout en conservant Loki Pulse sur le profil.
+
+- Stories : sur PC et iOS, le propriétaire voit la même liste Supabase de spectateurs, avec les musiques réellement vues, l'arrêt et les cœurs `track_likes`. La RPC v4 de production expose `chapters[{i,s,t}]` (sans `track_views` ni `last_track_id`) : l'application doit normaliser ces champs sans inventer de lecture ; erreur réseau ≠ zéro vue, proposer Réessayer. Décision du 12/10/2026.
 
 ## 6. Découvertes
 

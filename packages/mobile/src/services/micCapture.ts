@@ -355,24 +355,28 @@ async function ensureTabAudioStream(): Promise<MediaStream> {
     if (e?.name === 'NotAllowedError' || e?.name === 'PermissionDeniedError') throw new MicPermissionDeniedError();
     throw e;
   }
-  // On ne veut jamais l'image -- coupée immédiatement, jamais affichée ni envoyée.
-  display.getVideoTracks().forEach((t) => t.stop());
+  // Conserver le flux vidéo vivant PENDANT la capture audio : certains navigateurs
+  // terminent aussi l'audio partagé si on arrête immédiatement la piste vidéo.
+  // Les images ne sont ni lues, ni enregistrées, ni envoyées ; toutes les pistes
+  // seront fermées en finally après l'échantillon.
   const audioTracks = display.getAudioTracks();
   if (!audioTracks.length) {
     display.getTracks().forEach((t) => t.stop());
     throw new Error("Aucun son partagé -- coche « Partager l'audio de l'onglet » dans la fenêtre de partage du navigateur.");
   }
-  return new MediaStream(audioTracks);
+  return display;
 }
 
 async function captureStreamToWav(
   stream: MediaStream,
-  versionAtStart: number,
+  versionAtStart: number | null,
   onLevel?: (level: number) => void,
   durationMs = DEFAULT_SAMPLE_DURATION_MS,
-  onPeak?: (peak: number) => void
+  onPeak?: (peak: number) => void,
+  isolatedAudioCtx?: AudioContext,
+  abortSignal?: AbortSignal,
 ): Promise<Blob> {
-  const audioCtx = getWebAudioCtx();
+  const audioCtx = isolatedAudioCtx ?? getWebAudioCtx();
   if (audioCtx.state === 'suspended') await audioCtx.resume().catch(() => {});
   if (audioCtx.state !== 'running') {
     throw new Error("Capture audio indisponible (contexte audio suspendu par le navigateur) -- réessaie d'écouter.");
@@ -409,13 +413,26 @@ async function captureStreamToWav(
   processor.connect(muteGain);
   muteGain.connect(audioCtx.destination);
 
-  await waitForSampleOrCancel(safeSampleDuration(durationMs), versionAtStart);
+  try {
+    if (versionAtStart === null) {
+      // Onglet indépendant du jeton micro. Pendant une surveillance continue,
+      // stop() interrompt aussi immédiatement l'attente de l'échantillon.
+      await new Promise<void>((resolve, reject) => {
+        if (abortSignal?.aborted) { reject(new MicCaptureCancelledError()); return; }
+        const onAbort = () => { clearTimeout(timer); reject(new MicCaptureCancelledError()); };
+        const timer = setTimeout(() => { abortSignal?.removeEventListener('abort', onAbort); resolve(); }, safeSampleDuration(durationMs));
+        abortSignal?.addEventListener('abort', onAbort, { once: true });
+      });
+    } else {
+      await waitForSampleOrCancel(safeSampleDuration(durationMs), versionAtStart);
+    }
+  } finally {
+    processor.disconnect();
+    source.disconnect();
+    muteGain.disconnect();
+  }
 
-  processor.disconnect();
-  source.disconnect();
-  muteGain.disconnect();
-
-  if (versionAtStart !== cancellationVersion) throw new MicCaptureCancelledError();
+  if (versionAtStart !== null && versionAtStart !== cancellationVersion) throw new MicCaptureCancelledError();
 
   const sampleRate = audioCtx.sampleRate;
   const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
@@ -475,14 +492,104 @@ async function captureAudioSampleWeb(onLevel?: (level: number) => void, duration
  */
 export async function captureTabAudioSample(onLevel?: (level: number) => void, durationMs = DEFAULT_SAMPLE_DURATION_MS): Promise<Blob> {
   if (Platform.OS !== 'web') throw new Error('Capture d’onglet disponible uniquement sur navigateur.');
-  const versionAtStart = cancellationVersion;
-  const stream = await ensureTabAudioStream();
-  try {
-    if (versionAtStart !== cancellationVersion) throw new MicCaptureCancelledError();
-    return await captureStreamToWav(stream, versionAtStart, onLevel, durationMs);
-  } finally {
-    stream.getTracks().forEach((t) => t.stop());
+  if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getDisplayMedia) {
+    throw new Error('Partage audio d’onglet non disponible dans ce navigateur. Utilise Chrome ou Edge sur PC, ou colle directement le lien musical.');
   }
+  // Contexte indépendant : cancelAudioCapture() ferme le contexte du micro et
+  // incrémente cancellationVersion ; il ne doit PAS interrompre ce partage.
+  // Le contexte est démarré dans le clic, avant toute attente asynchrone.
+  const AudioCtxCtor: typeof AudioContext = (window as any).AudioContext ?? (window as any).webkitAudioContext;
+  if (!AudioCtxCtor) throw new Error('Audio du navigateur indisponible. Colle plutôt le lien musical.');
+  const tabAudioCtx = new AudioCtxCtor();
+  const resume = tabAudioCtx.state === 'suspended' ? tabAudioCtx.resume().catch(() => {}) : Promise.resolve();
+  let display: MediaStream | null = null;
+  try {
+    // getDisplayMedia est appelé immédiatement pendant le geste utilisateur.
+    display = await ensureTabAudioStream();
+    await resume;
+    const audioOnly = new MediaStream(display.getAudioTracks());
+    return await captureStreamToWav(audioOnly, null, onLevel, durationMs, undefined, tabAudioCtx);
+  } finally {
+    display?.getTracks().forEach((track) => track.stop());
+    if (tabAudioCtx.state !== 'closed') await tabAudioCtx.close().catch(() => {});
+  }
+}
+
+/**
+ * Garde UN SEUL partage d'onglet ouvert et échantillonne plusieurs morceaux.
+ * L'ancien bouton capturait huit secondes puis fermait le partage : la musique
+ * suivante ne pouvait jamais arriver dans la session.
+ * Toutes les pistes sont libérées à ARRÊTER, à la fermeture de l'onglet source,
+ * ou en quittant Écouter. Aucune image vidéo n'est traitée.
+ */
+export type TabAudioMonitorHandle = { stop: () => void; done: Promise<void> };
+
+export async function startTabAudioMonitor(
+  onSample: (sample: Blob) => Promise<void>,
+  onFinished?: (error?: Error) => void,
+): Promise<TabAudioMonitorHandle> {
+  if (Platform.OS !== 'web' || typeof navigator === 'undefined' || !navigator.mediaDevices?.getDisplayMedia) {
+    throw new Error('Sur PC, utilise Chrome ou Edge pour partager le son d’un onglet.');
+  }
+  const AudioCtxCtor: typeof AudioContext = (window as any).AudioContext ?? (window as any).webkitAudioContext;
+  if (!AudioCtxCtor) throw new Error('Capture audio indisponible dans ce navigateur.');
+  const ctx = new AudioCtxCtor();
+  const abort = new AbortController();
+  let display: MediaStream | null = null;
+  let stopped = false;
+  const stop = () => {
+    if (stopped) return;
+    stopped = true;
+    abort.abort();
+    display?.getTracks().forEach((track) => track.stop());
+    if (ctx.state !== 'closed') void ctx.close().catch(() => {});
+  };
+  try {
+    // Doit être appelé directement dans le geste utilisateur : PAS d'await
+    // ni de demande micro avant la fenêtre de sélection de l'onglet.
+    display = await ensureTabAudioStream();
+    if (abort.signal.aborted) { stop(); throw new MicCaptureCancelledError(); }
+    if (ctx.state === 'suspended') await ctx.resume();
+  } catch (error) {
+    stop();
+    throw error;
+  }
+  const captured = display;
+  captured.getVideoTracks().forEach((track) => { track.addEventListener('ended', stop, { once: true }); });
+  const audioOnly = new MediaStream(captured.getAudioTracks());
+  const done = (async () => {
+    let terminalError: Error | undefined;
+    try {
+      while (!abort.signal.aborted && captured.getAudioTracks().some((track) => track.readyState === 'live')) {
+        try {
+          const sample = await captureStreamToWav(audioOnly, null, undefined, 8000, undefined, ctx, abort.signal);
+          if (abort.signal.aborted) break;
+          await onSample(sample);
+        } catch (error: any) {
+          if (abort.signal.aborted || error instanceof MicCaptureCancelledError) break;
+          // Silences, coupures réseau et indisponibilité temporaire d'un
+          // moteur de reconnaissance ne doivent PAS fermer l'onglet partagé.
+          // Chaque prochain extrait pourra identifier le morceau suivant.
+          const message = String(error?.message ?? '');
+          if (/aucun son|no sound|aucun signal|trop faible/i.test(message)) continue;
+          if (/LISTEN_FREE_(REQUIRED|INSUFFICIENT)|GUEST_LISTEN_LIMIT_REACHED/i.test(message)) {
+            terminalError = error instanceof Error ? error : new Error(message);
+            break;
+          }
+          if (ctx.state === 'closed' || captured.getAudioTracks().every((track) => track.readyState !== 'live')) {
+            terminalError = error instanceof Error ? error : new Error(message);
+            break;
+          }
+          console.warn('[Loki tab monitor] transient sample/recognition failure; resuming next sample', message);
+          continue;
+        }
+      }
+    } finally {
+      stop();
+      onFinished?.(terminalError);
+    }
+  })();
+  return { stop, done };
 }
 
 export function releaseCaptureResources(): void {

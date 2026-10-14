@@ -8,6 +8,8 @@ import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { supabase } from '../services/supabaseClient';
 import { useSessionStore } from '../store/useSessionStore';
 import { colors } from '../theme/colors';
+import { resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
+import EmbeddedSourceModal from './EmbeddedSourceModal';
 
 type Props = {
   trackKey: string;
@@ -70,14 +72,20 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
   const [busy, setBusy] = useState(false);
   const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState(previewUrl?.trim() || '');
   const [resolvedFallbackUrl, setResolvedFallbackUrl] = useState(fallbackUrl?.trim() || '');
-  const [resolving, setResolving] = useState(!previewUrl && !fallbackUrl);
+  const [resolving, setResolving] = useState(!previewUrl);
+  const [embedOpen, setEmbedOpen] = useState(false);
+  const [trackLabel, setTrackLabel] = useState('');
+  // Titre sans extrait mais avec une source officielle (YouTube importé, Spotify…) : on le lit DANS Loki, sans quitter l'app.
+  const embeddableSource = !resolvedPreviewUrl && resolveEmbeddedMusicPlayer(resolvedFallbackUrl) ? resolvedFallbackUrl : '';
 
   useEffect(() => () => { if (playing) void stopTrackPreview(trackKey); }, [playing, trackKey]);
 
   useEffect(() => {
     setResolvedPreviewUrl(previewUrl?.trim() || '');
     setResolvedFallbackUrl(fallbackUrl?.trim() || '');
-    if (previewUrl || fallbackUrl) {
+    // Un lien vers YouTube/TikTok/Spotify n'est pas un extrait audio.
+    // Même si le lien externe existe, chercher la vraie preview en bibliothèque.
+    if (previewUrl) {
       setResolving(false);
       return undefined;
     }
@@ -93,6 +101,7 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
         const metadata = await loadTrackAudioMetadata(trackKey);
         if (!live) return;
         if (metadata.fallback) setResolvedFallbackUrl(metadata.fallback);
+        if (metadata.candidate) setTrackLabel(`${metadata.candidate.title} · ${metadata.candidate.artist}`);
         if (metadata.directPreview) {
           setResolvedPreviewUrl(metadata.directPreview);
           return;
@@ -177,6 +186,7 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
 
   const stopListeningThenFallback = async () => {
     await stopKeepListening();
+    if (embeddableSource) { setEmbedOpen(true); return; }
     await openFallback();
   };
 
@@ -216,6 +226,7 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
       return;
     }
 
+    if (embeddableSource) { setEmbedOpen(true); return; }
     if (resolvedFallbackUrl) void openFallback();
   };
 
@@ -229,30 +240,37 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
     return compact ? <Text style={[styles.unavailable, fullWidth && styles.unavailableFullWidth]}>Audio indisponible</Text> : <Text style={styles.unavailable}>Extrait indisponible</Text>;
   }
 
+  const playLabel = resolvedPreviewUrl ? (playing ? 'Arrêter la pré-écoute' : 'Pré-écouter ce morceau') : embeddableSource ? 'Écouter ce morceau dans Loki Music' : 'Écouter ce morceau sur sa plateforme';
   if (square) {
     return (
-      <TouchableOpacity
-        style={[styles.square, playing && styles.squarePlaying]}
-        onPress={toggle}
-        disabled={busy}
-        accessibilityRole="button"
-        accessibilityLabel={resolvedPreviewUrl ? (playing ? 'Arrêter la pré-écoute' : 'Pré-écouter ce morceau') : 'Écouter ce morceau sur sa plateforme'}
-      >
-        <Text style={[styles.squareText, playing && styles.squareTextPlaying]}>{busy ? '…' : playing ? '■' : '▶'}</Text>
-      </TouchableOpacity>
+      <>
+        <TouchableOpacity
+          style={[styles.square, playing && styles.squarePlaying]}
+          onPress={toggle}
+          disabled={busy}
+          accessibilityRole="button"
+          accessibilityLabel={playLabel}
+        >
+          <Text style={[styles.squareText, playing && styles.squareTextPlaying]}>{busy ? '…' : playing ? '■' : '▶'}</Text>
+        </TouchableOpacity>
+      <EmbeddedSourceModal visible={embedOpen} sourceUrl={embeddableSource || resolvedFallbackUrl} title={trackLabel} onClose={() => setEmbedOpen(false)} />
+      </>
     );
   }
 
   return (
-    <TouchableOpacity
-      style={[styles.button, compact && styles.compact, fullWidth && styles.fullWidth, small && styles.small]}
-      onPress={toggle}
-      disabled={busy}
-      accessibilityRole="button"
-      accessibilityLabel={resolvedPreviewUrl ? (playing ? 'Arrêter la pré-écoute' : 'Pré-écouter ce morceau') : 'Écouter ce morceau sur sa plateforme'}
-    >
-      <Text style={[styles.text, compact && styles.compactText, small && styles.smallText]}>{busy ? '…' : resolvedPreviewUrl ? (playing ? '■ Stop' : '▶ Jouer') : '▶ Ouvrir'}</Text>
-    </TouchableOpacity>
+    <>
+      <TouchableOpacity
+        style={[styles.button, compact && styles.compact, fullWidth && styles.fullWidth, small && styles.small]}
+        onPress={toggle}
+        disabled={busy}
+        accessibilityRole="button"
+        accessibilityLabel={playLabel}
+      >
+        <Text style={[styles.text, compact && styles.compactText, small && styles.smallText]}>{busy ? '…' : resolvedPreviewUrl ? (playing ? '■ Stop' : '▶ Jouer') : embeddableSource ? '▶ Jouer' : '▶ Ouvrir'}</Text>
+      </TouchableOpacity>
+      <EmbeddedSourceModal visible={embedOpen} sourceUrl={embeddableSource || resolvedFallbackUrl} title={trackLabel} onClose={() => setEmbedOpen(false)} />
+    </>
   );
 }
 

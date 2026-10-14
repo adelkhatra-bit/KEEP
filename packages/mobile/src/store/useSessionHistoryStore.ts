@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { KeepSession, KeepVisibility, SessionTrackEntry, SessionTrackStatus } from '../types';
+import type { CanonicalTrack } from '@keep/music';
 import { commitKeep } from '../services/keepTrackAction';
 import { getDownloadCreditStatus } from '../services/creditService';
 import { setAllOwnKeepVisibility } from '../services/keepLibraryService';
@@ -42,12 +43,14 @@ interface SessionHistoryStore {
   dismissedSessionIds: string[];
   addSession: (session: KeepSession) => void;
   upsertSession: (session: KeepSession) => void;
+  addSharedLinkTrack: (track: CanonicalTrack, sourceUrl?: string, ownerUserId?: string) => { sessionId: string; entryId?: string; added: boolean };
   deleteSession: (sessionId: string) => void;
   clearSessions: () => void;
   renameSession: (sessionId: string, title: string) => void;
   reconcileOrphanedLiveSessions: (activeSessionId?: string | null) => void;
   keepTrackInSession: (sessionId: string, entryId: string, playlistId?: string, visibility?: KeepVisibility) => Promise<void>;
   passTrackInSession: (sessionId: string, entryId: string) => void;
+  removeTrackFromSession: (sessionId: string, entryId: string) => void;
   restoreTrackInSession: (sessionId: string, entryId: string) => void;
   setTrackVisibilityInSession: (sessionId: string, entryId: string, visibility: KeepVisibility) => Promise<void>;
   setAllKeptVisibility: (visibility: KeepVisibility) => Promise<number>;
@@ -204,7 +207,7 @@ export function mergePersistedKeeps(sessions: KeepSession[], remoteKeeps: Persis
   let next = sessions.map((session) => ({
     ...session,
     tracks: session.tracks.map((entry): SessionTrackEntry => {
-      if (!entry.keepDecisionId) return entry;
+      if (!entry.keepDecisionId || entry.status === 'removed') return entry;
       const remote = remoteByDecision.get(entry.keepDecisionId);
       if (!remote) return entry;
       return {
@@ -329,6 +332,49 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
         const exists = s.sessions.some((item) => item.id === session.id);
         return { sessions: exists ? s.sessions.map((item) => item.id === session.id ? session : item) : [session, ...s.sessions] };
       }),
+      // Chaque lien musical identifié est enregistré EN ATTENTE, sans aucun
+      // débit FREE. Seul GARDER dans la même fenêtre déclenche le coût serveur
+      // et le choix Public/Privé, comme dans Swipe sur mobile et PC.
+      addSharedLinkTrack: (track, sourceUrl, ownerUserId) => {
+        const now = new Date().toISOString();
+        const day = now.slice(0, 10);
+        const title = 'Musiques partagées';
+        const normalized = (v: string) => v.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+        const normalizedSource = (sourceUrl || '').trim();
+        const enrichedTrack: CanonicalTrack = {
+          ...track,
+          externalUrls: { ...(track.externalUrls ?? {}), ...(normalizedSource ? { source: normalizedSource } : {}) },
+        };
+        let outcome: { sessionId: string; entryId?: string; added: boolean } | null = null;
+        set((state) => {
+          // Un seul groupe journalier par profil, sans mélanger deux comptes
+          // sur le même PC. Une session micro existante reste inchangée.
+          const existing = state.sessions.find((item) => item.title === title
+            && item.startedAt.startsWith(day) && (item.ownerUserId ?? '') === (ownerUserId ?? '')
+            && !state.dismissedSessionIds.includes(item.id));
+          const id = existing?.id ?? `shared-${day}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          const duplicate = existing?.tracks.find((item) => {
+            const previousSource = String(item.track.externalUrls?.source ?? '').trim();
+            // Two distinct shared video URLs must remain TWO swipeable entries,
+            // even if their uploader supplied identical title/artist metadata.
+            // Otherwise the second YouTube link silently reopened the first.
+            if (normalizedSource && previousSource) return normalizedSource === previousSource;
+            return normalized(item.track.title) === normalized(enrichedTrack.title)
+              && normalized(item.track.artist) === normalized(enrichedTrack.artist);
+          });
+          if (duplicate) { outcome = { sessionId: id, entryId: duplicate.id, added: false }; return state; }
+          const entry: SessionTrackEntry = {
+            id: `shared-track-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            track: enrichedTrack, recommendations: [], status: 'pending', detectedAt: now,
+          };
+          const session: KeepSession = existing
+            ? { ...existing, endedAt: now, tracks: [entry, ...existing.tracks] }
+            : { id, ownerUserId, title, startedAt: now, endedAt: now, tracks: [entry] };
+          outcome = { sessionId: id, entryId: entry.id, added: true };
+          return { sessions: [session, ...state.sessions.filter((item) => item.id !== id)] };
+        });
+        return outcome ?? { sessionId: '', added: false };
+      },
       deleteSession: (sessionId) => set((s) => {
         const target = s.sessions.find((session) => session.id === sessionId);
         const decisionIds = (target?.tracks ?? []).map((t) => t.keepDecisionId).filter((id): id is string => Boolean(id));
@@ -374,6 +420,15 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
       },
 
       passTrackInSession: (sessionId, entryId) => set((s) => ({ sessions: updateEntryStatus(s.sessions, sessionId, entryId, 'passed', undefined, undefined, undefined, false) })),
+
+      removeTrackFromSession: (sessionId, entryId) => set((state) => ({
+        sessions: state.sessions.map((session) => session.id !== sessionId ? session : {
+          ...session,
+          tracks: session.tracks.map((entry) => entry.id === entryId && entry.status !== 'removed'
+            ? { ...entry, status: 'removed', creditLocked: false }
+            : entry),
+        }),
+      })),
 
       // Adel (20/09/2026) : "swiper ne doit plus supprimer tout de suite --
       // ça doit rester ré-écoutable et ré-ajoutable tant que je n'ai pas

@@ -50,7 +50,7 @@ export interface User {
   privateInfo: ProfilePrivateInfo;
 }
 
-export type SessionTrackStatus = 'pending' | 'kept' | 'passed' | 'already_saved';
+export type SessionTrackStatus = 'pending' | 'kept' | 'passed' | 'already_saved' | 'removed';
 
 export interface ExistingLibraryMatch {
   playlistId: string;

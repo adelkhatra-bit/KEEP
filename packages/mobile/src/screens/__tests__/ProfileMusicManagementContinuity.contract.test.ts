@@ -44,6 +44,7 @@ describe('Profile music management and listening continuity', () => {
     expect(swipe).toContain('if (socialDiscoveryMode) {');
     expect(swipe).toContain('advanceIndex();');
     expect(swipe).toContain("}, 120);");
-    expect(swipe).toContain("recordProfileSwipeListen(currentSourceProfileId, current.id)");
+    expect(swipe).toContain('recordSwipeListenOnce(current.id, currentSourceProfileId)');
+    expect(swipe).toContain('profileListenSentRef.current.add(trackId)');
   });
 });

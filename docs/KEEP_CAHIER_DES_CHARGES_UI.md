@@ -36,6 +36,9 @@ Il **ne doit pas contenir d'entrée Compte / connexion / déconnexion**.
 
 La connexion/déconnexion reste gérée dans **Réglages du profil** (`ProfileSettingsMobileScreen.tsx`). Il ne doit pas y avoir deux chemins concurrents qui donnent l'impression que l'utilisateur doit se reconnecter ou se déconnecter pour naviguer.
 
+### Écouter / reconnaissance sur PC — décision du 12/10/2026
+L'action de capture audio d'un onglet est intégrée dans l'écran actif « Trouver le morceau », et non un bouton de test isolé en bas de l'accueil. Elle explique le partage audio Chrome/Edge, suspend le micro pendant la capture et présente le morceau dans la même session si confirmé. La recherche manuelle explique honnêtement les liens YouTube (métadonnées, pas capture audio) ; les boutons restent accessibles en 390×844 et 1440×900. Aucune fonction native iPhone retirée.
+
 ## 4. Barre des 5 onglets
 
 Ordre fonctionnel immuable :

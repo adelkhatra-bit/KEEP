@@ -10,7 +10,7 @@ describe('ProfilePublicScreen — owner actions stay together in the hero', () =
   it('keeps preview, collections and Battle aligned before the collection content', () => {
     const actions = source.indexOf('<View style={s.ownerQuickActions}>');
     const preview = source.indexOf('▶ APERÇU', actions);
-    const sales = source.indexOf('◆ PÉPITES', actions);
+    const sales = source.indexOf('◆ VENDRE', actions);
     const battle = source.indexOf('⚡ BATTLE', actions);
     const collection = source.indexOf('<View style={s.collectionHeader}>');
 
@@ -32,7 +32,7 @@ describe('ProfilePublicScreen — owner actions stay together in the hero', () =
     expect(source).toContain("import MotionActionButton from '../components/MotionActionButton';");
     expect(source).toContain('containerStyle={s.ownerQuickActionFull}');
     expect(source).toContain('accessibilityLabel="Voir aperçu"');
-    expect(source).toContain("accessibilityLabel={accountRequired ? 'Comprendre comment publier une Pépite' : 'Gérer pépites'}");
+    expect(source).toContain("accessibilityLabel={accountRequired ? 'Comprendre comment publier une Pépite' : 'Vendre mes musiques ou gérer ma boutique'}");
     expect(source).toContain('accessibilityLabel="Jouer Battle"');
   });
 
@@ -41,7 +41,7 @@ describe('ProfilePublicScreen — owner actions stay together in the hero', () =
     expect(source).not.toContain('Gérer mes découvertes en vente');
   });
 
-  it('owner profile: no duplicate « Mes sélections » card, the PÉPITES button shows the published count (Adel 29/09/2026)', () => {
+  it('owner profile: no duplicate « Mes sélections » card, the VENDRE button shows the published count (Adel 29/09/2026)', () => {
     expect(source).not.toContain('style={s.ownerCollectionRail}');
     expect(source).not.toContain('Mes sélections');
     expect(source).toContain('<Text style={s.ownerQuickActionBadgeText}>{ownerBoutiqueOffers.length}</Text>');

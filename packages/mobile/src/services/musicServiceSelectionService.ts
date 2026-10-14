@@ -54,8 +54,8 @@ export async function claimMusicService(service: MusicServiceKey): Promise<Music
 }
 
 export function musicServicePlanLabel(plan: MusicServiceSelectionState['plan']): string {
-  if (plan === 'PREMIUM') return 'Premium 2,99 €';
-  if (plan === 'CREATOR_PRO') return 'Creator Pro 9,99 €';
-  if (plan === 'VENUE_PRO') return 'Venue Pro 29,99 €';
+  if (plan === 'PREMIUM') return 'Premium';
+  if (plan === 'CREATOR_PRO') return 'Creator Pro';
+  if (plan === 'VENUE_PRO') return 'Venue Pro';
   return 'FREE';
 }

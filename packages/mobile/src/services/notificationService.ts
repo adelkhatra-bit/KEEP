@@ -1,3 +1,4 @@
+import { notificationIsCurrent } from './notificationExpiryPolicy';
 import { supabase } from './supabaseClient';
 import { APP_NAME } from '../config/brand';
 
@@ -235,7 +236,7 @@ export async function loadNotifications(
   if (options.unreadOnly) query = query.is('read_at', null);
   const { data, error } = await query;
   if (error) throw error;
-  const visible = (data ?? []).map(mapNotificationRow).filter((item) => !shouldSuppressNotificationPresentation(item) && !isStoryRoutedNotification(item));
+  const visible = (data ?? []).map(mapNotificationRow).filter((item) => !shouldSuppressNotificationPresentation(item) && !isStoryRoutedNotification(item) && notificationIsCurrent(item));
   return options.dedupe === false ? visible : dedupeNotifications(visible);
 }
 
@@ -249,7 +250,7 @@ export async function loadUnreadNotificationCount(profileId: string): Promise<nu
     .order('created_at', { ascending: false })
     .limit(200);
   if (error) throw error;
-  return dedupeNotifications((data ?? []).map(mapNotificationRow).filter((item) => !isStoryRoutedNotification(item))).length;
+  return dedupeNotifications((data ?? []).map(mapNotificationRow).filter((item) => !isStoryRoutedNotification(item) && notificationIsCurrent(item))).length;
 }
 
 export async function loadLatestUnreadPlanGift(profileId: string): Promise<KeepNotification | null> {
@@ -292,7 +293,7 @@ export function subscribeToNotifications(
       (payload) => {
         if (!payload?.new) return;
         const notification = mapNotificationRow(payload.new);
-        if (shouldSuppressNotificationPresentation(notification)) return;
+        if (shouldSuppressNotificationPresentation(notification) || !notificationIsCurrent(notification)) return;
         onInsert(notification);
       },
     )
@@ -304,12 +305,34 @@ export function subscribeToNotifications(
 }
 
 /**
- * Écoute INSERT/UPDATE/DELETE pour synchroniser les badges de compteur. Cela
- * évite qu'un badge reste à l'ancien chiffre après lecture ou suppression.
+ * Regroupe les UPDATE de read_all : 100 notifications lues d'un seul geste
+ * ne doivent jamais déclencher 100 requêtes de rechargement sur chaque appareil.
+ */
+export function createNotificationChangeBatch(onChange: () => void, delayMs = 200) {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  return {
+    notify: () => {
+      if (timer !== null) return;
+      timer = setTimeout(() => {
+        timer = null;
+        onChange();
+      }, delayMs);
+    },
+    cancel: () => {
+      if (timer !== null) clearTimeout(timer);
+      timer = null;
+    },
+  };
+}
+
+/**
+ * INSERT/UPDATE/DELETE : badge et centre suivent read_at depuis tous les
+ * appareils, avec regroupement des événements pour préserver PostgreSQL.
  */
 export function subscribeToNotificationChanges(profileId: string, onChange: () => void): () => void {
   const client = supabase;
   if (!client || !profileId) return () => {};
+  const batch = createNotificationChangeBatch(onChange);
 
   const channel = client
     .channel(`keep-notification-count-${profileId}-${Math.random().toString(36).slice(2, 8)}`)
@@ -321,11 +344,12 @@ export function subscribeToNotificationChanges(profileId: string, onChange: () =
         table: 'notifications',
         filter: `profile_id=eq.${profileId}`,
       },
-      () => onChange(),
+      () => batch.notify(),
     )
     .subscribe();
 
   return () => {
+    batch.cancel();
     void client.removeChannel(channel);
   };
 }

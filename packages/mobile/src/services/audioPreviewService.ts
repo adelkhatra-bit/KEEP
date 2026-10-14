@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import { isNativeRecordingModeActive } from './micCapture';
-import { AUDIO_START_CONFIRM_MS, AUDIO_START_POLL_MS, isPreviewStartAccepted } from './audioPreviewStart';
+import { AUDIO_START_CONFIRM_MS, AUDIO_START_POLL_MS, isPreviewStartAccepted, isPreviewStillStalled } from './audioPreviewStart';
 
 type ExpoAVModule = typeof import('expo-av');
 type AVPlaybackStatus = import('expo-av').AVPlaybackStatus;
@@ -16,6 +16,7 @@ let activeKey: string | null = null;
 let activeStateListener: ((playing: boolean) => void) | null = null;
 let activeTimer: ReturnType<typeof setTimeout> | null = null;
 let activeStartTimer: ReturnType<typeof setTimeout> | null = null;
+let previewProgressTimer: ReturnType<typeof setTimeout> | null = null;
 let operation = Promise.resolve();
 
 const AUDIO_CREATE_TIMEOUT_MS = 3200;
@@ -212,6 +213,10 @@ function clearActiveTimer() {
   if (activeStartTimer) {
     clearTimeout(activeStartTimer);
     activeStartTimer = null;
+  }
+  if (previewProgressTimer) {
+    clearTimeout(previewProgressTimer);
+    previewProgressTimer = null;
   }
 }
 
@@ -687,6 +692,23 @@ export async function toggleTrackPreview(
       return;
     }
     onStateChange(true);
+    // iOS can report shouldPlay:true/isBuffering:true as a valid *request*
+    // while the CDN never delivers a single audible frame. Detect a stream
+    // stuck after 6.5 s and let the Swipe advance rather than freeze forever.
+    previewProgressTimer = setTimeout(() => {
+      previewProgressTimer = null;
+      if (requestEpoch !== playbackRequestEpoch || activeSound !== createdSound || activeKey !== key) return;
+      void (async () => {
+        let stalled = false;
+        try {
+          const status = await withAudioTimeout(createdSound.getStatusAsync(), 'AUDIO_STALL_CHECK', 1200);
+          stalled = isPreviewStillStalled(status);
+        } catch { stalled = true; }
+        if (!stalled || requestEpoch !== playbackRequestEpoch || activeSound !== createdSound || activeKey !== key) return;
+        stopTrackPreviewFast(key);
+        onEnded?.();
+      })();
+    }, 6500);
   });
 }
 

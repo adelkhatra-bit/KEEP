@@ -2964,3 +2964,21 @@ Contexte vérifié : Desktop Commander voit un appareil « Anas » (PC Windows d
 4. Audit des intégrations Supabase / backend / push / QR / Stories / boutique (lecture seule d'abord).
 
 **État de publication (prouvé) :** la publication Web #3498 de `8552d8d` a ÉCHOUÉ (étape « Block black page before publish ») : le profil « tablette 1024 px » du garde-fou avait une souris, donc passait en mode bureau (barre latérale) alors que le garde-fou exigeait la barre du bas. L'alerte RELEASE BLOQUÉE s'est bien ouverte. Correctif en cours par Claude (profils d'appareil réels).
+## [2026-10-11T21:59:35.282Z] codex
+
+PR112 reprise : audit captures Chromium. Correctif ciblé en cours : rendre les 3 cartes Soirées accessibles au clavier/test role=button et déplacer temporairement le Tchat hors des cartes sur PC compact, sans changer les préférences enregistrées ni le mobile. Ne pas modifier GlobalChatDock/PartiesScreen en parallèle.
+## [2026-10-13T10:33:58.340Z] codex
+
+Reprise livraison Soirees PC: navigation officielle sans retour accueil confirme; integration locale sur eb060ac1, conservation des corrections QR/profil deja publiees, verification navigateur avant publication.
+## [2026-10-14T19:57:06.991Z] codex
+
+Audit en cours de l’issue #205 : retrait/épinglage de musique dans la Session. Clone de revue actualisé depuis reconcile/claude-main-20260825 ; analyse lecture seule des handlers, persistence/RPC et tests, aucune donnée production touchée. La cause doit être reproduite avant correction.
+
+## [2026-10-14T20:16:41.931Z] codex
+
+Issue #205 — correctif local ajouté : retirer un morceau d’une Session sans toucher au GARDER/achat/Story/historique, snapshot retiré anti-résurrection, et garde d’accès Story vérifiée. Preuves : 21/21 tests ciblés, typecheck mobile, verify-source-of-truth, export Expo puis Chromium 390×844 et 1440×900 (#root à la hauteur exacte, page non blanche). Limites : aucun compte concerné, iPhone réel, RPC/RLS production ni reconnexion inter-appareils testés ; lint MusicSwipeDeckModal échoue sur require() déjà présent dans HEAD. #114/#115 toujours dirty : #114 dual-viewport/battle-solo en timeout, #115 battle-solo timeout, statuts Vercel rate-limit ; ne pas fusionner. Changements LOCAL_ONLY en attente du rapport/commit.
+
+## [2026-10-14T20:21:04.521Z] codex
+
+Issue #205 : code poussé sur la branche de revue au SHA 971fb859eb05cf353704d85a4608a3e5a5d10b85 (PR #206). Vérif GitHub : PR draft ouverte, mais base actuelle main au lieu de reconcile/claude-main-20260825 — NE PAS FUSIONNER avant retargetage. 21 tests ciblés, tsc, source-of-truth, export + Chromium viewport passent localement ; aucun vrai compte/iPhone/RPC/RLS/reconnexion validé. Parallel validation : pas de commentaire de revue exploitable ; CodeQL signale 2 Math.random existants dans addSharedLinkTrack et un filtre deezer.com non modifié, tous présents dans le parent, non traités hors périmètre. #114/#115 dirty/rouges, ne pas fusionner.
+

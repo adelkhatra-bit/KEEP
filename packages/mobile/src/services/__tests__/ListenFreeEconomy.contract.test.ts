@@ -29,12 +29,13 @@ describe('[ECONOMIE-FREE-LISTEN] — quota, consentement et coût réseau', () =
     expect(source).toContain("if (!recognition) {");
   });
 
-  it('n appelle aucun moteur distant quand la fenêtre locale est parole ou silence', () => {
-    const guard = source.indexOf("presence.verdict === 'speech' || presence.verdict === 'silence'");
+  it('évite le moteur distant sur silence, mais laisse tenter un rap classé parole', () => {
+    const guard = source.indexOf("presence.verdict === 'silence' && !musicEngine.isDemoMode");
     const provider = source.indexOf('musicEngine.recognitionProvider.recognize(audioSample)', guard);
     expect(guard).toBeGreaterThan(-1);
     expect(provider).toBeGreaterThan(guard);
     expect(source.slice(guard, provider)).toContain('return;');
+    expect(source).not.toContain("presence.verdict === 'speech' || presence.verdict === 'silence'");
   });
 
   it('espace les fournisseurs payants de 20 secondes minimum', () => {

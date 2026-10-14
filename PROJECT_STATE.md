@@ -34,10 +34,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-10-11T12:34:48.855Z
-- Branche : `claude/desktop-layout-20261011`
-- Dernier commit : `8552d8d` (8552d8df363aa85143c93fbcccd32dca45292589) — feat(desktop): vrai mode bureau (>= 1024 px) — barre latérale, contenu centré, textes >= 11 px, erreur navigation corrigée
-- Date du dernier commit : 2026-10-11T12:18:32+00:00
+- Régénéré le : 2026-10-14T20:21:12.002Z
+- Branche : `copilot/bug-session-supprimer-epingler-musique`
+- Dernier commit : `971fb859e` (971fb859eb05cf353704d85a4608a3e5a5d10b85) — Corriger le retrait et l’épinglage en Session
+- Date du dernier commit : 2026-10-14T20:17:09Z
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -124,16 +124,16 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
-- `8552d8d` (2026-10-11, Claude) — feat(desktop): vrai mode bureau (>= 1024 px) — barre latérale, contenu centré, textes >= 11 px, erreur navigation corrigée
-- `0bbdaff` (2026-10-11, Claude) — docs: protocole de reprise débloquée pour ChatGPT/Codex (départ propre, contrôles, alerte release)
-- `bcd5711` (2026-10-11, Claude) — release: déblocage iPhone (PR 87 à 100) + alerte RELEASE BLOQUÉE + Mobile CI sur chaque PR
-- `485cb88` (2026-10-11, adelkhatra-bit) — Merge pull request #100 from adelkhatra-bit/fix/robot-shake-cleanup-20261011
-- `be899f5` (2026-10-11, adelkhatra-bit) — test(bot): align unknown-route shake assertion with compact menu
-- `6feccbd` (2026-10-11, adelkhatra-bit) — fix(bot): unify compact shake menu on all routes and remove unused legacy prompt
-- `c84cb79` (2026-10-11, adelkhatra-bit) — Merge pull request #99 from adelkhatra-bit/fix/shake-bot-compact-20261011
-- `7290ca8` (2026-10-11, adelkhatra-bit) — fix(bot): compact shake prompt and full navigation actions
-- `4f51375` (2026-10-11, adelkhatra-bit) — Merge pull request #97 from adelkhatra-bit/fix/qr-preserve-auth-callback-20261011
-- `2200e48` (2026-10-11, adelkhatra-bit) — fix(qr): preserve Supabase auth callback for desktop pairing
+- `971fb859e` (2026-10-14, copilot-swe-agent[bot]) — Corriger le retrait et l’épinglage en Session
+- `169647427` (2026-10-14, copilot-swe-agent[bot]) — Synchronize canonical branch for Session audit
+- `393fe91ee` (2026-10-14, copilot-swe-agent[bot]) — Merge remote-tracking branch 'origin/reconcile/claude-main-20260825' into copilot/bug-session-supprimer-epingler-musique Co-authored-by: adelkhatra-bit <231372518+adelkhatra-bit@users.noreply.github.com>
+- `05e3546f1` (2026-10-14, copilot-swe-agent[bot]) — Initial plan
+- `e0aa9d243` (2026-10-14, github-actions[bot]) — chore(registre): release 82aae49 vérifiée en ligne [skip ci]
+- `82aae496b` (2026-10-14, adelkhatra-bit) — fix(playlist): lire un titre YouTube dans Loki Music au lieu de rediriger vers YouTube (#202)
+- `0dd6516fa` (2026-10-14, adelkhatra-bit) — test(ci): audit navigateur — mocker la diffusion Realtime du tchat (#201)
+- `356e4d78f` (2026-10-14, adelkhatra-bit) — test(ci): réparer le Real Browser Web Runtime Audit (#200)
+- `9240b48ab` (2026-10-14, github-actions[bot]) — chore(registre): release 3b4bff9 vérifiée en ligne [skip ci]
+- `3b4bff95d` (2026-10-14, adelkhatra-bit) — fix(swipe): rétablir le Swipe de l'aperçu profil et des Stories avec titres YouTube (#199)
 <!-- AUTO:RECENT-COMMITS:END -->
 
 ## Registre de versions (généré par le workflow de release, jamais à la main)
@@ -143,7 +143,46 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
-| `bcd5711` | `bcd5711` | iOS #226 (réussi) | #1017 (réussie) | 2026-10-11 12:34 | pass | PR 87 à 100 sur iPhone et site ; alerte RELEASE BLOQUÉE |
+| `82aae49` | `82aae49` | iOS #243 in_progress (release 82aae49) | OTA #1034 in_progress (release 82aae49) | 2026-10-14 11:54 | pass | fix(playlist): lire un titre YouTube dans Loki Music au lieu de rediriger vers YouTube (#202) |
+| `3b4bff9` | `3b4bff9` | iOS #242 in_progress (release 3b4bff9) | OTA #1033 in_progress (release 3b4bff9) | 2026-10-14 00:31 | pass | fix(swipe): rétablir le Swipe de l'aperçu profil et des Stories avec titres YouTube (#199) |
+| `3868a14` | `3868a14` | iOS #241 in_progress (release 3868a14) | OTA #1032 in_progress (release 3868a14) | 2026-10-13 23:26 | pass | release(loki): OTA production alignée sur le build TestFlight 439 (#197) |
+| `5696a08` | `5696a08` | iOS #null null (release 12219bc) | OTA #null null (release 12219bc) | 2026-10-13 22:52 | pass | release(loki): ship Vibes→Styles, Recharges FREE Super Admin et Robot de parcours 50/50 to Web/TestFlight/OTA (#196) |
+| `13a6e68` | `13a6e68` | iOS #239 success (release 92a9036) | OTA #1030 success (release 92a9036) | 2026-10-13 20:49 | pass | feat(offres): Vibes → Styles, prix en dur retirés, recharges FREE réglables (#194) |
+| `92a9036` | `92a9036` | iOS #239 in_progress (release 92a9036) | OTA #1030 in_progress (release 92a9036) | 2026-10-13 20:21 | pass | release(loki): ship PR189 raised reaction counters, 3D neon Swipe and compact Plus to Web/TestFlight/OTA |
+| `d5012e6` | `d5012e6` | iOS #238 cancelled (release 98d3a9a) | OTA #1029 success (release 98d3a9a) | 2026-10-13 20:11 | pass | fix(desktop/ui): réactions au-dessus du titre, contour néon animé, Plus partout (#189) |
+| `98d3a9a` | `98d3a9a` | iOS #238 in_progress (release 98d3a9a) | OTA #1029 in_progress (release 98d3a9a) | 2026-10-13 19:50 | pass | fix(desktop/story): 3 compteurs lumineux au-dessus du titre et aide compacte Plus partout (#186) |
+| `d73e160` | `d73e160` | iOS #237 in_progress (release d73e160) | OTA #1028 in_progress (release d73e160) | 2026-10-13 19:02 | pass | release(ios+web): publish profile preview YouTube autoplay fallback and header UX, PR185 validated |
+| `421946a` | `421946a` | iOS #236 cancelled (release 7e85c52) | OTA #1027 success (release 7e85c52) | 2026-10-13 18:55 | pass | fix(preview): secours YouTube automatique + réactions remontées et « Plus » (#185) |
+| `7e85c52` | `7e85c52` | iOS #236 in_progress (release 7e85c52) | OTA #1027 in_progress (release 7e85c52) | 2026-10-13 18:24 | pass | release(iOS+Web): publier réellement Sessions + Loki Pulse + Swipe/Stories PR178/180/181 (#183) |
+| `3b439c1` | `3b439c1` | iOS #235 cancelled (release 3b439c1) | OTA #1026 in_progress (release 3b439c1) | 2026-10-13 18:17 | pass | release(ios+web): publish tested #181 Swipe audio, full-cover UI, Sessions and Pulse parity |
+| `3ce1cca` | `3ce1cca` | iOS #234 success (release f8eacf5) | OTA #1025 success (release f8eacf5) | 2026-10-13 18:09 | pass | fix(desktop): Swipe immersif + Stories stables sur version Pulse fusionnée (#181) |
+| `b1a6d5f` | `b1a6d5f` | iOS #234 success (release f8eacf5) | OTA #1025 success (release f8eacf5) | 2026-10-13 17:53 | pass | fix(stories/pulse): éviter les pubs intégrées, découvrir des profils de même style (#180) |
+| `09c32b0` | `09c32b0` | iOS #234 success (release f8eacf5) | OTA #1025 success (release f8eacf5) | 2026-10-13 17:46 | pass | fix(sessions/ios/web): préécoute immédiate, lien partagé audible et UI Swipe cohérente (#178) |
+| `1193d76` | `1193d76` | iOS #234 success (release f8eacf5) | OTA #1025 success (release f8eacf5) | 2026-10-13 17:19 | pass | fix(solo): 4 noms uniques, pays cohérent, plus d'artistes et styles crédibles (#176) |
+| `2b36c5c` | `2b36c5c` | iOS #234 success (release f8eacf5) | OTA #1025 success (release f8eacf5) | 2026-10-13 17:06 | pass | fix(swipe/iOS+PC): débloquer le Swipe et les extraits silencieux (#172) |
+| `70d1b4a` | `70d1b4a` | iOS #234 success (release f8eacf5) | OTA #1025 success (release f8eacf5) | 2026-10-13 16:58 | pass | fix(audio): déblocage des recherches Apple iTunes pendant Swipe et session (#173) |
+| `404f669` | `404f669` | iOS #234 in_progress (release f8eacf5) | OTA #1025 in_progress (release f8eacf5) | 2026-10-13 16:29 | pass | fix(solo): réponses difficiles par pays d’origine vérifié, genre et époque (#169) |
+| `f8eacf5` | `f8eacf5` | iOS #234 in_progress (release f8eacf5) | OTA #1025 in_progress (release f8eacf5) | 2026-10-13 16:21 | pass | release(ios+web): publish tested Story YouTube 153 and Swipe fixes |
+| `43afe85` | `43afe85` | iOS #233 success (release c7f97df) | OTA #1024 success (release c7f97df) | 2026-10-13 16:13 | pass | fix(story/ios): corriger YouTube 153 dans le vrai lecteur Story et le chevauchement Swipe (#167) |
+| `0346112` | `0346112` | iOS #233 success (release c7f97df) | OTA #1024 success (release c7f97df) | 2026-10-13 14:55 | pass | fix(ios): corriger le lecteur YouTube erreur 153 avec Referer WebView (#166) |
+| `84e3fbd` | `84e3fbd` | iOS #233 success (release c7f97df) | OTA #1024 success (release c7f97df) | 2026-10-13 14:49 | pass | Retour Soirées depuis Battle et mise en page PC élargie (#165) |
+| `c7f97df` | `c7f97df` | iOS #233 in_progress (release c7f97df) | OTA #1024 in_progress (release c7f97df) | 2026-10-13 10:22 | pass | chore(release): ship profile persistence, KEEP modal and iOS OTA updater (#163) |
+| `8e5905b` | `8e5905b` | iOS #232 success (release c7cfb99) | OTA #1023 success (release c7cfb99) | 2026-10-13 10:14 | pass | refactor(keep): remove unused KEEP choice modal (#162) |
+| `466a4f2` | `466a4f2` | iOS #232 success (release c7cfb99) | OTA #1023 success (release c7cfb99) | 2026-10-13 10:07 | pass | fix(profile): preserve late-loaded birthday and gender on Save (#161) |
+| `c7cfb99` | `c7cfb99` | iOS #232 in_progress (release c7cfb99) | OTA #1023 in_progress (release c7cfb99) | 2026-10-13 00:45 | pass | chore(release): déclencher TestFlight et OTA du correctif QR #158 |
+| `cbacd1a` | `cbacd1a` | iOS #231 success (release 5447724) | OTA #1022 success (release 5447724) | 2026-10-13 00:34 | pass | fix(qr): attendre la session restaurée avant popup de connexion |
+| `f028cd0` | `f028cd0` | iOS #231 success (release 5447724) | OTA #1022 success (release 5447724) | 2026-10-13 00:06 | pass | test(stories): guard paid/free labels against artwork overlap |
+| `134632f` | `134632f` | iOS #231 success (release 5447724) | OTA #1022 success (release 5447724) | 2026-10-12 23:58 | pass | fix(stories): keep paid/free labels in layout flow outside cover |
+| `9c59676` | `9c59676` | iOS #231 in_progress (release 5447724) | OTA #1022 in_progress (release 5447724) | 2026-10-12 22:28 | pass | fix(guard): compare newline escapes correctly in exact story SQL syntax exception |
+| `c0c5a77` | `c0c5a77` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 22:22 | pass | test(story): verify real last viewed title after backward navigation |
+| `364b927` | `364b927` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 22:15 | pass | fix(stories): label unique viewers separately from tracks actually visited |
+| `7e6cce6` | `7e6cce6` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 22:07 | pass | test(music): align 12 regression suites with unified link preview, confirmed FREE KEEP and automatic public Story |
+| `54d74a5` | `54d74a5` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 22:00 | pass | fix(music): let a second shared link supersede slow first search and honor confirmed visibility |
+| `204bc62` | `204bc62` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 21:45 | pass | fix(ci): safely guard absent saved entry in unified Keep confirmation |
+| `87267b5` | `87267b5` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 20:35 | pass | fix(ci): use verified provider player identity for YouTube video id |
+| `82d6a00` | `82d6a00` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 20:24 | pass | fix(ci): remove duplicate pending-session counter declaration blocking mobile typecheck |
+| `48c651c` | `48c651c` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 20:17 | pass | fix(stories): exact embedded YouTube source over unrelated previews; no repeated KEEP on own Story |
+| `ce8b585` | `ce8b585` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 20:10 | pass | fix(swipe): advance only after server confirms KEEP and FREE debit |
 <!-- AUTO:RELEASE-REGISTER:END -->
 
 
@@ -162,6 +201,10 @@ agent) et messages des sessions de chat (non versionnés).
 - Les builds iOS utilisent `--freeze-credentials` pour empêcher EAS d'essayer de réparer/créer des credentials pendant un job non interactif.
 
 ## 4. Points ouverts
+
+- 14/10 — #205 : correctif `971fb859eb05cf353704d85a4608a3e5a5d10b85` poussé sur la branche de revue `copilot/bug-session-supprimer-epingler-musique` (PR #206). Tests ciblés 21/21, typecheck, contrôle source et export Chromium 390×844/1440×900 locaux réussis ; compte réel, iPhone, RPC/RLS production et reconnexion inter-appareils non vérifiés. **PR #206 cible `main` au lieu de `reconcile/claude-main-20260825` : ne pas fusionner avant retargetage.** PR #114/#115 toujours ouvertes/dirty ; ne pas fusionner avant coordination des migrations styles et du double-trigger Story.
+
+- 13/10 : retour global Soirées + Battle PC large préparés ; tsc et 1635 tests PASS. Validation navigateur CI et publication restent non vérifiées (Chromium local EPERM).
 
 - **07/10/2026 — IDEA-189, LOCAL_ONLY** : tableau versions/preuves dans Opérations existant, SHA/test obligatoires pour les nouveaux « Corrigé », compteurs exacts avec erreurs honnêtes, actionlint épinglé et synthèse GitHub lecture seule. Typechecks admin/mobile, build admin, 1377 tests mobile, PostgreSQL isolé et navigateur fixtures 390/1440 réussis. Migration `/home/runner/work/KEEP/KEEP/supabase/migrations/20261006235000_problem_report_evidence.sql` non appliquée ; intégration/CI/livraison restent à faire par le parent, sans PASS global. Actionlint global hérité rouge, version publique DNS indisponible, TestFlight inconnu. Détails dans `/home/runner/work/KEEP/KEEP/.context/activeContext.md` et `/home/runner/work/KEEP/KEEP/AGENT_MESSAGES.md`.
 

@@ -4,6 +4,7 @@ import ClampedText from './ClampedText';
 import SourceProfileQuickView from './SourceProfileQuickView';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import { reportAutoDiagnostic } from '../services/problemReportService';
+import { loadStoryAccess } from '../services/storyAccessService';
 import { pushReportSurface } from '../services/reportSurface';
 import ChatDockHost from './ChatDockHost';
 import KeepVisibilityChoiceModal, { KeepSuccessModal } from './KeepVisibilityChoiceModal';
@@ -19,6 +20,9 @@ import { loadMyOfferedTrackIds } from '../services/playlistSaleService';
 import { persistOwnTrackVisibility } from '../services/keepVisibilityService';
 import { isTrackPreviewActive, playTrackPreviewFromGesture, preloadTrackPreview, stopTrackPreview, stopTrackPreviewFast, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
+import { isWebAudioGestureRequired } from '../services/webAudioError';
+import StoryEmbeddedSourcePlayer from './StoryEmbeddedSourcePlayer';
+import { resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
 import { resolveTrackExternalDestination } from '../services/trackExternalLinkService';
 import { checkOwnKeepLibrary } from '../services/connectedMusicLibrary';
 import GlowRing from './GlowRing';
@@ -33,6 +37,8 @@ import { recordProfileSwipeListen } from '../services/profileSwipeListenService'
 import { colors } from '../theme/colors';
 import { minTouchTarget } from '../theme/spacing';
 import KeepModal from './KeepModal';
+import { acquireProtectedStoryPlayback } from '../services/storyPlaybackProtection';
+import { useSessionStore } from '../store/useSessionStore';
 
 function shuffle<T>(input: T[]): T[] {
   const next = [...input];
@@ -74,6 +80,8 @@ type Props = {
   /** Musiques EN VENTE d'une story (clé « sale:<id> ») : nombre de titres + prix pour l'étiquette PAYANT. */
   saleInfoByTrackId?: Record<string, { count: number; priceLabel: string; mode: 'MONEY' | 'FREE' | 'BOTH' }>;
   backLabel?: string;
+  /** Own Story view: already published, so never suggest re-publishing. */
+  ownStoryView?: boolean;
   /** Affiche « Ajouter à ma story » même dans un aperçu de profil (previewOnly). */
   allowStoryAdd?: boolean;
   /** Musiques de cette story mises SANS propriétaire connu : étiquette « Gratuit · non certifié » (Adel, 06/10/2026). */
@@ -126,6 +134,7 @@ export default function MusicSwipeDeckModal({
   saleInfoByTrackId,
   backLabel,
   allowStoryAdd = false,
+  ownStoryView = false,
   uncertifiedTrackIds,
   headerExtra,
   likeMode = 'auto',
@@ -148,7 +157,20 @@ export default function MusicSwipeDeckModal({
   onWatchEventRef.current = onWatchEvent;
   // Musiques dont l'écoute a vraiment démarré (pour le petit message « tu zappes sans réagir ? »).
   const listenedIdsRef = useRef(new Set<string>());
-  const markListened = (trackId: string) => { listenedIdsRef.current.add(trackId); onWatchEventRef.current?.({ type: 'listen', trackId }); };
+  const profileListenSentRef = useRef(new Set<string>());
+  // expo-av may publish a playing status many times per second. One card
+  // must produce ONE view event and at most ONE Supabase RPC, not dozens.
+  const markListened = (trackId: string) => {
+    if (listenedIdsRef.current.has(trackId)) return;
+    listenedIdsRef.current.add(trackId);
+    onWatchEventRef.current?.({ type: 'listen', trackId });
+  };
+  const recordSwipeListenOnce = (trackId: string, fromProfileId?: string) => {
+    markListened(trackId);
+    if (!fromProfileId || profileListenSentRef.current.has(trackId)) return;
+    profileListenSentRef.current.add(trackId);
+    void recordProfileSwipeListen(fromProfileId, trackId);
+  };
   const [index, setIndex] = useState(0);
   const [deckTracks, setDeckTracks] = useState<CanonicalTrack[]>([]);
   const [processing, setProcessing] = useState(false);
@@ -162,6 +184,9 @@ export default function MusicSwipeDeckModal({
   const [alreadyKeptState, setAlreadyKeptState] = useState<AlreadyKeptState>('checking');
   const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState<string | null>(null);
   const [previewResolving, setPreviewResolving] = useState(false);
+  const [sourcePlayerOpen, setSourcePlayerOpen] = useState(false);
+  const [sourcePlayerFailed, setSourcePlayerFailed] = useState(false);
+  const [sourcePlayerAttempt, setSourcePlayerAttempt] = useState(0);
   // BUG RÉEL (Adel, 01/09/2026 : "je les swipe pour les écouter, les
   // musiques ne partent pas") : la lecture automatique part d'un effet
   // asynchrone (résolution d'URL puis .play()), donc sur web elle perd le
@@ -174,6 +199,9 @@ export default function MusicSwipeDeckModal({
   const [previewEnded, setPreviewEnded] = useState(false);
   const actionInFlight = useRef(false);
   const playbackGeneration = useRef(0);
+  // Stop the outgoing clip as soon as the visible card changes, before a slow
+  // Apple preview lookup for the new card can leave old audio audible.
+  const lastPlaybackCardKeyRef = useRef<string | null>(null);
   const endAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wasVisible = useRef(false);
   const tracksRef = useRef(tracks);
@@ -260,17 +288,39 @@ export default function MusicSwipeDeckModal({
     setJustAdded(new Set());
     return () => { live = false; clearTimeout(readyTimer); };
   }, [visible]);
-  const storyAddContext = Boolean(current) && !isSaleStoryTrack(current) && (allowStoryAdd || (!previewOnly && Boolean(askVisibilityOnKeep || currentSourceUsername)));
+  const storyAddContext = !ownStoryView && Boolean(current) && !isSaleStoryTrack(current) && (allowStoryAdd || (!previewOnly && Boolean(askVisibilityOnKeep || currentSourceUsername)));
   const currentOffered = Boolean(current && offeredIds.has(current.id));
+  // Legitimate provider-owned players: no video copied or hosted in Loki.
+  // In-sale tracks remain masked, without a full-video preview bypass.
+  const sourcePlayer = current && !isSaleStoryTrack(current) && !(Boolean(saleInfoByTrackId?.[current.id]) || offeredIds.has(current.id))
+    ? resolveEmbeddedMusicPlayer(current.externalUrls?.source || current.externalUrls?.youtube || null)
+    : null;
+
   const canAddToStory = storyAddContext;
   const justAddedNow = Boolean(current && justAdded.has(current.id));
   // Aperçu propriétaire = exactement ce que voient les abonnés : une musique de MA boutique y est masquée (animation « pochette mystère »), jamais en clair.
   const ownerMasked = Boolean(previewOnly && currentOffered && current && !isSaleStoryTrack(current));
+  // A sale teaser cannot load a provider iframe: it would expose the hidden
+  // title, artist and cover before purchase. Normal public stories can use
+  // the original verified source when no licensed catalogue snippet exists.
+  // Public Stories use catalogue excerpts, never an automatically advertising provider iframe.
+  const preferCleanStoryPlayer = true;
+  const storyEmbeddedSource = visible && Boolean(trackAddedAt) && !preferCleanStoryPlayer && current
+    && !isSaleStoryTrack(current) && !currentOffered && !ownerMasked
+    && !resolvedPreviewUrl && !previewResolving
+    ? String(current.externalUrls?.source ?? '') : '';
   const alreadyInStory = Boolean(current && storyIds.has(current.id));
   // Gardé en Privé puis « mettre en story » : on le rend public (le serveur l'exige) puis on l'épingle.
   const makeKeptPublicAndStory = async () => {
     const track = current;
     if (!track) return;
+    if (!(await loadStoryAccess())) {
+      Alert.alert('Compte requis', 'Les Stories sont réservées aux comptes avec une adresse e-mail confirmée. Connecte-toi à un compte éligible pour épingler ce morceau.', [
+        { text: 'Plus tard', style: 'cancel' },
+        { text: 'Se connecter', onPress: () => { void close(); setTimeout(() => useAccountGateStore.getState().requestAccount('login', sourceUsername ?? ''), 350); } },
+      ]);
+      return;
+    }
     try {
       await persistOwnTrackVisibility(track, 'PUBLIC');
       await pinStoryTrack(resolveKeptTrackId(track.id), track);
@@ -287,6 +337,13 @@ export default function MusicSwipeDeckModal({
     // Visiteur sans compte (lien partagé) : écouter oui, agir non → on demande un compte, rien n'est écrit.
     if (requiresAccount) {
       Alert.alert('Compte requis', 'Connecte-toi pour agir.', [
+        { text: 'Plus tard', style: 'cancel' },
+        { text: 'Se connecter', onPress: () => { void close(); setTimeout(() => useAccountGateStore.getState().requestAccount('login', sourceUsername ?? ''), 350); } },
+      ]);
+      return;
+    }
+    if (!(await loadStoryAccess())) {
+      Alert.alert('Compte requis', 'Les Stories sont réservées aux comptes avec une adresse e-mail confirmée. Connecte-toi à un compte éligible pour épingler ce morceau.', [
         { text: 'Plus tard', style: 'cancel' },
         { text: 'Se connecter', onPress: () => { void close(); setTimeout(() => useAccountGateStore.getState().requestAccount('login', sourceUsername ?? ''), 350); } },
       ]);
@@ -410,7 +467,7 @@ export default function MusicSwipeDeckModal({
     const checking = !storyIdsReady && !justAddedNow;
     const label = checking ? '⏳ PATIENTE… VÉRIFICATION DE TA STORY' : justAddedNow ? '✓ EN STORY · 24 H' : alreadyInStory ? '✓ DÉJÀ EN STORY' : (currentOffered ? '＋ METTRE EN STORY (MASQUÉE)' : popup ? '＋ METTRE EN STORY' : '＋ AJOUTER À MA STORY');
     return <View>
-      <TouchableOpacity disabled={checking} style={[buttonStyle, checking || justAddedNow || alreadyInStory ? s.addStoryButtonDone : s.addStoryButtonLit]} onPress={() => { void addCurrentToStory(); }} accessibilityRole="button" accessibilityLabel={checking ? 'Vérification de ta story en cours' : alreadyInStory ? 'Déjà dans ma story' : 'Ajouter ce morceau à ma story'} testID={popup ? 'deck-info-add-story' : 'deck-add-story'}>
+      <TouchableOpacity disabled={checking || alreadyInStory || justAddedNow} style={[buttonStyle, checking || justAddedNow || alreadyInStory ? s.addStoryButtonDone : s.addStoryButtonLit]} onPress={() => { void addCurrentToStory(); }} accessibilityRole="button" accessibilityLabel={checking ? 'Vérification de ta story en cours' : alreadyInStory ? 'Déjà dans ma story' : 'Ajouter ce morceau à ma story'} testID={popup ? 'deck-info-add-story' : 'deck-add-story'}>
         <Text style={[textStyle, (alreadyInStory || checking || justAddedNow) && s.addStoryTextDone]}>{label}</Text>
       </TouchableOpacity>
       {currentOffered && !justAddedNow ? <Text style={s.storySaleNote2} testID="deck-story-sale-note">{alreadyInStory ? '🏷 En vente : elle est déjà dans ta story, jaquette et artiste masqués.' : '🏷 Cette musique est en vente : dans ta story, la jaquette et le nom de l’artiste restent masqués.'}</Text> : null}
@@ -459,6 +516,8 @@ export default function MusicSwipeDeckModal({
     wasVisible.current = true;
     setPreparingDeck(true);
     actionInFlight.current = false;
+    listenedIdsRef.current.clear();
+    profileListenSentRef.current.clear();
     setKeepPromptOpen(false);
     setKeepSuccess(null);
     setPreviewInfoOpen(false);
@@ -522,6 +581,11 @@ export default function MusicSwipeDeckModal({
     let alive = true;
     const generation = ++playbackGeneration.current;
     const playbackKey = current ? `swipe-${current.id}-${index}` : null;
+    const visiblePlaybackKey = visible && !preparingDeck ? playbackKey : null;
+    if (lastPlaybackCardKeyRef.current !== visiblePlaybackKey) {
+      lastPlaybackCardKeyRef.current = visiblePlaybackKey;
+      stopTrackPreviewFast();
+    }
     // Latence du Swipe (Adel, 06/10/2026) : délai entre l'arrivée de la carte et le début réel du son ; au-delà de 2,5 s on l'envoie au journal (3 fois max par séance) pour que l'agent réparateur la localise.
     const cardShownAt = Date.now();
     let latencyReported = false;
@@ -529,7 +593,66 @@ export default function MusicSwipeDeckModal({
     setPreviewInfoOpen(false);
     setAutoplayBlocked(false);
     setPreviewEnded(false);
+    setSourcePlayerOpen(false);
+    setSourcePlayerFailed(false);
+    setSourcePlayerAttempt(0);
     setResolvedPreviewUrl(current?.previewUrl?.trim() || null);
+
+    // A missing/expired Apple preview must never freeze the entire Swipe on
+    // a silent card. Only keep the card when there is a legitimate provider
+    // player to offer (or when this is the last card in a finite deck).
+    const scheduleEmbeddedStoryNext = () => {
+      // Provider iframe end events cannot be trusted across iPhone/Chrome.
+      // Source-only music still advances in a Swipe without manual dragging.
+      if (!(index + 1 < deckTracks.length || loop)) return;
+      if (endAdvanceTimer.current) clearTimeout(endAdvanceTimer.current);
+      endAdvanceTimer.current = setTimeout(() => {
+        endAdvanceTimer.current = null;
+        if (alive && playbackGeneration.current === generation && !actionInFlight.current) advanceIndex();
+      }, 30000);
+    };
+    const skipUnavailablePreview = (reason: string) => {
+      if (!alive || playbackGeneration.current !== generation || !current) return;
+      const source = current.externalUrls?.source || current.externalUrls?.youtube || null;
+      if (trackAddedAt && preferCleanStoryPlayer) {
+        // Never load YouTube/Spotify ads inside a public Story. Try an exact
+        // catalogue audio clip first; without one, let the clean card progress.
+        reportAutoDiagnostic('STORY_PREVIEW_NO_AD_FREE_AUDIO', String(current.id).slice(0, 36));
+        // Titre importé via YouTube/Spotify : la source officielle existe, le spectateur peut
+        // la lancer lui-même (▶ ÉCOUTER DANS LOKI). On ne fait donc pas défiler la Story tout seul.
+        if (sourcePlayer) return;
+        if (index + 1 < deckTracks.length || loop) {
+          if (endAdvanceTimer.current) clearTimeout(endAdvanceTimer.current);
+          endAdvanceTimer.current = setTimeout(() => {
+            endAdvanceTimer.current = null;
+            if (alive && playbackGeneration.current === generation && !actionInFlight.current) advanceIndex();
+          }, 2400);
+        }
+        return;
+      }
+      if (!isSaleStoryTrack(current) && resolveEmbeddedMusicPlayer(source)) {
+        // A failed/expired catalogue preview must fall back to the EXACT
+        // public YouTube/Spotify source, never skip a playable discovery.
+        // sourcePlayer additionally prevents leaks of tracks offered for sale.
+        if (sourcePlayer && !trackAddedAt) {
+          setResolvedPreviewUrl(null);
+          setAutoplayBlocked(false);
+          setSourcePlayerFailed(false);
+          setSourcePlayerOpen(true);
+          reportAutoDiagnostic('SWIPE_EXACT_SOURCE_FALLBACK', reason);
+          scheduleEmbeddedStoryNext();
+          return;
+        }
+      }
+      reportAutoDiagnostic('SWIPE_PREVIEW_UNAVAILABLE', `${reason} id=${String(current.id).slice(0, 36)}`);
+      if (index + 1 < deckTracks.length || loop) {
+        if (endAdvanceTimer.current) clearTimeout(endAdvanceTimer.current);
+        endAdvanceTimer.current = setTimeout(() => {
+          endAdvanceTimer.current = null;
+          if (alive && playbackGeneration.current === generation && !actionInFlight.current) advanceIndex();
+        }, 450);
+      }
+    };
 
     if (!visible || preparingDeck || !current) {
       setPreviewResolving(false);
@@ -537,12 +660,28 @@ export default function MusicSwipeDeckModal({
       return () => { alive = false; };
     }
 
+    // Source-only user discoveries are exact YouTube videos, often without an
+    // ISRC. Never guess a different song from an unrelated catalogue result.
+    // Verified catalogue tracks still get a licensed snippet lookup first.
+    const hasCatalogIdentity = Boolean(current.isrc || current.providerIds?.appleMusic || current.providerIds?.spotify || current.providerIds?.deezer);
+    if (!trackAddedAt && !current.previewUrl?.trim() && !hasCatalogIdentity && !isSaleStoryTrack(current)
+        && resolveEmbeddedMusicPlayer(current.externalUrls?.source || current.externalUrls?.youtube || null)) {
+      setPreviewResolving(false);
+      setResolvedPreviewUrl(null);
+      if (!trackAddedAt) { setSourcePlayerFailed(false); setSourcePlayerOpen(true); }
+      scheduleEmbeddedStoryNext();
+      return () => { alive = false; };
+    }
     setPreviewResolving(!current.previewUrl?.trim());
     void resolveTrackPreviewUrl(current)
       .then(async (previewUrl) => {
         if (!alive) return;
         setPreviewResolving(false);
         setResolvedPreviewUrl(previewUrl);
+        if (!previewUrl) {
+          skipUnavailablePreview('catalog_no_playable_preview');
+          return;
+        }
 
         // IMPORTANT TestFlight : ne jamais précharger N+1 AVANT de lancer N.
         // Le lecteur natif sérialise ses opérations ; un preload réseau/décodage
@@ -569,9 +708,7 @@ export default function MusicSwipeDeckModal({
                 const waited = Date.now() - cardShownAt;
                 if (waited > 2500) reportAutoDiagnostic('SWIPE_SLOW', `${Math.round(waited / 100) / 10}s host=${String(previewUrl ?? '').replace(/^https?:\/\//, '').split('/')[0] || 'none'}`);
               }
-              if (playing && currentSourceProfileId) {
-                void recordProfileSwipeListen(currentSourceProfileId, current.id); markListened(current.id);
-              }
+              if (playing) recordSwipeListenOnce(current.id, currentSourceProfileId);
             },
             () => {
               if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
@@ -594,7 +731,13 @@ export default function MusicSwipeDeckModal({
               .then((nextUrl) => nextUrl ? preloadTrackPreview(nextUrl) : undefined)
               .catch(() => {});
           }
-        } catch {
+        } catch (initialPlayError) {
+          // On web, autoplay can be denied until a real tap. A catalogue
+          // re-search cannot grant a gesture; expose Play immediately instead.
+          if (Platform.OS === 'web' && isWebAudioGestureRequired(initialPlayError)) {
+            if (alive && playbackGeneration.current === generation) setAutoplayBlocked(true);
+            return;
+          }
           // Une URL de preview persistée peut expirer côté catalogue. Avant de
           // conclure à un blocage autoplay, on force UNE résolution fraîche et
           // on rejoue la même carte. Cela évite le Swipe silencieux après
@@ -611,9 +754,7 @@ export default function MusicSwipeDeckModal({
               playbackKey,
               refreshedUrl,
               (playing) => {
-                if (playing && currentSourceProfileId) {
-                  void recordProfileSwipeListen(currentSourceProfileId, current.id); markListened(current.id);
-                }
+                if (playing) recordSwipeListenOnce(current.id, currentSourceProfileId);
               },
               () => {
                 if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
@@ -648,9 +789,7 @@ export default function MusicSwipeDeckModal({
                     playbackKey,
                     retryUrl,
                     (playing) => {
-                      if (playing && currentSourceProfileId) {
-                        void recordProfileSwipeListen(currentSourceProfileId, current.id); markListened(current.id);
-                      }
+                      if (playing) recordSwipeListenOnce(current.id, currentSourceProfileId);
                     },
                     () => {
                       if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
@@ -668,21 +807,18 @@ export default function MusicSwipeDeckModal({
               }
               // Journal automatique (Adel 05/10/2026 : « la musique ne part pas ») : on garde le code d'échec et l'hôte de l'extrait, jamais l'URL.
               reportAutoDiagnostic('PREVIEW_PLAY_FAILED', `${isSaleStoryTrack(current) ? 'sale' : 'track'} host=${String(current?.previewUrl ?? '').replace(/^https?:\/\//, '').split('/')[0] || 'none'} err=${String((playError as any)?.message ?? playError ?? 'inconnue').replace(/https?:\/\/\S+/g, 'url').slice(0, 110)}`);
-              // Dans un flux automatique, un extrait réellement illisible ne
-              // doit jamais bloquer l'utilisateur sur une carte silencieuse.
+              // A YouTube-discovered profile track can have a stale Apple
+              // snippet. Retry its exact original source BEFORE advancing.
               setAutoplayBlocked(false);
-              if ((index + 1 < deckTracks.length || loop) && !actionInFlight.current) {
-                endAdvanceTimer.current = setTimeout(() => {
-                  endAdvanceTimer.current = null;
-                  if (alive && !actionInFlight.current) advanceIndex();
-                }, 220);
-              } else {
-                setResolvedPreviewUrl(null);
-              }
+              skipUnavailablePreview('native_preview_play_failed');
               return;
             }
-            // Web uniquement : Safari/Chrome peuvent imposer un geste.
-            if (alive) setAutoplayBlocked(true);
+            // Only actual browser gesture restrictions merit a tap. A failed
+            // media URL or unsupported codec must advance, not trap the Swipe.
+            if (alive && playbackGeneration.current === generation) {
+              if (isWebAudioGestureRequired(playError)) setAutoplayBlocked(true);
+              else skipUnavailablePreview('web_preview_play_failed');
+            }
           }
         }
       })
@@ -690,6 +826,7 @@ export default function MusicSwipeDeckModal({
         if (!alive) return;
         setPreviewResolving(false);
         setResolvedPreviewUrl(null);
+        skipUnavailablePreview('catalog_preview_lookup_failed');
       });
 
     return () => {
@@ -704,7 +841,7 @@ export default function MusicSwipeDeckModal({
       // interrompre l'écoute d'un autre compte en plein extrait.
       if (playbackKey && (!visible || current?.id !== deckTracks[index]?.id)) void stopTrackPreview(playbackKey);
     };
-  }, [visible, preparingDeck, current?.id, current?.previewUrl, index]);
+  }, [visible, preparingDeck, current?.id, current?.previewUrl, current?.externalUrls?.source, current?.externalUrls?.youtube, index]);
 
   const manualPlay = async () => {
     if (!current || !resolvedPreviewUrl) return;
@@ -713,9 +850,7 @@ export default function MusicSwipeDeckModal({
         `swipe-${current.id}-${index}`,
         resolvedPreviewUrl,
         (playing) => {
-          if (playing && currentSourceProfileId) {
-            void recordProfileSwipeListen(currentSourceProfileId, current.id); markListened(current.id);
-          }
+          if (playing) recordSwipeListenOnce(current.id, currentSourceProfileId);
         },
         () => {
           setPreviewEnded(true);
@@ -745,9 +880,7 @@ export default function MusicSwipeDeckModal({
           `swipe-${current.id}-${index}`,
           refreshedUrl,
           (playing) => {
-            if (playing && currentSourceProfileId) {
-              void recordProfileSwipeListen(currentSourceProfileId, current.id); markListened(current.id);
-            }
+            if (playing) recordSwipeListenOnce(current.id, currentSourceProfileId);
           },
           () => {
             setPreviewEnded(true);
@@ -793,15 +926,14 @@ export default function MusicSwipeDeckModal({
       if (result !== false) {
         // GARDER en Public = nouvelle musique dans ma story : le cercle de ma photo doit s'allumer tout de suite.
         if (visibility === 'PUBLIC') {
+          // A confirmed PUBLIC keep is already in the personal 24h story
+          // through keep_decisions. Explicit pinning here adds duplicate work
+          // and risks exposing a second Story entry. Older already-kept songs
+          // still have the dedicated "Mettre en story" action.
           notifyOwnStoryChanged();
-          // Adel (05/10/2026) : « il a gardé en public mais son cercle ne s'est pas allumé » -- un morceau DÉJÀ gardé auparavant garde son
-          // ancienne date et n'entrait donc jamais en story. On l'épingle aussi (date = maintenant) ; sans effet si déjà en story.
-          if (!isSaleStoryTrack(keptTrack)) void pinStoryTrack(resolveKeptTrackId(keptTrack.id), keptTrack).catch(() => {}).finally(() => notifyOwnStoryChanged());
         }
-        if (keepDebitAmount != null && keepDebitAmount > 0) {
-          setKeepSuccess({ title: keptTrack.title, artist: keptTrack.artist, visibility });
-          return;
-        }
+        // Le choix Public/Privé constitue déjà l'accord explicite pour GARDER.
+        // Ne pas ouvrir une deuxième confirmation : passer au morceau suivant.
         await advance();
       }
     } finally {
@@ -825,7 +957,7 @@ export default function MusicSwipeDeckModal({
   };
 
   const requestKeep = async () => {
-    if (!current || processing) return;
+    if (!current || processing || ownStoryView) return;
     if (previewOnly) {
       actionInFlight.current = true;
       setPreviewInfoOpen(true);
@@ -952,6 +1084,7 @@ export default function MusicSwipeDeckModal({
     setAlreadyKeepInfoOpen(false);
     actionInFlight.current = true;
     try {
+      setSourcePlayerOpen(false);
       await stopTrackPreview();
       onClose();
     } finally {
@@ -962,7 +1095,7 @@ export default function MusicSwipeDeckModal({
   const previewLabel = previewResolving
     ? 'Recherche de l’extrait…'
     : !resolvedPreviewUrl
-      ? 'Extrait indisponible'
+      ? (trackAddedAt && !sourcePlayer ? 'Extrait indisponible · Story suivante' : sourcePlayer ? 'Source vidéo officielle · lecture selon autorisation' : 'Extrait indisponible')
       : autoplayBlocked
         ? 'Appuie ci-dessous pour écouter'
         : previewEnded
@@ -973,13 +1106,47 @@ export default function MusicSwipeDeckModal({
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   // La présentation des stories est indépendante du mobile : un lecteur 9:16
   // centré et un panneau éditorial occupant la largeur utile du desktop.
-  const desktopStoryLayout = Platform.OS === 'web' && windowWidth >= DESKTOP_MIN_WIDTH && Boolean(trackAddedAt);
-  const compactDeck = windowHeight < 640;
+  const desktopSwipeLayout = Platform.OS === 'web' && windowWidth >= Math.max(1040, DESKTOP_MIN_WIDTH);
+  const desktopStoryLayout = desktopSwipeLayout && Boolean(trackAddedAt);
+  // Fenêtre PC réduite : la Story doit conserver les actions accessibles.
+  const compactDeck = windowHeight < 640 || (desktopSwipeLayout && windowHeight < 760);
   const swipeHint = currentAlreadyKept && !previewOnly
     ? '↑ suivant · ← passer'
     : `↑ suivant · ← passer · → garder${keepDebitAmount && keepDebitAmount > 0 ? ` · ${keepDebitAmount} FREE` : ''}`;
 
   const controlsLocked = processing || preparingDeck || keepPromptOpen || !!keepSuccess || previewInfoOpen || alreadyKeepInfoOpen;
+
+  // PC : les flèches font le même geste que le Swipe (← passer, → garder, ↑ suivant). Indispensable quand le lecteur
+  // YouTube/Spotify du fournisseur occupe la carte : son iframe avale la souris et ne laisse aucun geste au Swipe.
+  const keyActionsRef = useRef<{ pass: () => void; keep: () => void; next: () => void; locked: boolean; ready: boolean }>({ pass: () => {}, keep: () => {}, next: () => {}, locked: true, ready: false });
+  keyActionsRef.current = {
+    pass: () => { void pass(); },
+    keep: () => { void requestKeep(); },
+    next: () => {
+      if (actionInFlight.current) return;
+      actionInFlight.current = true;
+      void advance().finally(() => { actionInFlight.current = false; });
+    },
+    locked: controlsLocked,
+    ready: Boolean(current),
+  };
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !visible || typeof window === 'undefined') return undefined;
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const tag = String(target?.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || target?.isContentEditable) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const actions = keyActionsRef.current;
+      if (!actions.ready || actions.locked) return;
+      if (event.key === 'ArrowLeft') { event.preventDefault(); actions.pass(); }
+      else if (event.key === 'ArrowRight') { event.preventDefault(); actions.keep(); }
+      else if (event.key === 'ArrowUp') { event.preventDefault(); actions.next(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [visible]);
+
   // Musique d'une story d'un autre : EN VENTE (payante) ou GRATUITE (disponible pour ton profil, FREE annoncés dans l'indication). Jamais sur ma propre story.
   const priceBadge: { label: string; paid: boolean } | null = !current || previewOnly || !trackAddedAt
     ? null
@@ -1007,6 +1174,7 @@ export default function MusicSwipeDeckModal({
   const likeGuest = useUserStore((state) => state.isLocalGuest);
   const likesActive = visible && Boolean(likeMeId) && !likeDemo && !likeGuest && likeMode !== 'off';
   const trackLikes = useTrackLikes(likeMeId, deckTracks.map((track) => track.id), likesActive, true);
+  const showHeaderCountPills = Boolean(likesActive && current && isUuidKey(likeKey(current.id)) && (likeMode === 'count-only' || (likeMeId && currentSourceProfileId === likeMeId)));
   // Petits messages d'encouragement (Adel 05/10/2026) : pendant l'écoute, à la fin sans réaction, après un j'aime / pas aimé. Jamais les mêmes.
   const [nudge, setNudge] = useState<string | null>(null);
   const nudgeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1068,6 +1236,18 @@ export default function MusicSwipeDeckModal({
     useRobotMessageStore.getState().setQuiet(true);
     return () => useRobotMessageStore.getState().setQuiet(false);
   }, [visible]);
+  useEffect(() => {
+    if (!visible || !trackAddedAt) return undefined;
+    return acquireProtectedStoryPlayback(
+      () => {
+        const session = useSessionStore.getState();
+        if (!session.isActive || session.micPaused) return false;
+        session.pauseListening();
+        return true;
+      },
+      () => useSessionStore.getState().resumeListening(),
+    );
+  }, [visible, trackAddedAt]);
   const storyAgeLine = useStoryCountdown(current && trackAddedAt ? trackAddedAt[current.id] : null, visible);
   const resolvedSubtitle = prefilterRemovedCount > 0
     ? `${subtitle ? `${subtitle} · ` : ''}${prefilterRemovedCount} déjà dans ta collection ignoré${prefilterRemovedCount > 1 ? 's' : ''}.`
@@ -1079,22 +1259,42 @@ export default function MusicSwipeDeckModal({
     : emptyTitle;
 
   return <KeepModal visible={visible} animationType="slide" onRequestClose={() => { void close(); }} presentationStyle="fullScreen">
-    <View style={[s.outer, desktopStoryLayout && s.desktopOuter]}>
-    <SafeAreaView style={[s.container, desktopStoryLayout && s.desktopPlayer]}>
-      <View style={s.header}>
+    <View style={[s.outer, desktopSwipeLayout && s.desktopOuter]} testID="story-viewport">
+    <SafeAreaView style={[s.container, desktopSwipeLayout && s.desktopPlayer, desktopSwipeLayout && { height: Math.max(410, windowHeight - 32) }]} testID="story-player">
+      <View style={[s.header, desktopSwipeLayout && compactDeck && s.desktopHeaderCompact]}>
         <View style={s.headerText}>
-          <Text style={s.eyebrow}>Loki Music SWIPE</Text>
+          <View style={[s.headerTopLine, desktopSwipeLayout && s.headerTopLineDesktop]} testID="deck-reactions-above-title">
+            <Text style={s.eyebrow}>Loki Music SWIPE</Text>
+            {showHeaderCountPills && current ? (
+              <View style={[s.headerCountHalo, desktopSwipeLayout && s.headerCountHaloDesktop]} testID="deck-reactions-near-title" accessibilityLabel="Réactions de la musique" accessibilityHint="Trois réactions placées au-dessus du titre du Swipe">
+                <GlowRing radius={21} color="#68F2B1" testID="deck-reactions-animated-edge" />
+                <ReactionStatPills
+                  likes={trackLikes.counts[likeKey(current.id)] ?? 0}
+                  mehs={trackLikes.mehCounts[likeKey(current.id)] ?? 0}
+                  dislikes={trackLikes.dislikeCounts[likeKey(current.id)] ?? 0}
+                />
+              </View>
+            ) : null}
+          </View>
           <View style={s.titleRow}>{onTitlePress ? <TouchableOpacity onPress={onTitlePress} accessibilityRole="button" accessibilityLabel={`Voir la fiche : ${title}`} testID="deck-title-profile" style={{ flexShrink: 1 }}><Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title} ›</Text></TouchableOpacity> : <Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title}</Text>}{titleBadge ? <View style={s.titleBadge}>{titleBadge}</View> : null}</View>
           {resolvedSubtitle ? <ClampedText style={s.subtitle} text={resolvedSubtitle} /> : null}
           {storyAgeLine ? <Text style={s.storyAge} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} testID="deck-story-age">⏱ {storyAgeLine}</Text> : null}
         </View>
         <TouchableOpacity style={s.close} onPress={() => { void close(); }} accessibilityLabel="Fermer le swipe"><Text style={s.closeText}>✕</Text></TouchableOpacity>
       </View>
-      {headerExtra || (likesActive && current && isUuidKey(likeKey(current.id))) ? (
+      {/* Les étiquettes PAYANT / GRATUIT sont dans le flux, jamais posées sur la jaquette ni sur le nom du découvreur. */}
+      {priceBadge ? (
+        <View style={s.priceBadgeRow} testID="deck-price-badge">
+          <View style={[s.priceBadge, priceBadge.paid ? s.priceBadgePaid : s.priceBadgeFree]}>
+            <Text style={[s.priceBadgeText, priceBadge.paid ? s.priceBadgeTextPaid : s.priceBadgeTextFree]} numberOfLines={2}>{priceBadge.label}</Text>
+          </View>
+        </View>
+      ) : null}
+      {headerExtra || (likesActive && current && isUuidKey(likeKey(current.id)) && !showHeaderCountPills) ? (
             <View style={s.headerLikeRow} testID="deck-like-bar">
               {ask ? <Animated.View pointerEvents="none" style={[s.askBubble, { opacity: askFade, transform: [{ translateY: askFade.interpolate({ inputRange: [0, 1], outputRange: [-6, 0] }) }] }]} testID="deck-like-ask"><View style={s.askArrow} /><Text style={s.askText} numberOfLines={1}>{ask}</Text></Animated.View> : null}
               <View style={[{ flexShrink: 0, maxWidth: '100%' }, compactDeck ? s.headerExtraCompact : null]}>{headerExtra}</View>
-              {likesActive && current && isUuidKey(likeKey(current.id)) ? (() => {
+              {likesActive && current && isUuidKey(likeKey(current.id)) && !showHeaderCountPills ? (() => {
                 const key = likeKey(current.id);
                 const count = trackLikes.counts[key] ?? 0;
                 const isSelf = Boolean(likeMeId) && currentSourceProfileId === likeMeId;
@@ -1124,33 +1324,87 @@ export default function MusicSwipeDeckModal({
                 void advance().finally(() => { actionInFlight.current = false; });
               }}
               leftLabel="PASSER"
-              rightLabel={currentAlreadyKept ? 'DÉJÀ' : 'GARDER'}
+              rightLabel={ownStoryView ? 'DÉJÀ EN STORY' : currentAlreadyKept ? 'DÉJÀ' : 'GARDER'}
               upLabel="SUIVANT"
               hint={swipeHint}
               fill
             >
-              <View style={[s.card, compactDeck && s.cardCompact]}>
-                {ownerMasked ? <View style={[s.cover,s.coverFallback]}><MysteryArtwork caption="Titre masqué · aperçu de tes abonnés" /></View> : current.artworkUrl ? <Image source={{ uri: current.artworkUrl }} style={s.cover as any} resizeMode="cover" /> : <View style={[s.cover,s.coverFallback]}>{isSaleStoryTrack(current) ? <MysteryArtwork caption={priceBadge ? '' : 'Titre masqué · garde pour révéler'} /> : <Text style={s.coverK}>K</Text>}</View>}
-                {currentSourceUsername ? <TouchableOpacity style={s.sourceOverlay} onPress={() => setSourceQuick(currentSourceUsername.replace(/^@/, ''))} disabled={!onOpenSourceProfile} accessibilityLabel={`Découvert par ${currentSourceUsername.replace(/^@/, '')}. Ouvrir son profil`}><GlowRing radius={14} testID="deck-source-glow" /><Text style={s.sourceOverlayText}>Découvert par @{currentSourceUsername.replace(/^@/, '')}</Text></TouchableOpacity> : null}
+              <View style={[s.card, desktopSwipeLayout && s.desktopStoryCard, compactDeck && s.cardCompact]} testID="swipe-neon-depth-card">
+                <View testID="swipe-artwork-stage" style={s.artworkStage}>
+                {ownerMasked ? <View style={[s.cover,s.coverFallback]}><MysteryArtwork caption="Titre masqué · aperçu de tes abonnés" /></View> : current.artworkUrl ? <Image source={{ uri: current.artworkUrl }} style={s.cover as any} resizeMode="contain" /> : <View style={[s.cover,s.coverFallback]}>{isSaleStoryTrack(current) ? <MysteryArtwork caption={priceBadge ? '' : 'Titre masqué · garde pour révéler'} /> : <Text style={s.coverK}>K</Text>}</View>}
                 {/* Adel 05/10/2026 : « il faut que ce soit très lisible, que les utilisateurs ne se fassent pas tromper » -- PAYANT (PayPal) ou GRATUIT, toujours dit en clair sur la carte. */}
-                {priceBadge ? <View pointerEvents="none" testID="deck-price-badge" style={[s.priceBadge, priceBadge.paid ? s.priceBadgePaid : s.priceBadgeFree, { top: currentSourceUsername ? 48 : 12 }]}><Text style={[s.priceBadgeText, priceBadge.paid ? s.priceBadgeTextPaid : s.priceBadgeTextFree]} numberOfLines={1}>{priceBadge.label}</Text></View> : null}
-                <View style={[s.gradientFake, compactDeck && s.gradientCompact]}>
-                  <View style={s.autoRow}><View style={[s.dot,resolvedPreviewUrl ? s.dotOn : s.dotOff]} /><Text style={s.autoText}>{previewLabel}</Text></View>
+                {storyEmbeddedSource ? <View style={s.storyEmbeddedInCard} testID="story-official-inline-area"><StoryEmbeddedSourcePlayer sourceUrl={storyEmbeddedSource} compact={compactDeck} /></View> : null}
+                {Boolean(trackAddedAt) && !resolvedPreviewUrl && !previewResolving && sourcePlayer ? <Text testID="story-no-provider-ads" style={s.cleanStoryNotice}>Lecture sans publicité intégrée · extrait indisponible</Text> : null}
+                {sourcePlayerOpen && !resolvedPreviewUrl && sourcePlayer ? (
+                  <View testID="swipe-exact-source-player" style={s.sourcePlayerOverlay} pointerEvents="box-none">
+                    <View style={s.sourcePlayerToolbar}>
+                    <TouchableOpacity style={s.sourcePlayerClose} accessibilityRole="button" accessibilityLabel="Fermer le lecteur et revoir la jaquette" onPress={() => setSourcePlayerOpen(false)}>
+                      <Text style={s.sourcePlayerCloseText}>✕ JAQUETTE</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={s.sourcePlayerClose} accessibilityRole="button" accessibilityLabel="Relancer le lecteur officiel" onPress={() => { setSourcePlayerFailed(false); setSourcePlayerAttempt((n) => n + 1); }}><Text style={s.sourcePlayerCloseText}>↻ RELANCER</Text></TouchableOpacity>
+                    <TouchableOpacity style={s.sourcePlayerClose} accessibilityRole="button" accessibilityLabel="Ouvrir la vidéo originale si la lecture intégrée ne fonctionne pas" onPress={() => { const exact = current.externalUrls?.source || current.externalUrls?.youtube || ''; if (resolveEmbeddedMusicPlayer(exact)) void Linking.openURL(exact).catch(() => {}); }}><Text style={s.sourcePlayerCloseText}>↗ SOURCE</Text></TouchableOpacity>
+                    </View>
+                    <View style={s.sourcePlayerFrame} pointerEvents="auto" testID="swipe-source-player-frame">
+                    {Platform.OS === 'web'
+                      ? React.createElement('iframe', {
+                          key: `${sourcePlayer.url}:${sourcePlayerAttempt}`,
+                          src: sourcePlayer.provider === 'YOUTUBE' ? `${sourcePlayer.url}&autoplay=1&start=0&end=30` : sourcePlayer.provider === 'SPOTIFY' ? `${sourcePlayer.url}?autoplay=1` : sourcePlayer.url,
+                          title: sourcePlayer.label,
+                          allow: 'autoplay; encrypted-media; picture-in-picture',
+                          allowFullScreen: true,
+                          referrerPolicy: 'strict-origin-when-cross-origin',
+                          onError: () => setSourcePlayerFailed(true),
+                          style: { width: '100%', flex: 1, minHeight: 0, border: 0, borderRadius: 12 },
+                        })
+                      : React.createElement(require('react-native-webview').WebView, {
+                          key: `${sourcePlayer.url}:${sourcePlayerAttempt}`,
+                          source: { uri: sourcePlayer.provider === 'YOUTUBE' ? `${sourcePlayer.url}&autoplay=1&start=0&end=30` : sourcePlayer.provider === 'SPOTIFY' ? `${sourcePlayer.url}?autoplay=1` : sourcePlayer.url, ...(sourcePlayer.provider === 'YOUTUBE' ? { headers: { Referer: 'https://com.adelkhatra.keep' } } : {}) },
+                          allowsInlineMediaPlayback: true,
+                          mediaPlaybackRequiresUserAction: false,
+                          domStorageEnabled: true,
+                          setSupportMultipleWindows: false,
+                          onError: () => setSourcePlayerFailed(true),
+                          onHttpError: () => setSourcePlayerFailed(true),
+                          javaScriptEnabled: true,
+                          style: { flex: 1, width: '100%' },
+                        })}
+                    </View>
+                    {sourcePlayerFailed ? <Text style={s.sourcePlayerError}>La plateforme bloque cette préécoute. Essaie ↻ RELANCER ou ↗ SOURCE.</Text> :
+                      <Text testID="preview-youtube-autoplay-hint" style={s.sourcePlayerError}>Lecture automatique demandée · si le son est bloqué, touche ▶ dans le lecteur.</Text>}
+                  </View>
+                ) : null}
+                </View>
+                <View style={[s.gradientFake, compactDeck && s.gradientCompact, storyEmbeddedSource && s.gradientStoryEmbed]} testID="swipe-metadata-below-artwork">
+                  {!desktopSwipeLayout && currentSourceUsername ? <TouchableOpacity style={s.sourceOverlay} onPress={() => setSourceQuick(currentSourceUsername.replace(/^@/, ''))} disabled={!onOpenSourceProfile} accessibilityLabel={`Découvert par ${currentSourceUsername.replace(/^@/, '')}. Ouvrir son profil`}><GlowRing radius={14} testID="deck-source-glow" /><Text style={s.sourceOverlayText} numberOfLines={1}>Découvert par @{currentSourceUsername.replace(/^@/, '')}</Text></TouchableOpacity> : null}
+                  <View style={s.autoRow}>
+                    <View style={[s.dot,resolvedPreviewUrl ? s.dotOn : s.dotOff]} />
+                    <Text style={s.autoText} numberOfLines={2}>{previewLabel}</Text>
+                    <TouchableOpacity testID="swipe-next-without-gesture" accessibilityRole="button" accessibilityLabel="Morceau suivant" style={s.nextInlineButton} disabled={controlsLocked} onPress={() => { void advance(); }}>
+                      <Text style={s.nextInlineText}>↑ SUIVANT</Text>
+                    </TouchableOpacity>
+                  </View>
+                  {!resolvedPreviewUrl && !previewResolving && sourcePlayer && !sourcePlayerOpen ? (
+                    <TouchableOpacity testID="story-open-source-player" style={s.manualPlayButton} accessibilityRole="button" accessibilityLabel="Écouter la vidéo originale dans Loki Music" onPress={() => { stopTrackPreviewFast(); setSourcePlayerOpen(true); }}>
+                      <Text style={s.manualPlayText}>▶ ÉCOUTER DANS LOKI</Text>
+                    </TouchableOpacity>
+                  ) : null}
                   {Platform.OS === 'web' && (autoplayBlocked || previewEnded) && resolvedPreviewUrl ? (
                     <TouchableOpacity style={s.manualPlayButton} onPress={() => { unlockWebAudioForGesture(); setPreviewEnded(false); void manualPlay(); }} accessibilityLabel={previewEnded ? "Réécouter l’extrait" : "Lancer l’extrait"}>
                       <Text style={s.manualPlayText}>{previewEnded ? '↻ RÉÉCOUTER' : '▶ ÉCOUTER L’EXTRAIT'}</Text>
                     </TouchableOpacity>
                   ) : null}
-                  <Text style={s.trackTitle} numberOfLines={2}>{ownerMasked ? 'Musique en vente' : current.title}</Text>
+                  <Text style={[s.trackTitle, storyEmbeddedSource && s.embeddedTrackTitle]} numberOfLines={2}>{ownerMasked ? 'Musique en vente' : current.title}</Text>
                   <Text style={s.artist} numberOfLines={1}>{ownerMasked ? 'Ta boutique' : current.artist}</Text>
-                  {current.album && !ownerMasked ? <Text style={s.album} numberOfLines={1}>{current.album}</Text> : null}
+                  {current.album && !ownerMasked && !storyEmbeddedSource && !compactDeck ? <Text style={s.album} numberOfLines={1}>{current.album}</Text> : null}
                 </View>
+                {desktopSwipeLayout ? <GlowRing radius={24} color="#68F2B1" testID="swipe-neon-depth-animated-edge" /> : null}
+
               </View>
             </SwipeDeck>
           </View>
 
 
-          {currentSourceUsername && onOpenSourceProfile ? <TouchableOpacity style={s.sourceProfileButton} onPress={() => setSourceQuick(currentSourceUsername.replace(/^@/, ''))} accessibilityLabel={`Voir le profil du premier découvreur ${currentSourceUsername.replace(/^@/, '')}`}><GlowRing radius={21} testID="deck-source-button-glow" /><Text style={s.sourceProfileButtonText}>◎ DÉCOUVERT PAR @{currentSourceUsername.replace(/^@/, '')} · VOIR / SUIVRE</Text></TouchableOpacity> : null}
+          {desktopSwipeLayout && currentSourceUsername && onOpenSourceProfile ? <TouchableOpacity style={s.sourceProfileButton} onPress={() => setSourceQuick(currentSourceUsername.replace(/^@/, ''))} accessibilityLabel={`Voir le profil du premier découvreur ${currentSourceUsername.replace(/^@/, '')}`}><GlowRing radius={21} testID="deck-source-button-glow" /><Text style={s.sourceProfileButtonText}>◎ DÉCOUVERT PAR @{currentSourceUsername.replace(/^@/, '')} · VOIR / SUIVRE</Text></TouchableOpacity> : null}
           {renderStoryAdd('main')}
                     <View style={s.decisionBand}>
             <View style={s.decisionRow}>
@@ -1163,10 +1417,10 @@ export default function MusicSwipeDeckModal({
               <TouchableOpacity
                 style={[s.decisionButton, s.keepButton, currentAlreadyKept && s.keepButtonAlready]}
                 onPress={() => { void requestKeep(); }}
-                disabled={controlsLocked}
-                accessibilityLabel={currentAlreadyKept ? 'Déjà dans ta collection' : 'Garder cette musique'}
+                disabled={controlsLocked || ownStoryView}
+                accessibilityLabel={ownStoryView ? 'Musique déjà dans ta Story' : currentAlreadyKept ? 'Déjà dans ta collection' : 'Garder cette musique'}
               >
-                {processing ? <ActivityIndicator color={currentAlreadyKept ? '#B9B0C3' : colors.black} size="small" /> : <Text style={[s.keepButtonText, currentAlreadyKept && s.keepButtonTextAlready]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{currentAlreadyKept ? '✓ DÉJÀ' : '♡ GARDER'}</Text>}
+                {processing ? <ActivityIndicator color={currentAlreadyKept ? '#B9B0C3' : colors.black} size="small" /> : <Text style={[s.keepButtonText, currentAlreadyKept && s.keepButtonTextAlready]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{ownStoryView ? '✓ EN STORY' : currentAlreadyKept ? '✓ DÉJÀ' : '♡ GARDER'}</Text>}
               </TouchableOpacity>
             </View>
           </View>
@@ -1251,16 +1505,41 @@ export default function MusicSwipeDeckModal({
       ) : null}
       {overlay ? <View style={{ position: 'absolute', zIndex: 100, elevation: 100, top: 0, left: 0, right: 0, bottom: 0 }}>{overlay}</View> : null}
     </SafeAreaView>
-    {desktopStoryLayout ? <View style={s.desktopStoryAside} testID="loki-desktop-story-aside">
-      <Text style={s.desktopAsideKicker}>LOKI MUSIC · STORIES</Text>
-      <Text style={s.desktopAsideTitle}>Les découvertes de ta communauté.</Text>
-      <Text style={s.desktopAsideBody}>Chaque story dure 24 heures. Écoute les trouvailles, découvre leur auteur et partage à ton tour les morceaux qui te plaisent.</Text>
+    {desktopSwipeLayout ? <View style={s.desktopStoryAside} testID="loki-desktop-story-aside">
+      <View style={s.desktopAsideBrandRow}>
+        <View style={s.desktopAsideDot} />
+        <Text style={s.desktopAsideKicker}>LOKI MUSIC · {trackAddedAt ? 'STORY LIVE' : 'SWIPE IMMERSIF'}</Text>
+      </View>
+      <Text style={s.desktopAsideTitle}>{trackAddedAt ? 'Une Story, une découverte.' : 'Découvre ton prochain son.'}</Text>
+      <Text style={s.desktopAsideBody}>Écoute, ressens, passe ou garde. Ton expérience musicale reste synchronisée avec ton profil.</Text>
       <View style={s.desktopAsideDivider} />
-      <Text style={s.desktopAsideSection}>PENDANT TA VISITE</Text>
-      <Text style={s.desktopAsideHint}>01   Écouter l'extrait</Text>
-      <Text style={s.desktopAsideHint}>02   Passer ou garder une découverte</Text>
-      <Text style={s.desktopAsideHint}>03   Mettre un morceau dans ta story</Text>
-      <Text style={s.desktopAsideFoot}>Les morceaux proposés à l'achat conservent leurs protections. Aucune publication ou transaction ne se fait automatiquement.</Text>
+      {current ? <View testID="desktop-story-now-playing" style={s.desktopNowPlaying}>
+        {current.artworkUrl && !ownerMasked && !isSaleStoryTrack(current)
+          ? <Image source={{ uri: current.artworkUrl }} style={s.desktopNowCover} />
+          : <View style={[s.desktopNowCover, s.desktopNowFallback]}><Text style={s.desktopNowFallbackText}>♫</Text></View>}
+        <View style={s.desktopNowText}>
+          <Text style={s.desktopNowLabel}>À L'ÉCOUTE · {index + 1} / {deckTracks.length}</Text>
+          <Text style={s.desktopNowTitle} numberOfLines={2}>{ownerMasked || isSaleStoryTrack(current) ? 'Extrait protégé' : current.title}</Text>
+          <Text style={s.desktopNowArtist} numberOfLines={1}>{ownerMasked || isSaleStoryTrack(current) ? 'Découverte en boutique' : current.artist}</Text>
+        </View>
+      </View> : null}
+      <View style={s.desktopProgressTrack} accessibilityLabel={deckTracks.length ? `Morceau ${Math.min(index + 1, deckTracks.length)} sur ${deckTracks.length}` : 'Aucun morceau'}>
+        <View style={[s.desktopProgressFill, { width: `${deckTracks.length ? Math.min(100, Math.max(0, (index + 1) / deckTracks.length * 100)) : 0}%` }]} />
+      </View>
+      {current && !controlsLocked ? <TouchableOpacity testID="desktop-story-next-track" onPress={() => { void advance(); }}
+        accessibilityRole="button" accessibilityLabel="Écouter le morceau suivant" style={s.desktopNextButton}>
+        <Text style={s.desktopNextText}>↑ MORCEAU SUIVANT</Text>
+      </TouchableOpacity> : null}
+      <Text style={s.desktopAsideSection}>À TOI DE CHOISIR</Text>
+      <View style={s.desktopTips}>
+        <Text style={s.desktopAsideHint}>← PASSER   ·   GARDER →</Text>
+        <Text style={s.desktopAsideHint}>↑ Le morceau suivant</Text>
+        <Text style={s.desktopAsideHint}>▶ Préécoute sans quitter Loki</Text>
+      </View>
+      <View style={s.desktopAsideDivider} />
+      <Text style={s.desktopAsideFoot}>{trackAddedAt
+        ? 'Story de 24 h. Un extrait peut être indisponible si son fournisseur ne permet pas la diffusion sans publicité.'
+        : 'Le Swipe conserve tes décisions. Un morceau indisponible ne bloque pas la découverte.'}</Text>
     </View> : null}
     </View>
   <ChatDockHost active={visible} />
@@ -1268,29 +1547,52 @@ export default function MusicSwipeDeckModal({
 }
 
 const s = StyleSheet.create({
-  outer:{flex:1,backgroundColor:'#090610',alignItems:'center'},
-  desktopOuter:{flexDirection:'row',justifyContent:'center',alignItems:'center',paddingHorizontal:32,gap:28},
-  desktopPlayer:{flexGrow:0,flexShrink:1,maxWidth:570,borderLeftWidth:1,borderRightWidth:1,borderColor:'#312348'},
-  desktopStoryAside:{width:310,maxWidth:'30%',alignSelf:'center',backgroundColor:'#171020',borderWidth:1,borderColor:'#403052',borderRadius:24,padding:24,gap:12},
-  desktopAsideKicker:{color:'#B79CFF',fontSize:12,fontWeight:'900',letterSpacing:1.6},
+  outer:{flex:1,minHeight:0,width:'100%',backgroundColor:'#090610',alignItems:'center'},
+  desktopOuter:{flexDirection:'row',justifyContent:'center',alignItems:'center',paddingHorizontal:16,paddingVertical:12,gap:14,backgroundColor:'#0B0713'},
+  // RN Web: `flex:1` + `flexGrow:0` without a fixed height collapses the
+  // modal child to zero, leaving the Story header halfway down the viewport.
+  desktopPlayer:{flex:0,flexBasis:'auto',flexGrow:0,flexShrink:0,width:560,maxWidth:'55%',minHeight:0,overflow:'hidden',borderWidth:1.5,borderColor:'#BFA6F2',borderRadius:26,backgroundColor:'#110D1D',shadowColor:'#A78BFA',shadowOpacity:.42,shadowRadius:28,shadowOffset:{width:0,height:10},elevation:10},
+  desktopHeaderCompact:{minHeight:68,paddingVertical:8},
+  desktopStoryAside:{width:340,maxWidth:'35%',minHeight:420,maxHeight:'97%',alignSelf:'center',backgroundColor:'#171020',borderWidth:1.5,borderColor:'#8062B7',borderRadius:24,padding:18,gap:12,justifyContent:'center',shadowColor:'#A78BFA',shadowOpacity:.24,shadowRadius:19,shadowOffset:{width:0,height:7}},
+  desktopAsideKicker:{color:'#D5C4FF',fontSize:11,fontWeight:'900',letterSpacing:1.4},
+  desktopAsideBrandRow:{flexDirection:'row',alignItems:'center',gap:9},desktopAsideDot:{width:9,height:9,borderRadius:5,backgroundColor:'#68F2B1',shadowColor:'#68F2B1',shadowOpacity:.9,shadowRadius:10},
+  desktopNowPlaying:{flexDirection:'row',gap:12,alignItems:'center',padding:12,borderRadius:18,backgroundColor:'#231936',borderWidth:1,borderColor:'#604787'},
+  desktopNowCover:{width:72,height:72,borderRadius:12},desktopNowFallback:{alignItems:'center',justifyContent:'center',backgroundColor:'#33234D'},desktopNowFallbackText:{fontSize:27,color:'#CBB1FF'},
+  desktopNowText:{flex:1,minWidth:0},desktopNowLabel:{color:'#68F2B1',fontSize:10,fontWeight:'900',marginBottom:5},desktopNowTitle:{color:'#FFFFFF',fontSize:16,lineHeight:20,fontWeight:'900'},desktopNowArtist:{color:'#E0D5F2',fontSize:12,marginTop:4},
+  desktopProgressTrack:{height:7,width:'100%',borderRadius:6,backgroundColor:'#302444',overflow:'hidden'},desktopProgressFill:{height:'100%',borderRadius:6,backgroundColor:'#68F2B1'},
+  desktopNextButton:{minHeight:52,borderRadius:16,borderWidth:1.5,borderColor:'#68F2B1',backgroundColor:'rgba(104,242,177,.12)',alignItems:'center',justifyContent:'center'},desktopNextText:{color:'#68F2B1',fontSize:14,fontWeight:'900',letterSpacing:.8},desktopTips:{gap:7},
+  desktopStoryCard:{maxHeight:720,borderWidth:2,borderColor:'#C3ADFF',borderRadius:24,backgroundColor:'#151020',shadowColor:'#9F7BFF',shadowOpacity:.78,shadowRadius:26,shadowOffset:{width:0,height:10},elevation:12},
   desktopAsideTitle:{color:'#FFFFFF',fontSize:24,lineHeight:30,fontWeight:'900'},
   desktopAsideBody:{color:'#E5DFED',fontSize:14,lineHeight:22},
   desktopAsideDivider:{height:1,backgroundColor:'#403052',marginVertical:5},
   desktopAsideSection:{color:'#B79CFF',fontSize:12,fontWeight:'900',letterSpacing:1},
   desktopAsideHint:{color:'#FFFFFF',fontSize:14,lineHeight:22},
   desktopAsideFoot:{color:colors.textSecondary,fontSize:12,lineHeight:18,marginTop:9},
-  container:{flex:1,width:'100%',maxWidth:520,backgroundColor:'#090610'},
-  header:{zIndex:30,minHeight:92,paddingHorizontal:18,paddingVertical:16,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#241A32'},
-  headerText:{flex:1,paddingRight:12},eyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1.5},title:{color:'#F8F6FC',fontSize:20,fontWeight:'900',marginTop:2},subtitle:{color:'#FFFFFF',fontSize:14,lineHeight:20,marginTop:6,paddingBottom:2},
+  container:{flex:1,width:'100%',maxWidth:560,backgroundColor:'#090610'},
+  header:{position:'relative',zIndex:30,minHeight:92,paddingHorizontal:18,paddingVertical:12,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#241A32'},
+  headerText:{flex:1,paddingRight:12},headerTopLine:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',gap:10,justifyContent:'space-between',paddingBottom:7},headerTopLineDesktop:{position:'relative',minHeight:62,flexWrap:'nowrap',justifyContent:'flex-start',paddingRight:186,alignItems:'flex-start',paddingTop:16,paddingBottom:12},headerCountHalo:{position:'relative',alignSelf:'flex-end',minHeight:48,paddingVertical:4,paddingHorizontal:9,borderRadius:21,backgroundColor:'#1B1330',borderWidth:1,borderColor:'#604787',shadowColor:'#A78BFA',shadowOpacity:.45,shadowRadius:14,shadowOffset:{width:0,height:3}},headerCountHaloDesktop:{position:'absolute',top:-10,right:2,alignSelf:'auto',marginBottom:0,borderWidth:2,borderColor:'#D0B6FF',backgroundColor:'#24153B',shadowColor:'#A78BFA',shadowOpacity:.98,shadowRadius:23,shadowOffset:{width:0,height:8},elevation:11,transform:[{perspective:980},{rotateX:'4deg'},{rotateY:'-5deg'},{translateY:-2}]},eyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1.5},title:{color:'#F8F6FC',fontSize:20,fontWeight:'900',marginTop:2},subtitle:{color:'#FFFFFF',fontSize:14,lineHeight:20,marginTop:6,paddingBottom:2},
   sourceIdentity:{marginTop:8,flexDirection:'row',alignItems:'center',gap:9,alignSelf:'flex-start',paddingVertical:6,paddingHorizontal:8,borderRadius:16,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary},sourceIdentityBottom:{marginHorizontal:18,marginBottom:7,flexDirection:'row',alignItems:'center',gap:9,paddingVertical:6,paddingHorizontal:10,borderRadius:16,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary},
   sourceAvatar:{width:30,height:30,borderRadius:15},sourceAvatarFallback:{width:30,height:30,borderRadius:15,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.primaryLight},sourceAvatarText:{color:'#FFF',fontSize:12,fontWeight:'900'},sourceIdentityCopy:{minWidth:0},sourceIdentityKicker:{color:colors.textMutedGrey,fontSize:8,fontWeight:'900',letterSpacing:.7},sourceIdentityName:{color:'#FFF',fontSize:12,fontWeight:'900',marginTop:1},
   close:{width:40,height:40,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:'#171020',borderWidth:1,borderColor:'#312348'},closeText:{color:'#FFF',fontSize:18,fontWeight:'900'},
   body:{flex:1,paddingHorizontal:18,paddingTop:16},deckArea:{flex:1,minHeight:0,paddingTop:8,paddingBottom:12},
-  priceBadge:{position:'absolute',left:12,zIndex:4,minHeight:28,paddingHorizontal:10,borderRadius:14,borderWidth:1.5,alignItems:'center',justifyContent:'center',maxWidth:'92%'},priceBadgePaid:{backgroundColor:'#FFB020',borderColor:'#FFFFFF'},priceBadgeFree:{backgroundColor:'#2DE1C2',borderColor:'#FFFFFF'},priceBadgeText:{fontSize:12,lineHeight:16,fontWeight:'900',letterSpacing:.3},priceBadgeTextPaid:{color:'#1A1100'},priceBadgeTextFree:{color:'#04130F'},
-  sourceOverlay:{position:'absolute',left:12,top:12,zIndex:4,minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'rgba(4,3,10,.76)',borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},sourceOverlayText:{color:'#FFF',fontSize:10,fontWeight:'900'},
-  card:{flex:1,minHeight:200,maxHeight:560,borderRadius:28,overflow:'hidden',backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',justifyContent:'flex-end'},
+  priceBadgeRow:{flexShrink:0,paddingHorizontal:18,paddingVertical:8,alignItems:'flex-start',borderBottomWidth:1,borderBottomColor:'#241A32'},
+  priceBadge:{minHeight:32,maxWidth:'100%',paddingHorizontal:12,paddingVertical:6,borderRadius:14,borderWidth:1.5,alignItems:'center',justifyContent:'center'},priceBadgePaid:{backgroundColor:'#FFB020',borderColor:'#FFFFFF'},priceBadgeFree:{backgroundColor:'#2DE1C2',borderColor:'#FFFFFF'},priceBadgeText:{fontSize:12,lineHeight:17,fontWeight:'900',letterSpacing:.3,textAlign:'center'},priceBadgeTextPaid:{color:'#1A1100'},priceBadgeTextFree:{color:'#04130F'},
+  sourceOverlay:{position:'relative',alignSelf:'flex-start',minHeight:26,maxWidth:'100%',marginBottom:5,paddingHorizontal:8,borderRadius:12,backgroundColor:'#251A39',borderWidth:1,borderColor:'#9B78D3',alignItems:'center',justifyContent:'center'},sourceOverlayText:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},
+  card:{flex:1,minHeight:0,maxHeight:720,borderRadius:24,overflow:'hidden',backgroundColor:'#151020',borderWidth:1.5,borderColor:'#684A93',justifyContent:'flex-start'},
+  artworkStage:{flex:1,minHeight:90,width:'100%',overflow:'hidden',position:'relative',alignItems:'center',justifyContent:'center',backgroundColor:'#090610'},
+  // Gouttières latérales (SWIPE_GUTTER) : l'iframe/WebView du fournisseur avale tous les gestes ; sans marge, le Swipe était mort sur
+  // chaque titre importé via YouTube. Un doigt posé sur une gouttière (ou sur le titre) passe au Swipe ; l'overlay est « box-none ».
+  sourcePlayerOverlay:{position:'absolute',top:0,left:0,right:0,bottom:0,zIndex:15,backgroundColor:'#100B18',paddingVertical:8,paddingHorizontal:44,justifyContent:'flex-start'},
+  sourcePlayerFrame:{flex:1,minHeight:0,width:'100%'},
+  sourcePlayerToolbar:{flexDirection:'row',gap:6,paddingBottom:6},sourcePlayerError:{color:'#F5CE87',fontSize:11,lineHeight:15,paddingTop:5,textAlign:'center'},
+  sourcePlayerClose:{flex:1,minHeight:40,alignItems:'center',justifyContent:'center',backgroundColor:'#32224A',borderWidth:1,borderColor:'#7E5AB8',borderRadius:10,paddingHorizontal:3},
+  sourcePlayerCloseText:{color:'#FFFFFF',fontWeight:'800',fontSize:12},
   cover:{...StyleSheet.absoluteFillObject,width:'100%',height:'100%'},coverFallback:{alignItems:'center',justifyContent:'center',backgroundColor:'#241936'},coverK:{color:colors.primaryLight,fontSize:72,fontWeight:'900',letterSpacing:6},
-  gradientFake:{padding:20,paddingTop:90,backgroundColor:'rgba(9,6,16,.68)'},autoRow:{flexDirection:'row',alignItems:'center',marginBottom:8},dot:{width:8,height:8,borderRadius:4,marginRight:6},dotOn:{backgroundColor:'#68F2B1'},dotOff:{backgroundColor:'#756B84'},autoText:{color:'#FFFFFF',fontSize:10,fontWeight:'800'},manualPlayButton:{alignSelf:'flex-start',minHeight:minTouchTarget,paddingHorizontal:14,borderRadius:17,backgroundColor:colors.keep,marginBottom:9},manualPlayText:{color:'#0B0E0B',fontSize:11,fontWeight:'900',lineHeight:34},trackTitle:{color:'#FFF',fontSize:28,lineHeight:32,fontWeight:'900'},artist:{color:'#F0EAF7',fontSize:16,fontWeight:'800',marginTop:6},album:{color:'#FFFFFF',fontSize:12,marginTop:3},
+  storyEmbeddedInCard:{flex:1,minHeight:0,width:'100%',paddingHorizontal:6,paddingTop:38,justifyContent:'center'},
+  cleanStoryNotice:{color:'#E1D6F4',fontSize:12,lineHeight:17,textAlign:'center',paddingTop:18,paddingHorizontal:14},
+  gradientStoryEmbed:{paddingHorizontal:14,paddingTop:8,paddingBottom:10,backgroundColor:'rgba(9,6,16,.86)'},
+  embeddedTrackTitle:{fontSize:19,lineHeight:23},
+  gradientFake:{flexShrink:0,paddingHorizontal:12,paddingTop:9,paddingBottom:11,backgroundColor:'#181024',borderTopWidth:1,borderTopColor:'#684A93'},autoRow:{flexDirection:'row',alignItems:'center',marginBottom:8,gap:5},dot:{width:8,height:8,borderRadius:4,marginRight:6},dotOn:{backgroundColor:'#68F2B1'},dotOff:{backgroundColor:'#756B84'},autoText:{flex:1,minWidth:0,color:'#FFFFFF',fontSize:10,fontWeight:'800'},nextInlineButton:{minHeight:40,paddingHorizontal:11,borderRadius:12,alignItems:'center',justifyContent:'center',backgroundColor:'#342653',borderWidth:1,borderColor:'#B79CFF'},nextInlineText:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},manualPlayButton:{alignSelf:'flex-start',minHeight:minTouchTarget,paddingHorizontal:14,borderRadius:17,backgroundColor:colors.keep,marginBottom:9},manualPlayText:{color:'#0B0E0B',fontSize:11,fontWeight:'900',lineHeight:34},trackTitle:{color:'#FFF',fontSize:18,lineHeight:22,fontWeight:'900'},artist:{color:'#F0EAF7',fontSize:13,lineHeight:18,fontWeight:'800',marginTop:4},album:{color:'#FFFFFF',fontSize:11,marginTop:2},
   sourceProfileButton:{minHeight:minTouchTarget,marginHorizontal:4,marginBottom:8,borderRadius:21,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center',paddingHorizontal:12},sourceProfileButtonText:{color:'#FFF',fontSize:11,fontWeight:'900',letterSpacing:.25,textAlign:'center'},
   deckHint:{marginTop:14,marginBottom:6,paddingHorizontal:6,color:'#FFFFFF',fontSize:13,lineHeight:19,fontWeight:'800',textAlign:'center'},
   addStoryButton:{minHeight:minTouchTarget,marginHorizontal:4,marginBottom:8,borderRadius:20,borderWidth:1,borderColor:'#7C5CFC',backgroundColor:'#1B1230',alignItems:'center',justifyContent:'center',paddingHorizontal:12},
@@ -1311,9 +1613,10 @@ const s = StyleSheet.create({
   askArrow:{position:'absolute',top:-5,right:56,width:10,height:10,backgroundColor:'#FFE08A',transform:[{rotate:'45deg'}]},
   askText:{color:'#2B1D00',fontSize:16,fontWeight:'900'},
   headerLikeRow:{position:'relative',zIndex:30,flexDirection:'row',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',gap:8,paddingHorizontal:18,paddingTop:8,paddingBottom:10,borderBottomWidth:1,borderBottomColor:'#241A32'},likeRight:{marginLeft:'auto'},
-  headerExtraCompact:{maxHeight:24,overflow:'hidden'},
-  cardCompact:{minHeight:120},
-  gradientCompact:{paddingTop:12,paddingBottom:12},
+  // Ne coupe jamais la pastille des spectateurs (36 px mini), même en fenêtre basse.
+  headerExtraCompact:{maxHeight:48,overflow:'visible'},
+  cardCompact:{minHeight:0},
+  gradientCompact:{paddingTop:6,paddingBottom:7},
   fullTrackLocked:{color:'#FFFFFF',fontSize:13,lineHeight:18,fontWeight:'800',textAlign:'center',marginHorizontal:4,marginBottom:12,paddingVertical:6},
   fullTrackButton:{minHeight:minTouchTarget,marginHorizontal:4,marginBottom:8,borderRadius:20,borderWidth:1,borderColor:'#6E4BA3',backgroundColor:'#171020',alignItems:'center',justifyContent:'center',paddingHorizontal:12},fullTrackButtonText:{color:'#D8C5FF',fontSize:11,fontWeight:'900',letterSpacing:.35,textAlign:'center'},decisionBand:{marginHorizontal:-18,backgroundColor:'#050408',borderTopWidth:1,borderTopColor:'#211A2B',paddingHorizontal:18,paddingTop:10,paddingBottom:12},decisionRow:{flexDirection:'row',alignItems:'stretch',gap:7},decisionButton:{flex:1,minHeight:minTouchTarget,borderRadius:14,alignItems:'center',justifyContent:'center',paddingHorizontal:5,borderWidth:1},passButton:{backgroundColor:colors.pass,borderColor:colors.pass},passButtonText:{color:colors.white,fontSize:13,fontWeight:'900'},backDecisionButton:{backgroundColor:'#171020',borderColor:'#5B3F8C'},backDecisionText:{color:'#CDB7F4',fontSize:12,fontWeight:'900',textAlign:'center'},keepButton:{backgroundColor:colors.keep,borderColor:colors.keep},keepButtonText:{color:colors.black,fontSize:13,fontWeight:'900',textAlign:'center'},keepButtonAlready:{backgroundColor:'#27222E',borderColor:'#5C5468'},keepButtonTextAlready:{color:'#FFFFFF',fontSize:12},
   storyAge:{color:'#2DE1C2',fontSize:13,lineHeight:18,fontWeight:'800',marginTop:4},
