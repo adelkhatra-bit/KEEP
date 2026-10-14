@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
-const read=(...parts:string[])=>fs.readFileSync(path.resolve(__dirname,'..','..',...parts),'utf8');
+const read=(...parts:string[])=>fs.readFileSync(path.resolve(__dirname,'..','..',...parts),'utf8').replace(/\r\n/g, '\n');
 
 describe('Social scale and musical agora contracts',()=>{
   it('paginates profile communities instead of loading a giant graph',()=>{

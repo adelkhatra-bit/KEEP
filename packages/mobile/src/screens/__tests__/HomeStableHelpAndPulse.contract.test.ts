@@ -30,7 +30,10 @@ describe('Listen home stable layout contract', () => {
   it('iPhone 844 px : tout l’écran Écouter tient sans défiler (Adel, 05/10/2026)', () => {
     // Responsive (Adel 05/10/2026) : l'orbe suit la hauteur de l'écran (96 → 196 px), Écouter ne défile jamais.
     expect(source).toContain('const size = Math.max(96, Math.min(196, Math.round((height - 460) * 0.4)));');
-    expect(source).toContain('<View style={[s.main, s.idle, s.idleFit]}>');
+    expect(source).toContain('<View style={[s.main, s.idle, s.idleFit, desktopHome && s.desktopIdleFit]}');
+    expect(source).toContain('testID="home-idle-layout"');
+    expect(source).toContain('desktopHome && s.desktopIdleFit');
+    expect(source).not.toContain('<ScrollView style={[s.main, s.idle');
     expect(source).not.toContain('showsVerticalScrollIndicator={false} bounces={false}>\n          <View style={s.idleHero}>');
     expect(source).not.toContain("idleLearnMoreSlot: { width: '100%', height: 108");
   });

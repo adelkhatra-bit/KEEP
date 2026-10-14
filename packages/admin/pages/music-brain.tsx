@@ -157,7 +157,7 @@ export default function MusicBrain() {
 
   return (
     <AdminLayout>
-      <div className="page-title">Musique <Hint title="Musique" text={<>Classement automatique propriétaire : Vibes, styles et collections Loki Music. Aucune clé API externe n’est requise pour le moteur de rangement.</>}/></div>
+      <div className="page-title">Musique <Hint title="Musique" text={<>Classement automatique propriétaire : Styles et collections Loki Music. Aucune clé API externe n’est requise pour le moteur de rangement.</>}/></div>
 
       {error ? <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div> : null}
       {!error && !loading ? <div className="demo-banner"><span className="real-pill">● Réel <Hint title="Mode réel" text="Paramètres distants, statistiques Supabase et journalisation Admin."/></span></div> : null}
@@ -166,20 +166,20 @@ export default function MusicBrain() {
         <Metric label="Titres connus" value={stats.tracks_total ?? 0} />
         <Metric label="Styles exploitables" value={`${coverage}%`} />
         <Metric label="Morceaux enregistrés" value={stats.kept_total ?? 0} />
-        <Metric label="Vibes intelligentes" value={stats.smart_albums ?? 0} />
+        <Metric label="Styles intelligents" value={stats.smart_albums ?? 0} />
         <Metric label="Titres rangés" value={stats.smart_memberships ?? 0} />
         <Metric label="API externe rangement" value={stats.external_api_required === false ? 'NON' : '—'} />
       </div>
 
       <div className="card" style={{ marginTop: 18 }}>
         <h2 style={{ marginTop: 0 }}>Pilotage</h2>
-        <p style={{ color: 'var(--text-muted)', lineHeight: 1.5 }}>Le moteur crée des Vibes Loki Music à partir des styles déjà connus, les met à jour après les morceaux gardés et laisse toujours l’utilisateur renommer et choisir Public/Privé.</p>
+        <p style={{ color: 'var(--text-muted)', lineHeight: 1.5 }}>Le moteur crée des Styles Loki Music à partir des styles déjà connus, les met à jour après les morceaux gardés et laisse toujours l’utilisateur renommer et choisir Public/Privé.</p>
         <div style={grid}>
           <Toggle label="Music Brain actif" value={config.enabled} onClick={() => toggle('enabled')} />
           <Toggle label="Créer automatiquement" value={config.auto_create} onClick={() => toggle('auto_create')} />
           <Toggle label="Renommage utilisateur" value={config.allow_rename} onClick={() => toggle('allow_rename')} />
-          <NumberField label="Minimum de titres par Vibe" value={config.min_tracks} min={1} max={20} onChange={(value) => setConfig((c) => ({ ...c, min_tracks: value }))} />
-          <NumberField label="Maximum de Vibes automatiques" value={config.max_albums} min={1} max={30} onChange={(value) => setConfig((c) => ({ ...c, max_albums: value }))} />
+          <NumberField label="Minimum de titres par Style" value={config.min_tracks} min={1} max={20} onChange={(value) => setConfig((c) => ({ ...c, min_tracks: value }))} />
+          <NumberField label="Maximum de Styles automatiques" value={config.max_albums} min={1} max={30} onChange={(value) => setConfig((c) => ({ ...c, max_albums: value }))} />
           <NumberField label="Version taxonomie" value={config.taxonomy_version} min={1} max={99} onChange={(value) => setConfig((c) => ({ ...c, taxonomy_version: value }))} />
         </div>
         <button onClick={() => void save()} disabled={saving} style={primaryButton}>{saving ? 'ENREGISTREMENT…' : 'ENREGISTRER LE CERVEAU LOKI'}</button>

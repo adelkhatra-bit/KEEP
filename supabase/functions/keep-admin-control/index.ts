@@ -850,6 +850,19 @@ Deno.serve(async (req) => {
       return json(200, { data: data ?? [] });
     }
 
+    // Historique de lecture réservé à l'équipe de modération : la file
+    // "events_pending" n'inclut pas les soirées déjà approuvées ou terminées.
+    if (action === "moderation.events_history") {
+      assertRole(actor, ["SUPER_ADMIN", "ADMIN", "MODERATOR"]);
+      const { data, error } = await admin
+        .from("events")
+        .select("id,name,starts_at,ends_at,created_at,moderation_status,is_disabled,venue_name")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return json(200, { data: data ?? [] });
+    }
+
     if (action === "moderation.events_approve") {
       assertRole(actor, ["SUPER_ADMIN", "ADMIN", "MODERATOR"]);
       const eventId = String(body?.eventId ?? "").trim();

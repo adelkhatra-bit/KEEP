@@ -5,6 +5,8 @@ export type ListenEconomyStatus = {
   planCode: string;
   isAnonymous: boolean;
   featureKey: 'LISTEN_DAILY';
+  periodMode: 'DAY' | 'WEEK' | 'MONTH' | 'NEVER';
+  nextResetAt: string | null;
   periodKey: string;
   used: number;
   limit: number;
@@ -37,6 +39,8 @@ function parseStatus(raw: any): ListenEconomyStatus {
     planCode: String(raw?.planCode ?? raw?.plan_code ?? 'FREE'),
     isAnonymous: Boolean(raw?.isAnonymous ?? raw?.is_anonymous ?? false),
     featureKey: 'LISTEN_DAILY',
+    periodMode: ['WEEK','MONTH','NEVER'].includes(String(raw?.periodMode ?? raw?.period_mode)) ? String(raw?.periodMode ?? raw?.period_mode) as ListenEconomyStatus['periodMode'] : 'DAY',
+    nextResetAt: raw?.nextResetAt ?? raw?.next_reset_at ?? null,
     periodKey: String(raw?.periodKey ?? raw?.period_key ?? ''),
     used: Math.max(0, n(raw?.used)),
     limit: Math.max(1, n(raw?.limit, 5)),
@@ -76,9 +80,18 @@ export async function recordListenSuccess(sourceKey: string, allowFree = false):
   return parseStatus(data);
 }
 
+export function listenPeriodLabel(mode: ListenEconomyStatus['periodMode']): string {
+  switch (mode) {
+    case 'WEEK': return 'cette semaine';
+    case 'MONTH': return 'ce mois';
+    case 'NEVER': return 'sur ton crédit permanent';
+    default: return 'aujourd’hui';
+  }
+}
+
 export function listenQuotaMessage(status: ListenEconomyStatus): string {
   if (status.isAnonymous) return 'Tu as utilisé tes ' + status.limit + ' identifications invitées. Crée ou connecte ton compte pour continuer.';
-  if (status.overQuota && !status.canPayWithFree) return 'Tes ' + status.limit + ' identifications incluses du jour sont utilisées. Recharge tes FREE ou passe à une formule supérieure pour continuer.';
-  if (status.overQuota) return 'Quota inclus atteint. La prochaine reconnaissance réussie coûte ' + status.overQuotaFreeCost + ' FREE.';
-  return status.used + '/' + status.limit + ' identifiés aujourd’hui';
+  if (status.overQuota && !status.canPayWithFree) return 'Tes ' + status.limit + ' identifications incluses sont utilisées. Recharge tes FREE ou change de formule pour continuer.';
+  if (status.overQuota) return 'Quota inclus atteint. La prochaine reconnaissance réussie coûte ' + status.overQuotaFreeCost + ' FREE après ton accord.';
+  return status.used + '/' + status.limit + ' identifiés ' + listenPeriodLabel(status.periodMode);
 }

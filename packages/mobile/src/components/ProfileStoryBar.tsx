@@ -47,11 +47,14 @@ import {
 } from '../services/musicStoriesService';
 import { colors } from '../theme/colors';
 import { ownBadgeFor, ownBadgeMessage, pruneExpiredStory } from '../services/storyActivity';
+import { reconcileStoryRefresh } from '../services/storyRefreshReconciliation';
 import { shareReferralLink } from '../services/referralShare';
 import { buildViewerDetail } from '../services/storyViewerDetail';
 import { loadMyLikesAmong, loadLikeCounts, likeKey } from '../services/trackLikesService';
 import { navigationRef } from '../navigation/navigationRef';
 import KeepModal from './KeepModal';
+import { eventStoryStillVisible, loadEventStories, type EventStoryCard } from '../services/eventStoryService';
+import { setEventRsvp, type EventRsvpStatus } from '../services/creatorEventService';
 
 /**
  * Bulles de stories du PROFIL, à côté de la photo (Adel, 05/10/2026).
@@ -83,6 +86,10 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const [followBusy, setFollowBusy] = useState<string | null>(null);
   const [lastSeenAt, setLastSeenAt] = useState<Record<string, string>>({});
   const [ownStory, setOwnStory] = useState<MusicStory | null>(null);
+  const [eventStories, setEventStories] = useState<EventStoryCard[]>([]);
+  const [openEventStory, setOpenEventStory] = useState<EventStoryCard | null>(null);
+  const [eventRsvpBusy, setEventRsvpBusy] = useState(false);
+  const [eventRsvp, setEventRsvpChoice] = useState<EventRsvpStatus | null>(null);
   const [ownStoryOpening, setOwnStoryOpening] = useState(false);
   const ownStoryLoadRef = React.useRef<Promise<MusicStory | null> | null>(null);
   const reloadOwnStory = useCallback((): Promise<MusicStory | null> => {
@@ -107,6 +114,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   }, [viewer.id]);
   const [stories, setStories] = useState<MusicStory[]>([]);
   const storiesRef = React.useRef<MusicStory[]>([]);
+  const storyMissingRefreshRef = React.useRef(new Map<string, number>());
   const [reloadTick, setReloadTick] = useState(0);
   const lastBumpRef = React.useRef(0);
   storiesRef.current = stories;
@@ -114,6 +122,12 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const [openStory, setOpenStory] = useState<MusicStory | null>(null);
   const [viewers, setViewers] = useState<StoryViewer[] | null>(null);
   const [viewersOpen, setViewersOpen] = useState(false);
+  const [viewersError, setViewersError] = useState(false);
+  const refreshViewers = useCallback(() => {
+    void loadMyStoryViewers()
+      .then((rows) => { setViewers(rows); setViewersError(false); })
+      .catch(() => { setViewersError(true); }); // conserver la dernière liste, ne jamais fabriquer « 0 vue »
+  }, []);
   // « En savoir plus » d'un spectateur : musique par musique (temps, ❤, endroit où il est parti).
   const [detailFor, setDetailFor] = useState<string | null>(null);
   const [detailLikes, setDetailLikes] = useState<Record<string, Set<string>>>({});
@@ -121,7 +135,9 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     if (detailFor === viewerId) { setDetailFor(null); return; }
     setDetailFor(viewerId);
     if (detailLikes[viewerId] || !openStory) return;
-    void loadMyLikesAmong(viewerId, openStory.tracks.map((track) => track.id)).then((set) => setDetailLikes((previous) => ({ ...previous, [viewerId]: set }))).catch(() => setDetailLikes((previous) => ({ ...previous, [viewerId]: new Set() })));
+    void loadMyLikesAmong(viewerId, openStory.tracks.map((track) => track.id))
+      .then((set) => setDetailLikes((previous) => ({ ...previous, [viewerId]: set })))
+      .catch(() => {}); // erreur réseau : ne jamais inventer une absence de cœur
   };
   const watchRef = React.useRef<ReturnType<typeof watchStoryOf>>(null);
   const [plusOpen, setPlusOpen] = useState(false);
@@ -245,9 +261,17 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
       await Promise.all([bubblesMeta, storiesMeta]);
       if (!live) return;
       // Données complètes : on retire alors les bulles qui ont disparu côté serveur (story expirée, désabonnement).
-      if (!degraded) setStories(Array.from(collected.values()));
-      // Mémoire : 12 membres, 12 musiques chacun au plus (le disque reste léger), et seulement des données complètes.
-      if (!degraded) writeProfileMemory(viewer.id, 'story-rail', Array.from(collected.values()).slice(0, 12).map((story) => ({ ...story, tracks: story.tracks.slice(0, 12) })));
+      if (!degraded) {
+        // An authoritative refresh can temporarily contain zero music stories
+        // if a concurrent source completed before its pins/decisions settled.
+        // Keep an unexpired bubble for just ONE absent full snapshot; two
+        // confirmed misses remove it. Never retain a story past 24 hours.
+        const stable = reconcileStoryRefresh(storiesRef.current, Array.from(collected.values()), storyMissingRefreshRef.current);
+        setStories(stable);
+        void writeProfileMemory(viewer.id, 'story-rail', stable.slice(0, 12).map((story) => ({
+          ...story, tracks: story.tracks.slice(0, 12),
+        })));
+      }
       if (!activityFailed) setActivityKnown(true);
       // Une seule nouvelle tentative, 6 s plus tard, si une branche a échoué (jamais de boucle : règle de résilience de connexion).
       if (degraded && attempt === 0 && live) retryTimer = setTimeout(() => { if (live) void run(1); }, 6000);
@@ -282,12 +306,59 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     };
   }, [viewer.id, isFocused]);
 
+  // Les événements approuvés ont leur propre story de 24 h : pas de faux
+  // morceau injecté dans le lecteur musical et aucun RSVP sur événement expiré.
+  useEffect(() => {
+    if (!isFocused || !viewer.id) return undefined;
+    let mounted = true;
+    const refreshEvents = () => {
+      void loadEventStories().then((rows) => {
+        if (mounted) setEventStories(rows.filter((item) => eventStoryStillVisible(item)));
+      }).catch(() => { if (mounted) setEventStories((current) => current.filter((event) => eventStoryStillVisible(event))); });
+    };
+    refreshEvents();
+    const interval = setInterval(refreshEvents, 60000);
+    return () => { mounted = false; clearInterval(interval); };
+  }, [viewer.id, isFocused]);
+
+  const respondToEventStory = async (event: EventStoryCard, choice: EventRsvpStatus) => {
+    if (eventRsvpBusy || !eventStoryStillVisible(event) || event.creatorId === viewer.id) return;
+    if (choice === 'GOING' && (event.ticketPriceCents ?? 0) > 0) {
+      setOpenEventStory(null);
+      (navigationRef as any).navigate('Parties', { openEventId: event.eventId });
+      return;
+    }
+    setEventRsvpBusy(true);
+    try {
+      await setEventRsvp(viewer.id, event.eventId, choice);
+      setEventRsvpChoice(choice);
+    } catch {
+      Alert.alert('Soirée', 'Réponse non enregistrée. Vérifie ta connexion puis réessaie.');
+    } finally { setEventRsvpBusy(false); }
+  };
+
   // Liste des vues ouverte : on la rafraîchit toutes les 8 s pour voir « regarde maintenant » puis « parti il y a … » sans quitter l'écran.
   useEffect(() => {
     if (!viewersOpen) return;
-    const timer = setInterval(() => { loadMyStoryViewers().then(setViewers).catch(() => {}); }, 8000);
+    refreshViewers();
+    const timer = setInterval(refreshViewers, 8000);
     return () => clearInterval(timer);
-  }, [viewersOpen]);
+  }, [viewersOpen, refreshViewers]);
+
+  // Les cœurs peuvent arriver pendant que le propriétaire consulte le détail sur un autre appareil.
+  // Même table track_likes et même rafraîchissement 8 s sur iPhone / ordinateur.
+  useEffect(() => {
+    if (!viewersOpen || !detailFor || !openStory || openStory.profileId !== viewer.id) return undefined;
+    let live = true;
+    const refreshHearts = () => {
+      void loadMyLikesAmong(detailFor, openStory.tracks.map((track) => track.id))
+        .then((set) => { if (live) setDetailLikes((previous) => ({ ...previous, [detailFor]: set })); })
+        .catch(() => {}); // conserver le dernier état en cas de coupure
+    };
+    refreshHearts();
+    const timer = setInterval(refreshHearts, 8000);
+    return () => { live = false; clearInterval(timer); };
+  }, [viewersOpen, detailFor, openStory, viewer.id]);
 
   // Départ : fermeture de la story, app mise en arrière-plan ou écran quitté -> le propriétaire voit tout de suite « parti ».
   const stopWatch = useCallback(() => { watchRef.current?.stop(); watchRef.current = null; }, []);
@@ -314,7 +385,10 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     watchRef.current = null;
     if (story.profileId === viewer.id) {
       setViewers(null);
-      loadMyStoryViewers().then(setViewers).catch(() => setViewers([]));
+      setViewersError(false);
+      setDetailFor(null);
+      setDetailLikes({});
+      refreshViewers();
     } else {
       // Façon Instagram : la vue ne compte qu'après quelques secondes de présence réelle ; durée, musiques vues, écoute et départ sont suivis.
       watchRef.current = watchStoryOf(story.profileId, ordered.length);
@@ -489,6 +563,8 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
           activityKnown={activityKnown}
           ranking={ranking}
           stories={stories.map((story) => (lastSeenAt[story.profileId] !== undefined ? { ...story, lastSeenAt: lastSeenAt[story.profileId] } : story))}
+          eventStories={eventStories}
+          onOpenEventStory={(event) => { setOpenEventStory(event); setEventRsvpChoice(null); }}
           seen={seen}
           size={avatarSize}
           online={online}
@@ -498,6 +574,49 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
           followBusyId={followBusy}
         />
       </View>
+
+      <KeepModal visible={Boolean(openEventStory)} transparent animationType="fade" onRequestClose={() => setOpenEventStory(null)}>
+        <SafeAreaView style={styles.eventStoryBackdrop}>
+          <View style={styles.eventStorySheet} testID="event-story-modal">
+            <View style={styles.sheetHeader}>
+              <Text style={styles.eventStoryEyebrow}>STORY ÉVÉNEMENT · LOKI PULSE</Text>
+              <TouchableOpacity onPress={() => setOpenEventStory(null)} accessibilityRole="button" accessibilityLabel="Fermer la Story événement" style={styles.sheetClose}><Text style={styles.sheetCloseText}>✕</Text></TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={styles.eventStoryContent}>
+              {openEventStory?.imageUrl ? <Image source={{ uri: openEventStory.imageUrl }} style={styles.eventStoryCover} resizeMode="cover" /> : null}
+              <Text style={styles.eventStoryTitle}>{openEventStory?.name}</Text>
+              <Text style={styles.eventStoryMeta}>@{openEventStory?.username} · {openEventStory?.venueName}</Text>
+              <Text style={styles.eventStoryMeta}>{openEventStory?.startsAt ? new Date(openEventStory.startsAt).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : ''}</Text>
+              {openEventStory?.description ? <Text style={styles.eventStoryDescription}>{openEventStory.description}</Text> : null}
+              <Text style={styles.eventStoryPulse}>LOKI PULSE · {openEventStory?.pulseScore ?? 0} points</Text>
+              <Text style={styles.eventStoryMeta}>✓ {openEventStory?.goingCount ?? 0} participent · {openEventStory?.maybeCount ?? 0} peut-être</Text>
+              {openEventStory && openEventStory.creatorId !== viewer.id && eventStoryStillVisible(openEventStory) ? (
+                <View style={styles.eventStoryActions} testID="event-story-rsvp-actions">
+                  {([
+                    ['GOING', (openEventStory.ticketPriceCents ?? 0) > 0 ? '🎟 Voir le billet' : '✓ Je participe'],
+                    ['MAYBE', 'Peut-être'],
+                    ['NOT_GOING', 'Je passe'],
+                  ] as [EventRsvpStatus,string][]).map(([choice,label]) => (
+                    <TouchableOpacity key={choice} style={[styles.eventStoryAction, eventRsvp === choice && styles.eventStoryActionSelected]}
+                      disabled={eventRsvpBusy} onPress={() => { void respondToEventStory(openEventStory, choice); }}
+                      accessibilityRole="button" accessibilityLabel={label}>
+                      <Text style={styles.eventStoryActionText}>{eventRsvpBusy ? '…' : eventRsvp === choice ? '✓ ' + label : label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : null}
+              <TouchableOpacity style={styles.eventStoryOpen} onPress={() => {
+                if (!openEventStory) return;
+                const eventId = openEventStory.eventId;
+                setOpenEventStory(null);
+                (navigationRef as any).navigate('Parties', { openEventId: eventId });
+              }} accessibilityRole="button" accessibilityLabel="Voir le détail de la soirée">
+                <Text style={styles.eventStoryOpenText}>Voir la soirée et les participants ›</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </SafeAreaView>
+      </KeepModal>
 
       <KeepModal visible={plusOpen} transparent animationType="fade" onRequestClose={closePlus}>
         <SafeAreaView style={styles.backdrop}>
@@ -550,6 +669,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
 
       <MusicSwipeDeckModal
         visible={Boolean(openStory)}
+        ownStoryView={isOwnOpen}
         tracks={openStory?.tracks ?? []}
         initialTrackId={openStory?.tracks[0]?.id ?? null}
         resetKey={openStory?.profileId ?? null}
@@ -559,20 +679,27 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         onTitlePress={!isOwnOpen && openStory ? () => { const username = openStory.username; setOpenStory(null); setTimeout(() => setQuickUsername(username), 350); } : undefined}
         // Adel 05/10/2026 : « tu écris trop » -- plus de phrase d'accroche sur la story d'un autre (elle nommait à tort le diffuseur comme crédité).
         headerExtra={isOwnOpen ? (
-          <TouchableOpacity style={styles.viewsChip} onPress={() => setViewersOpen(true)} accessibilityRole="button" accessibilityLabel="Voir qui a vu ta story" testID="story-views-chip">
-            <Text style={styles.viewsChipText}>👁 {viewers ? `${viewers.length} vue${viewers.length > 1 ? 's' : ''}` : '… vues'} {ownLikeTotal !== null ? ` · ❤️ ${ownLikeTotal}` : ''} · Voir qui ›</Text>
+          <TouchableOpacity style={styles.viewsChip} onPress={() => { setViewersOpen(true); refreshViewers(); }} accessibilityRole="button" accessibilityLabel="Voir qui a vu ta story" testID="story-views-chip">
+            <Text style={styles.viewsChipText}>👁 {viewers ? `${viewers.length} spectateur${viewers.length > 1 ? 's' : ''}` : '… spectateurs'} {ownLikeTotal !== null ? ` · ❤️ ${ownLikeTotal}` : ''} · Voir qui ›</Text>
           </TouchableOpacity>
         ) : null}
         overlay={isOwnOpen && viewersOpen ? (
           <SafeAreaView style={styles.backdrop}>
             <View style={styles.sheet}>
               <View style={styles.sheetHeader}>
-                <Text style={styles.sheetTitle}>Vues de ta story</Text>
+                <Text style={styles.sheetTitle}>Qui a vu ta story ?</Text>
                 <TouchableOpacity onPress={() => setViewersOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer la liste" style={styles.sheetClose}><Text style={styles.sheetCloseText}>✕</Text></TouchableOpacity>
               </View>
-              {viewers && viewers.length === 0 ? <Text style={styles.viewsEmpty}>Aucune vue</Text> : null}
+              {viewers === null && !viewersError ? <Text style={styles.viewsEmpty}>Chargement des vues…</Text> : null}
+              {viewersError ? (
+                <TouchableOpacity onPress={refreshViewers} accessibilityRole="button" accessibilityLabel="Réessayer le chargement des vues" testID="story-viewers-retry">
+                  <Text style={styles.viewsEmpty}>Synchronisation des vues indisponible · Réessayer</Text>
+                </TouchableOpacity>
+              ) : null}
+              {!viewersError && viewers && viewers.length === 0 ? <Text style={styles.viewsEmpty}>Aucune vue enregistrée</Text> : null}
               {/* Vues façon Instagram (Adel, 06/10/2026) : une bulle par spectateur, indépendante ; on touche une bulle → ce qu'il a vu.
                   Pastille : ✓ = toute la story, sinon « vues / total ». Aucun texte long, aucune durée. */}
+              <Text style={styles.detailMeta}>1 spectateur = 1 personne, même si elle ouvre plusieurs morceaux ou revient. Chaque pastille indique les morceaux réellement consultés lors de sa dernière visite.</Text>
               <ScrollView contentContainerStyle={styles.viewerGrid}>
                 {(viewers ?? []).map((v) => {
                   const total = openStory?.tracks.length || v.tracksTotal || 0;
@@ -604,7 +731,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
                       </TouchableOpacity>
                     </View>
                     <ScrollView style={{ maxHeight: 260 }}>
-                      {detail.rows.length === 0 ? <Text style={styles.detailMeta}>Rien vu</Text> : null}
+                      {detail.rows.length === 0 ? <Text style={styles.detailMeta}>{v.tracksSeen > 0 ? 'Vue enregistrée · détail musical indisponible pour cette visite' : 'Aucun morceau suivi'}</Text> : null}
                       {detail.rows.map((r) => (
                         <View key={`${v.viewerId}-${r.trackId}`} style={[styles.detailRow, (r.outcome === 'LEFT_HERE' || r.outcome === 'WATCHING') && styles.detailRowLeft]} testID={`story-viewer-track-${v.viewerId}-${r.index}`}>
                           <Text style={styles.detailIcon} accessibilityLabel={r.label}>{r.outcome === 'FULL' ? '✓' : r.outcome === 'SKIPPED' ? '⏭' : r.outcome === 'WATCHING' ? '●' : '■'}</Text>
@@ -613,7 +740,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
                         </View>
                       ))}
                     </ScrollView>
-                    <Text style={styles.detailLegend}>✓ entière · ⏭ passée · ■ arrêt</Text>
+                    <Text style={styles.detailLegend}>Dernière visite · ✓ entière · ⏭ passée · ■ arrêt</Text>
                   </View>
                 );
               })()}
@@ -682,6 +809,21 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
 }
 
 const styles = StyleSheet.create({
+  eventStoryBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,.88)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, paddingVertical: 22 },
+  eventStorySheet: { width: '100%', maxWidth: 480, maxHeight: '96%', backgroundColor: '#181225', borderWidth: 2, borderColor: '#7C5CFC', borderRadius: 26, padding: 16 },
+  eventStoryContent: { alignItems: 'stretch', paddingBottom: 12 },
+  eventStoryEyebrow: { color: '#B79CFF', fontWeight: '900', fontSize: 11, letterSpacing: 1 },
+  eventStoryCover: { width: '100%', height: 190, borderRadius: 16, marginBottom: 12 },
+  eventStoryTitle: { color: '#FFFFFF', fontSize: 23, fontWeight: '900', marginBottom: 8 },
+  eventStoryMeta: { color: '#ECE5FC', fontSize: 13, lineHeight: 19, marginBottom: 7 },
+  eventStoryDescription: { color: '#FFFFFF', fontSize: 13, lineHeight: 20, marginBottom: 10 },
+  eventStoryPulse: { color: '#2DE1C2', fontSize: 16, fontWeight: '900', marginVertical: 10 },
+  eventStoryActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginVertical: 12 },
+  eventStoryAction: { minHeight: 48, flexGrow: 1, minWidth: 94, paddingHorizontal: 9, borderRadius: 14, backgroundColor: '#302447', borderWidth: 1, borderColor: '#A78BFA', alignItems: 'center', justifyContent: 'center' },
+  eventStoryActionSelected: { borderColor: '#2DE1C2', backgroundColor: '#164738' },
+  eventStoryActionText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900', textAlign: 'center' },
+  eventStoryOpen: { minHeight: 48, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', borderRadius: 16, backgroundColor: '#7C5CFC', marginTop: 5 },
+  eventStoryOpenText: { color: '#FFFFFF', fontSize: 13, fontWeight: '900' },
   rowCopy: { flex: 1, minWidth: 0 },
   previewBtn: { flexShrink: 0, width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: '#7C5CFC', backgroundColor: '#1B1230', alignItems: 'center', justifyContent: 'center' },
   previewBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '900' },

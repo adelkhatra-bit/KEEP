@@ -53,6 +53,20 @@ describe('Web companion QR contract', () => {
     expect(edge).toContain('pairing_state_changed');
   });
 
+  it('scan QR : restaurer la session avant tout popup de connexion, annuler ne déconnecte pas', () => {
+    const scanHandler = lifecycle.split('const handleNativePairingUrl')[1]?.split('React.useEffect')[0] ?? '';
+    const decisionHandler = lifecycle.split('const decide = (approve: boolean) => {')[1]?.split('void previewDesktopPairing')[0] ?? '';
+    expect(scanHandler).toContain('setPendingApproval(parsed)');
+    expect(scanHandler).not.toContain("requestAccount('login')");
+    expect(lifecycle).toContain('createAuthService(supabase).getCurrentSession()');
+    expect(lifecycle).toContain('if (restoredSession?.userId');
+    expect(lifecycle).toContain('if (!active) return');
+    expect(decisionHandler).toContain('cancelDesktopPairing');
+    expect(decisionHandler).not.toContain('logout(');
+    expect(decisionHandler).not.toContain('signOut(');
+    expect(decisionHandler).not.toContain('clearWebCompanionSessionId(');
+  });
+
   it('QR expiré : l\'ordinateur le verrouille jusqu\'au bouton Rafraîchir, le téléphone explique sans toucher à la session', () => {
     const read = (f: string) => fs.readFileSync(path.join(__dirname, '..', '..', 'components', f), 'utf8');
     const screen = read('WebCompanionPairingScreen.tsx');

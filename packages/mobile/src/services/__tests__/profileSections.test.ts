@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-const read = (f: string) => fs.readFileSync(path.join(__dirname, f), 'utf8');
+const read = (f: string) => fs.readFileSync(path.join(__dirname, f), 'utf8').replace(/\r\n/g, '\n');
 
 describe('règles d’Adel du 05/10/2026 (IDEA-115 / IDEA-116)', () => {
   it('compteurs de réactions : pastilles de la même taille que les boutons, couleurs de statistique, pas de rouge « bonheur »', () => {

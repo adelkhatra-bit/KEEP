@@ -34,8 +34,31 @@ describe('suivi de vue de story façon Instagram', () => {
     tracker.stop();
     const last = calls[calls.length - 1];
     expect(last[0]).toBe('keep_story_watch_chapters_ping');
-    expect(last[1]).toMatchObject({ p_session_id: 'sess-1', p_tracks_seen: 2, p_last_track_id: UUID, p_listened: true, p_ended: true });
+    expect(last[1]).toMatchObject({ p_session_id: 'sess-1', p_tracks_seen: 1, p_last_track_id: UUID, p_listened: true, p_ended: true });
     expect(last[1].p_seconds).toBeGreaterThanOrEqual(12);
+  });
+
+  it('ne prétend pas avoir vu les neuf premiers titres quand on ouvre directement le dixième', async () => {
+    const { tracker, calls, advance } = make();
+    const tenth = '99999999-2222-3333-4444-555555555555';
+    await advance(STORY_WATCH_MIN_MS + 10);
+    tracker.event({ type: 'shown', trackId: tenth, index: 9, total: 10 });
+    tracker.event({ type: 'shown', trackId: tenth, index: 9, total: 10 });
+    tracker.stop();
+    const payload = calls[calls.length - 1][1];
+    expect(payload.p_tracks_seen).toBe(1);
+    expect(payload.p_last_track_id).toBe(tenth);
+  });
+
+  it('compte chaque morceau différent une fois, même en revenant en arrière', async () => {
+    const { tracker, calls, advance } = make();
+    const second = '22222222-2222-3333-4444-555555555555';
+    await advance(STORY_WATCH_MIN_MS + 10);
+    tracker.event({ type: 'shown', trackId: UUID, index: 0, total: 5 });
+    tracker.event({ type: 'shown', trackId: second, index: 1, total: 5 });
+    tracker.event({ type: 'shown', trackId: UUID, index: 0, total: 5 });
+    tracker.stop();
+    expect(calls[calls.length - 1][1].p_tracks_seen).toBe(2);
   });
 
   it('ne transmet jamais un identifiant de musique en vente (non UUID)', async () => {
@@ -44,6 +67,17 @@ describe('suivi de vue de story façon Instagram', () => {
     tracker.event({ type: 'shown', trackId: 'sale:abc', index: 0, total: 5 });
     tracker.stop();
     expect(calls[calls.length - 1][1].p_last_track_id).toBeNull();
+  });
+
+  it('conserve le vrai identifiant d’une musique en vente dans la vue synchronisée', async () => {
+    const { tracker, calls, advance } = make();
+    await advance(STORY_WATCH_MIN_MS + 10);
+    tracker.event({ type: 'shown', trackId: `sale:${UUID}`, index: 0, total: 5 });
+    await advance(3000);
+    tracker.stop();
+    const last = calls[calls.length - 1][1];
+    expect(last.p_last_track_id).toBe(UUID);
+    expect(last.p_chapters).toEqual([{ i: 0, s: 3, t: UUID }]);
   });
 
   it('départ pendant la création de la session : la session est tout de même clôturée', async () => {

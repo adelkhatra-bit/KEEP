@@ -47,7 +47,12 @@
     "socialFreeKeep": {
       "decidedBy": "Adel 05/10/2026",
       "charge": 0,
-      "sources": ["story", "public_profile", "public_profile_swipe", "follow_notification"],
+      "sources": [
+        "story",
+        "public_profile",
+        "public_profile_swipe",
+        "follow_notification"
+      ],
       "requires": "musique PUBLIQUE chez un autre membre (GARDER public ou épingle claire < 24 h) et PAS en vente (SALE_PROTECTED)",
       "attribution": "marquée du nom du PREMIER découvreur ; l'utilisateur la garde en public ou en privé",
       "serverRpc": "keep_commit_social_free_decision",
@@ -596,11 +601,13 @@
     "manualRefreshControl": false,
     "silentAutomaticApply": true,
     "waitForAuthBootstrapBeforeReload": true,
-    "webCheckIntervalSeconds": 60,
+    "webCheckIntervalSeconds": 15,
     "silentReloadUsesCacheBustedCanonicalReload": true,
     "nativeCompatibleOtaAutoApply": true,
     "neverApplyDuringGame": true,
-    "neverApplyDuringGameReason": "Adel 02/10/2026 : une mise à jour (web ou OTA) ne s'installe jamais pendant un Solo ou un Battle en ligne -- recharger en pleine partie fait manquer des questions (3 absences = mise perdue). Elle attend la fin de la partie (useGameSessionStore) puis s'installe seule."
+    "neverApplyDuringGameReason": "Adel 02/10/2026 : une mise à jour (web ou OTA) ne s'installe jamais pendant un Solo ou un Battle en ligne -- recharger en pleine partie fait manquer des questions (3 absences = mise perdue). Elle attend la fin de la partie (useGameSessionStore) puis s'installe seule.",
+    "visibleIdleAutoApplySeconds": 30,
+    "visibleIdleMustNotInterruptEditing": true
   },
   "battleAudioFairness": {
     "serverClockSource": "round.startedAt",
@@ -768,6 +775,11 @@
     "logoutScope": "local",
     "minNetworkPollIntervalMs": 5000,
     "fastIntervalAllowlist": [
+      {
+        "file": "packages/mobile/src/components/WebCompanionCountdown.tsx",
+        "snippet": "setInterval(() => { if (alive) setNow(Date.now()); }, 1000)",
+        "reason": "Affichage local du compte à rebours 24 heures; le seul appel réseau du composant utilise un minuteur séparé de 30000 ms"
+      },
       {
         "file": "packages/mobile/src/components/WebCompanionSessionsPanel.tsx",
         "snippet": "setInterval(() => setNow(Date.now()), 1000)",
@@ -971,7 +983,10 @@
   "storiesExperience": {
     "unfollowOnlyFromProfilePage": true,
     "storyAgeLineFormat": "Chronomètre 24 h « ⏱ HH:MM:SS » (temps de vie restant de la musique de story, avance chaque seconde, une seule ligne courte) — demande d'Adel du 05/10/2026 qui remplace « il y a N min ».",
-    "storyPriceBadgesRequired": ["💳 PAYANT · N titres · prix (PayPal en €) ou 🪙 N FREE · N titres (musique en vente ; on n'achète pas les titres mais la sélection/le savoir-faire d'écoute du membre)", "🎁 GRATUIT · POUR TON PROFIL (musique publique à garder)"],
+    "storyPriceBadgesRequired": [
+      "💳 PAYANT · N titres · prix (PayPal en €) ou 🪙 N FREE · N titres (musique en vente ; on n'achète pas les titres mais la sélection/le savoir-faire d'écoute du membre)",
+      "🎁 GRATUIT · POUR TON PROFIL (musique publique à garder)"
+    ],
     "storyReaderHasNoTeaserSentenceForOthers": true,
     "viewersListShowsViewProfileNotFollowBadge": true,
     "badgeUnlockRule": "Badge/classement des stories : offert 30 jours (comptes existants : à partir du 05/10/2026), ensuite 1 parrainage validé OU une formule payante active ; appliqué au badge et au classement UNIQUEMENT, jamais au droit de poster une story (Adel 05/10/2026, IDEA-104). Fonction serveur keep_story_badge_eligible.",

@@ -25,7 +25,12 @@ describe('silent deployment update contract', () => {
     expect(banner).toContain("if (!authReady || Platform.OS !== 'web') return undefined;");
     expect(banner).toContain("if (!authReady || Platform.OS !== 'web' || !latestSha || webReloadingRef.current) return undefined;");
     expect(banner).toContain("document.addEventListener('visibilitychange', onHidden)");
-    expect(banner).toContain('setInterval(() => { void checkNow(); }, 60_000)');
+    expect(banner).toContain('const VISIBLE_IDLE_MS = 30_000');
+    expect(banner).toContain('setInterval(applyUpdate, 5_000)');
+    expect(banner).toContain('lastInteractionRef.current');
+    expect(banner).toContain("['INPUT', 'TEXTAREA', 'SELECT']");
+    expect(banner).toContain('runWhenNoGameInProgress');
+    expect(banner).toContain('setInterval(() => { void checkNow(); }, 15_000)');
   });
 
   it('keeps automatic cache-busted web refresh available', () => {
@@ -41,6 +46,11 @@ describe('silent deployment update contract', () => {
     expect(banner).toContain('Updates.checkForUpdateAsync()');
     expect(banner).toContain('Updates.fetchUpdateAsync()');
     expect(banner).toContain('Updates.reloadAsync()');
+    expect(banner).toContain("AppState.addEventListener('change'");
+    expect(banner).toContain("if (state === 'active') void applySilently()");
+    expect(banner).toContain('onAppStateChange.remove()');
+    expect(banner).toContain('clearInterval(checkInterval)');
+    expect(banner).toContain('runWhenNoGameInProgress');
   });
 
   it('publishes the exact deployed SHA through version.json', () => {

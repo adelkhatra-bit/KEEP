@@ -23,6 +23,7 @@ on:
 # production Supabase project. Authentication always keeps priority.
 concurrency:
   group: keep-production-supabase-browser-audits
+  queue: max
   cancel-in-progress: false
 
 permissions:

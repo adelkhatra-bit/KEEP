@@ -51,6 +51,28 @@ describe('Fast recognition contract', () => {
     expect(session).toContain("return 9000;");
   });
 
+  it('classifies a pasted YouTube URL before the server chooses its oEmbed metadata resolver', () => {
+    expect(core).toContain("import { sharedSourcePlatformFromUrl } from './sharedSourcePlatform'");
+    expect(core).toContain('platform: sharedSourcePlatformFromUrl(input.url)');
+    const resolver = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '..', '..', 'supabase', 'functions', 'keep-music-keyless-source', 'index.ts'), 'utf8');
+    expect(resolver).toContain('if (platform === "YOUTUBE") endpoint');
+  });
+
+  it('adds recognized tab audio through the same anti-duplicate and FREE accounting as the microphone', () => {
+    const home = fs.readFileSync(path.resolve(__dirname, '..', '..', 'screens', 'HomeScreenCompact.tsx'), 'utf8');
+    expect(session).toContain('submitCapturedAudioRecognition: async (recognition)');
+    expect(session).toContain("return applyDetectedTrack(set, get, recognition, 'listen')");
+    const monitor = fs.readFileSync(path.resolve(__dirname, '..', 'continuousTabMusicSession.ts'), 'utf8');
+    expect(monitor).toContain('startTabAudioMonitor(async (sample) => {');
+    expect(monitor).toContain('initial.pauseListening();');
+    expect(monitor).toContain("current.startSession({ captureMode: 'tab' })");
+    expect(monitor).toContain('live.submitCapturedAudioRecognition(recognition)');
+    expect(monitor).toContain('session.resumeListening()');
+    expect(home).toContain('testID="listen-tab-audio-option"');
+    expect(home).not.toContain('Tester avec le son d’un onglet');
+    expect(home).toContain('Colle un lien YouTube ou Spotify');
+  });
+
   it('seeds fingerprint memory from kept profile tracks including native Shazam matches', () => {
     expect(core).toContain('previewUrl: track.previewUrl');
     expect(server).toContain('if (decision === "KEPT" && trackInput.previewUrl)');

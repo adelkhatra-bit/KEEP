@@ -190,6 +190,7 @@ export default function MusicAgoraPanel({
   const [inboxQuery, setInboxQuery] = useState('');
   const [inboxFilter, setInboxFilter] = useState<'ALL' | 'GROUPS' | 'DIRECT' | 'INVITES'>('ALL');
   const chatScrollRef = useRef<ScrollView | null>(null);
+  const shareAccordionScrollRef = useRef<ScrollView | null>(null);
   const composerInputRef = useRef<TextInput | null>(null);
   const composerFocusTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
   const musicAura = useRef(new Animated.Value(0)).current;
@@ -1966,7 +1967,7 @@ export default function MusicAgoraPanel({
           <Text style={s.validateMusicText}>{posting ? 'ENVOI…' : 'PARTAGER LE MORCEAU'}</Text>
         </TouchableOpacity>
 
-        {shareOptionsOpen ? <ScrollView style={[s.shareAccordionBody, { maxHeight: Math.max(180, shareExpandedHeight - 170) }]} contentContainerStyle={s.shareAccordionContent} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+        {shareOptionsOpen ? <ScrollView ref={shareAccordionScrollRef} style={[s.shareAccordionBody, { maxHeight: Math.max(180, shareExpandedHeight - 170) }]} contentContainerStyle={s.shareAccordionContent} nestedScrollEnabled keyboardShouldPersistTaps="handled">
           <View style={s.revealChoices}>
             <TouchableOpacity style={[s.revealChip,shareRevealMode==='MASKED'&&s.revealChipOn]} onPress={() => setShareRevealMode('MASKED')}><Text style={s.revealChipText}>MASQUÉ</Text></TouchableOpacity>
             <TouchableOpacity
@@ -1994,6 +1995,8 @@ export default function MusicAgoraPanel({
                   return;
                 }
                 setSharePaymentMode('FREE');
+                // Sur petits écrans, révéler le montant sans faire défiler toute la page.
+                setTimeout(() => shareAccordionScrollRef.current?.scrollToEnd({ animated: true }), 80);
               }}
               accessibilityLabel={paymentLocked ? 'FREE verrouillé, afficher pourquoi' : 'Utiliser FREE'}
             ><Text style={s.paymentChipText}>{paymentLocked ? '🔒 FREE' : 'FREE'}</Text></TouchableOpacity>

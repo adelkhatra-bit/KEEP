@@ -5,6 +5,21 @@ const previewCache = new Map<string, CacheEntry>();
 const POSITIVE_CACHE_MS = 6 * 60 * 60 * 1000;
 const NEGATIVE_CACHE_MS = 60 * 1000;
 const STOREFRONTS = ['FR', 'US', 'GB', 'CA'];
+const ITUNES_REQUEST_TIMEOUT_MS = 3500;
+
+async function fetchCatalogJson(url: string): Promise<any | null> {
+  // iOS network changes and provider outages used to leave fetch() pending
+  // indefinitely. An aborted lookup must never lock a Swipe card or Session.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ITUNES_REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) return null;
+    return await response.json();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 export function normalizeTrackText(value: string | undefined | null): string {
   return String(value ?? '')
@@ -21,6 +36,12 @@ export function scoreTrackSearchResult(track: CanonicalTrack, result: any): numb
   const resultTitle = normalizeTrackText(result?.trackName);
   const resultArtist = normalizeTrackText(result?.artistName);
 
+  // Ne jamais lire un titre homonyme d'un autre artiste : un bon score
+  // de titre seul ne garantit pas qu'il s'agisse du bon enregistrement.
+  const wholePhrase = (a: string, b: string) =>
+    Boolean(a && b) && (a === b || (` ${a} `).includes(` ${b} `) || (` ${b} `).includes(` ${a} `));
+  if (!wholePhrase(wantedTitle, resultTitle) || !wholePhrase(wantedArtist, resultArtist)) return 0;
+
   let score = 0;
   if (wantedTitle && resultTitle === wantedTitle) score += 8;
   else if (wantedTitle && resultTitle && (resultTitle.includes(wantedTitle) || wantedTitle.includes(resultTitle))) score += 4;
@@ -34,10 +55,8 @@ export function scoreTrackSearchResult(track: CanonicalTrack, result: any): numb
 
 async function searchStorefront(track: CanonicalTrack, country: string): Promise<string | null> {
   const term = encodeURIComponent(`${track.artist} ${track.title}`.trim());
-  const response = await fetch(`https://itunes.apple.com/search?term=${term}&entity=song&limit=12&country=${country}`);
-  if (!response.ok) return null;
-
-  const payload = await response.json();
+  const payload = await fetchCatalogJson(`https://itunes.apple.com/search?term=${term}&entity=song&limit=12&country=${country}`);
+  if (!payload) return null;
   const results = Array.isArray(payload?.results) ? payload.results : [];
   const best = results
     .filter((item: any) => typeof item?.previewUrl === 'string' && item.previewUrl.length > 0)
@@ -66,14 +85,15 @@ export async function resolveTrackPreviewUrl(
   if (options.forceRefresh) previewCache.delete(cacheKey);
 
   let preview: string | null = null;
-  for (const country of STOREFRONTS) {
-    try {
-      preview = await searchStorefront(track, country);
-      if (preview) break;
-    } catch {
-      // On continue avec le storefront suivant : une panne locale ne doit pas
-      // rendre l'extrait définitivement indisponible.
-    }
+  // Search in two bounded parallel pairs: FR/US then GB/CA. Every result
+  // still matches BOTH artist and title; preserve storefront priority while
+  // avoiding four serial timeouts when offline or a preview is missing.
+  for (let start = 0; start < STOREFRONTS.length; start += 2) {
+    const pair = await Promise.all(STOREFRONTS.slice(start, start + 2).map((country) =>
+      searchStorefront(track, country).catch(() => null),
+    ));
+    preview = pair.find((url) => Boolean(url)) ?? null;
+    if (preview) break;
   }
 
   previewCache.set(cacheKey, {
@@ -95,9 +115,8 @@ function upscaleItunesArtwork(url: string): string {
 
 async function searchArtwork(track: CanonicalTrack, country: string): Promise<string | null> {
   const term = encodeURIComponent(`${track.artist} ${track.title}`.trim());
-  const response = await fetch(`https://itunes.apple.com/search?term=${term}&entity=song&limit=12&country=${country}`);
-  if (!response.ok) return null;
-  const payload = await response.json();
+  const payload = await fetchCatalogJson(`https://itunes.apple.com/search?term=${term}&entity=song&limit=12&country=${country}`);
+  if (!payload) return null;
   const results = Array.isArray(payload?.results) ? payload.results : [];
   const best = results
     .filter((item: any) => typeof item?.artworkUrl100 === 'string' && item.artworkUrl100.length > 0)
@@ -118,13 +137,12 @@ export async function resolveTrackArtworkUrl(track: Pick<CanonicalTrack, 'title'
   const cached = artworkCache.get(key);
   if (cached && cached.expiresAt > Date.now()) return cached.url;
   let artwork: string | null = null;
-  for (const country of STOREFRONTS) {
-    try {
-      artwork = await searchArtwork(track as CanonicalTrack, country);
-      if (artwork) break;
-    } catch {
-      // storefront suivant
-    }
+  for (let start = 0; start < STOREFRONTS.length; start += 2) {
+    const pair = await Promise.all(STOREFRONTS.slice(start, start + 2).map((country) =>
+      searchArtwork(track as CanonicalTrack, country).catch(() => null),
+    ));
+    artwork = pair.find((url) => Boolean(url)) ?? null;
+    if (artwork) break;
   }
   artworkCache.set(key, { url: artwork, expiresAt: Date.now() + (artwork ? POSITIVE_CACHE_MS : NEGATIVE_CACHE_MS) });
   return artwork;

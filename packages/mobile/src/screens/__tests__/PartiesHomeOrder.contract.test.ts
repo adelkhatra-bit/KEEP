@@ -6,7 +6,7 @@ describe('Événements home order and help', () => {
 
   // Adel (02/10/2026) : le Classement Battle est dans l'écran Battle, plus dans Soirées.
   it('orders publish, my events, invitations (no Battle ranking in Soirées)', () => {
-    const start = source.indexOf("{partyHome ? <View style={styles.partyHome}>");
+    const start = source.indexOf("{partyHome ? <View style={[styles.partyHome, desktopParties && styles.desktopPartyHome]}");
     const publish = source.indexOf('accessibilityLabel="Créer une soirée"', start);
     const mine = source.indexOf('Mes soirées', start);
     const invites = source.indexOf('accessibilityLabel="Voir mes invitations"', start);

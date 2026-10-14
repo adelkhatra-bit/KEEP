@@ -1,7 +1,64 @@
 # MASTER PLAN — Loki Music (ce qui RESTE à faire)
 
+## AUDIT TRANSVERSAL EXÉCUTOIRE — 12/10/2026 — Loki Music / Découvertes / Playlists / Soirées / Profil / Hamburger / Sessions / Super Admin
+
+**Demande utilisateur explicitement validée :** vérifier le produit comme un vrai utilisateur, corriger les liaisons, rendre la boutique et les soirées compréhensibles et visibles, synchroniser mobile et ordinateur. Dossier de coordination [#153](https://github.com/adelkhatra-bit/KEEP/issues/153). **Source de vérité : ce MASTER_PLAN.md**, avec `STATE.md` (preuves), `docs/ERROR_LEDGER.md` (anomalies), `docs/IDEAS_INBOX.md` (idées). Ne pas créer de seconde liste parallèle.
+
+### Protocole obligatoire à chaque prise en charge par une IA
+1. Lire `AGENTS.md`, `CLAUDE.md`, `config/keep-product-contract.json`, `STATE.md`, ce plan, `docs/IDEAS_INBOX.md` et `docs/ERROR_LEDGER.md`; consulter #153 et PR ouvertes avant toute modification.
+2. Reproduire comme **visiteur, membre FREE, membre payant, vendeur, organisateur et Super Admin** sur 390×844 et PC 1440×900. Tester les vrais appels et états (chargement, vide, erreur, permissions, déconnexion, retour, rechargement).
+3. Cartographier les liaisons **Loki Music → session → GARDER/PASSER/ARRÊTER → Découvertes → profil artiste → boutique → aperçu → achat FREE/PayPal → bibliothèque/Playlists → Stories → Soirées → participer/billetterie → notifications → Super Admin**. Vérifier l'identité des objets, leur persistance Supabase, leur statut public/privé et l'absence de double validation.
+4. Corriger sur branche canonique `reconcile/claude-main-20260825` via PR ciblées, sans modifier `packages/mobile/App.tsx` pour le responsive, `Navigation.tsx`, la barre 5 onglets ou le design validé sans nouvelle instruction explicite. Ne pas casser les fonctions existantes.
+5. Pour chaque changement : test de non-régression, CI, contrôle publication web SHA, contrôle distinct TestFlight, preuve visuelle et audio. Une réussite de build ne vaut pas test utilisateur. Reporter dans `STATE.md` et #153.
+
+### File d'exécution, dans cet ordre (statut NON VALIDÉ tant que la preuve manque)
+- **P0 · Publication et cohérence** : confirmer que `fbb446f` (recherche titre/lien déplacée près de l'audio onglet PC), `c897014` (texte boutique min 11 px) et `bcbdd94` (découverte personnalisée) sont dans la version web effectivement servie ; déterminer le SHA de TestFlight. Vérifier et fermer les PR obsolètes seulement après équivalence fonctionnelle démontrée.
+- **P0 · Loki Music / Sessions** : démarrage microphone, animation active, arrêt immédiat et libération d'Audio.Recording, source PC onglet YouTube/TikTok, reconnaissance correcte vs lien périmé, débit quota uniquement sur succès non doublonné, prévisualisation audible, contrôle sans swipe obligatoire.
+- **P0 · Super Admin** : droits d'accès, boutons et retours, réglages sauvegardés, `remote_config` UTF-8, FREE et quotas DAY/WEEK/MONTH/NEVER, prix et expiration, état après reload ; distinguer `listen_quota_limit_FREE=10` actif de `listen_pricing_draft_free_per_day=8` brouillon et `demo_listen_limit=3`.
+- **P1 · Découvertes / Loki Pulse** : catalogues, artistes, genres/styles, personnalisation, aperçu qui joue, recherche, ouvrir profil/boutique/soirée, cas vide, lenteur et navigation retour.
+- **P1 · Playlists / Bibliothèque** : ajout après KEEP, absence de doublons, accès depuis session/profil/réglages, audio et ordre, synchronisation PC/mobile après recharge.
+- **P1 · Soirées / Battle** : date expirée jamais présentée comme événement actif, modération Super Admin, visibilité approuvée, Story automatique, Loki Pulse, réponses participe/peut-être, billetterie et boutique organisateur ; cartes affichant date, lieu, prix, état et CTA.
+- **P1 · Profil / Hamburger** : pseudo, bio, avatar Supabase Storage, ville/pays GPS éditables, date de naissance, genre, réseaux et site web persistants ; liens sociaux actifs ou popup d'absence, notification visiteur connecté, Retour réglages avancés et accès Playlists sans déconnexion.
+- **P1 · Vitrine vendeurs** : mettre en avant créateur, photo, univers musical, titres, prix, aperçu 15 s, action « Voir sa boutique », états vide et erreurs ; présentation premium et lisible sur PC/mobile, sans animation lourde ou fausse promesse.
+- **P2 · Parité** : QR pairing sécurisé, états de session synchronisés, notifications non doublonnées et effaçables, cohérence commandes PC/iOS, temps de réponse et tests audio sur appareils réels.
+
+- **13/10, Soirées / PC :** correction préparée, tests locaux PASS ; preuve navigateur CI, SHA servi et OTA encore requis. Voir STATE.md.
+
+### Critères de clôture
+Chaque ligne doit contenir : fichier/règle corrigé, scénario reproduit, test automatisé, test 390×844, test PC, CI, SHA, URL/version réellement publiée, TestFlight si applicable, et anomalie restante. **Ne jamais annoncer 100 % ni “poussé sur iPhone” sans preuve.** Le dossier #153 sert de point d'entrée commun ; aucune IA ne doit présumer que la création de ce dossier lance d'autres agents automatiquement.
+
+---
+
+
 > Complète `STATE.md` (ce qui est fait). **Règle de travail : plan écrit → validation d'Adel → code.** Une étape à la fois. Aucune IA ne touche `main`, ni au design validé sans accord. Chaque étape finit par : tests + 7 gardes + preuve mobile 390 / ordinateur 1440 + ligne dans `STATE.md`. Audit **ciblé** (seulement le module touché).
 > Statuts : ✅ fait · 🟡 partiel · ⛔ pas fait · ❓ cause non établie. Tout ce qui n'est pas vérifié sur iPhone est marqué « non vérifié iPhone ».
+
+## Audit transversal du 12/10/2026 — fusion ≠ publication ≠ affichage
+
+**Sources revérifiées le 12/10** : GitHub branche `reconcile/claude-main-20260825`, historique PR, workflow `web-preview-pages.yml`, `docs/RELEASE_REGISTER.json`, migrations Supabase réelles `rrhqsqzcplvmwxizqnla`, conversations de demandes récentes. Une PR ouverte, un commit fusionné, un workflow vert, une version servie et un iPhone mis à jour sont **cinq étapes différentes**.
+
+**Publication / écart concret**
+- GitHub Pages : workflow vert pour `cff41f48` (#143, 12/10 11:44 UTC), avec vérification HTTP et Chromium ; des builds ultérieurs sont possibles, mais **le SHA actuellement servi n'a pas pu être récupéré de l'environnement d'audit**. Ne pas déclarer le dernier HEAD visible par déduction.
+- iOS : registre de releases = TestFlight `#228` et OTA `#1019`, tous deux rattachés à la release `f8dbd60` ; le registre ne prouve pas le bundle actuellement installé sur chaque iPhone. Les modifications postérieures doivent passer par le circuit `.eas-build-trigger`/build/OTA compatible.
+- Onglet PC : **cause démontrée dans le code** : `AppUpdateBanner` vérifiait toutes les 60 s puis n'appliquait la nouvelle version que lors du masquage de l'onglet. PR #148 : détection 15 s et application après 30 s d'inactivité visible, hors saisie et hors Solo/Battle ; **non déployée tant que CI et fusion non terminées**.
+- Supabase : migrations `event_moderation_owner_guard`, `auto_story_on_approved_event`, `personalized_event_pulse_ranking` présentes en historique. La table `events` a **un événement passé (8 septembre), aucun futur** : aucun nouvel événement recommandé ne peut apparaître à partir de ces données.
+
+| Module / demande confirmée | Codé / fusionné observé | Restant / preuve manquante |
+|---|---|---|
+| Boutique vitrine PC + mobile | PR #116 cockpit ventes ; PR #143 boutique lisible, Web publié selon le workflow | Vérifier parcours vendeur/visiteur FREE/PayPal et rendu réel sur l'iPhone ayant le nouveau bundle |
+| Soirées terminées + modération + Story / Pulse | PR #116 + migrations appliquées ; PR #141 « TERMINÉE » Web ; logique d'événement expiré | Valider écran PC/iPhone sur donnée du 8 septembre ; #142 encore ouverte, ne pas superposer sans analyse |
+| Navigation et barre PC sans swipe, jamais mobile simulé sur souris | Menu/rail existants | PR #108 (desktop 640 px), PR #140 (retour à l'accueil rubrique) encore ouvertes ; démonstration 712/1440 et iPhone |
+| Bibliothèque, playlists, recherche Desktop, compteur Solo | Version en service partielle | PR #147 (rebase de #132) non fusionnée ; UI 390/1440 non démontrée en production |
+| Partage depuis un compte sur plusieurs ordinateurs | QR et session PC existants | PR #146 (rebase #133) encore ouverte ; test scan→validation→session→déconnexion/expiration réel manquant |
+| Battle PC 16:9, Solo/Battle 8 styles | Jeu actuel déployé, catalogue/règles de base présents | PR #118 (cockpit PC), #115 (8 styles et migration additive) ouvertes ; vérifier parité des questions, 4 choix, FREE, audio, latence |
+| Reconnaissance YouTube / micro | PR #136 : capture d'onglet PC, publiée Web selon journal GitHub | PR #119 priorité au micro sur métadonnées YouTube toujours ouverte ; essais réels audio YouTube mobile et iPhone non prouvés |
+| Story musiques + vues + événements | RPC vues, stories et PR #116 disponibles | Comparaison PC/iOS, droits, son, événements à venir et achat depuis Story non exhaustivement prouvés |
+| Loki Pulse / styles / artistes | Personnalisation goût et classement événement déjà en base | Catalogue « millions », variété/absence de répétitions et usage de tous styles non démontrés ; aucune soirée future dans `events` |
+| Chat / robot / push / son | Plusieurs correctifs antérieurs existent | Reprendre tests d'ancrage dernier message, clavier, réponse WhatsApp, partage privé, son après ouverture, push app fermée, bot secoué |
+| Quotas FREE, recharges, Super Admin | Contrats et migrations périodiques déjà présents | Contrôler périodicité jour/semaine/mois, quotas du bon compte et offre affichée dans les deux interfaces ; sans modifier les crédits réels |
+| Mise à jour automatique ordinateur | PR #148 code écrit | Attendre test de contrat/CI et vérifier `version.json` en direct après publication ; ne pas confondre Web et TestFlight |
+
+**Ordre de réparation** : (1) publication et rafraîchissement visible / preuve SHA ; (2) UI ordinateur/boutique/rail/navigation ; (3) QR + sessions ; (4) Soirées/Stories/Pulse ; (5) écoute réelle/Battle/son ; (6) chat/notifications ; (7) Super Admin et quotas ; (8) livraison iOS et preuve même contrat fonctionnel. Conserver toutes les données, les gardes et la seule application `packages/mobile`, sans supprimer les anciennes fonctions.
 
 ## Les 5 missions de gouvernance — état réel au 06/10/2026
 

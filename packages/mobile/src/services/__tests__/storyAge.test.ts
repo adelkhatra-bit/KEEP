@@ -49,11 +49,14 @@ describe('Rangée de stories : ne se vide jamais + garder en public épingle (Ad
   it('un rechargement garde les bulles affichées tant que les données ne sont pas complètes', () => {
     expect(bar).toContain('const previous = new Map(storiesRef.current.map');
     expect(bar).toContain('let degraded = false;');
-    expect(bar).toContain('if (!degraded) setStories(Array.from(collected.values()));');
+    expect(bar).toContain('if (!degraded) {');
+    expect(bar).toContain('reconcileStoryRefresh(storiesRef.current, Array.from(collected.values())');
   });
-  it('un GARDER public épingle aussi la musique (même déjà gardée avant) puis rallume le cercle', () => {
-    expect(deck).toContain('void pinStoryTrack(resolveKeptTrackId(keptTrack.id), keptTrack)');
-    expect(deck).toContain('.finally(() => notifyOwnStoryChanged())');
+  it('un nouveau GARDER public rallume le cercle sans seconde épingle (keep_decisions auto), mais garde une action explicite pour les anciennes musiques', () => {
+    const freshKeep = deck.slice(deck.indexOf('const confirmKeep = async ('), deck.indexOf('const continueAfterKeepSuccess = async'));
+    expect(freshKeep).toContain('notifyOwnStoryChanged()');
+    expect(freshKeep).not.toContain('pinStoryTrack(');
+    expect(deck).toContain('await pinStoryTrack(resolveKeptTrackId(track.id), track)');
   });
 });
 
@@ -89,7 +92,8 @@ describe('Mémoire locale du profil : affichage instantané (Adel 05/10/2026)', 
   });
   it('profil et rangée de stories sont écrits en mémoire seulement avec des données serveur complètes', () => {
     expect(screen).toContain("writeProfileMemory(user.id, 'public', publicState.value)");
-    expect(bar).toContain("if (!degraded) writeProfileMemory(viewer.id, 'story-rail'");
+    expect(bar).toContain("void writeProfileMemory(viewer.id, 'story-rail', stable.slice(0, 12)");
+    expect(bar).toContain('if (!degraded) {');
   });
 });
 
@@ -246,5 +250,16 @@ describe('Ma story : total des j\'aime visible (Adel 10/10/2026)', () => {
     const bar = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'ProfileStoryBar.tsx'), 'utf8');
     expect(bar).toContain('loadLikeCounts(openStory.tracks.map');
     expect(bar).toContain('❤️ ${ownLikeTotal}');
+  });
+});
+
+describe('Story visiteur : étiquettes lisibles sans chevauchement (13/10/2026)', () => {
+  const deck = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'MusicSwipeDeckModal.tsx'), 'utf8');
+  it('affiche PAYANT / GRATUIT dans une rangée dédiée, jamais en position absolue sur la pochette', () => {
+    expect(deck).toContain('<View style={s.priceBadgeRow} testID="deck-price-badge">');
+    expect(deck).toContain('priceBadgeRow:{flexShrink:0');
+    expect(deck).not.toContain("priceBadge:{position:'absolute'");
+    expect(deck).toContain('numberOfLines={2}>{priceBadge.label}');
+    expect(deck.match(/testID="deck-price-badge"/g)).toHaveLength(1);
   });
 });

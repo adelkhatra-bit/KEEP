@@ -18,6 +18,7 @@ on:
 # exclusive with all other production-backed Chromium audits.
 concurrency:
   group: keep-production-supabase-browser-audits
+  queue: max
   cancel-in-progress: false
 
 permissions:

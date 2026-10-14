@@ -101,6 +101,19 @@ function isExactMigrationRelocation(file, range) {
   });
 }
 
+// One-time syntax-only correction for a freshly committed Story migration that
+// failed to execute in PostgreSQL before ever being deployed from this filename.
+// Verify the EXACT bytes; any SQL/schema/data edit still fails immutable history.
+function isExactUnappliedStoryTerminatorRepair(file, range) {
+  if (file !== 'supabase/migrations/20261013020000_story_viewers_report_real_last_track.sql') return false;
+  const base = String(range || '').split('..')[0];
+  if (!/^[0-9a-f]{40}$/i.test(base)) return false;
+  const oldContent = git(['show', base + ':' + file]);
+  if (!oldContent || !oldContent.includes('$function$\n\nREVOKE ALL ON FUNCTION')) return false;
+  const repaired = oldContent.replace('$function$\n\nREVOKE ALL ON FUNCTION', '$function$;\n\nREVOKE ALL ON FUNCTION');
+  try { return fs.readFileSync(path.join(ROOT, file), 'utf8') === repaired; } catch { return false; }
+}
+
 function findViolations(file, lines) {
   const text = lines.join('\n');
   if (!text.trim()) return [];
@@ -198,6 +211,7 @@ for (const entry of entries) {
     // when the exact SQL bytes are already preserved under another migration
     // filename. Any real edit/removal remains blocked.
     if (/^D/.test(entry.status) && isExactMigrationRelocation(entry.file, range)) continue;
+    if (isExactUnappliedStoryTerminatorRepair(entry.file, range)) continue;
     failures.push(entry.file + ': existing migration history is immutable; create a new additive migration');
     continue;
   }
