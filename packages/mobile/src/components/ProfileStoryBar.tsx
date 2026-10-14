@@ -47,6 +47,7 @@ import {
 } from '../services/musicStoriesService';
 import { colors } from '../theme/colors';
 import { ownBadgeFor, ownBadgeMessage, pruneExpiredStory } from '../services/storyActivity';
+import { reconcileStoryRefresh } from '../services/storyRefreshReconciliation';
 import { shareReferralLink } from '../services/referralShare';
 import { buildViewerDetail } from '../services/storyViewerDetail';
 import { loadMyLikesAmong, loadLikeCounts, likeKey } from '../services/trackLikesService';
@@ -113,6 +114,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   }, [viewer.id]);
   const [stories, setStories] = useState<MusicStory[]>([]);
   const storiesRef = React.useRef<MusicStory[]>([]);
+  const storyMissingRefreshRef = React.useRef(new Map<string, number>());
   const [reloadTick, setReloadTick] = useState(0);
   const lastBumpRef = React.useRef(0);
   storiesRef.current = stories;
@@ -120,6 +122,12 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const [openStory, setOpenStory] = useState<MusicStory | null>(null);
   const [viewers, setViewers] = useState<StoryViewer[] | null>(null);
   const [viewersOpen, setViewersOpen] = useState(false);
+  const [viewersError, setViewersError] = useState(false);
+  const refreshViewers = useCallback(() => {
+    void loadMyStoryViewers()
+      .then((rows) => { setViewers(rows); setViewersError(false); })
+      .catch(() => { setViewersError(true); }); // conserver la dernière liste, ne jamais fabriquer « 0 vue »
+  }, []);
   // « En savoir plus » d'un spectateur : musique par musique (temps, ❤, endroit où il est parti).
   const [detailFor, setDetailFor] = useState<string | null>(null);
   const [detailLikes, setDetailLikes] = useState<Record<string, Set<string>>>({});
@@ -127,7 +135,9 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     if (detailFor === viewerId) { setDetailFor(null); return; }
     setDetailFor(viewerId);
     if (detailLikes[viewerId] || !openStory) return;
-    void loadMyLikesAmong(viewerId, openStory.tracks.map((track) => track.id)).then((set) => setDetailLikes((previous) => ({ ...previous, [viewerId]: set }))).catch(() => setDetailLikes((previous) => ({ ...previous, [viewerId]: new Set() })));
+    void loadMyLikesAmong(viewerId, openStory.tracks.map((track) => track.id))
+      .then((set) => setDetailLikes((previous) => ({ ...previous, [viewerId]: set })))
+      .catch(() => {}); // erreur réseau : ne jamais inventer une absence de cœur
   };
   const watchRef = React.useRef<ReturnType<typeof watchStoryOf>>(null);
   const [plusOpen, setPlusOpen] = useState(false);
@@ -251,9 +261,17 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
       await Promise.all([bubblesMeta, storiesMeta]);
       if (!live) return;
       // Données complètes : on retire alors les bulles qui ont disparu côté serveur (story expirée, désabonnement).
-      if (!degraded) setStories(Array.from(collected.values()));
-      // Mémoire : 12 membres, 12 musiques chacun au plus (le disque reste léger), et seulement des données complètes.
-      if (!degraded) writeProfileMemory(viewer.id, 'story-rail', Array.from(collected.values()).slice(0, 12).map((story) => ({ ...story, tracks: story.tracks.slice(0, 12) })));
+      if (!degraded) {
+        // An authoritative refresh can temporarily contain zero music stories
+        // if a concurrent source completed before its pins/decisions settled.
+        // Keep an unexpired bubble for just ONE absent full snapshot; two
+        // confirmed misses remove it. Never retain a story past 24 hours.
+        const stable = reconcileStoryRefresh(storiesRef.current, Array.from(collected.values()), storyMissingRefreshRef.current);
+        setStories(stable);
+        void writeProfileMemory(viewer.id, 'story-rail', stable.slice(0, 12).map((story) => ({
+          ...story, tracks: story.tracks.slice(0, 12),
+        })));
+      }
       if (!activityFailed) setActivityKnown(true);
       // Une seule nouvelle tentative, 6 s plus tard, si une branche a échoué (jamais de boucle : règle de résilience de connexion).
       if (degraded && attempt === 0 && live) retryTimer = setTimeout(() => { if (live) void run(1); }, 6000);
@@ -296,7 +314,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     const refreshEvents = () => {
       void loadEventStories().then((rows) => {
         if (mounted) setEventStories(rows.filter((item) => eventStoryStillVisible(item)));
-      }).catch(() => { if (mounted) setEventStories([]); });
+      }).catch(() => { if (mounted) setEventStories((current) => current.filter((event) => eventStoryStillVisible(event))); });
     };
     refreshEvents();
     const interval = setInterval(refreshEvents, 60000);
@@ -322,9 +340,25 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   // Liste des vues ouverte : on la rafraîchit toutes les 8 s pour voir « regarde maintenant » puis « parti il y a … » sans quitter l'écran.
   useEffect(() => {
     if (!viewersOpen) return;
-    const timer = setInterval(() => { loadMyStoryViewers().then(setViewers).catch(() => {}); }, 8000);
+    refreshViewers();
+    const timer = setInterval(refreshViewers, 8000);
     return () => clearInterval(timer);
-  }, [viewersOpen]);
+  }, [viewersOpen, refreshViewers]);
+
+  // Les cœurs peuvent arriver pendant que le propriétaire consulte le détail sur un autre appareil.
+  // Même table track_likes et même rafraîchissement 8 s sur iPhone / ordinateur.
+  useEffect(() => {
+    if (!viewersOpen || !detailFor || !openStory || openStory.profileId !== viewer.id) return undefined;
+    let live = true;
+    const refreshHearts = () => {
+      void loadMyLikesAmong(detailFor, openStory.tracks.map((track) => track.id))
+        .then((set) => { if (live) setDetailLikes((previous) => ({ ...previous, [detailFor]: set })); })
+        .catch(() => {}); // conserver le dernier état en cas de coupure
+    };
+    refreshHearts();
+    const timer = setInterval(refreshHearts, 8000);
+    return () => { live = false; clearInterval(timer); };
+  }, [viewersOpen, detailFor, openStory, viewer.id]);
 
   // Départ : fermeture de la story, app mise en arrière-plan ou écran quitté -> le propriétaire voit tout de suite « parti ».
   const stopWatch = useCallback(() => { watchRef.current?.stop(); watchRef.current = null; }, []);
@@ -351,7 +385,10 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     watchRef.current = null;
     if (story.profileId === viewer.id) {
       setViewers(null);
-      loadMyStoryViewers().then(setViewers).catch(() => setViewers([]));
+      setViewersError(false);
+      setDetailFor(null);
+      setDetailLikes({});
+      refreshViewers();
     } else {
       // Façon Instagram : la vue ne compte qu'après quelques secondes de présence réelle ; durée, musiques vues, écoute et départ sont suivis.
       watchRef.current = watchStoryOf(story.profileId, ordered.length);
@@ -632,6 +669,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
 
       <MusicSwipeDeckModal
         visible={Boolean(openStory)}
+        ownStoryView={isOwnOpen}
         tracks={openStory?.tracks ?? []}
         initialTrackId={openStory?.tracks[0]?.id ?? null}
         resetKey={openStory?.profileId ?? null}
@@ -641,20 +679,27 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         onTitlePress={!isOwnOpen && openStory ? () => { const username = openStory.username; setOpenStory(null); setTimeout(() => setQuickUsername(username), 350); } : undefined}
         // Adel 05/10/2026 : « tu écris trop » -- plus de phrase d'accroche sur la story d'un autre (elle nommait à tort le diffuseur comme crédité).
         headerExtra={isOwnOpen ? (
-          <TouchableOpacity style={styles.viewsChip} onPress={() => setViewersOpen(true)} accessibilityRole="button" accessibilityLabel="Voir qui a vu ta story" testID="story-views-chip">
-            <Text style={styles.viewsChipText}>👁 {viewers ? `${viewers.length} vue${viewers.length > 1 ? 's' : ''}` : '… vues'} {ownLikeTotal !== null ? ` · ❤️ ${ownLikeTotal}` : ''} · Voir qui ›</Text>
+          <TouchableOpacity style={styles.viewsChip} onPress={() => { setViewersOpen(true); refreshViewers(); }} accessibilityRole="button" accessibilityLabel="Voir qui a vu ta story" testID="story-views-chip">
+            <Text style={styles.viewsChipText}>👁 {viewers ? `${viewers.length} spectateur${viewers.length > 1 ? 's' : ''}` : '… spectateurs'} {ownLikeTotal !== null ? ` · ❤️ ${ownLikeTotal}` : ''} · Voir qui ›</Text>
           </TouchableOpacity>
         ) : null}
         overlay={isOwnOpen && viewersOpen ? (
           <SafeAreaView style={styles.backdrop}>
             <View style={styles.sheet}>
               <View style={styles.sheetHeader}>
-                <Text style={styles.sheetTitle}>Vues de ta story</Text>
+                <Text style={styles.sheetTitle}>Qui a vu ta story ?</Text>
                 <TouchableOpacity onPress={() => setViewersOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer la liste" style={styles.sheetClose}><Text style={styles.sheetCloseText}>✕</Text></TouchableOpacity>
               </View>
-              {viewers && viewers.length === 0 ? <Text style={styles.viewsEmpty}>Aucune vue</Text> : null}
+              {viewers === null && !viewersError ? <Text style={styles.viewsEmpty}>Chargement des vues…</Text> : null}
+              {viewersError ? (
+                <TouchableOpacity onPress={refreshViewers} accessibilityRole="button" accessibilityLabel="Réessayer le chargement des vues" testID="story-viewers-retry">
+                  <Text style={styles.viewsEmpty}>Synchronisation des vues indisponible · Réessayer</Text>
+                </TouchableOpacity>
+              ) : null}
+              {!viewersError && viewers && viewers.length === 0 ? <Text style={styles.viewsEmpty}>Aucune vue enregistrée</Text> : null}
               {/* Vues façon Instagram (Adel, 06/10/2026) : une bulle par spectateur, indépendante ; on touche une bulle → ce qu'il a vu.
                   Pastille : ✓ = toute la story, sinon « vues / total ». Aucun texte long, aucune durée. */}
+              <Text style={styles.detailMeta}>1 spectateur = 1 personne, même si elle ouvre plusieurs morceaux ou revient. Chaque pastille indique les morceaux réellement consultés lors de sa dernière visite.</Text>
               <ScrollView contentContainerStyle={styles.viewerGrid}>
                 {(viewers ?? []).map((v) => {
                   const total = openStory?.tracks.length || v.tracksTotal || 0;
@@ -686,7 +731,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
                       </TouchableOpacity>
                     </View>
                     <ScrollView style={{ maxHeight: 260 }}>
-                      {detail.rows.length === 0 ? <Text style={styles.detailMeta}>Rien vu</Text> : null}
+                      {detail.rows.length === 0 ? <Text style={styles.detailMeta}>{v.tracksSeen > 0 ? 'Vue enregistrée · détail musical indisponible pour cette visite' : 'Aucun morceau suivi'}</Text> : null}
                       {detail.rows.map((r) => (
                         <View key={`${v.viewerId}-${r.trackId}`} style={[styles.detailRow, (r.outcome === 'LEFT_HERE' || r.outcome === 'WATCHING') && styles.detailRowLeft]} testID={`story-viewer-track-${v.viewerId}-${r.index}`}>
                           <Text style={styles.detailIcon} accessibilityLabel={r.label}>{r.outcome === 'FULL' ? '✓' : r.outcome === 'SKIPPED' ? '⏭' : r.outcome === 'WATCHING' ? '●' : '■'}</Text>
@@ -695,7 +740,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
                         </View>
                       ))}
                     </ScrollView>
-                    <Text style={styles.detailLegend}>✓ entière · ⏭ passée · ■ arrêt</Text>
+                    <Text style={styles.detailLegend}>Dernière visite · ✓ entière · ⏭ passée · ■ arrêt</Text>
                   </View>
                 );
               })()}

@@ -12,10 +12,10 @@ export default function MoreInfoLine({ short, full, tone = 'info', icon }: { sho
   const [open, setOpen] = useState(false);
   return (
     <View style={s.wrap}>
-      <TouchableOpacity style={s.row} onPress={() => setOpen((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={`${short}. ${open ? 'Masquer le détail' : 'Plus'}`} hitSlop={6}>
+      <TouchableOpacity style={s.row} onPress={() => setOpen((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={`${short}. ${open ? 'Moins' : 'Plus'}`} hitSlop={6}>
         {icon ? <Text style={[s.icon, tone === 'warn' && s.warn]}>{icon}</Text> : null}
         <Text style={[s.short, tone === 'warn' && s.warn]} numberOfLines={1}>{short}</Text>
-        <Text style={[s.chevron, tone === 'warn' && s.warn]}>{open ? '˄' : '›'}</Text>
+        <Text style={[s.chevron, tone === 'warn' && s.warn]}>{open ? 'Moins ˄' : 'Plus ›'}</Text>
       </TouchableOpacity>
       {open ? <Text style={s.full}>{full}</Text> : null}
     </View>
@@ -28,6 +28,6 @@ const s = StyleSheet.create({
   icon: { color: colors.textMutedGrey, fontSize: 13 },
   short: { flexShrink: 1, color: colors.textMutedGrey, fontSize: 12, fontWeight: '800' },
   warn: { color: colors.warning },
-  chevron: { color: colors.textMutedGrey, fontSize: 16, fontWeight: '900' },
+  chevron: { color: '#D8C5FF', fontSize: 12, fontWeight: '900' },
   full: { color: colors.textSecondary, fontSize: 12, lineHeight: 17, fontWeight: '600', marginTop: 2, marginBottom: 4 },
 });

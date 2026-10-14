@@ -333,7 +333,7 @@ function buildProfileCopy(username: string): ShareCopy {
   const link = buildPublicProfileLink(clean);
   const identity = own ? [current?.city, current?.countryCode].filter(Boolean).join(' · ') : '';
   const profileLine = own ? `Découvre mon profil ${APP_NAME} ${clean}` : `Découvre le profil ${APP_NAME} ${clean}`;
-  const message = `${profileLine} 🎧\n${APP_NAME} DNA · Vibes · morceaux · réseaux${identity ? ` · ${identity}` : ''}\n\n${KEEP_SHARE_SLOGAN}\n${link}`;
+  const message = `${profileLine} 🎧\n${APP_NAME} DNA · Styles · morceaux · réseaux${identity ? ` · ${identity}` : ''}\n\n${KEEP_SHARE_SLOGAN}\n${link}`;
   return {
     kind: 'profile',
     heading: own ? `Partager mon profil ${APP_NAME}` : `Partager la collection de ${clean}`,
@@ -373,9 +373,9 @@ function buildContextCopy(kind: Exclude<ShareKind, 'profile' | 'track'>, label: 
 
   const details: Record<typeof kind, { heading: string; subject: string; intro: string; eventName: ShareEvent }> = {
     vibe: {
-      heading: `Partager la Vibe « ${label} »`,
-      subject: `${label} · Vibe ${APP_NAME}`,
-      intro: `🎵 Cette Vibe ${APP_NAME} me ressemble : « ${label} ». Swipe-la et vois ce que tu garderais.`,
+      heading: `Partager le Style « ${label} »`,
+      subject: `${label} · Style ${APP_NAME}`,
+      intro: `🎵 Ce Style ${APP_NAME} me ressemble : « ${label} ». Swipe-le et vois ce que tu garderais.`,
       eventName: 'playlist_share',
     },
     session: {
@@ -458,7 +458,7 @@ export async function sharePlaylist(playlistId: string, playlistName: string): P
 
   const planCode = await loadCurrentPlanCode(state.user.id).catch(() => 'FREE');
   if (!hasFeature(planCode, 'PUBLIC_PLAYLISTS')) {
-    Alert.alert('Premium requis', `Le partage de Vibes publiques est inclus à partir de ${APP_NAME} Premium (2,99 €/mois).`);
+    Alert.alert('Premium requis', `Le partage de Styles publics est inclus à partir de ${APP_NAME} Premium.`);
     return;
   }
 

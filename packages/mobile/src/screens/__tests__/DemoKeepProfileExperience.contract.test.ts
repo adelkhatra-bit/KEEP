@@ -42,7 +42,7 @@ describe('Demo keep confirmation + visited profile premium design', () => {
   });
 
   it('resolves an inline audio preview even when discovery search links exist', () => {
-    expect(listen).toContain('if (track.previewUrl || embedUrl) return;');
+    expect(listen).toContain('if (track.previewUrl || sourceOnlyVideo) return;');
     expect(listen).not.toContain('if (track.previewUrl || embedUrl || externalPlayUrl) return;');
     expect(listen).toContain('resolveTrackPreviewUrl(track)');
   });
@@ -55,7 +55,7 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     // 02/10/2026 : boutique vendeur validée par Adel (SellerBoutique : Drop du moment 3 max + étagère + boutique).
     expect(profile).toContain('<SellerBoutique');
     expect(boutique).toContain('accessibilityLabel="Collections à débloquer"');
-    expect(boutique).toContain('TOUCHE POUR ÉCOUTER · TITRES PROTÉGÉS');
+    expect(boutique).toContain('▶ ÉCOUTER');
     expect(profile).not.toContain("mode={unlocked ? 'UNLOCKED' : 'LOCKED'}");
     expect(styleCard).toContain('<ImageBackground');
     expect(styleCard).toContain('const PUBLIC_GRADIENTS');
@@ -79,10 +79,10 @@ describe('Demo keep confirmation + visited profile premium design', () => {
 
   it('makes a seller and their Drops unmistakable without adding a bulky shop header', () => {
     expect(profile).toContain('offers={profileBoutiqueOffers}');
-    expect(boutique).toContain('★ PÉPITE À LA UNE');
+    expect(boutique).toContain('★ À LA UNE');
     expect(boutique).toContain("ownerMode ? 'COLLECTIONS À LA UNE' : 'BOUTIQUE MUSICALE · SES PÉPITES'");
     expect(boutique).toContain('Tout voir · {visibleOffers.length} ›');
-    expect(boutique).toContain('TOUCHE POUR ÉCOUTER · TITRES PROTÉGÉS');
+    expect(boutique).toContain('▶ ÉCOUTER');
     expect(profile).not.toContain('BOUTIQUE MUSICALE ACTIVE');
   });
 
@@ -197,7 +197,7 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(swipe).toContain("setPrefilterRemovedCount(0)");
     expect(swipe).toContain(": (loop ? shuffle(inputTracks) : inputTracks);");
     expect(swipe).not.toContain("preparedTracksRef.current = result.tracks");
-    expect(swipe).toContain("rightLabel={currentAlreadyKept ? 'DÉJÀ' : 'GARDER'}");
+    expect(swipe).toContain("rightLabel={ownStoryView ? 'DÉJÀ EN STORY' : currentAlreadyKept ? 'DÉJÀ' : 'GARDER'}");
   });
 
   it('waits for the Swipe deck to be ready before starting audio, preventing the first-preview cut', () => {

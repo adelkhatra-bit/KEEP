@@ -7,17 +7,26 @@ DECLARE
   v_new text;
   v_order_old text := $old$
   order by
+    -- Followed organizers first; taste and locality decide the rest.
     case when exists(select 1 from public.follows f where f.follower_id=auth.uid() and f.followee_id=e.creator_id) then 0 else 1 end,
+    case when exists(
+      select 1 from public.profiles viewer
+      where viewer.id=auth.uid() and exists(
+        select 1 from unnest(coalesce(viewer.favorite_artists,array[]::text[])) as favorite(artist)
+        join unnest(coalesce(e.dj_artist_names,array[]::text[])) as advertised(artist)
+          on lower(trim(favorite.artist))=lower(trim(advertised.artist))
+      )
+    ) then 0 else 1 end,
+    case when exists(select 1 from public.profiles viewer where viewer.id=auth.uid() and viewer.country_code=e.country_code) then 0 else 1 end,
+    (r.going_count*5 + r.maybe_count + r.checked_in_count*10) desc,
     s.created_at desc
 $old$;
   v_order_new text := $new$
   order by
-    case
-      when exists(select 1 from public.follows f where f.follower_id=auth.uid() and f.followee_id=e.creator_id) then 0
-      when exists(select 1 from public.keep_decisions k where k.profile_id=auth.uid() and k.source_user_id=e.creator_id and k.decision='KEPT') then 1
-      when e.country_code is not null and e.country_code=(select v.country_code from viewer v) then 2
-      else 3 end,
-    least((r.going_count*5 + r.maybe_count + r.checked_in_count*10),1000) desc,
+    case when exists(select 1 from public.follows f where f.follower_id=auth.uid() and f.followee_id=e.creator_id) then 0 else 1 end,
+    case when exists(select 1 from public.keep_decisions k where k.profile_id=auth.uid() and k.source_user_id=e.creator_id and k.decision='KEPT') then 0 else 1 end,
+    case when e.country_code is not null and e.country_code=(select v.country_code from viewer v) then 0 else 1 end,
+    (r.going_count*5 + r.maybe_count + r.checked_in_count*10) desc,
     s.created_at desc
 $new$;
 BEGIN

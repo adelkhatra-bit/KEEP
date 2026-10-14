@@ -59,7 +59,7 @@ const SHARE_CHANNEL_BASE_LABELS: Record<string, string> = {
   profile_owner: 'Partage de mon profil',
   profile_visitor: 'Partage du profil d’un autre utilisateur',
   track: 'Partage d’un morceau',
-  vibe: 'Partage d’une Vibe (playlist)',
+  vibe: 'Partage d’un Style (playlist)',
   session: 'Partage d’une session',
   compare: 'Partage d’une comparaison DNA',
   event: 'Partage d’un événement',
@@ -231,7 +231,7 @@ export default function Dashboard() {
 
           <div className="plan-cards" style={{ marginTop: 22 }}>
             <section className="plan-card" style={{ flexBasis: 360, maxWidth: 'none' }}>
-              <header className="plan-card-head">📤 Partages<Hint title="Partages" text="Partages faits par les vrais utilisateurs, par type. Partager ne coûte rien et ne rapporte pas de FREE (les paliers donnent des Découvertes et des Vibes)."/></header>
+              <header className="plan-card-head">📤 Partages<Hint title="Partages" text="Partages faits par les vrais utilisateurs, par type. Partager ne coûte rien et ne rapporte pas de FREE (les paliers donnent des Découvertes et des Styles)."/></header>
               <div className="stat"><b>{v2 ? v2.shares.real : data.shares}</b><span>partages réels</span></div>
               {v2 && <div className="stat"><b>{v2.shares.sharers}</b><span>personnes qui partagent</span></div>}
               <Bars rows={(v2 ? v2.shares.byChannel : data.sharesByChannel).map((r) => ({ label: shareChannelLabel(r.channel || ''), value: r.count }))} color="#34d399" empty="Aucun partage sur la période." />

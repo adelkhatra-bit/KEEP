@@ -25,6 +25,7 @@ $fn$;
 revoke all on function public.keep_auto_publish_event_story_on_approval() from public, anon, authenticated;
 
 drop trigger if exists keep_auto_event_story_approval on public.events;
+drop trigger if exists trg_keep_auto_event_story_approved on public.events;
 create trigger keep_auto_event_story_approval
 after insert or update of moderation_status on public.events
 for each row execute function public.keep_auto_publish_event_story_on_approval();

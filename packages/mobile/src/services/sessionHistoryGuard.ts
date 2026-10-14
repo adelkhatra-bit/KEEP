@@ -1,12 +1,15 @@
 import { Alert } from '../utils/keepAlert';
 import { useSessionStore } from '../store/useSessionStore';
+import { isContinuousTabMusicActive } from './continuousTabMusicSession';
 
 /**
  * Ouvrir « Mes Sessions » : si le micro écoute, on demande d'abord d'arrêter l'écoute.
  * Source unique pour l'écran Loki (téléphone) et la barre latérale du bureau.
  */
 export function openSessionHistoryGuarded(navigate: () => void) {
-  if (!useSessionStore.getState().isActive) { navigate(); return; }
+  // Browsing saved sessions must not stop a browser tab still being monitored.
+  // The CURRENT live session remains protected until explicit STOP / Swipe.
+  if (isContinuousTabMusicActive() || !useSessionStore.getState().isActive) { navigate(); return; }
   Alert.alert('Terminer l’écoute pour ouvrir Mes Sessions ?',
     'Le micro sera arrêté. Les morceaux détectés restent dans ta session pour être réécoutés, swipés et sélectionnés. Tu pourras ensuite relancer une écoute.',
     [

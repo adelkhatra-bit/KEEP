@@ -168,9 +168,9 @@ export default function PayoutCheckoutSheet({
                   onPress={() => setQrHelpOpen((value) => !value)}
                   accessibilityRole="button"
                   accessibilityState={{ expanded: qrHelpOpen }}
-                  accessibilityLabel="Afficher les détails du QR PayPal"
+                  accessibilityLabel="Plus : utilisation du QR PayPal"
                 >
-                  <Text style={s.qrHelpToggleText}>INTÉGRATION PAYPAL · {qrHelpOpen ? 'MASQUER' : 'Plus'} {qrHelpOpen ? '˄' : '˅'}</Text>
+                  <Text style={s.qrHelpToggleText}>INTÉGRATION PAYPAL · {qrHelpOpen ? 'MOINS' : 'PLUS'} {qrHelpOpen ? '˄' : '˅'}</Text>
                 </TouchableOpacity>
                 {qrHelpOpen ? (
                   <View style={s.qrHelpBox}>

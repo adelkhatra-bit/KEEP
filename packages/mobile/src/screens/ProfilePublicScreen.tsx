@@ -24,6 +24,7 @@ import { getDownloadCreditStatus, loadFreeSpentToday } from '../services/creditS
 import { loadMyFreeWalletStatus } from '../services/freeWalletService';
 import { keepLokiPulseTrack } from '../services/lokiPulseKeep';
 import { hideLokiPulseTrack, loadLokiPulse, LokiPulseItem } from '../services/lokiPulseService';
+import { loadPulseSimilarProfiles, type PulseSimilarProfile } from '../services/pulseSimilarProfilesService';
 import { loadEventStories, type EventStoryCard } from '../services/eventStoryService';
 import { loadPulsePreferenceState } from '../services/pulsePreferenceService';
 import { loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadMyActiveKeepBattleArena, loadMyKeepBattleCreditStatus, loadMyKeepBattleStats, KeepBattleStats } from '../services/keepBattleService';
@@ -67,6 +68,7 @@ import { loadProfileSaleSuggestions, ProfileSaleSuggestion } from '../services/p
 import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
 import PublicProfilePanel from '../components/PublicProfilePanel';
 import CreatorToolsPanel from '../components/CreatorToolsPanel';
+import CreatorSalesCockpit from '../components/CreatorSalesCockpit';
 import HelpLegalPanel from '../components/HelpLegalPanel';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import MusicStyleBubbles from '../components/MusicStyleBubbles';
@@ -77,6 +79,7 @@ import KeepModal from '../components/KeepModal';
 import EarReportModal from '../components/EarReportModal';
 import { needsTasteOnboarding } from '../services/tasteOnboarding';
 import { useCollapsedSection } from '../services/useCollapsedSection';
+import { useLayoutMode } from '../layout/layoutMode';
 
 type ProfileTab = 'TRACKS' | 'PLAYLISTS' | 'ARTISTS';
 type SocialPlatform = SocialLink['platform'];
@@ -153,6 +156,7 @@ const PROFILE_KIND_LABELS: Record<ProfileKind, string> = {
 };
 
 export default function ProfilePublicScreen({ navigation }: any) {
+  const { isDesktop: desktopProfile } = useLayoutMode();
   const user = useUserStore((s) => s.user);
   const setUser = useUserStore((s) => s.setUser);
   const enterDemoMode = useUserStore((s) => s.enterDemoMode);
@@ -564,6 +568,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [profileSwipeOpen, setProfileSwipeOpen] = useState(false);
   const [selectionSwipe, setSelectionSwipe] = useState<{ title: string; subtitle: string; tracks: CanonicalTrack[]; sourceByTrack?: Record<string, { profileId?: string; username?: string; avatarUrl?: string | null }> } | null>(null);
   const [lokiPulseItems, setLokiPulseItems] = useState<LokiPulseItem[]>([]);
+  const [pulseSimilarProfiles, setPulseSimilarProfiles] = useState<PulseSimilarProfile[]>([]);
   const [myPulseEventStories, setMyPulseEventStories] = useState<EventStoryCard[]>([]);
   const [recommendedEventStories, setRecommendedEventStories] = useState<EventStoryCard[]>([]);
   const [lokiPulseSwipeOpen, setLokiPulseSwipeOpen] = useState(false);
@@ -712,9 +717,14 @@ export default function ProfilePublicScreen({ navigation }: any) {
     let live = true;
     const refreshPulse = async () => {
       if (!user || accountRequired) {
-        if (live) setLokiPulseItems([]);
+        if (live) { setLokiPulseItems([]); setPulseSimilarProfiles([]); }
         return;
       }
+      // Match public members using both favorite and automatically learned
+      // styles. Never block music loading if the people service is offline.
+      void loadPulseSimilarProfiles(8)
+        .then((rows) => { if (live) setPulseSimilarProfiles(rows); })
+        .catch(() => { if (live) setPulseSimilarProfiles([]); });
       try {
         const items = await loadLokiPulse(60, user.id);
         if (live) setLokiPulseItems(items);
@@ -1552,7 +1562,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       setPlaylistTracks((current) => ({ ...current, [playlist.id]: visibleTracks }));
       return visibleTracks;
     } catch {
-      Alert.alert('Vibe Loki Music', 'Impossible de charger les morceaux de cette collection pour le moment.');
+      Alert.alert('Style Loki Music', 'Impossible de charger les morceaux de cette collection pour le moment.');
       return [];
     } finally {
       setLoadingPlaylistId(null);
@@ -1567,7 +1577,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
   const openPlaylistSwipe = async (playlist: ProviderPlaylist) => {
     const tracks = await loadPlaylistTracks(playlist);
-    if (!tracks.length) return Alert.alert('Vibe Loki Music', 'Cette collection ne contient pas encore de morceau à swiper.');
+    if (!tracks.length) return Alert.alert('Style Loki Music', 'Cette collection ne contient pas encore de morceau à swiper.');
     openSelectionSwipe({ title: playlist.name, subtitle: 'Ta sélection, morceau après morceau.', tracks });
   };
 
@@ -1657,14 +1667,14 @@ export default function ProfilePublicScreen({ navigation }: any) {
       return <View style={s.keepList}>
         <View style={s.ownerMusicInfo}>
           <View style={s.ownerMusicInfoHeader}>
-            <Text style={s.ownerKeepHintCompact}>Loki Music construit ton univers : Vibes et artistes.</Text>
+            <Text style={s.ownerKeepHintCompact}>Loki Music construit ton univers : Styles et artistes.</Text>
             <TouchableOpacity
               style={s.ownerMusicInfoToggle}
               onPress={() => setOwnerMusicInfoOpen((open) => !open)}
               accessibilityRole="button"
-              accessibilityLabel={ownerMusicInfoOpen ? 'Réduire les explications Loki Music' : 'Afficher les détails de Loki Music'}
+              accessibilityLabel={ownerMusicInfoOpen ? 'Réduire les explications Loki Music' : 'Plus : Loki Music'}
             >
-              <Text style={s.ownerMusicInfoToggleText}>{ownerMusicInfoOpen ? 'Réduire' : 'Plus'}</Text>
+              <Text style={s.ownerMusicInfoToggleText}>{ownerMusicInfoOpen ? 'Moins' : 'Plus'}</Text>
               <Text style={s.ownerMusicInfoChevron}>{ownerMusicInfoOpen ? '⌃' : '⌄'}</Text>
             </TouchableOpacity>
           </View>
@@ -1738,14 +1748,14 @@ export default function ProfilePublicScreen({ navigation }: any) {
         <View style={s.growthPanel}>
           <Text style={s.growthText}>
             {smartSortAccess?.unlimited
-              ? 'Génération automatique de tes Vibes en cours -- reviens dans quelques instants.'
+              ? 'Génération automatique de tes Styles en cours -- reviens dans quelques instants.'
               : smartSortAccess?.allowed
-              ? `Pas encore de Vibe automatique par genre. Il te reste ${smartSortAccess.remaining ?? 0} essai${(smartSortAccess.remaining ?? 0) > 1 ? 's' : ''} gratuit${(smartSortAccess.remaining ?? 0) > 1 ? 's' : ''} -- lance "TESTER VIBES AUTO" depuis Mes musiques.`
-              : 'Pas encore de Vibe automatique par genre. Le classement automatique est réservé à Creator Pro/Venue Pro, ou à gagner en développant ta communauté.'}
+              ? `Pas encore de Style automatique par genre. Il te reste ${smartSortAccess.remaining ?? 0} essai${(smartSortAccess.remaining ?? 0) > 1 ? 's' : ''} gratuit${(smartSortAccess.remaining ?? 0) > 1 ? 's' : ''} -- lance "TESTER STYLES AUTO" depuis Mes musiques.`
+              : 'Pas encore de Style automatique par genre. Le classement automatique est réservé à Creator Pro/Venue Pro, ou à gagner en développant ta communauté.'}
           </Text>
         </View>
       ) : null;
-      if (!displayPlaylists.length) return <View>{vibesHint}<Empty text="Tes Vibes apparaîtront ici automatiquement." /></View>;
+      if (!displayPlaylists.length) return <View>{vibesHint}<Empty text="Tes Styles apparaîtront ici automatiquement." /></View>;
       // Adel (05/10/2026) : « style c'est parfait, fais pareil pour le reste » -- Playlists et Artistes reprennent EXACTEMENT les cartes premium des Styles
       // (pochette, badge, nombre de morceaux, grille 2 colonnes) ; toucher une carte lance le Swipe.
       return <View>{vibesHint}<View style={s.ownerStyleGrid}>{displayPlaylists.map((playlist, index) => {
@@ -2194,7 +2204,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
                 }
                 navigation.navigate('PlaylistSale');
               }}
-              accessibilityLabel={accountRequired ? 'Comprendre comment publier une Pépite' : 'Gérer pépites'}
+              accessibilityLabel={accountRequired ? 'Comprendre comment publier une Pépite' : 'Vendre mes musiques ou gérer ma boutique'}
             >
               ◆ VENDRE
             </MotionActionButton>
@@ -2204,17 +2214,41 @@ export default function ProfilePublicScreen({ navigation }: any) {
             ⚡ BATTLE
           </MotionActionButton>
         </View>
-        <MotionActionButton
-          variant="outline"
-          size="medium"
-          containerStyle={s.ownerCreateEventAction}
-          onPress={() => navigation.navigate('Parties', { openCreateEvent: true, source: 'profile-event' })}
-          accessibilityLabel="Créer une soirée gratuite ou vendre des billets"
-        >
-          ＋ SOIRÉE · BILLETS
-        </MotionActionButton>
+        {desktopProfile && !accountRequired ? (
+          <View style={{ flexDirection: 'row', gap: 10, width: '100%', marginTop: 12 }} testID="desktop-creator-cockpit">
+            <TouchableOpacity
+              style={{ flex: 1, minHeight: 48, borderWidth: 1, borderColor: colors.primaryLight, backgroundColor: colors.backgroundElevated, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}
+              onPress={() => navigation.navigate('Parties', { openCreateEvent: true, source: 'profile-event' })}
+              accessibilityRole="button" accessibilityLabel="Créer une soirée ou vendre des billets">
+              <Text style={{ color: colors.textPrimary, fontSize: 12, fontWeight: '900' }}>＋ SOIRÉE · BILLETS</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ flex: 1, minHeight: 48, borderWidth: 1, borderColor: colors.keep, backgroundColor: colors.backgroundElevated, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}
+              onPress={() => navigation.navigate('PlaylistSale', { openPaymentHistory: true })}
+              accessibilityRole="button" accessibilityLabel="Voir mes ventes et transactions">
+              <Text style={{ color: colors.textPrimary, fontSize: 12, fontWeight: '900' }}>VENTES</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <MotionActionButton
+            variant="outline"
+            size="medium"
+            containerStyle={s.ownerCreateEventAction}
+            onPress={() => navigation.navigate('Parties', { openCreateEvent: true, source: 'profile-event' })}
+            accessibilityLabel="Créer une soirée gratuite ou vendre des billets"
+          >
+            ＋ SOIRÉE · BILLETS
+          </MotionActionButton>
+        )}
 
       </ProfileMotionReveal>
+
+      {desktopProfile && !accountRequired ? (
+        <CreatorSalesCockpit
+          onMusicSales={() => navigation.navigate('PlaylistSale', { openPaymentHistory: true })}
+          onEventSales={() => navigation.navigate('Main', { screen: 'Parties', params: { openMyEvents: true } })}
+        />
+      ) : null}
 
       {!accountRequired && ownerBoutiqueOffers.length ? (
         <ProfileMotionReveal motionKey={`owner-drop:${user.id}:${ownerBoutiqueOffers.length}`} compact style={SELLER_BOUTIQUE_SECTION_STYLE}>
@@ -2403,7 +2437,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
           // honnête, sans inventer d'avantage qui n'existe pas encore.
           <TouchableOpacity style={[s.growthPanel, s.sectionMargin]} onPress={() => Alert.alert(
             '🏆 Audience Pro débloquée',
-            `Ce badge signale à toute la communauté que tu as une vraie audience (${growthStatus.audienceProThreshold ?? 1000}+ abonnés).\n\nAvantages déjà actifs :\n· Free en bonus sur ton solde\n· Des profils Découverte et essais Vibes Auto en plus, gagnés à mesure que ta communauté grandit\n\nC'est aussi le premier palier vers les collections exclusives (déblocage séparé, par abonnés) quand tu en as assez.`,
+            `Ce badge signale à toute la communauté que tu as une vraie audience (${growthStatus.audienceProThreshold ?? 1000}+ abonnés).\n\nAvantages déjà actifs :\n· Free en bonus sur ton solde\n· Des profils Découverte et essais Styles Auto en plus, gagnés à mesure que ta communauté grandit\n\nC'est aussi le premier palier vers les collections exclusives (déblocage séparé, par abonnés) quand tu en as assez.`,
           )}><Text style={s.growthBadgeText}>🏆 AUDIENCE PRO DÉBLOQUÉE · {growthStatus.followers} abonnés</Text><Text style={[s.growthText, { textAlign: 'center', marginTop: 4 }]}>Toucher pour voir les avantages ⓘ</Text></TouchableOpacity>
         ) : growthStatus.nextFollowerGoal ? (
           <View style={[s.growthPanel, s.sectionMargin]}>
@@ -2412,11 +2446,11 @@ export default function ProfilePublicScreen({ navigation }: any) {
               {/* Adel (14/09/2026) : "un point d'interrogation, il met une
                   explication claire. C'est quoi le bonus ?" -- les paliers
                   d'abonnés (25/100/250/500/1000) donnent des bonus
-                  différents (profils Découverte, essais Vibes Auto, Free,
+                  différents (profils Découverte, essais Styles Auto, Free,
                   Audience Pro à 1000) ; jamais un seul type de bonus,
                   d'où une explication générale plutôt qu'un chiffre figé
                   qui pourrait se tromper si Adel change les seuils. */}
-              <TouchableOpacity hitSlop={8} onPress={() => Alert.alert('Bonus Loki Music', 'Chaque palier d’abonnés débloque un bonus différent : des profils Découverte en plus, des essais Vibes Auto gratuits, du Free en plus, et à 1000 abonnés le badge Audience Pro. Plus tu as d’abonnés, plus les bonus grandissent.')}>
+              <TouchableOpacity hitSlop={8} onPress={() => Alert.alert('Bonus Loki Music', 'Chaque palier d’abonnés débloque un bonus différent : des profils Découverte en plus, des essais Styles Auto gratuits, du Free en plus, et à 1000 abonnés le badge Audience Pro. Plus tu as d’abonnés, plus les bonus grandissent.')}>
                 <Text style={{ color: colors.primaryLight, fontSize: 15, fontWeight: '900', marginLeft: 6 }}>ⓘ</Text>
               </TouchableOpacity>
             </View>
@@ -2522,22 +2556,22 @@ export default function ProfilePublicScreen({ navigation }: any) {
       ) : null}
 
 
-      {!accountRequired && (visibleLokiPulseItems.length > 0 || myPulseEventStories.length > 0 || recommendedEventStories.length > 0) ? (
+      {!accountRequired && (visibleLokiPulseItems.length > 0 || myPulseEventStories.length > 0 || recommendedEventStories.length > 0 || pulseSimilarProfiles.length > 0) ? (
         <View style={s.lokiPulseSection} testID="profile-loki-pulse-track-bubbles">
           <View style={s.lokiPulseHeader}>
             <View style={s.lokiPulseHeaderCopy}>
               <Text style={s.lokiPulseEyebrow}>LOKI PULSE</Text>
               <Text style={s.lokiPulseTitle}>Des sons et soirées pour toi</Text>
             </View>
-            <Text style={s.lokiPulseCost}>Musiques · collection</Text>
+            <Text style={s.lokiPulseCost}>Musiques · profils · soirées</Text>
           </View>
           {myPulseEventStories.length ? <View style={{ gap: 7, paddingHorizontal: 12, paddingTop: 10 }}>
-            <Text style={{ color: colors.keep, fontWeight: '900', fontSize: 12 }}>MES SOIRÉES · POINTS PULSE</Text>
+            <Text style={{ color: colors.keep, fontWeight: '900', fontSize: 12 }}>SOIRÉES À DÉCOUVRIR · LOKI PULSE</Text>
             {myPulseEventStories.map((event) => (
               <TouchableOpacity key={event.eventId} style={{ borderRadius: 14, borderWidth: 1, borderColor: colors.primaryLight, paddingHorizontal: 12, paddingVertical: 10, minHeight: 48, flexDirection: 'row', gap: 10, alignItems: 'center' }}
                 onPress={() => navigation.navigate('Parties', { openEventId: event.eventId })} accessibilityRole="button"
                 accessibilityLabel={`Ouvrir la soirée ${event.name} et son score Loki Pulse`} testID={`loki-pulse-event-${event.eventId}`}>
-                <Text style={{ color: colors.textPrimary, fontSize: 12, fontWeight: '800', flex: 1 }} numberOfLines={1}>{event.name}</Text>
+                <Text style={{ color: colors.textPrimary, fontSize: 12, fontWeight: '800', flex: 1 }} numberOfLines={1}>{event.creatorId === user.id ? 'MA SOIRÉE · ' : 'SOIRÉE · '}{event.name}</Text>
                 <Text style={{ color: colors.keep, fontSize: 12, fontWeight: '900' }}>{event.pulseScore} PTS</Text>
               </TouchableOpacity>
             ))}
@@ -2563,7 +2597,27 @@ export default function ProfilePublicScreen({ navigation }: any) {
               </TouchableOpacity>
             ))}
           </View> : null}
-          {visibleLokiPulseItems.length > 0 ? <Text style={s.lokiPulseHint}>Musiques choisies à partir de tes écoutes. Appuie pour écouter.</Text> : null}
+          {pulseSimilarProfiles.length > 0 ? (
+            <View testID="loki-pulse-people-same-style" style={{ paddingTop: 10, gap: 8 }}>
+              <Text style={{ color: '#68F2B1', fontSize: 12, fontWeight: '900', paddingHorizontal: 12 }}>PROFILS QUI AIMENT TES STYLES</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingHorizontal: 12, paddingBottom: 8 }}>
+                {pulseSimilarProfiles.map((person) => (
+                  <TouchableOpacity key={person.profileId} testID={`loki-pulse-similar-${person.profileId}`}
+                    onPress={() => navigation.navigate('PublicProfile', { username: person.username })}
+                    accessibilityRole="button" accessibilityLabel={`Voir @${person.username} : styles musicaux en commun`}
+                    style={{ width: 136, minHeight: 132, borderRadius: 16, padding: 10, alignItems: 'center', gap: 6, borderWidth: 1, borderColor: '#A78BFA', backgroundColor: '#1A142A' }}>
+                    {person.avatarUrl ? <Image source={{ uri: person.avatarUrl }} style={{ width: 54, height: 54, borderRadius: 27 }} /> :
+                      <View style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: '#423258', alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: 19 }}>{person.username.slice(0, 1).toUpperCase()}</Text>
+                      </View>}
+                    <Text style={{ fontSize: 12, fontWeight: '900', color: '#FFFFFF', maxWidth: '100%' }} numberOfLines={1}>@{person.username}</Text>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#DCCFFF', textAlign: 'center' }} numberOfLines={2}>{person.sharedStyle} · {person.matchScore} pts</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          ) : null}
+          <Text style={s.lokiPulseHint}>Appris par Loki à partir de tes écoutes et adapté à tes goûts. Appuie sur une bulle pour écouter.</Text>
           <ScrollView
             ref={lokiPulseScrollRef}
             horizontal
@@ -2765,7 +2819,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     <MusicSwipeDeckModal
       visible={Boolean(selectionSwipe)}
       tracks={selectionSwipe?.tracks ?? []}
-      title={selectionSwipe?.title ?? 'Vibe Loki Music'}
+      title={selectionSwipe?.title ?? 'Style Loki Music'}
       sourceUsername={user.username}
       sourceAvatarUrl={user.avatar}
       sourceByTrack={selectionSwipe?.sourceByTrack}
@@ -2859,7 +2913,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
         <View style={s.shareSheet}>
           <View style={s.sheetHandle} />
           <Text style={s.shareTitle}>Partager mon profil Loki Music</Text>
-          <Text style={s.shareSubtitle}>Ton univers musical tient dans un lien. Fais découvrir ton Loki Pulse, tes Vibes, tes réseaux et ce qui te ressemble.</Text>
+          <Text style={s.shareSubtitle}>Ton univers musical tient dans un lien. Fais découvrir ton Loki Pulse, tes Styles, tes réseaux et ce qui te ressemble.</Text>
           <View style={s.linkPreview}><Text style={s.linkPreviewText} numberOfLines={2}>{publicProfileLink}</Text></View>
           <MotionActionButton variant="primary" size="medium" onPress={shareNative} accessibilityLabel="Decouvrir"><Text style={s.shareActionPrimaryText}>FAIRE DÉCOUVRIR MON Loki Music</Text></MotionActionButton>
           <View style={s.shareCompactRow}>
@@ -2897,7 +2951,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
               <View style={s.qrStatDivider}/>
               <View style={s.qrStat}><Text style={s.qrStatValue}>{profileFollowerCount}</Text><Text style={s.qrStatLabel}>ABONNÉS</Text></View>
               <View style={s.qrStatDivider}/>
-              <View style={s.qrStat}><Text style={s.qrStatValue}>{displayPlaylists.length}</Text><Text style={s.qrStatLabel}>VIBES</Text></View>
+              <View style={s.qrStat}><Text style={s.qrStatValue}>{displayPlaylists.length}</Text><Text style={s.qrStatLabel}>STYLES</Text></View>
             </View>
             <View style={s.qrCodeZone}>
               <View style={s.qrBox}><QRCode value={publicProfileLink} size={172} color="#0B0A12" backgroundColor="#FFFFFF" /></View>

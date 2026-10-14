@@ -12,6 +12,21 @@ const profile = fs.readFileSync(
   'utf8',
 ).replace(/\r\n/g, '\n');
 
+describe('Profile private-info late hydration', () => {
+  const editor = fs.readFileSync(path.resolve(__dirname, '..', '..', 'screens', 'ProfileSettingsMobileScreen.tsx'), 'utf8');
+
+  it('does not overwrite late date/genre hydration while the editor is open', () => {
+    expect(editor).toContain('if (!editedBirthDateRef.current) setBirthDate');
+    expect(editor).toContain('if (!editedGenderRef.current) setGender');
+    expect(editor).toContain('birthDate: !editedBirthDateRef.current');
+    expect(editor).toContain('gender: !editedGenderRef.current');
+    expect(profile).toContain('options.preserveUneditedPrivateFields?.birthDate');
+    expect(profile).toContain('options.preserveUneditedPrivateFields?.gender');
+    expect(profile).toContain('existingPrivate?.birth_date');
+    expect(profile).toContain('existingPrivate?.gender');
+  });
+});
+
 describe('Profile outage cache', () => {
   it('persists the public profile content needed to avoid an empty desktop profile during an outage', () => {
     for (const field of ['bio:', 'city:', 'countryCode:', 'website:', 'favoriteGenres:', 'favoriteArtists:', 'socialLinks:']) {

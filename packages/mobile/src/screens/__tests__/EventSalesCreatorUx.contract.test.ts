@@ -17,7 +17,7 @@ describe('Loki event creation, sale and auto promotion safety', () => {
 
   it('offers direct payout configuration rather than directing people to nested settings', () => {
     expect(parties).toContain('testID="event-direct-ticket-payout"');
-    expect(parties).toContain('setMyPayoutLink(ticketPayoutLink.trim())');
+    expect(parties).toContain('setMyPayoutLink(payoutLink)');
     expect(parties).toContain('getMyPayoutMethods()');
     expect(parties).toContain("ticketPriceCents !== null && !ticketPayoutReady");
     expect(parties).toContain("ticketPriceCents !== null ? 'PUBLIER · BILLETS'");
@@ -55,6 +55,7 @@ describe('Loki event creation, sale and auto promotion safety', () => {
     expect(sql).toContain('coalesce(new.is_disabled, false)');
     expect(sql).toContain("coalesce(new.ends_at, new.starts_at + interval '6 hours') <= now()");
     expect(sql).toContain('on conflict(event_id) do nothing');
+    expect(sql).toContain('drop trigger if exists trg_keep_auto_event_story_approved on public.events');
     expect(sql).toContain('after insert or update of moderation_status on public.events');
     expect(sql).not.toContain('delete from public.');
   });

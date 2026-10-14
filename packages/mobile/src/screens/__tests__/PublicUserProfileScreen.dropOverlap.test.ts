@@ -28,7 +28,7 @@ describe('PublicUserProfileScreen — Boutique musicale et titres nouveaux', () 
 
   it('affiche la Boutique musicale sans toucher aux compteurs du profil', () => {
     expect(source).toContain('BOUTIQUE MUSICALE');
-    expect(boutique).toContain('BOUTIQUE MUSICALE');
+    expect(boutique).toContain("ownerMode ? 'COLLECTIONS À LA UNE' : 'BOUTIQUE MUSICALE · SES PÉPITES'");
   });
 
   it('le bouton pluriel enchaîne toutes les Pépites à la une', () => {
@@ -50,11 +50,11 @@ describe('PublicUserProfileScreen — Boutique musicale et titres nouveaux', () 
     expect(boutique).toContain("const free = offer.paymentMode === 'FREE';");
     expect(boutique).toContain('✓ DÉBLOQUÉE');
     expect(source).toContain('onOpenOffer={(offer) => openSaleFolder(offer)}');
-    expect(boutique).toContain('PÉPITE À LA UNE');
-    expect(boutique).toContain('TOUCHE POUR ÉCOUTER · TITRES PROTÉGÉS');
-    expect(boutique).toContain('TOUCHE POUR ÉCOUTER TA COLLECTION');
+    expect(boutique).toContain('★ À LA UNE');
+    expect(boutique).toContain('▶ ÉCOUTER');
+    expect(boutique).toContain('▶ ÉCOUTER');
     expect(boutique).toContain('dropPlay');
-    expect(boutique).toContain('1 clic pour écouter');
+    expect(boutique).toContain('collection${visibleOffers.length > 1');
     expect(boutique).toContain('▶ ÉCOUTER LES APERÇUS');
     expect(boutique).not.toContain('Afficher le drop');
     expect(boutique).not.toContain('setDropIndex');
@@ -85,7 +85,7 @@ describe('PublicUserProfileScreen — Boutique musicale et titres nouveaux', () 
   it('garde la même configuration d’écoute côté vendeur et réserve la gestion au bouton PÉPITES du profil', () => {
     expect(boutique).toContain('▶ ÉCOUTER LES APERÇUS');
     expect(boutique).not.toContain('◆ GÉRER MES COLLECTIONS');
-    expect(boutique).toContain('TOUCHE POUR ÉCOUTER TA COLLECTION');
+    expect(boutique).toContain('▶ ÉCOUTER');
   });
 
   it('utilise exactement la même SellerBoutique sur le profil propriétaire', () => {

@@ -9,10 +9,11 @@ describe('Solo / Battle : la jaquette reste un CARRÉ qui descend jusqu\'aux 4 r
     expect(styleLine('visual')).toContain('borderRadius: 20');
     expect(styleLine('visual')).not.toMatch(/\bheight:\s*\d+/);
   });
-  it('solo and online visuals are 1:1 squares capped by the iPhone design width', () => {
+  it('solo visuals keep the iPhone design width while the desktop arena uses the available space', () => {
     expect(styleLine('soloVisual')).toContain('aspectRatio: 1');
     expect(styleLine('arenaVisualActive')).toContain('aspectRatio: 1');
     expect(src).toContain('battle-solo-artwork-square');
-    expect(src).toContain('const battleDesignWidth = Math.min(windowWidth, isDesktopBattle ? 560 : 430);');
+    expect(src).toContain('const battleDesignWidth = Math.min(windowWidth, 430);');
+    expect(src).toContain('const desktopGameWidth = Math.min(1100, Math.max(430, windowWidth - 300));');
   });
 });

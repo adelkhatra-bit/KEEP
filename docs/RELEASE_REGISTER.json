@@ -1,74 +1,362 @@
 [
   {
-    "commit": "43f1f945748ccfc2498ab3b8775a47d47279eee5",
-    "web": "43f1f945748ccfc2498ab3b8775a47d47279eee5",
-    "testflight": "iOS #228 success (release f8dbd60)",
-    "ota": "OTA #1019 success (release f8dbd60)",
-    "date": "2026-10-12 01:55",
+    "commit": "82aae496b1166a5bf945ebc55fc7e597e02c5e0f",
+    "web": "82aae496b1166a5bf945ebc55fc7e597e02c5e0f",
+    "testflight": "iOS #243 in_progress (release 82aae49)",
+    "ota": "OTA #1034 in_progress (release 82aae49)",
+    "date": "2026-10-14 11:54",
     "tests": "pass",
-    "changes": "fix(mobile/web): ouvrir réellement Swipe depuis les sessions et centrer les fenêtres (#120)"
+    "changes": "fix(playlist): lire un titre YouTube dans Loki Music au lieu de rediriger vers YouTube (#202)"
   },
   {
-    "commit": "f8dbd60c9caa6ac32f804c2568f00b6387fe788c",
-    "web": "f8dbd60c9caa6ac32f804c2568f00b6387fe788c",
-    "testflight": "iOS #228 in_progress (release f8dbd60)",
-    "ota": "OTA #1019 in_progress (release f8dbd60)",
-    "date": "2026-10-11 23:35",
+    "commit": "3b4bff95d54223ecb81641ee392826c4a5a9c9c4",
+    "web": "3b4bff95d54223ecb81641ee392826c4a5a9c9c4",
+    "testflight": "iOS #242 in_progress (release 3b4bff9)",
+    "ota": "OTA #1033 in_progress (release 3b4bff9)",
+    "date": "2026-10-14 00:31",
     "tests": "pass",
-    "changes": "feat(loki): unify iPhone and desktop quota, sessions, events and Pulse (#112)"
+    "changes": "fix(swipe): rétablir le Swipe de l'aperçu profil et des Stories avec titres YouTube (#199)"
   },
   {
-    "commit": "d678e5602dc290c16cf072a2938f7a3993c05b96",
-    "web": "d678e5602dc290c16cf072a2938f7a3993c05b96",
-    "testflight": "iOS #227 success (release a1d7ac3)",
-    "ota": "OTA #1018 success (release a1d7ac3)",
-    "date": "2026-10-11 19:06",
+    "commit": "3868a14cdbf1061681f5201e89c076d65af8f4be",
+    "web": "3868a14cdbf1061681f5201e89c076d65af8f4be",
+    "testflight": "iOS #241 in_progress (release 3868a14)",
+    "ota": "OTA #1032 in_progress (release 3868a14)",
+    "date": "2026-10-13 23:26",
     "tests": "pass",
-    "changes": "fix(desktop): accueil et Stories cadrés, sans contrôles superposés (#111)"
+    "changes": "release(loki): OTA production alignée sur le build TestFlight 439 (#197)"
   },
   {
-    "commit": "a1d7ac3f199ac6b45f601cee77e0ec3a12dd6e26",
-    "web": "a1d7ac3f199ac6b45f601cee77e0ec3a12dd6e26",
-    "testflight": "iOS #227 in_progress (release a1d7ac3)",
-    "ota": "OTA #1018 in_progress (release a1d7ac3)",
-    "date": "2026-10-11 18:24",
+    "commit": "5696a081f4ec904f1a38961633904c066a184c72",
+    "web": "5696a081f4ec904f1a38961633904c066a184c72",
+    "testflight": "iOS #null null (release 12219bc)",
+    "ota": "OTA #null null (release 12219bc)",
+    "date": "2026-10-13 22:52",
     "tests": "pass",
-    "changes": "release(ios+web): publish verified PR110 on unified TestFlight and desktop source"
+    "changes": "release(loki): ship Vibes→Styles, Recharges FREE Super Admin et Robot de parcours 50/50 to Web/TestFlight/OTA (#196)"
   },
   {
-    "commit": "d13e0f18c6a429d39bb0a21604abe9c0e5009296",
-    "web": "d13e0f18c6a429d39bb0a21604abe9c0e5009296",
-    "testflight": "iOS #226 success (release bcd5711)",
-    "ota": "OTA #1017 success (release bcd5711)",
-    "date": "2026-10-11 18:17",
+    "commit": "13a6e68ec1a811ec06311b9b7f7a3bede0deb66c",
+    "web": "13a6e68ec1a811ec06311b9b7f7a3bede0deb66c",
+    "testflight": "iOS #239 success (release 92a9036)",
+    "ota": "OTA #1030 success (release 92a9036)",
+    "date": "2026-10-13 20:49",
     "tests": "pass",
-    "changes": "release: Loki web/iOS sync, PC countdown, stories and atomic FREE dedup (#110)"
+    "changes": "feat(offres): Vibes → Styles, prix en dur retirés, recharges FREE réglables (#194)"
   },
   {
-    "commit": "d8b1fa9f96cdc4539f660c3747296003ad221561",
-    "web": "d8b1fa9f96cdc4539f660c3747296003ad221561",
-    "testflight": "iOS #226 success (release bcd5711)",
-    "ota": "OTA #1017 success (release bcd5711)",
-    "date": "2026-10-11 13:07",
+    "commit": "92a903692752980cce32a33249eccb4b90e62ea7",
+    "web": "92a903692752980cce32a33249eccb4b90e62ea7",
+    "testflight": "iOS #239 in_progress (release 92a9036)",
+    "ota": "OTA #1030 in_progress (release 92a9036)",
+    "date": "2026-10-13 20:21",
     "tests": "pass",
-    "changes": "fix(ci): garde-fou navigateur sur PR servi avec repli SPA (comme GitHub Pages) — reload sans 404"
+    "changes": "release(loki): ship PR189 raised reaction counters, 3D neon Swipe and compact Plus to Web/TestFlight/OTA"
   },
   {
-    "commit": "dbd1012b2921109f8ab22320dd429161451253bb",
-    "web": "dbd1012b2921109f8ab22320dd429161451253bb",
-    "testflight": "iOS #226 success (release bcd5711)",
-    "ota": "OTA #1017 success (release bcd5711)",
-    "date": "2026-10-11 12:43",
+    "commit": "d5012e6e2b3e41a79a4ce62065e660e9f2a574ad",
+    "web": "d5012e6e2b3e41a79a4ce62065e660e9f2a574ad",
+    "testflight": "iOS #238 cancelled (release 98d3a9a)",
+    "ota": "OTA #1029 success (release 98d3a9a)",
+    "date": "2026-10-13 20:11",
     "tests": "pass",
-    "changes": "fix(release): garde-fou navigateur sur vrais profils d'appareil + exécuté sur chaque PR ; registre de versions ; règle « terminé = publié et vérifié »"
+    "changes": "fix(desktop/ui): réactions au-dessus du titre, contour néon animé, Plus partout (#189)"
   },
   {
-    "commit": "bcd5711",
-    "web": "bcd5711",
-    "testflight": "iOS #226 (réussi)",
-    "ota": "#1017 (réussie)",
-    "date": "2026-10-11 12:34",
+    "commit": "98d3a9a0dbff0d9bc4ed795cb29b270d4a354f2c",
+    "web": "98d3a9a0dbff0d9bc4ed795cb29b270d4a354f2c",
+    "testflight": "iOS #238 in_progress (release 98d3a9a)",
+    "ota": "OTA #1029 in_progress (release 98d3a9a)",
+    "date": "2026-10-13 19:50",
     "tests": "pass",
-    "changes": "PR 87 à 100 sur iPhone et site ; alerte RELEASE BLOQUÉE"
+    "changes": "fix(desktop/story): 3 compteurs lumineux au-dessus du titre et aide compacte Plus partout (#186)"
+  },
+  {
+    "commit": "d73e160ddb8c2333e4258ee9c17377782aa10f31",
+    "web": "d73e160ddb8c2333e4258ee9c17377782aa10f31",
+    "testflight": "iOS #237 in_progress (release d73e160)",
+    "ota": "OTA #1028 in_progress (release d73e160)",
+    "date": "2026-10-13 19:02",
+    "tests": "pass",
+    "changes": "release(ios+web): publish profile preview YouTube autoplay fallback and header UX, PR185 validated"
+  },
+  {
+    "commit": "421946a746014c2a52ca8afbaea03914e419cb1c",
+    "web": "421946a746014c2a52ca8afbaea03914e419cb1c",
+    "testflight": "iOS #236 cancelled (release 7e85c52)",
+    "ota": "OTA #1027 success (release 7e85c52)",
+    "date": "2026-10-13 18:55",
+    "tests": "pass",
+    "changes": "fix(preview): secours YouTube automatique + réactions remontées et « Plus » (#185)"
+  },
+  {
+    "commit": "7e85c52602f2472fbe70b685760abf38bad9fd55",
+    "web": "7e85c52602f2472fbe70b685760abf38bad9fd55",
+    "testflight": "iOS #236 in_progress (release 7e85c52)",
+    "ota": "OTA #1027 in_progress (release 7e85c52)",
+    "date": "2026-10-13 18:24",
+    "tests": "pass",
+    "changes": "release(iOS+Web): publier réellement Sessions + Loki Pulse + Swipe/Stories PR178/180/181 (#183)"
+  },
+  {
+    "commit": "3b439c1487520d8b2a05b696140093346059bd4a",
+    "web": "3b439c1487520d8b2a05b696140093346059bd4a",
+    "testflight": "iOS #235 cancelled (release 3b439c1)",
+    "ota": "OTA #1026 in_progress (release 3b439c1)",
+    "date": "2026-10-13 18:17",
+    "tests": "pass",
+    "changes": "release(ios+web): publish tested #181 Swipe audio, full-cover UI, Sessions and Pulse parity"
+  },
+  {
+    "commit": "3ce1cca0986affdc9eb641ea446994ee5a497047",
+    "web": "3ce1cca0986affdc9eb641ea446994ee5a497047",
+    "testflight": "iOS #234 success (release f8eacf5)",
+    "ota": "OTA #1025 success (release f8eacf5)",
+    "date": "2026-10-13 18:09",
+    "tests": "pass",
+    "changes": "fix(desktop): Swipe immersif + Stories stables sur version Pulse fusionnée (#181)"
+  },
+  {
+    "commit": "b1a6d5f64faa8b407d200b2f98a278647eb0acec",
+    "web": "b1a6d5f64faa8b407d200b2f98a278647eb0acec",
+    "testflight": "iOS #234 success (release f8eacf5)",
+    "ota": "OTA #1025 success (release f8eacf5)",
+    "date": "2026-10-13 17:53",
+    "tests": "pass",
+    "changes": "fix(stories/pulse): éviter les pubs intégrées, découvrir des profils de même style (#180)"
+  },
+  {
+    "commit": "09c32b06423d854015bb11d12e3f7dea0fe2640c",
+    "web": "09c32b06423d854015bb11d12e3f7dea0fe2640c",
+    "testflight": "iOS #234 success (release f8eacf5)",
+    "ota": "OTA #1025 success (release f8eacf5)",
+    "date": "2026-10-13 17:46",
+    "tests": "pass",
+    "changes": "fix(sessions/ios/web): préécoute immédiate, lien partagé audible et UI Swipe cohérente (#178)"
+  },
+  {
+    "commit": "1193d76158ea9fee1c0b3e0516371dbebf60d23f",
+    "web": "1193d76158ea9fee1c0b3e0516371dbebf60d23f",
+    "testflight": "iOS #234 success (release f8eacf5)",
+    "ota": "OTA #1025 success (release f8eacf5)",
+    "date": "2026-10-13 17:19",
+    "tests": "pass",
+    "changes": "fix(solo): 4 noms uniques, pays cohérent, plus d'artistes et styles crédibles (#176)"
+  },
+  {
+    "commit": "2b36c5caf2a1112490207b2e320b78eb139f0851",
+    "web": "2b36c5caf2a1112490207b2e320b78eb139f0851",
+    "testflight": "iOS #234 success (release f8eacf5)",
+    "ota": "OTA #1025 success (release f8eacf5)",
+    "date": "2026-10-13 17:06",
+    "tests": "pass",
+    "changes": "fix(swipe/iOS+PC): débloquer le Swipe et les extraits silencieux (#172)"
+  },
+  {
+    "commit": "70d1b4a28080e4c5f354ec5938934ed19e2736af",
+    "web": "70d1b4a28080e4c5f354ec5938934ed19e2736af",
+    "testflight": "iOS #234 success (release f8eacf5)",
+    "ota": "OTA #1025 success (release f8eacf5)",
+    "date": "2026-10-13 16:58",
+    "tests": "pass",
+    "changes": "fix(audio): déblocage des recherches Apple iTunes pendant Swipe et session (#173)"
+  },
+  {
+    "commit": "404f6694966f087e2f7433e689b4bf340815531a",
+    "web": "404f6694966f087e2f7433e689b4bf340815531a",
+    "testflight": "iOS #234 in_progress (release f8eacf5)",
+    "ota": "OTA #1025 in_progress (release f8eacf5)",
+    "date": "2026-10-13 16:29",
+    "tests": "pass",
+    "changes": "fix(solo): réponses difficiles par pays d’origine vérifié, genre et époque (#169)"
+  },
+  {
+    "commit": "f8eacf5396d262e939fd7bb12b38a33e4eb0cb5f",
+    "web": "f8eacf5396d262e939fd7bb12b38a33e4eb0cb5f",
+    "testflight": "iOS #234 in_progress (release f8eacf5)",
+    "ota": "OTA #1025 in_progress (release f8eacf5)",
+    "date": "2026-10-13 16:21",
+    "tests": "pass",
+    "changes": "release(ios+web): publish tested Story YouTube 153 and Swipe fixes"
+  },
+  {
+    "commit": "43afe855320a59c43a9e269884bf3b6ba0d706f1",
+    "web": "43afe855320a59c43a9e269884bf3b6ba0d706f1",
+    "testflight": "iOS #233 success (release c7f97df)",
+    "ota": "OTA #1024 success (release c7f97df)",
+    "date": "2026-10-13 16:13",
+    "tests": "pass",
+    "changes": "fix(story/ios): corriger YouTube 153 dans le vrai lecteur Story et le chevauchement Swipe (#167)"
+  },
+  {
+    "commit": "0346112aebc9fbce4aaa48157cbcdeb09f023bfd",
+    "web": "0346112aebc9fbce4aaa48157cbcdeb09f023bfd",
+    "testflight": "iOS #233 success (release c7f97df)",
+    "ota": "OTA #1024 success (release c7f97df)",
+    "date": "2026-10-13 14:55",
+    "tests": "pass",
+    "changes": "fix(ios): corriger le lecteur YouTube erreur 153 avec Referer WebView (#166)"
+  },
+  {
+    "commit": "84e3fbdc482f44e142dc17e3538ffb2af47ec43c",
+    "web": "84e3fbdc482f44e142dc17e3538ffb2af47ec43c",
+    "testflight": "iOS #233 success (release c7f97df)",
+    "ota": "OTA #1024 success (release c7f97df)",
+    "date": "2026-10-13 14:49",
+    "tests": "pass",
+    "changes": "Retour Soirées depuis Battle et mise en page PC élargie (#165)"
+  },
+  {
+    "commit": "c7f97df08df3f51cf31c33b53655e19fb536e72b",
+    "web": "c7f97df08df3f51cf31c33b53655e19fb536e72b",
+    "testflight": "iOS #233 in_progress (release c7f97df)",
+    "ota": "OTA #1024 in_progress (release c7f97df)",
+    "date": "2026-10-13 10:22",
+    "tests": "pass",
+    "changes": "chore(release): ship profile persistence, KEEP modal and iOS OTA updater (#163)"
+  },
+  {
+    "commit": "8e5905bb0565f2b9395b600513d96b68ce0d6a26",
+    "web": "8e5905bb0565f2b9395b600513d96b68ce0d6a26",
+    "testflight": "iOS #232 success (release c7cfb99)",
+    "ota": "OTA #1023 success (release c7cfb99)",
+    "date": "2026-10-13 10:14",
+    "tests": "pass",
+    "changes": "refactor(keep): remove unused KEEP choice modal (#162)"
+  },
+  {
+    "commit": "466a4f2dd69845175213b6c32e5a40657f804315",
+    "web": "466a4f2dd69845175213b6c32e5a40657f804315",
+    "testflight": "iOS #232 success (release c7cfb99)",
+    "ota": "OTA #1023 success (release c7cfb99)",
+    "date": "2026-10-13 10:07",
+    "tests": "pass",
+    "changes": "fix(profile): preserve late-loaded birthday and gender on Save (#161)"
+  },
+  {
+    "commit": "c7cfb993c2689d1e6655289351c27e7608e3f2b7",
+    "web": "c7cfb993c2689d1e6655289351c27e7608e3f2b7",
+    "testflight": "iOS #232 in_progress (release c7cfb99)",
+    "ota": "OTA #1023 in_progress (release c7cfb99)",
+    "date": "2026-10-13 00:45",
+    "tests": "pass",
+    "changes": "chore(release): déclencher TestFlight et OTA du correctif QR #158"
+  },
+  {
+    "commit": "cbacd1ac0d02f45fafed727318f0eb33c2274f6c",
+    "web": "cbacd1ac0d02f45fafed727318f0eb33c2274f6c",
+    "testflight": "iOS #231 success (release 5447724)",
+    "ota": "OTA #1022 success (release 5447724)",
+    "date": "2026-10-13 00:34",
+    "tests": "pass",
+    "changes": "fix(qr): attendre la session restaurée avant popup de connexion"
+  },
+  {
+    "commit": "f028cd025fb11fc4097e02f3e90534aef16aef78",
+    "web": "f028cd025fb11fc4097e02f3e90534aef16aef78",
+    "testflight": "iOS #231 success (release 5447724)",
+    "ota": "OTA #1022 success (release 5447724)",
+    "date": "2026-10-13 00:06",
+    "tests": "pass",
+    "changes": "test(stories): guard paid/free labels against artwork overlap"
+  },
+  {
+    "commit": "134632f136bae2e7009ab192eb3ba35e02606ca6",
+    "web": "134632f136bae2e7009ab192eb3ba35e02606ca6",
+    "testflight": "iOS #231 success (release 5447724)",
+    "ota": "OTA #1022 success (release 5447724)",
+    "date": "2026-10-12 23:58",
+    "tests": "pass",
+    "changes": "fix(stories): keep paid/free labels in layout flow outside cover"
+  },
+  {
+    "commit": "9c59676be777f3346202e97030c5e6ba31fd6520",
+    "web": "9c59676be777f3346202e97030c5e6ba31fd6520",
+    "testflight": "iOS #231 in_progress (release 5447724)",
+    "ota": "OTA #1022 in_progress (release 5447724)",
+    "date": "2026-10-12 22:28",
+    "tests": "pass",
+    "changes": "fix(guard): compare newline escapes correctly in exact story SQL syntax exception"
+  },
+  {
+    "commit": "c0c5a77993b2b956ffddd73023aa32d8e0aca752",
+    "web": "c0c5a77993b2b956ffddd73023aa32d8e0aca752",
+    "testflight": "iOS #230 success (release 1f44ee1)",
+    "ota": "OTA #1021 success (release 1f44ee1)",
+    "date": "2026-10-12 22:22",
+    "tests": "pass",
+    "changes": "test(story): verify real last viewed title after backward navigation"
+  },
+  {
+    "commit": "364b927c0d2d37307f7da0a87570fae06a3b3004",
+    "web": "364b927c0d2d37307f7da0a87570fae06a3b3004",
+    "testflight": "iOS #230 success (release 1f44ee1)",
+    "ota": "OTA #1021 success (release 1f44ee1)",
+    "date": "2026-10-12 22:15",
+    "tests": "pass",
+    "changes": "fix(stories): label unique viewers separately from tracks actually visited"
+  },
+  {
+    "commit": "7e6cce68130b981b6b855ba1e9ef278903ce28ec",
+    "web": "7e6cce68130b981b6b855ba1e9ef278903ce28ec",
+    "testflight": "iOS #230 success (release 1f44ee1)",
+    "ota": "OTA #1021 success (release 1f44ee1)",
+    "date": "2026-10-12 22:07",
+    "tests": "pass",
+    "changes": "test(music): align 12 regression suites with unified link preview, confirmed FREE KEEP and automatic public Story"
+  },
+  {
+    "commit": "54d74a5e00eeaa8a6ef9970994d9acc41a60026b",
+    "web": "54d74a5e00eeaa8a6ef9970994d9acc41a60026b",
+    "testflight": "iOS #230 success (release 1f44ee1)",
+    "ota": "OTA #1021 success (release 1f44ee1)",
+    "date": "2026-10-12 22:00",
+    "tests": "pass",
+    "changes": "fix(music): let a second shared link supersede slow first search and honor confirmed visibility"
+  },
+  {
+    "commit": "204bc622bfe079be9981fb8926b46bf60515f472",
+    "web": "204bc622bfe079be9981fb8926b46bf60515f472",
+    "testflight": "iOS #230 success (release 1f44ee1)",
+    "ota": "OTA #1021 success (release 1f44ee1)",
+    "date": "2026-10-12 21:45",
+    "tests": "pass",
+    "changes": "fix(ci): safely guard absent saved entry in unified Keep confirmation"
+  },
+  {
+    "commit": "87267b5631b7f167a31762298a021ce934be090b",
+    "web": "87267b5631b7f167a31762298a021ce934be090b",
+    "testflight": "iOS #230 success (release 1f44ee1)",
+    "ota": "OTA #1021 success (release 1f44ee1)",
+    "date": "2026-10-12 20:35",
+    "tests": "pass",
+    "changes": "fix(ci): use verified provider player identity for YouTube video id"
+  },
+  {
+    "commit": "82d6a0032075815111a5e2e23f552e2aec20bfd7",
+    "web": "82d6a0032075815111a5e2e23f552e2aec20bfd7",
+    "testflight": "iOS #230 success (release 1f44ee1)",
+    "ota": "OTA #1021 success (release 1f44ee1)",
+    "date": "2026-10-12 20:24",
+    "tests": "pass",
+    "changes": "fix(ci): remove duplicate pending-session counter declaration blocking mobile typecheck"
+  },
+  {
+    "commit": "48c651cd7e6a73b7ab405d00f723adae2b2179ad",
+    "web": "48c651cd7e6a73b7ab405d00f723adae2b2179ad",
+    "testflight": "iOS #230 success (release 1f44ee1)",
+    "ota": "OTA #1021 success (release 1f44ee1)",
+    "date": "2026-10-12 20:17",
+    "tests": "pass",
+    "changes": "fix(stories): exact embedded YouTube source over unrelated previews; no repeated KEEP on own Story"
+  },
+  {
+    "commit": "ce8b585a6fafc76519c8bd1efd1ea0ecae2ed182",
+    "web": "ce8b585a6fafc76519c8bd1efd1ea0ecae2ed182",
+    "testflight": "iOS #230 success (release 1f44ee1)",
+    "ota": "OTA #1021 success (release 1f44ee1)",
+    "date": "2026-10-12 20:10",
+    "tests": "pass",
+    "changes": "fix(swipe): advance only after server confirms KEEP and FREE debit"
   }
 ]

@@ -6,15 +6,21 @@ import { nextTickerBatch } from '../services/tickerMemory';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Image, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import TrackCover from '../components/TrackCover';
+import TemporaryMusicPreview, { type TemporaryMusicResult } from '../components/TemporaryMusicPreview';
+import type { CanonicalTrack } from '@keep/music';
+import { resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from '../utils/keepAlert';
 import { useTranslation } from 'react-i18next';
 import { KeepVisibility } from '../types';
 import { SILENCE_PROMPT_GRACE_MS, useSessionStore } from '../store/useSessionStore';
+import { isCloudProfileRecoverySession, useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { usePlaylistStore } from '../store/usePlaylistStore';
 import { useUserStore } from '../store/useUserStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import { musicEngine } from '../services/musicEngine';
+import { searchTrackByText } from '../services/keepMusicCoreRecognition';
+import { getSharedMusicSource, supportedSharedMusicUrl } from '../services/sharedMusicSourceService';
 import SwipeDeck from '../components/SwipeDeck';
 import TrackListenControls from '../components/TrackListenControls';
 import ListenEnergyAura from '../components/ListenEnergyAura';
@@ -27,13 +33,17 @@ import { useLayoutMode } from '../layout/layoutMode';
 import MotionActionButton from '../components/MotionActionButton';
 import { loadSessionScreenCopy, loadCurrentPlanCode, loadDemoListenLimit } from '../services/planService';
 import { getDownloadCreditStatus } from '../services/creditService';
-import { captureTabAudioSample, getMicPermissionStatus, MicPermissionDeniedError } from '../services/micCapture';
+import { getMicPermissionStatus, MicPermissionDeniedError } from '../services/micCapture';
+import { getContinuousTabState, isContinuousTabMusicActive, startContinuousTabMusic, stopContinuousTabMusic, subscribeContinuousTabState } from '../services/continuousTabMusicSession';
+
 import { colors } from '../theme/colors';
 import { minTouchTarget, typography } from '../theme/spacing';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import KeepVisibilityChoiceModal from '../components/KeepVisibilityChoiceModal';
 import { preloadTrackPreview, preloadTrackPreviewSegment, stopTrackPreview, stopTrackPreviewFast, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
+import { pinStoryTrack, notifyOwnStoryChanged } from '../services/musicStoriesService';
+import { resolveKeptTrackId } from '../services/keepTrackAction';
 import KeepModal from '../components/KeepModal';
 import { openSessionHistoryGuarded } from '../services/sessionHistoryGuard';
 
@@ -130,12 +140,26 @@ export default function HomeScreenCompact({ navigation }: any) {
   const listenTicker = useTickerMessages('listen');
   const { t } = useTranslation();
   const {
-    isActive, tracks, showEndPrompt, startedAt, error, signalHint, recognizing, micLevel, musicPresence, micPaused, silenceTimeoutMin, noMusicSince,
+    isActive, sessionId, tracks, showEndPrompt, startedAt, error, signalHint, recognizing, micLevel, musicPresence, micPaused, silenceTimeoutMin, noMusicSince,
     listenEconomyStatus, listenFreeRequired, listenFreeInsufficient, refreshListenEconomyStatus,
     useFreeForNextListen, dismissListenFreePrompt,
-    startSession, requestEndSession, dismissEndPrompt, keepTrack, passTrack, setTrackVisibility, submitManualSearch,
+    startSession, requestEndSession, dismissEndPrompt, keepTrack, passTrack, setTrackVisibility,
+    pauseListening, resumeListening, submitCapturedAudioRecognition,
   } = useSessionStore();
   const { playlists, refresh } = usePlaylistStore();
+  // The home badge reflects ALL the real pending decisions in Mes Sessions,
+  // not just the currently active microphone/tab capture. Rehydration updates
+  // it automatically on web and iOS, including after ending an audio session.
+  const persistedSessions = useSessionHistoryStore((state) => state.sessions);
+  const readyToSwipe = useMemo(() => {
+    const eligible = persistedSessions.filter((item) => !isCloudProfileRecoverySession(item));
+    const storedPending = eligible.reduce((count, item) =>
+      count + item.tracks.filter((entry) => entry.status === 'pending').length, 0);
+    const liveMissing = isActive && sessionId && !eligible.some((item) => item.id === sessionId)
+      ? tracks.filter((entry) => entry.status === 'pending').length
+      : 0;
+    return storedPending + liveMissing;
+  }, [persistedSessions, isActive, sessionId, tracks]);
   const user = useUserStore((s) => s.user);
   // Adel 05/10/2026 : le petit message vert du robot sur l'accueil « ne sert à rien » -> plus de bulle NO_FREE ici (le solde reste visible ailleurs).
   const isDemoMode = useUserStore((s) => s.isDemoMode);
@@ -402,21 +426,269 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [manualSearchQuery, setManualSearchQuery] = useState('');
   const [manualSearchBusy, setManualSearchBusy] = useState(false);
   const [manualSearchNotFound, setManualSearchNotFound] = useState(false);
+  // Éphémère : aucune recherche par lien n'est ajoutée aux sessions ou playlists.
+  const [manualSearchResult, setManualSearchResult] = useState<(TemporaryMusicResult & { track: CanonicalTrack }) | null>(null);
+  const [manualResultSaved, setManualResultSaved] = useState(false);
+  const [manualSaveBusy, setManualSaveBusy] = useState(false);
+  const [manualResultOpen, setManualResultOpen] = useState(false);
+  const [manualKeepChoiceOpen, setManualKeepChoiceOpen] = useState(false);
+  const [manualKeepPlaylistId, setManualKeepPlaylistId] = useState<string | undefined>(undefined);
+  const [manualKeepTarget, setManualKeepTarget] = useState<{ sessionId: string; entryId: string } | null>(null);
+  const [manualKeptVisibility, setManualKeptVisibility] = useState<'PUBLIC' | 'PRIVATE' | null>(null);
+  const [manualStoryPublished, setManualStoryPublished] = useState(false);
+  const searchGeneration = useRef(0);
+  const pausedForPreview = useRef(false);
 
-  const runManualSearch = async () => {
-    if (manualSearchBusy || !manualSearchQuery.trim()) return;
+  const closeManualSearchPreview = () => {
+    searchGeneration.current += 1; // Ignore an in-flight result after closing.
+    setManualSearchOpen(false);
+    setManualResultOpen(false);
+    setManualKeepChoiceOpen(false);
+    setManualKeepPlaylistId(undefined);
+    setManualKeepTarget(null);
+    setManualKeptVisibility(null);
+    setManualStoryPublished(false);
+    setManualSearchQuery('');
+    setManualSearchNotFound(false);
+    setManualSearchResult(null);
+    setManualResultSaved(false);
+    setManualSaveBusy(false);
+    setManualSearchBusy(false);
+    if (pausedForPreview.current) {
+      pausedForPreview.current = false;
+      if (useSessionStore.getState().isActive) resumeListening();
+    }
+  };
+
+  // Same logic on desktop and TestFlight, without touching either visual layout.
+  useEffect(() => {
+    const unsubscribe = navigation?.addListener?.('blur', closeManualSearchPreview);
+    return () => { unsubscribe?.(); searchGeneration.current += 1; };
+  }, [navigation]);
+
+  const openTemporaryMusicPreview = (found: Awaited<ReturnType<typeof searchTrackByText>>, raw: string): boolean => {
+    const pasted = supportedSharedMusicUrl(raw);
+    const sourceUrl = [
+      pasted,
+      found?.externalUrls?.source,
+      found?.externalUrls?.youtube,
+      found?.externalUrls?.spotify,
+      found?.externalUrls?.deezer,
+    ].find((url) => resolveEmbeddedMusicPlayer(url)) || pasted || null;
+    const embed = resolveEmbeddedMusicPlayer(sourceUrl);
+    if (!found && !embed) return false;
+    // Exact video metadata (verified server-side against the pasted video ID)
+    // is enough to keep a source link pending, without pretending it is an
+    // independently fingerprinted catalogue song. NEVER use a guessed iTunes
+    // preview for this source-only case.
+    const sourceOnly = Boolean(found && String(found.recognitionProviderTrackId ?? '').startsWith('source:'));
+    const originalEmbed = resolveEmbeddedMusicPlayer(pasted);
+    const verifiedEmbed = resolveEmbeddedMusicPlayer(found?.externalUrls?.source);
+    // The actual platform player identity must agree with the exact link
+    // verified by Supabase. Accept Spotify/Deezer too, but never a guessed
+    // catalogue match, an unrelated search URL or an opaque redirect.
+    const sameVerifiedPlayer = Boolean(originalEmbed && verifiedEmbed
+      && originalEmbed.provider === verifiedEmbed.provider
+      && originalEmbed.url === verifiedEmbed.url);
+    const sourceQueueable = sourceOnly && sameVerifiedPlayer;
+    // YouTube source-only is identified by its ACTUAL video, not a fuzzy
+    // artist/title match. Two different videos can share an uploader/title;
+    // recycling the same canonical ID made the next link reopen the first
+    // card in Mes Sessions and Swipe.
+    const youtubeVideoId = sameVerifiedPlayer && originalEmbed?.provider === 'YOUTUBE' && pasted
+      ? originalEmbed!.url.match(/\/embed\/([\w-]{11})/)?.[1] ?? null
+      : null;
+    const resolvedTrack: CanonicalTrack = found
+      ? sourceOnly && youtubeVideoId
+        ? {
+            ...musicEngine.trackResolver.resolveFromRecognition(found),
+            id: `source-youtube:${youtubeVideoId}`,
+            providerIds: { ...found.providerIds, youtube: youtubeVideoId },
+            externalUrls: { ...found.externalUrls, source: pasted! },
+          }
+        : musicEngine.trackResolver.resolveFromRecognition(found)
+      : { id: 'temporary-unidentified', title: 'Vidéo musicale partagée',
+          artist: 'Titre non identifié', artworkUrl: undefined, providerIds: {} } as CanonicalTrack;
+    const result: TemporaryMusicResult & { track: CanonicalTrack } = {
+      title: found?.title || 'Vidéo musicale partagée',
+      artist: found?.artist || 'Lien affiché · titre non identifié',
+      artworkUrl: found?.artworkUrl,
+      previewUrl: sourceOnly ? undefined : found?.previewUrl,
+      track: sourceOnly ? { ...resolvedTrack, previewUrl: undefined } : resolvedTrack,
+      sourceUrl,
+      sourceOnly: sourceQueueable,
+      // An exact provider video is actionable but NOT claimed as a licensed
+      // catalogue match. Its own embedded player supplies the excerpt.
+      identified: Boolean(found && (!sourceOnly || sourceQueueable)),
+    };
+    const session = useSessionStore.getState();
+    if (session.isActive && !session.micPaused && !pausedForPreview.current) {
+      pausedForPreview.current = true;
+      pauseListening(); // Prevent the in-app video from being captured by the mic.
+    }
+    // A verified music link is collected as PENDING automatically, free of
+    // charge. Only an explicit GARDER decision later can debit FREE or publish
+    // the song to the member's profile/Story. Repeated shares are idempotent.
+    let queued: { sessionId: string; entryId: string } | null = null;
+    if (result.identified && found) {
+      try {
+        const history = useSessionHistoryStore.getState();
+        const owner = user && !isDemoMode ? user.id : undefined;
+        const saved = history.addSharedLinkTrack(result.track, sourceUrl ?? undefined, owner);
+        const entry = useSessionHistoryStore.getState().getSession(saved.sessionId)?.tracks.find((item) =>
+          (sourceUrl && item.track.externalUrls?.source === sourceUrl)
+          || (item.track.id === result.track.id && item.track.title === result.track.title && item.track.artist === result.track.artist));
+        if (entry) queued = { sessionId: saved.sessionId, entryId: entry.id };
+        // A pasted song already kept from another source must NOT prompt a
+        // second GARDER purchase. Show the saved public/private decision.
+        setManualKeptVisibility(entry?.status === 'kept' ? entry.visibility ?? 'PRIVATE' : null);
+      } catch { /* Preview still works offline; never charge FREE for an unconfirmed save. */ }
+    } else {
+      setManualKeptVisibility(null);
+    }
+    setManualKeepTarget(queued);
+    setManualStoryPublished(false);
+    setManualKeepChoiceOpen(false);
+    setManualSearchResult(result);
+    setManualResultSaved(Boolean(queued));
+    setManualSaveBusy(false);
+    // Keep the SAME RN modal mounted: native iOS cannot display two root Modals
+    // simultaneously while the search sheet is being dismissed.
+    setManualSearchOpen(false);
+    setManualResultOpen(true);
+    setManualSearchNotFound(false);
+    return true;
+  };
+
+  const nextManualSearch = () => {
+    // Destroy the current embedded iframe/WebView before opening another link.
+    searchGeneration.current += 1;
+    setManualSearchResult(null);
+    setManualResultSaved(false);
+    setManualKeepTarget(null);
+    setManualKeepChoiceOpen(false);
+    setManualKeptVisibility(null);
+    setManualStoryPublished(false);
+    setManualSaveBusy(false);
+    setManualSearchNotFound(false);
+    setManualSearchBusy(false);
+    setManualSearchQuery('');
+    setManualResultOpen(false);
+    setManualSearchOpen(true);
+    // The mic stays paused while the visitor chooses another in-app preview.
+  };
+
+  const requestManualKeep = () => {
+    if (!manualSearchResult?.identified || manualSaveBusy || manualKeptVisibility) return;
+    if (!user || isDemoMode || useUserStore.getState().isLocalGuest) {
+      useAccountGateStore.getState().requestAccount('create');
+      return;
+    }
+    if (!manualKeepTarget) {
+      Alert.alert('Session indisponible', 'Impossible de préparer le morceau dans Mes Sessions. Aucun FREE débité.');
+      return;
+    }
+    setManualKeepPlaylistId((previous) => previous ?? playlists[0]?.id);
+    setManualKeepChoiceOpen(true);
+  };
+
+  const confirmManualKeep = async (visibility: 'PUBLIC' | 'PRIVATE') => {
+    const target = manualKeepTarget;
+    const result = manualSearchResult;
+    if (!target || !result?.identified || manualSaveBusy) return;
+    // Même service et même transaction Supabase FREE que Swipe et Écouter.
+    setManualSaveBusy(true);
+    try {
+      await useSessionHistoryStore.getState().keepTrackInSession(target.sessionId, target.entryId, manualKeepPlaylistId, visibility);
+      const committed = useSessionHistoryStore.getState().getSession(target.sessionId)?.tracks.find((entry) => entry.id === target.entryId);
+      if (committed?.status !== 'kept') {
+        Alert.alert('GARDER non confirmé', 'Ce morceau reste dans Mes Sessions en attente. Aucun succès ni débit annoncé.');
+        return;
+      }
+      const confirmedVisibility = committed.visibility ?? visibility;
+      setManualKeptVisibility(confirmedVisibility);
+      setManualKeepChoiceOpen(false);
+      await refreshCreditBadge().catch(() => {});
+      if (confirmedVisibility === 'PUBLIC') {
+        // Same rule as microphone/Swipe: a confirmed PUBLIC keep decision is
+        // already part of the 24h personal Story via loadProfileStory(). Do not
+        // create a second story_pins row or demand another publication click.
+        // The notification refreshes the ring and the Story across both views.
+        notifyOwnStoryChanged();
+        setManualStoryPublished(true);
+      }
+    } catch (error: any) {
+      const insufficient = /CREDITS_EXHAUSTED|insufficient|free/i.test(String(error?.message || ''));
+      Alert.alert(insufficient ? 'FREE insuffisants' : 'GARDER impossible', insufficient
+        ? 'Solde FREE insuffisant. Le morceau reste en attente dans Mes Sessions.'
+        : 'Le serveur n’a pas confirmé cet ajout. Le morceau reste en attente dans Mes Sessions.');
+    } finally {
+      setManualSaveBusy(false);
+    }
+  };
+
+  const saveManualPreviewToSessions = () => {
+    if (!manualSearchResult?.identified || manualResultSaved || manualSaveBusy) return;
+    setManualSaveBusy(true);
+    try {
+      const owner = user && !isDemoMode ? user.id : undefined;
+      const saved = useSessionHistoryStore.getState().addSharedLinkTrack(
+        manualSearchResult.track, manualSearchResult.sourceUrl ?? undefined, owner,
+      );
+      if (!saved.sessionId) {
+        Alert.alert('Session indisponible', 'Le morceau n’a pas pu être enregistré. Réessaie.');
+        return;
+      }
+      const entry = useSessionHistoryStore.getState().getSession(saved.sessionId)?.tracks.find((item) =>
+        (Boolean(manualSearchResult.sourceUrl) && item.track.externalUrls?.source === manualSearchResult.sourceUrl)
+        || (item.track.id === manualSearchResult.track.id
+          && item.track.title === manualSearchResult.track.title
+          && item.track.artist === manualSearchResult.track.artist));
+      if (entry) {
+        setManualKeepTarget({ sessionId: saved.sessionId, entryId: entry.id });
+        if (entry.status === 'kept') setManualKeptVisibility(entry.visibility ?? 'PRIVATE');
+      }
+      setManualResultSaved(Boolean(entry));
+    } catch {
+      Alert.alert('Session indisponible', 'Le morceau n’a pas pu être enregistré. Réessaie.');
+    } finally {
+      setManualSaveBusy(false);
+    }
+  };
+
+  const viewSavedManualSessions = () => {
+    closeManualSearchPreview();
+    openSessionHistorySafely();
+  };
+
+  const runManualSearch = async (inputOverride?: string) => {
+    const input = (typeof inputOverride === 'string' ? inputOverride : manualSearchQuery).trim();
+    if (!input) return;
+    // A new URL is allowed to supersede an in-flight request; the generation
+    // guard below prevents an older result from restoring the first video.
+    const generation = ++searchGeneration.current;
+    unlockWebAudioForGesture(); // Unblock web playback while still inside the user's tap.
+    // A second link must immediately invalidate the first preview and its player.
+    setManualSearchResult(null);
+    setManualResultSaved(false);
+    setManualResultOpen(false);
+    setManualSearchOpen(true);
+    setManualSearchQuery(input);
     setManualSearchBusy(true);
     setManualSearchNotFound(false);
     try {
-      const outcome = await submitManualSearch(manualSearchQuery);
-      if (outcome === 'not_found') {
-        setManualSearchNotFound(true);
-        return;
+      const found = await searchTrackByText(input);
+      if (generation !== searchGeneration.current) return;
+      // Searching is NOT the user's GARDER action. No session, quota or DB write.
+      if (!openTemporaryMusicPreview(found, input)) setManualSearchNotFound(true);
+    } catch {
+      if (generation === searchGeneration.current) {
+        // If catalogue lookup fails, the original provider video can still
+        // be playable. Never discard a valid YouTube/Spotify/Deezer link.
+        if (!openTemporaryMusicPreview(null, input)) setManualSearchNotFound(true);
       }
-      setManualSearchOpen(false);
-      setManualSearchQuery('');
     } finally {
-      setManualSearchBusy(false);
+      if (generation === searchGeneration.current) setManualSearchBusy(false);
     }
   };
 
@@ -556,6 +828,11 @@ export default function HomeScreenCompact({ navigation }: any) {
   }, [canGoOlder, currentIndex, tracks]);
 
   const detected = tracks.length;
+  // La consommation est enregistrée par Supabase, pas déduite du nombre de cartes de la session.
+  // Un doublon ou un essai sans résultat ne consomme aucune identification.
+  const consumedIdentifications = isDemoMode
+    ? `${demoListenUsed}/${demoListenLimit}`
+    : listenEconomyStatus ? `${listenEconomyStatus.used}/${listenEconomyStatus.limit}` : '—';
   const pending = current?.status === 'pending';
   const alreadySaved = current?.status === 'already_saved';
   // Audit Adel (11/09/2026) : cet ecran a son propre rendu de carte (jamais
@@ -569,12 +846,14 @@ export default function HomeScreenCompact({ navigation }: any) {
   const destination = current?.existingMatch?.playlistName || current?.recommendations?.[0]?.playlistName || playlists[0]?.name || 'Mes découvertes';
 
   const finishSession = () => {
+    stopTabAudio();
     setSessionPeekOpen(false);
     setKeepChoiceOpen(false);
     requestEndSession();
   };
   const openSessionHistorySafely = () => {
     setSessionPeekOpen(false);
+    // Browse existing sessions without unexpectedly stopping a shared PC tab.
     openSessionHistoryGuarded(() => navigation.navigate('SessionHistory'));
   };
   const showQueuedSessionSwipe = () => {
@@ -604,9 +883,28 @@ export default function HomeScreenCompact({ navigation }: any) {
     setKeepBusy(true);
     setKeepChoiceOpen(false);
     setKeepEditId(null);
-    await keepTrack(entryId, playlistId, visibility);
-    await refreshCreditBadge();
-    setKeepBusy(false);
+    try {
+      await keepTrack(entryId, playlistId, visibility);
+      // Same post-GARDER rule as shared-link preview and Session Swipe:
+      // only a confirmed server KEEP in PUBLIC can enter the 24h Story.
+      const confirmed = useSessionStore.getState().tracks.find((item) => item.id === entryId);
+      if (visibility === 'PUBLIC' && confirmed?.status === 'kept' && confirmed.visibility === 'PUBLIC') {
+        try {
+          await pinStoryTrack(resolveKeptTrackId(confirmed.track.id), {
+            title: confirmed.track.title, artist: confirmed.track.artist,
+            album: confirmed.track.album, artworkUrl: confirmed.track.artworkUrl,
+            previewUrl: confirmed.track.previewUrl, isrc: confirmed.track.isrc,
+          });
+        } catch {
+          Alert.alert('Profil enregistré', 'Le morceau est gardé en public. La Story n’a pas pu être confirmée ; tu peux la publier depuis ton profil.');
+        }
+      }
+    } catch {
+      Alert.alert('GARDER non confirmé', 'Impossible de confirmer cet ajout. Le morceau reste dans la session ; aucun succès annoncé.');
+    } finally {
+      await refreshCreditBadge().catch(() => {});
+      setKeepBusy(false);
+    }
   };
 
   // Règle produit 24/09/2026 : aucune décision de visibilité implicite.
@@ -645,6 +943,27 @@ export default function HomeScreenCompact({ navigation }: any) {
     showKeepSnackbar(entryId, visibility);
   };
 
+  const [storyPinBusy, setStoryPinBusy] = useState(false);
+  const pinCurrentInStory = async () => {
+    const entry = useSessionStore.getState().tracks.find((item) => item.id === current?.id);
+    if (!entry || entry.status !== 'kept' || entry.visibility !== 'PUBLIC' || storyPinBusy) return;
+    setStoryPinBusy(true);
+    try {
+      // Le RPC applique la certification, l'anti-doublon et la protection des
+      // morceaux en vente : aucun achat FREE ni publication automatique ici.
+      await pinStoryTrack(entry.track.id, {
+        title: entry.track.title, artist: entry.track.artist,
+        album: entry.track.album, artworkUrl: entry.track.artworkUrl,
+        previewUrl: entry.track.previewUrl, isrc: entry.track.isrc,
+      });
+      Alert.alert('Story publiée', 'Ce morceau est dans ta Story musicale pendant 24 h.');
+    } catch (error: any) {
+      Alert.alert('Story non publiée', error?.message || 'Vérifie la visibilité publique du morceau.');
+    } finally {
+      setStoryPinBusy(false);
+    }
+  };
+
   const toggleCurrentVisibility = async () => {
     if (!current || current.status !== 'kept' || privacyBusy) return;
     setPrivacyBusy(true);
@@ -657,26 +976,119 @@ export default function HomeScreenCompact({ navigation }: any) {
   // du micro évite le pire cas acoustique -- micro + haut-parleurs du même
   // ordinateur (écho, distorsion). Action ponctuelle volontairement séparée
   // de la session normale : ne touche ni son état ni son design validé.
-  const [tabTestBusy, setTabTestBusy] = useState(false);
-  const testTabCapture = async () => {
-    if (tabTestBusy || musicEngine.isDemoMode) return;
-    setTabTestBusy(true);
-    try {
-      const sample = await captureTabAudioSample();
-      const recognition = await musicEngine.recognitionProvider.recognize(sample);
-      if (recognition) {
-        Alert.alert('Reconnu !', `${recognition.title} — ${recognition.artist}`);
-      } else {
-        Alert.alert('Aucun résultat', "L'onglet a bien été capté mais aucun morceau n'a été reconnu sur cet extrait.");
-      }
-    } catch (e: any) {
-      if (!(e instanceof MicPermissionDeniedError)) {
-        Alert.alert('Capture d’onglet', e?.message || 'Impossible de capter le son de cet onglet.');
-      }
-    } finally {
-      setTabTestBusy(false);
+  const [tabTestBusy, setTabTestBusy] = useState(getContinuousTabState().phase === 'starting');
+  const [tabMonitoring, setTabMonitoring] = useState(getContinuousTabState().phase === 'monitoring');
+  // One browser-tab monitor survives navigation to Sessions/Profile/Stories.
+  // Only explicit STOP, revoked sharing or ending the session closes the stream.
+  useEffect(() => subscribeContinuousTabState(() => {
+    const state = getContinuousTabState();
+    setTabTestBusy(state.phase === 'starting');
+    setTabMonitoring(state.phase === 'monitoring');
+  }), []);
+  const stopTabAudio = () => stopContinuousTabMusic();
+
+  const recordSharedLinkResult = async (url: string): Promise<boolean> => {
+    const supportedUrl = supportedSharedMusicUrl(url);
+    if (!supportedUrl) return false;
+    const generation = ++searchGeneration.current;
+    const found = await searchTrackByText(supportedUrl).catch(() => null);
+    if (generation !== searchGeneration.current) return false;
+    if (!openTemporaryMusicPreview(found, supportedUrl)) {
+      setManualSearchQuery(supportedUrl);
+      setManualSearchNotFound(true);
+      setManualSearchOpen(true);
+      return false;
     }
+    return true;
   };
+
+  const importCopiedMusicLink = () => {
+    // ONE gesture in Loki. Browsers never reveal the chosen YouTube tab URL
+    // through getDisplayMedia; the copy-link clipboard is the safe, consented
+    // route. Do not navigate to YouTube or start capture without an explicit opt-in.
+    setManualSearchNotFound(false);
+    setManualSearchOpen(true);
+    if (Platform.OS !== 'web' || typeof navigator === 'undefined' || !navigator.clipboard?.readText) return;
+    // Must be issued within the click gesture; browsers may deny clipboard
+    // access and then the ordinary paste field remains usable.
+    void navigator.clipboard.readText().then((raw) => {
+      const url = supportedSharedMusicUrl(raw);
+      if (url) void runManualSearch(url);
+    }).catch(() => { /* User can paste manually; never redirect or show an error popup. */ });
+  };
+
+  const testTabCapture = () => {
+    if (tabTestBusy) return;
+    if (isContinuousTabMusicActive()) {
+      stopTabAudio();
+      return;
+    }
+    // The browser permission prompt is opened directly in this click handler.
+    void startContinuousTabMusic().catch((error: any) => {
+      const hint = error instanceof MicPermissionDeniedError
+        ? 'Sélectionne un onglet Chrome ou Edge et active « Partager l’audio ».'
+        : String(error?.message || 'La capture audio est indisponible.');
+      Alert.alert('Partage audio impossible', hint, [
+        { text: 'Importer un lien', onPress: importCopiedMusicLink },
+        { text: 'Fermer', style: 'cancel' },
+      ]);
+    });
+  };
+
+  // Keep the search modal mounted on the idle home, not only on the active microphone screen.
+  const manualSearchModal = (
+      <KeepModal visible={manualSearchOpen || manualResultOpen} transparent animationType="fade" onRequestClose={closeManualSearchPreview}>
+        {manualResultOpen ? (
+          <TemporaryMusicPreview visible={manualResultOpen} result={manualSearchResult} onClose={closeManualSearchPreview} onNext={nextManualSearch} onReplaceLink={(link) => { void runManualSearch(link); }} onKeep={requestManualKeep} keepChoiceOpen={manualKeepChoiceOpen} onChooseVisibility={(visibility) => { void confirmManualKeep(visibility); }} onCancelKeep={() => setManualKeepChoiceOpen(false)} keepCostFree={creditCostPerKeep} playlists={playlists.map((p) => ({ id: p.id, name: p.name }))} selectedPlaylistId={manualKeepPlaylistId} onSelectPlaylist={setManualKeepPlaylistId} keptVisibility={manualKeptVisibility} storyPublished={manualStoryPublished} onSeeSessions={viewSavedManualSessions} saved={manualResultSaved} saving={manualSaveBusy} />
+        ) : (
+        <View style={s.modalOverlay}><View style={s.modalCard}>
+          <Text style={s.modalTitle}>♫ Trouver ta musique</Text>
+          <Text style={s.modalBody}>Colle un lien YouTube, Spotify ou Deezer, ou saisis Artiste – Titre. Préécoute gratuite, puis GARDER seulement si tu le décides.</Text>
+          <TextInput
+            style={s.manualSearchInput}
+            value={manualSearchQuery}
+            onChangeText={(v) => { setManualSearchQuery(v); setManualSearchNotFound(false); }}
+            placeholder="Artiste – Titre, ou lien YouTube/Spotify/Deezer…"
+            placeholderTextColor={C.muted}
+            editable={!manualSearchBusy}
+            autoFocus
+            returnKeyType="search"
+            onSubmitEditing={() => { void runManualSearch(); }}
+          />
+          {Platform.OS === 'web' ? (
+            <TouchableOpacity onPress={importCopiedMusicLink} accessibilityRole="button" accessibilityLabel="Récupérer le lien copié" style={{ paddingVertical: 10 }}>
+              <Text style={{ color: C.text, fontSize: 12, fontWeight: '700' }}>↳ Récupérer le lien copié</Text>
+            </TouchableOpacity>
+          ) : null}
+          {desktopHome && Platform.OS === 'web' && !musicEngine.isDemoMode ? (
+            <TouchableOpacity testID="music-advanced-tab-capture" onPress={() => { closeManualSearchPreview(); testTabCapture(); }} accessibilityRole="button" accessibilityLabel="Suivi audio continu de plusieurs morceaux avec autorisation navigateur" style={{ paddingVertical: 6 }}>
+              <Text style={{ color: C.muted, fontSize: 11 }}>Suivre plusieurs morceaux sans lien ? Partager le son de l’onglet PC (autorisation du navigateur)</Text>
+            </TouchableOpacity>
+          ) : null}
+          {manualSearchNotFound ? <Text style={s.manualSearchNotFound}>Aucun titre confirmé à partir de cette recherche. Essaie « Artiste – Titre », une autre vidéo YouTube ou la capture audio de l’onglet sur PC.</Text> : null}
+          <View style={[s.modalActions, s.manualSearchActions]}>
+            <TouchableOpacity style={[s.modalBtn, s.manualSearchCancel]} onPress={closeManualSearchPreview} accessibilityRole="button"><Text style={s.modalBtnText}>ANNULER</Text></TouchableOpacity>
+            <TouchableOpacity testID="home-manual-search-submit" style={[s.modalBtn, s.manualSearchSubmit]} accessibilityRole="button" accessibilityLabel="Lancer la recherche et la préécoute musicale" onPress={() => { void runManualSearch(); }} disabled={manualSearchBusy || !manualSearchQuery.trim()}>
+              <Text style={s.manualSearchSubmitText}>{manualSearchBusy ? 'RECHERCHE…' : '▶ ÉCOUTER'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View></View>
+        )}
+      </KeepModal>
+  );
+
+  const manualResultPreview = manualSearchResult ? (
+    <View testID="home-manual-search-result" style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'center', maxWidth: 320, paddingVertical: 8, gap: 10 }} accessibilityLiveRegion="polite">
+      <TrackCover track={manualSearchResult.track} style={{ width: 52, height: 52, borderRadius: 9 }} fallbackStyle={{ width: 52, height: 52, borderRadius: 9 }} fallbackTextStyle={{ fontSize: 18 }} />
+      <View style={{ flexShrink: 1 }}>
+        <Text style={{ color: C.text, fontSize: 14, fontWeight: '700' }} numberOfLines={2}>{manualSearchResult.title}</Text>
+        <Text style={{ color: C.muted, fontSize: 12 }} numberOfLines={1}>{manualSearchResult.artist} · {manualResultSaved ? 'Dans Mes Sessions' : 'Aperçu non enregistré'}</Text>
+      </View>
+      <TouchableOpacity testID="close-manual-search-preview" onPress={closeManualSearchPreview} accessibilityRole="button" accessibilityLabel="Fermer l’aperçu sans enregistrer" style={{ minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ color: C.text, fontSize: 20 }}>×</Text>
+      </TouchableOpacity>
+    </View>
+  ) : null;
 
   if (showMicPrimer) {
     return <MicPermissionPrimerScreen onAuthorized={dismissMicPrimer} onLater={dismissMicPrimer} />;
@@ -685,7 +1097,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   if (!isActive) {
     return (
       <SafeAreaView style={s.container}><PersonalThemeBackdrop />
-        <TopBar navigation={navigation} readyCount={detected} />
+        <TopBar navigation={navigation} readyCount={readyToSwipe} />
         {/* Accueil Écouter (Adel 29/09/2026 : "cette page n'est pas belle") --
             aligné sur la maquette validée docs/mockups/EcouteRedesign.html :
             fond aurora, pastilles micro/veille, grand cercle Loki "L" entouré de
@@ -699,6 +1111,7 @@ export default function HomeScreenCompact({ navigation }: any) {
             <View style={desktopHome ? s.desktopIdleIdentity : undefined}>
               <LokiIdleOrb />
               <LokiMusic3DTitle />
+              {manualResultPreview}
             </View>
             <View style={desktopHome ? s.desktopIdleActions : s.mobileIdleActions}>
             <Text numberOfLines={2} ellipsizeMode="tail" style={s.idleSubtitle}>{homeSubtitleLead}</Text>
@@ -706,16 +1119,21 @@ export default function HomeScreenCompact({ navigation }: any) {
               style={s.idleLearnMore}
               onPress={toggleHomeAbout}
               accessibilityRole="button"
-              accessibilityLabel="Afficher les détails de Loki Music"
+              accessibilityLabel="Plus : Loki Music"
               accessibilityState={{ expanded: homeAboutOpen }}
             >
-              <Text style={s.idleLearnMoreText}>{homeAboutOpen ? 'Réduire' : 'Plus'}</Text>
+              <Text style={s.idleLearnMoreText}>{homeAboutOpen ? 'Moins' : 'Plus'}</Text>
             </TouchableOpacity>
             <View style={s.idleLearnMoreSlot}>
               {homeAboutOpen ? (
                 <View style={s.idleLearnMorePanel}>
                   <Text style={s.idleLearnMoreBody}>{screenCopy.emptyTitle ?? t('session.emptyTitle')} {homeSubtitleMore}</Text>
                   <Text style={s.idleLearnMoreBody}>Le micro est utilisé uniquement pendant l’écoute.</Text>
+                  {user && listenEconomyStatus ? (
+                    <TouchableOpacity onPress={explainListenEconomy} accessibilityRole="button" accessibilityLabel="Comprendre les écoutes et les FREE" style={s.demoHelp}>
+                      <Text style={s.demoHelpText}>?</Text>
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
               ) : null}
             </View>
@@ -733,6 +1151,18 @@ export default function HomeScreenCompact({ navigation }: any) {
                 ◉  TROUVER LE MORCEAU
               </MotionActionButton>
             </View>
+            {desktopHome && Platform.OS === 'web' && !musicEngine.isDemoMode ? (
+              <TouchableOpacity testID="home-tab-audio-option" style={[s.tabTest, s.homeFindLinkButton]} onPress={tabMonitoring ? stopTabAudio : importCopiedMusicLink}
+                accessibilityRole="button" accessibilityLabel={tabMonitoring ? 'Arrêter le suivi audio' : 'Trouver le morceau avec le lien musical copié'}>
+                <Text style={s.tabTestText}>{tabMonitoring ? '■ ARRÊTER LE SUIVI AUDIO' : '♫ Trouve ta musique en un clic'}</Text>
+              </TouchableOpacity>
+            ) : (
+              <MotionActionButton variant="outline" size="medium" style={s.homeFindLinkButton} onPress={importCopiedMusicLink}
+                accessibilityLabel="Chercher un morceau par son titre ou son lien"
+                accessibilityHint="Ouvre la recherche par titre, artiste ou lien musical">
+                ♫  Trouve ta musique en un clic
+              </MotionActionButton>
+            )}
             {isDemoMode || (musicEngine.isDemoMode && !listenEconomyStatus) ? (
               <View style={s.demoRow}>
                 <Text style={s.demo}>MODE DÉMO{isDemoMode ? ` · ${Math.min(demoListenUsed, demoListenLimit)}/${demoListenLimit} TROUVAILLES` : ''}</Text>
@@ -748,12 +1178,8 @@ export default function HomeScreenCompact({ navigation }: any) {
             ) : null}
             </View>
           </View>
-          {Platform.OS === 'web' && !musicEngine.isDemoMode ? (
-            <TouchableOpacity style={s.tabTest} onPress={testTabCapture} disabled={tabTestBusy} accessibilityLabel="Tester avec le son d'un onglet">
-              <Text style={s.tabTestText}>{tabTestBusy ? 'Capture en cours...' : 'Tester avec le son d’un onglet'}</Text>
-            </TouchableOpacity>
-          ) : null}
         </View>
+        {manualSearchModal}
         <CoachMarks visible={showCoach && !showMicPrimer} onFinish={finishCoach} />
 </SafeAreaView>
     );
@@ -781,7 +1207,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   return (
     <SafeAreaView style={s.container}><PersonalThemeBackdrop />
       <AuroraBackground active={isActive && !micIdle} />
-      <TopBar navigation={navigation} readyCount={detected} title="À toi de jouer" onOpenSessions={() => setSessionPeekOpen(true)} />
+      <TopBar navigation={navigation} readyCount={readyToSwipe} title="À toi de jouer" onOpenSessions={openSessionHistorySafely} />
 
       <ScrollView
         style={s.main}
@@ -813,11 +1239,18 @@ export default function HomeScreenCompact({ navigation }: any) {
               <ListenWaveform active={isActive} recognizing={recognizing} micLevel={micLevel} idle={micIdle} />
               <View style={s.stats}>
                 <MiniStat value={elapsed} label="Durée" />
-                <MiniStat value={String(detected)} label="Détectés" />
-                <MiniStat value={listenEconomyStatus ? String(listenEconomyStatus.includedRemaining) : "—"} label="Restantes" highlight />
+                <MiniStat value={consumedIdentifications} label="Écoutes consommées" />
+
               </View>
             </Animated.View>
           </ListenEnergyAura>
+          {listenEconomyStatus && !isDemoMode ? (
+            <Text style={s.listenCreditsHint} testID="listen-server-quota-summary" numberOfLines={2}>
+              {listenEconomyStatus.includedRemaining} identification{listenEconomyStatus.includedRemaining === 1 ? '' : 's'} incluse{listenEconomyStatus.includedRemaining === 1 ? '' : 's'} restante{listenEconomyStatus.includedRemaining === 1 ? '' : 's'}
+              {' · '}{listenEconomyStatus.freeBalance} FREE disponibles
+              {' · '}puis {listenEconomyStatus.overQuotaFreeCost} FREE / morceau
+            </Text>
+          ) : null}
           <View style={s.liveTopbar}>
             <View style={[s.micPill, micIdle && s.micPillIdle]}>
               <View style={[s.liveDot, micIdle && s.liveDotError]} />
@@ -844,7 +1277,8 @@ export default function HomeScreenCompact({ navigation }: any) {
         {error ? <View style={s.errorBanner}><Text style={s.errorBannerText}>{error}</Text>{micBlocked && micPermissionFixHint() ? <Text style={s.micFixHintInBanner}>{micPermissionFixHint()}</Text> : null}</View> : null}
         {!error && signalHint ? <Text style={s.signalHint}>{signalHint}</Text> : null}
 
-        <View style={s.sectionHeader}><Text style={s.sectionTitle}>MUSIQUE DÉTECTÉE</Text><View style={s.sectionCount}><Text style={s.sectionCountText}>{detected}</Text></View></View>
+        {manualResultPreview}
+        <View style={s.sectionHeader}><Text style={s.sectionTitle}>MUSIQUE DÉTECTÉE</Text></View>
 
         {tracks.length > 1 ? (
           <View style={s.queueNav}>
@@ -893,7 +1327,7 @@ export default function HomeScreenCompact({ navigation }: any) {
                   <Text style={s.destination} numberOfLines={1}>→ {destination}</Text>
                 </View>
               </View>
-              <TrackListenControls track={current.track} previewKey={`current:${current.id}`} onPreviewFinished={canGoOlder ? goOlder : undefined} autoPlay />
+              <TrackListenControls track={current.track} previewKey={`current:${current.id}`} onPreviewFinished={canGoOlder ? goOlder : undefined} autoPlay={!tabMonitoring} />
               {alreadySaved ? (
                 <View style={s.saved}><Text style={s.savedText}>✓ Déjà dans ta playlist</Text></View>
               ) : current.status === 'kept' ? (
@@ -908,6 +1342,11 @@ export default function HomeScreenCompact({ navigation }: any) {
                       {privacyBusy ? '…' : currentVisibility === 'PUBLIC' ? 'Public sur mon profil' : 'Privé'}
                     </Text>
                   </TouchableOpacity>
+                  {currentVisibility === 'PUBLIC' ? (
+                    <TouchableOpacity testID="listen-publish-story" onPress={() => { void pinCurrentInStory(); }} disabled={storyPinBusy} accessibilityRole="button" accessibilityLabel="Mettre ce morceau gardé dans ma Story" style={{ marginTop: 8, minHeight: 44, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ color: C.text, fontSize: 12, fontWeight: '700' }}>{storyPinBusy ? 'Publication de la Story…' : '+ METTRE EN STORY · 24 H'}</Text>
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
               ) : current.status === 'passed' ? (
                 <View style={s.passedState}><Text style={s.passedStateText}>✕ Passé</Text></View>
@@ -927,15 +1366,15 @@ export default function HomeScreenCompact({ navigation }: any) {
           <View style={s.waiting}><Text style={s.waitingText}>♫  {t('session.waitingForMusic')}</Text></View>
         )}
 
-        <MotionActionButton
-          variant="ghost"
-          size="medium"
-          onPress={() => { setManualSearchNotFound(false); setManualSearchOpen(true); }}
-          accessibilityLabel="Chercher un morceau par son titre"
-          accessibilityHint="Ouvre un formulaire de recherche par titre"
-        >
-          Tu connais le titre ? Cherche-le toi-même
-        </MotionActionButton>
+        {desktopHome && Platform.OS === 'web' && !musicEngine.isDemoMode ? (
+          <View testID="listen-tab-audio-option">
+            <TouchableOpacity style={s.tabTest} onPress={tabMonitoring ? stopTabAudio : importCopiedMusicLink} disabled={tabTestBusy} accessibilityRole="button" accessibilityLabel={tabMonitoring ? 'Arrêter le partage audio continu' : 'Importer un lien musical sans quitter Loki Music'}>
+              <Text style={s.tabTestText}>{tabTestBusy ? 'Ouverture du partage…' : tabMonitoring ? '■ ARRÊTER LE SON DE L’ONGLET' : '♫  Trouver une musique par son lien'}</Text>
+            </TouchableOpacity>
+            <Text style={s.keepHint}>Colle un lien YouTube ou Spotify sans quitter Loki. Si tu veux suivre plusieurs vidéos à la suite, active « Partager le son de l’onglet PC » depuis la recherche.</Text>
+          </View>
+        ) : null}
+
       </ScrollView>
 
       {keepSnackbar ? (
@@ -955,8 +1394,8 @@ export default function HomeScreenCompact({ navigation }: any) {
 
       <KeepModal visible={sessionPeekOpen} transparent animationType="fade" onRequestClose={() => setSessionPeekOpen(false)} onDismiss={showQueuedSessionSwipe}>
         <View style={s.modalOverlay}><View style={[s.modalCard, { width: '100%', maxWidth: desktopHome ? 580 : 400, maxHeight: '78%', borderRadius: 22 }]}>
-          <Text style={s.modalTitle}>Ta session en cours</Text>
-          <Text style={{ color: micPaused ? C.purpleLight : C.green, fontSize: 12, marginTop: 8, fontWeight: '800' }}>{micPaused ? '● Micro en pause pendant la préécoute' : '● Le micro continue d’écouter'}</Text>
+          <Text style={s.modalTitle}>Session en cours</Text>
+          <Text style={{ color: micPaused ? C.purpleLight : C.green, fontSize: 12, marginTop: 8, fontWeight: '800' }}>{tabMonitoring ? '● Suivi du son de l’onglet PC en cours' : micPaused ? '● Micro en pause pendant la préécoute' : '● Le micro continue d’écouter'}</Text>
           <Text style={s.modalBody}>{tracks.length} morceau{tracks.length > 1 ? 'x' : ''} détecté{tracks.length > 1 ? 's' : ''} · {tracks.filter((x) => x.status === 'pending').length} à swiper</Text>
           {tracks.filter((x) => x.status === 'pending').length >= 10 ? <Text style={{ color: C.purpleLight, fontSize: 12, marginTop: 6, fontWeight: '800' }}>Ta sélection t’attend : ouvre Mes Sessions pour retrouver et swiper tes morceaux, même après avoir quitté cet écran.</Text> : null}
           <ScrollView style={{ maxHeight: 215, marginTop: 10 }}>
@@ -1009,30 +1448,7 @@ export default function HomeScreenCompact({ navigation }: any) {
         }}
       />
 
-      <KeepModal visible={manualSearchOpen} transparent animationType="fade" onRequestClose={() => !manualSearchBusy && setManualSearchOpen(false)}>
-        <View style={s.modalOverlay}><View style={s.modalCard}>
-          <Text style={s.modalTitle}>Chercher un morceau</Text>
-          <Text style={s.modalBody}>Tape le titre et l'artiste (ex. « Artiste - Titre »). Tu peux aussi coller un lien, mais uniquement depuis la plateforme musicale où le morceau est disponible (Spotify, Deezer, Apple Music) -- pas depuis YouTube ou un réseau social, Loki Music ne peut pas lire ces pages-là.</Text>
-          <TextInput
-            style={s.manualSearchInput}
-            value={manualSearchQuery}
-            onChangeText={(v) => { setManualSearchQuery(v); setManualSearchNotFound(false); }}
-            placeholder="Artiste - Titre, ou lien Spotify/Deezer/Apple Music…"
-            placeholderTextColor={C.muted}
-            editable={!manualSearchBusy}
-            autoFocus
-            returnKeyType="search"
-            onSubmitEditing={runManualSearch}
-          />
-          {manualSearchNotFound ? <Text style={s.manualSearchNotFound}>Rien trouvé -- ce morceau n'est peut-être disponible sur aucune plateforme officielle, ou réessaie avec un intitulé plus précis.</Text> : null}
-          <View style={s.modalActions}>
-            <TouchableOpacity style={s.modalBtn} onPress={() => setManualSearchOpen(false)} disabled={manualSearchBusy}><Text style={s.modalBtnText}>Annuler</Text></TouchableOpacity>
-            <TouchableOpacity style={[s.modalBtn, s.modalEnd]} onPress={runManualSearch} disabled={manualSearchBusy || !manualSearchQuery.trim()}>
-              <Text style={s.modalEndText}>{manualSearchBusy ? 'Recherche…' : 'Chercher'}</Text>
-            </TouchableOpacity>
-          </View>
-        </View></View>
-      </KeepModal>
+      {manualSearchModal}
 
       <KeepModal visible={showEndPrompt} transparent animationType="fade">
         <View style={s.modalOverlay}><View style={s.modalCard}>
@@ -1352,7 +1768,7 @@ const s = StyleSheet.create({
   demoHelp:{width:44,height:44,borderRadius:12,borderWidth:1,borderColor:C.purpleLight,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(124,92,252,.10)'},
   demoHelpText:{color:C.purpleLight,fontSize:12,fontWeight:'900'},
   tabTest: { marginTop: 14, paddingVertical: 6, paddingHorizontal: 12, minHeight: 44, justifyContent: 'center' },
-  tabTestText: { color: C.mutedGrey, fontSize: 13, fontWeight: '700', textDecorationLine: 'underline' },
+  tabTestText: { color: '#E5D9FF', fontSize: 13, fontWeight: '800', textAlign: 'center' },
   error: { color: C.pink, fontSize: 12, textAlign: 'center', marginBottom: 10 },
   signalHint: { color: C.muted, fontSize: 11, textAlign: 'center', marginTop: 7, marginBottom: 3 },
   main: { flex: 1 },
@@ -1369,6 +1785,7 @@ const s = StyleSheet.create({
   signalBottom: { position: 'absolute', left: 16, right: 16, bottom: 0, height: 2, borderRadius: 2, backgroundColor: C.purpleLight },
   signalLeft: { position: 'absolute', left: 0, top: 10, bottom: 10, width: 2, borderRadius: 2, backgroundColor: C.green },
   stats: { flexDirection: 'row', gap: 7 },
+  listenCreditsHint: { color: C.purpleLight, fontSize: 11, lineHeight: 14, fontWeight: '700', textAlign: 'center', marginTop: 4 },
   miniStat: { flex: 1, height: 58, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(42,38,64,0.78)', backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
   miniValue: { color: C.text, fontSize: 20, fontWeight: '900' },
   miniValueKept: { color: C.green },
@@ -1422,13 +1839,18 @@ const s = StyleSheet.create({
   waitingText: { color: C.text, fontSize: 12, textAlign: 'center' },
   manualSearchLink: { marginTop: 10, alignItems: 'center', paddingVertical: 4 },
   manualSearchLinkText: { color: C.yellow, fontSize: 11, fontWeight: '700', textDecorationLine: 'underline' },
-  manualSearchInput: { marginTop: 14, minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: C.line, backgroundColor: colors.background, color: C.text, fontSize: 14, paddingHorizontal: 12 },
+  manualSearchInput: { marginTop: 14, minHeight: 50, borderRadius: 13, borderWidth: 1.5, borderColor: '#A78BFA', backgroundColor: '#100D1A', color: '#FFFFFF', fontSize: 14, paddingHorizontal: 14 },
+  manualSearchActions: { gap: 12, marginTop: 20 },
+  manualSearchCancel: { borderColor: '#A78BFA', borderWidth: 1.5, backgroundColor: '#211936' },
+  manualSearchSubmit: { borderColor: '#68F2B1', borderWidth: 1.5, backgroundColor: '#68F2B1' },
+  manualSearchSubmitText: { color: '#090713', fontSize: 12, fontWeight: '900' },
+  homeFindLinkButton: { borderWidth: 1.5, borderColor: '#A78BFA', borderRadius: 14, marginTop: 12, paddingHorizontal: 16, minHeight: 48, backgroundColor: 'rgba(167,139,250,.08)' },
   manualSearchNotFound: { color: C.pink, fontSize: 11, marginTop: 8 },
   footerActions: { width: '100%', maxWidth: 720, alignSelf: 'center', flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingTop: 8, paddingBottom: 10, borderTopWidth: 1, borderTopColor: C.line },
   secondary: { flex: 1, minHeight: 44, borderRadius: 11, borderWidth: 1, borderColor: C.purple, backgroundColor: C.purple, alignItems: 'center', justifyContent: 'center' },
   secondaryText: { color: C.text, fontSize: 12, fontWeight: '700' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,.72)', alignItems: 'center', justifyContent: 'center', padding: 24 },
-  modalCard: { width: '100%', maxWidth: 360, borderRadius: 18, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, padding: 20 },
+  modalCard: { width: '100%', maxWidth: 400, borderRadius: 20, backgroundColor: '#171020', borderWidth: 1.5, borderColor: '#A78BFA', padding: 18 },
   keepChoiceCard: { width: '100%', maxWidth: 380, borderRadius: 18, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, padding: 18 },
   modalTitle: { color: C.text, fontSize: 19, fontWeight: '900' },
   modalBody: { color: C.muted, fontSize: 13, lineHeight: 18, marginTop: 8 },

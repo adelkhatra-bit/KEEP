@@ -624,7 +624,15 @@ export async function loadKeepBattleArena(arenaId: string): Promise<KeepBattleAr
 async function loadMyActiveKeepBattleArenaUncoalesced(): Promise<KeepBattleArenaState | null> {
   const { data, error } = await client().rpc('keep_battle_arena_my_active');
   if (error) return null;
-  return (data as KeepBattleArenaState | null) ?? null;
+  // A missing arena can legitimately be returned as [] by a proxy or older RPC.
+  // Never treat a truthy array/malformed object as a live match: the UI uses
+  // arena.seats.length and would otherwise crash the entire PC/mobile app.
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+  const arena = data as Partial<KeepBattleArenaState>;
+  if (typeof arena.id !== 'string' || !arena.id ||
+      !Array.isArray(arena.seats) || !Array.isArray(arena.leaderboard) ||
+      !['WAITING', 'ACTIVE', 'CLOSED', 'EXPIRED'].includes(String(arena.status))) return null;
+  return arena as KeepBattleArenaState;
 }
 
 export function loadMyActiveKeepBattleArena(): Promise<KeepBattleArenaState | null> {

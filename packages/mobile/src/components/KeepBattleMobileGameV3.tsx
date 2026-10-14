@@ -379,9 +379,12 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // libre (réponses en bas, sous le pouce) ; sur ordinateur, plafonné.
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isDesktopBattle = windowWidth >= 900;
-  // Même logique de jeu et quatre réponses sur iPhone et PC ; sur bureau,
-  // exploiter vraiment l'espace disponible sans rogner la hauteur des manches.
-  const battleDesignWidth = Math.min(windowWidth, isDesktopBattle ? 560 : 430);
+  // PC: use the real available width, never stretch the iPhone game on mobile.
+  const desktopGameWidth = Math.min(1100, Math.max(430, windowWidth - 300));
+  // DESIGN UNIQUE : le gabarit validé sur iPhone est la source de vérité.
+  // Desktop ne reçoit plus des dimensions de manche différentes : on garde
+  // la même composition carrée/4 réponses et on centre simplement l'ensemble.
+  const battleDesignWidth = Math.min(windowWidth, 430);
   const roundCardMinHeight = Math.max(520, Math.min(650, windowHeight - 124));
   const arenaVisualMax = Math.max(260, Math.min(battleDesignWidth - 10, roundCardMinHeight - 214));
   const soloRoundCardMinHeight = Math.max(500, Math.min(650, windowHeight - 248));
@@ -915,8 +918,16 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     const short = primaryArtistLabel(choice);
     const sameShort = choices.filter((item) => primaryArtistLabel(item).toLocaleLowerCase() === short.toLocaleLowerCase()).length;
     if (sameShort <= 1) return short;
+    // Display the distinguishing END of a featured artist credit: keeping
+    // only its first 28 letters made two separate answers appear identical.
     const full = String(choice || '').trim();
-    return full.length > 30 ? `${full.slice(0, 28).trim()}…` : full;
+    const concise = full.length > 30 ? `${full.slice(0, 15).trim()}…${full.slice(-12).trim()}` : full;
+    const clash = choices.filter((name) => {
+      const text = String(name || '').trim();
+      const rendered = text.length > 30 ? `${text.slice(0, 15).trim()}…${text.slice(-12).trim()}` : text;
+      return rendered.toLocaleLowerCase() === concise.toLocaleLowerCase();
+    }).length > 1;
+    return clash ? `${concise.slice(0, 24)} · ${choices.indexOf(choice) + 1}` : concise;
   };
   // Statut quotidien SOLO : texte produit par soloQuotaCopy (battleHomeInfo).
   // Adel (02/09/2026) : "avoir vraiment une catégorie de joueurs" -- petit
@@ -2820,7 +2831,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     const pct = audioReady ? (displayedSoloRemaining / ROUND_MS) * 100 : 100;
     if (soloFinished) {
       const perfect = soloScore === solo.rounds.length;
-      return <View style={[s.root, isDesktopBattle && s.rootDesktop]}>
+      return <View style={[s.root, isDesktopBattle && s.rootDesktop, isDesktopBattle && { maxWidth: desktopGameWidth }]}>
         <View style={s.header}><TouchableOpacity hitSlop={A11Y_TOUCH_HIT_SLOP} style={s.back} onPress={() => { setSoloFinished(false); setSolo(null); void leaveSoloBattle().catch(() => {}); }}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>LOKI MUSIC · BATTLE</Text><Text style={s.title}>PARTIE TERMINÉE</Text></View><Text style={s.round}>{solo.rounds.length}/{solo.rounds.length}</Text></View>
         {/* Adel (02/09/2026) : "à l'étape huit pourquoi tu mets pas cette
             invitation ... la partie est terminée" -- vrai trou : incoming[0]
@@ -2888,7 +2899,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         </ScrollView>
       </View>;
     }
-    return <View style={[s.root, isDesktopBattle && s.rootDesktop]}>
+    return <View style={[s.root, isDesktopBattle && s.rootDesktop, isDesktopBattle && { maxWidth: desktopGameWidth }]}>
       <View style={s.playHeader}><TouchableOpacity hitSlop={A11Y_TOUCH_HIT_SLOP} accessibilityRole="button" accessibilityLabel="Quitter le solo" style={s.playBack} onPress={() => {
         // Adel (29/09/2026) : quitter en cours de partie ne rend PAS le Solo
         // (compté au démarrage, côté serveur). On le dit avant de sortir.
@@ -2954,7 +2965,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             Avant le 1er son : le défi et le gain possible ; ensuite : un
             encouragement différent à chaque morceau. */}
         <View style={s.soloQuestionBlock}>
-        <View testID="battle-solo-answers" style={[s.answers, s.soloAnswers, s.soloAnswersActive]}>{(() => { const answers = dedupeAnswerChoices(round.choices || [], round.correctAnswer, (value) => value); if (answers.length < 4) console.warn(`[Battle SOLO] ${answers.length} < 4 réponses à la manche ${soloIndex + 1}/${solo.rounds.length}`); return answers.map((choice, i) => { const label = answerChoiceLabel(choice, answers); const state = answerVisualState(choice, round.correctAnswer, soloSelectedAnswer, answered); return <TouchableOpacity key={choice} accessibilityState={{ selected: state !== 'idle' }} accessibilityLabel={state === 'correct' ? `${label}, bonne réponse` : state === 'wrong' ? `${label}, mauvaise réponse` : label} disabled={!audioReady || answered} onPress={() => answerSolo(choice)} style={[s.answer, state === 'correct' && s.answerCorrect, state === 'wrong' && s.answerWrong]}><Text style={[s.answerNo, state === 'correct' && s.answerNoCorrect, state === 'wrong' && s.answerNoWrong]}>{state === 'correct' ? '✓' : state === 'wrong' ? '✕' : i + 1}</Text><Text numberOfLines={1} ellipsizeMode="tail" style={[s.answerText, state === 'correct' && s.answerTextCorrect]}>{label}</Text></TouchableOpacity>; }); })()}</View>
+        <View testID="battle-solo-answers" style={[s.answers, s.soloAnswers, s.soloAnswersActive]}>{(() => { const answers = dedupeAnswerChoices(round.choices || [], round.correctAnswer, (value) => value); if (answers.length < 4) console.warn(`[Battle SOLO] ${answers.length} < 4 réponses à la manche ${soloIndex + 1}/${solo.rounds.length}`); return answers.map((choice, i) => { const label = answerChoiceLabel(choice, answers); const state = answerVisualState(choice, round.correctAnswer, soloSelectedAnswer, answered); return <TouchableOpacity key={choice} accessibilityState={{ selected: state !== 'idle' }} accessibilityLabel={state === 'correct' ? `${label}, bonne réponse` : state === 'wrong' ? `${label}, mauvaise réponse` : label} disabled={!audioReady || answered} onPress={() => answerSolo(choice)} style={[s.answer, state === 'correct' && s.answerCorrect, state === 'wrong' && s.answerWrong]}><Text style={[s.answerNo, state === 'correct' && s.answerNoCorrect, state === 'wrong' && s.answerNoWrong]}>{state === 'correct' ? '✓' : state === 'wrong' ? '✕' : i + 1}</Text><Text numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.75} ellipsizeMode="tail" style={[s.answerText, state === 'correct' && s.answerTextCorrect]}>{label}</Text></TouchableOpacity>; }); })()}</View>
         </View>
       </Animated.View>
       <View style={s.scoreLine}><Text style={s.score}>✓ {soloScore} · ✕ {errors}</Text><Text style={s.score}>{remaining} à jouer</Text></View>
@@ -2981,7 +2992,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     const specTeamA = spectating.seats.filter((_, index) => index % 2 === 0);
     const specTeamB = spectating.seats.filter((_, index) => index % 2 === 1);
     const canJoin = spectating.status !== 'CLOSED' && spectating.status !== 'EXPIRED';
-    return <View style={[s.root, isDesktopBattle && s.rootDesktop]}>
+    return <View style={[s.root, isDesktopBattle && s.rootDesktop, isDesktopBattle && { maxWidth: desktopGameWidth }]}>
       <View style={s.header}><TouchableOpacity hitSlop={A11Y_TOUCH_HIT_SLOP} style={s.back} onPress={() => setSpectating(null)}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>LOKI MUSIC · BATTLE · SPECTATEUR</Text><Text style={s.title}>{themeLabel(spectating.themeCode)}</Text></View><Text style={s.round}>{spectating.currentRound || 0}/{spectating.roundCount}</Text></View>
       <ScrollView style={s.arenaScroll} showsVerticalScrollIndicator={false} contentContainerStyle={s.arenaScrollContent}>
       {renderTeamSquares(specTeamA, specTeamB, canJoin ? { onPress: () => { void joinSpectatedMatch(); }, busy: spectateJoinBusy } : undefined)}
@@ -3093,7 +3104,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           ],
         );
       };
-      return <View style={[s.root, isDesktopBattle && s.rootDesktop]}>
+      return <View style={[s.root, isDesktopBattle && s.rootDesktop, isDesktopBattle && { maxWidth: desktopGameWidth }]}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fermer le Battle" hitSlop={10} style={s.closeBattle} onPress={closeBattleArena}><Text style={s.closeBattleText}>×</Text></TouchableOpacity>
         <View style={s.header}><TouchableOpacity hitSlop={A11Y_TOUCH_HIT_SLOP} style={s.back} onPress={backToArenaHome}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>LOKI MUSIC · BATTLE · FIN DU MATCH</Text><Text style={s.title}>{themeLabel(arena.themeCode)}</Text></View><Text style={s.round}>{arena.seats.length}J</Text></View>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.finishScroll}>
@@ -3300,7 +3311,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     }
     if (arena.status === 'ACTIVE' && arena.me && arena.me.status !== 'ACTIVE') {
       const missedRematch = arena.me.status === 'ELIMINATED';
-      return <View style={[s.root, isDesktopBattle && s.rootDesktop]}>
+      return <View style={[s.root, isDesktopBattle && s.rootDesktop, isDesktopBattle && { maxWidth: desktopGameWidth }]}>
         <View style={s.header}><View style={s.headerMid}><Text style={s.kicker}>LOKI MUSIC · BATTLE</Text><Text style={s.title}>{missedRematch ? 'LE BATTLE EST PARTI' : 'EN ATTENTE'}</Text></View></View>
         <View style={s.waiting}>
           <View style={s.waitingPulse}><Text style={s.trophy}>{missedRematch ? '⏱' : '⚡'}</Text></View>
@@ -3313,7 +3324,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       </View>;
     }
 
-    return <View style={[s.root, isDesktopBattle && s.rootDesktop]}>
+    return <View style={[s.root, isDesktopBattle && s.rootDesktop, isDesktopBattle && { maxWidth: desktopGameWidth }]}>
       {/* Adel (03/09/2026) : "on est dans un Battle, pourquoi elle reste" --
           la croix de fermeture n'a plus lieu d'être une fois la manche
           lancée (WAITING/ACTIVE) ; sortir se fait via ‹ (backToArenaHome)
@@ -3403,7 +3414,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       {/* Adel (05/09/2026) : quatre réponses alignées en solo et en ligne.
           Le serveur complète chaque manche avec un quatrième artiste réel ;
           les quatre boutons conservent la grille 2 × 2 existante. */}
-      {!round.answered && arenaMissWarning(arenaMissStreak, stakeForRounds(arena.roundCount)) ? <Text style={s.arenaMissWarn} accessibilityRole="alert">{arenaMissWarning(arenaMissStreak, stakeForRounds(arena.roundCount))}</Text> : null}<View style={[s.answers, s.arenaAnswersActive]}>{(() => { const answers = dedupeAnswerChoices(round.choices || [], round.artist || '', (value) => value); if (answers.length < 4) console.warn(`[Battle ARENA] ${answers.length} < 4 réponses à la manche ${arena.currentRound}/${arena.roundCount}`); return answers.map((choice, i) => { const label = answerChoiceLabel(choice, answers); const state = answerVisualState(choice, round.artist || '', round.myAnswer?.selectedAnswer ?? null, Boolean(round.myAnswer)); return <TouchableOpacity key={choice} accessibilityLabel={state === 'correct' ? `${label}, bonne réponse` : state === 'wrong' ? `${label}, mauvaise réponse` : label} disabled={Boolean(!ready || round.answered || round.revealed || pending || left <= 0)} onPress={() => { void answerArena(choice); }} style={[s.answer, (round.myAnswer?.selectedAnswer === choice || pending === choice) && !round.myAnswer && s.answerSelected, state === 'correct' && s.answerCorrect, state === 'wrong' && s.answerWrong]}><Text style={[s.answerNo, state === 'correct' && s.answerNoCorrect, state === 'wrong' && s.answerNoWrong]}>{state === 'correct' ? '✓' : state === 'wrong' ? '✕' : i + 1}</Text><Text numberOfLines={1} ellipsizeMode="tail" style={[s.answerText, state === 'correct' && s.answerTextCorrect]}>{label}</Text>{choice === round.myAnswer?.selectedAnswer && round.myAnswer?.responseMs != null ? <Text style={s.answerTime}>{(round.myAnswer.responseMs / 1000).toFixed(1)}s</Text> : null}</TouchableOpacity>; }); })()}</View>
+      {!round.answered && arenaMissWarning(arenaMissStreak, stakeForRounds(arena.roundCount)) ? <Text style={s.arenaMissWarn} accessibilityRole="alert">{arenaMissWarning(arenaMissStreak, stakeForRounds(arena.roundCount))}</Text> : null}<View style={[s.answers, s.arenaAnswersActive]}>{(() => { const answers = dedupeAnswerChoices(round.choices || [], round.artist || '', (value) => value); if (answers.length < 4) console.warn(`[Battle ARENA] ${answers.length} < 4 réponses à la manche ${arena.currentRound}/${arena.roundCount}`); return answers.map((choice, i) => { const label = answerChoiceLabel(choice, answers); const state = answerVisualState(choice, round.artist || '', round.myAnswer?.selectedAnswer ?? null, Boolean(round.myAnswer)); return <TouchableOpacity key={choice} accessibilityLabel={state === 'correct' ? `${label}, bonne réponse` : state === 'wrong' ? `${label}, mauvaise réponse` : label} disabled={Boolean(!ready || round.answered || round.revealed || pending || left <= 0)} onPress={() => { void answerArena(choice); }} style={[s.answer, (round.myAnswer?.selectedAnswer === choice || pending === choice) && !round.myAnswer && s.answerSelected, state === 'correct' && s.answerCorrect, state === 'wrong' && s.answerWrong]}><Text style={[s.answerNo, state === 'correct' && s.answerNoCorrect, state === 'wrong' && s.answerNoWrong]}>{state === 'correct' ? '✓' : state === 'wrong' ? '✕' : i + 1}</Text><Text numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.75} ellipsizeMode="tail" style={[s.answerText, state === 'correct' && s.answerTextCorrect]}>{label}</Text>{choice === round.myAnswer?.selectedAnswer && round.myAnswer?.responseMs != null ? <Text style={s.answerTime}>{(round.myAnswer.responseMs / 1000).toFixed(1)}s</Text> : null}</TouchableOpacity>; }); })()}</View>
       {arena.status !== 'ACTIVE' && players.length > 2 ? <View style={s.groupStandings}><TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: groupStandingsOpen }} style={s.groupStandingsToggle} onPress={() => setGroupStandingsOpen((v) => !v)}><Text style={s.groupStandingsTitle}>{players.length} JOUEURS · PRÊT</Text><Text style={s.groupStandingsChevron}>{groupStandingsOpen ? '⌃' : '⌄'}</Text></TouchableOpacity>{groupStandingsOpen ? (() => { const top = players.slice(0, 5); const meId = arena.me?.profileId; const meVisible = !meId || top.some((p) => p.profileId === meId); const mePlayer = meId ? players.find((p) => p.profileId === meId) : null; const visible = meVisible || !mePlayer ? top : [...top, mePlayer]; const hidden = players.length - visible.length; return <>{visible.map((player) => { const rank = players.findIndex((p) => p.profileId === player.profileId); return <TouchableOpacity key={player.profileId} style={[s.groupStandingRow, rank === 0 && s.groupStandingRowLead]} onPress={() => onOpenProfile(player.username)}><Text style={s.groupStandingRank}>{rank === 0 ? '👑' : `#${rank + 1}`}</Text><Text style={s.groupStandingName} numberOfLines={1}>{player.username}</Text><Text style={s.groupStandingScore}>{Number(player?.score || 0)} pts</Text></TouchableOpacity>; })}{hidden > 0 ? <Text style={s.groupStandingsMore}>+{hidden} autre{hidden > 1 ? 's' : ''}</Text> : null}</> })() : null}</View> : null}
       </Animated.View></> : null}
       </ScrollView>
@@ -3421,7 +3432,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     const selectedLiveBattlePlayers = livePlayers.filter((player) => selectedBattlePlayerIds.has(player.profileId) && isPlayerSelectable(player));
     const creditReady = Boolean(myCreditStatus);
     const canStartSelectedBattle = selectedLiveBattlePlayers.length >= 1 && creditReady && !insufficientForRoundCount(roundCount) && !startingGroupBattle;
-    return <View style={[s.root, isDesktopBattle && s.rootDesktop]}>
+    return <View style={[s.root, isDesktopBattle && s.rootDesktop, isDesktopBattle && { maxWidth: desktopGameWidth }]}>
       {renderPlayerStatsModal()}
       <View style={s.header}><TouchableOpacity hitSlop={A11Y_TOUCH_HIT_SLOP} style={s.back} onPress={() => setBrowseOnline(false)}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>LOKI MUSIC · BATTLE</Text><Text style={s.title}>Choisis tes adversaires</Text></View><View style={s.headerCreditPill}><Text style={s.headerCreditText}>🎁 {myCreditStatus?.remainingFree ?? '…'}</Text></View></View>
       <View style={s.lobbySummary}>
@@ -3525,7 +3536,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // Battle etait le seul ecran rendu sans ScrollView, donc sur un viewport
   // court le bouton "BATTLE EN LIGNE" passait sous la barre d'onglets. Meme
   // patron de secours que solo/arene/browse/finish : tout reste atteignable.
-  return <View style={[s.root, isDesktopBattle && s.rootDesktop]}>{renderSoloSavePrompt()}<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.homeScroll}><View style={s.home}><TouchableOpacity hitSlop={A11Y_TOUCH_HIT_SLOP} style={s.homeBack} onPress={onExit}><Text style={s.homeBackText}>‹</Text></TouchableOpacity>
+  return <View style={[s.root, isDesktopBattle && s.rootDesktop, isDesktopBattle && { maxWidth: desktopGameWidth }]}>{renderSoloSavePrompt()}<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[s.homeScroll, isDesktopBattle && s.homeScrollDesktop]}><View style={[s.home, isDesktopBattle && s.homeDesktop]}>{!isDesktopBattle ? <TouchableOpacity hitSlop={A11Y_TOUCH_HIT_SLOP} style={s.homeBack} onPress={onExit}><Text style={s.homeBackText}>‹</Text></TouchableOpacity> : null}
       {/* Adel (08/09/2026) : "mettre un ? avec un popup pour expliquer
           l'avantage de jouer en solo, l'avantage de jouer en Battle en ligne
           ... plus ils vont pouvoir remporter des Free, ces Free vont servir
@@ -3554,7 +3565,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         // un petit hamburger comme pour le profil ». Les 3 compteurs Free
         // restent visibles ; Victoires / Matchs / Bonnes rép. / Abonnés se
         // déplient avec PLUS.
-        <View style={s.playerStatsContainer}>
+        <View style={[s.playerStatsContainer, isDesktopBattle && s.playerStatsDesktop]}>
           <View style={s.playerStatsBigRow}>
             <View style={[s.playerStatsBigItem, s.freeStatMain]}>
               <Text style={[s.playerStatsBigValue, s.freeStatValueMain]}>{myCreditStatus?.remainingFree ?? myPlayerStats?.freeBalance ?? 0}</Text>
@@ -3581,7 +3592,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             {/* 29/09/2026 : une seule ligne sous les compteurs, Solos à gauche,
                 recharge des Free à droite (« en face de prochaine recharge »). */}
             <View style={s.quotaRow}>
-              {(() => { const q = soloQuotaCopy(soloDailyStatus); return q ? <View style={s.quotaCell}><Text style={[s.soloQuotaText, q.exhausted && s.soloQuotaExhausted]} numberOfLines={1}>🎯 {q.headline}</Text><Text style={s.quotaSub} numberOfLines={1}>{q.detail}</Text></View> : null; })()}
+              {(() => { const q = soloQuotaCopy(soloDailyStatus); return q ? <View style={s.soloQuotaCompactRow}><View style={s.soloQuotaSquare} accessibilityLabel={q.headline}><Text style={[s.soloQuotaSquareValue, q.exhausted && s.soloQuotaExhausted]}>{soloDailyStatus?.unlimited ? '∞' : (soloDailyStatus?.remaining ?? '—')}</Text><Text style={s.soloQuotaSquareLabel}>SOLOS</Text></View><View style={s.soloQuotaCompactCopy}><Text style={[s.soloQuotaText, q.exhausted && s.soloQuotaExhausted]} numberOfLines={1}>{q.headline}</Text><Text style={s.quotaSub} numberOfLines={2}>{q.detail}</Text></View></View> : null; })()}
               {freeRecharge ? <View style={s.quotaCell}><Text style={s.freeRechargeText} numberOfLines={1}>🔄 {freeRecharge}</Text><Text style={s.quotaSub} numberOfLines={1}>prochain crédit de Free</Text></View> : null}
             </View>
 {soloQuotaCopy(soloDailyStatus)?.exhausted ? (
@@ -3620,7 +3631,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             </View>
           ) : null}
         </View>
-      ) : null}{!incoming[0] && pendingRematch[0] ? <Animated.View style={[s.invite, { transform: [{ scale: pulse }] }]}><View style={s.inviteHead}><View style={{ flex: 1 }}><Text style={s.inviteQuestion}>🔁 Revanche avec {pendingRematch[0].participantUsernames.map((u) => `${u}`).join(', ') || 'le groupe'}. On repart ?</Text><Text style={s.inviteLabel}>⚡ {themeLabel(pendingRematch[0].themeCode)} · RÉPONSE OBLIGATOIRE</Text></View></View><View style={s.inviteActions}><TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser la revanche" hitSlop={10} disabled={Boolean(rematchBannerBusyId)} style={[s.no, rematchBannerBusyId && s.actionDisabled]} onPress={() => requestPendingRematchDecision(pendingRematch[0], false)}><Text style={s.noText}>REFUSER</Text></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter la revanche" hitSlop={10} disabled={Boolean(rematchBannerBusyId)} style={[s.yes, rematchBannerBusyId && s.actionDisabled]} onPress={() => requestPendingRematchDecision(pendingRematch[0], true)}><Text style={s.yesText}>{rematchBannerBusyId === pendingRematch[0].arenaId ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity></View></Animated.View> : null}{incoming[0] ? <Animated.View style={[s.invite, { transform: [{ scale: pulse }] }]}><View style={s.inviteHead}><Avatar name={incoming[0].username} url={incoming[0].avatarUrl} size={48} /><View style={{ flex: 1 }}><Text style={s.inviteQuestion}><Text style={s.inviteName}>{incoming[0].username}</Text> te défie sur un Battle. Tu acceptes ?</Text><Text style={s.inviteLabel}>⚡ {themeLabel(incoming[0].themeCode)} · {incoming[0].roundCount} morceaux · RÉPONSE OBLIGATOIRE</Text></View></View>{respondingChallengeId === incoming[0].id ? <Text style={s.inviteConnecting}>CONNEXION AU BATTLE…</Text> : null}<View style={s.inviteActions}><TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser le Battle" hitSlop={10} disabled={!incomingDecisionReady || Boolean(respondingChallengeId)} style={[s.no, (!incomingDecisionReady || respondingChallengeId) && s.actionDisabled]} onPress={() => requestBattleChallengeDecision(incoming[0], false)}><Text style={s.noText}>REFUSER</Text></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter le Battle" hitSlop={10} disabled={!incomingDecisionReady || Boolean(respondingChallengeId)} style={[s.yes, (!incomingDecisionReady || respondingChallengeId) && s.actionDisabled]} onPress={() => requestBattleChallengeDecision(incoming[0], true)}><Text style={s.yesText}>{respondingChallengeId === incoming[0].id ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity></View></Animated.View> : null}<View style={s.battleSetupCard}>
+      ) : null}{!incoming[0] && pendingRematch[0] ? <Animated.View style={[s.invite, { transform: [{ scale: pulse }] }]}><View style={s.inviteHead}><View style={{ flex: 1 }}><Text style={s.inviteQuestion}>🔁 Revanche avec {pendingRematch[0].participantUsernames.map((u) => `${u}`).join(', ') || 'le groupe'}. On repart ?</Text><Text style={s.inviteLabel}>⚡ {themeLabel(pendingRematch[0].themeCode)} · RÉPONSE OBLIGATOIRE</Text></View></View><View style={s.inviteActions}><TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser la revanche" hitSlop={10} disabled={Boolean(rematchBannerBusyId)} style={[s.no, rematchBannerBusyId && s.actionDisabled]} onPress={() => requestPendingRematchDecision(pendingRematch[0], false)}><Text style={s.noText}>REFUSER</Text></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter la revanche" hitSlop={10} disabled={Boolean(rematchBannerBusyId)} style={[s.yes, rematchBannerBusyId && s.actionDisabled]} onPress={() => requestPendingRematchDecision(pendingRematch[0], true)}><Text style={s.yesText}>{rematchBannerBusyId === pendingRematch[0].arenaId ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity></View></Animated.View> : null}{incoming[0] ? <Animated.View style={[s.invite, { transform: [{ scale: pulse }] }]}><View style={s.inviteHead}><Avatar name={incoming[0].username} url={incoming[0].avatarUrl} size={48} /><View style={{ flex: 1 }}><Text style={s.inviteQuestion}><Text style={s.inviteName}>{incoming[0].username}</Text> te défie sur un Battle. Tu acceptes ?</Text><Text style={s.inviteLabel}>⚡ {themeLabel(incoming[0].themeCode)} · {incoming[0].roundCount} morceaux · RÉPONSE OBLIGATOIRE</Text></View></View>{respondingChallengeId === incoming[0].id ? <Text style={s.inviteConnecting}>CONNEXION AU BATTLE…</Text> : null}<View style={s.inviteActions}><TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser le Battle" hitSlop={10} disabled={!incomingDecisionReady || Boolean(respondingChallengeId)} style={[s.no, (!incomingDecisionReady || respondingChallengeId) && s.actionDisabled]} onPress={() => requestBattleChallengeDecision(incoming[0], false)}><Text style={s.noText}>REFUSER</Text></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter le Battle" hitSlop={10} disabled={!incomingDecisionReady || Boolean(respondingChallengeId)} style={[s.yes, (!incomingDecisionReady || respondingChallengeId) && s.actionDisabled]} onPress={() => requestBattleChallengeDecision(incoming[0], true)}><Text style={s.yesText}>{respondingChallengeId === incoming[0].id ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity></View></Animated.View> : null}<View style={[s.battleSetupCard, isDesktopBattle && s.battleSetupDesktop]}>
         <View style={s.battleSetupHeader}><View style={s.battleSetupHeaderCopy}><Text style={s.battleSetupEyebrow}>FORMAT DU BATTLE</Text><Text style={s.battleSetupTitle}>{roundCount} morceaux · Solo gratuit · Battle {stakeForRounds(roundCount)} Free</Text></View><Text style={s.battleSetupBadge} numberOfLines={1}>10 s / titre</Text></View>
         <Text style={s.section}>NOMBRE DE MORCEAUX</Text>
         {/* Adel (29/09/2026) : « pourquoi tu n'utilises pas la longueur complète ». 4 choix égaux sur toute la largeur. */}<View style={s.roundChipRow}>{ROUND_COUNT_OPTIONS.map((n) => { const short = insufficientForRoundCount(n); return <TouchableOpacity key={n} onPress={() => setRoundCount(n)} style={[s.theme, s.roundChip, n === roundCount && s.themeOn, short && s.themeShort]} accessibilityRole="button" accessibilityState={{ selected: n === roundCount }} accessibilityLabel={`${n} morceaux, Battle en ligne ${stakeForRounds(n)} Free`}><Text style={[s.themeText, n === roundCount && s.themeTextOn, short && s.themeTextShort]}>{n}</Text><Text style={[s.themeStake, n === roundCount && s.themeStakeOn, short && s.themeTextShort]}>{stakeForRounds(n)} Free</Text></TouchableOpacity>; })}</View>
@@ -3631,7 +3642,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           doit comprendre qu'il a un nombre limité de solos selon sa formule »
           + « plutôt Battle qu'en ligne ». Deux grandes cartes empilées : le
           quota Solo et sa recharge sont écrits dans le bouton lui-même. */}
-      <View style={s.battleModes}>
+      <View style={[s.battleModes, isDesktopBattle && s.homeDesktop]}>
         {/* Adel (29/09/2026) : « pourquoi l'un sur l'autre… une couleur
             différente ». Deux cartes jumelles côte à côte, même couleur :
             seul le contenu change (icône, promesse, quota / mise). */}
@@ -3647,7 +3658,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
 
 const s = StyleSheet.create({
   root: { width: '100%', flex: 1, paddingBottom: 0, position: 'relative' },
-  rootDesktop: { maxWidth: 560, alignSelf: 'center' },
+  rootDesktop: { width: '100%', maxWidth: 1100, paddingHorizontal: 20, alignSelf: 'center', minHeight: 0 },
   soloSaveBackdrop: { flex: 1, backgroundColor: 'rgba(5,4,10,.76)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
   soloSaveCard: { width: '100%', maxWidth: 390, borderRadius: 24, borderWidth: 1, borderColor: colors.primary, backgroundColor: colors.backgroundElevated, paddingHorizontal: 16, paddingTop: 18, paddingBottom: 14 },
   soloSaveEyebrow: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 1.4, textAlign: 'center' },
@@ -3688,6 +3699,11 @@ const s = StyleSheet.create({
   quotaInfo: { marginTop: 2, gap: 2, alignItems: 'center' },
   quotaRow: { flexDirection: 'row', gap: 8, alignSelf: 'stretch' },
   quotaCell: { flex: 1, minWidth: 0, alignItems: 'center', paddingVertical: 6, borderRadius: 12, backgroundColor: '#1B1422' },
+  soloQuotaCompactRow: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  soloQuotaSquare: { width: 58, height: 58, borderRadius: 12, borderWidth: 1, borderColor: colors.success, backgroundColor: colors.backgroundCard, alignItems: 'center', justifyContent: 'center' },
+  soloQuotaSquareValue: { color: colors.success, fontSize: 21, fontWeight: '900' },
+  soloQuotaSquareLabel: { color: colors.textPrimary, fontSize: 10, fontWeight: '900' },
+  soloQuotaCompactCopy: { flex: 1, minWidth: 0 },
   quotaSub: { color: colors.textMutedGrey, fontSize: 11, fontWeight: '700', marginTop: 1 },
   soloQuotaText: { color: colors.success, fontSize: 12, lineHeight: 16, fontWeight: '900', textAlign: 'center' },
   modeCardExhausted: { borderColor: colors.border, opacity: .85 },
@@ -3755,6 +3771,10 @@ const s = StyleSheet.create({
   // l'avatar/bouton BATTLE de la dernière ligne. marginBottom réserve cette
   // hauteur sans toucher au Design de la barre d'onglets elle-même.
   soloScroll: { flexGrow: 1, paddingBottom: 0 },
+  homeScrollDesktop: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: 20, paddingTop: 12 },
+  homeDesktop: { width: '100%' },
+  playerStatsDesktop: { width: '36%', flexGrow: 1, marginVertical: 0 },
+  battleSetupDesktop: { width: '58%', flexGrow: 1, marginTop: 0 },
   homeScroll: { flexGrow: 1, paddingBottom: 48 },
   soloPlayersToggle: { minHeight: 42, marginTop: 8, paddingHorizontal: 12, borderRadius: 16, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   soloPlayersToggleLeft: { flexDirection: 'row', alignItems: 'center', gap: 7, minWidth: 0, flex: 1 },

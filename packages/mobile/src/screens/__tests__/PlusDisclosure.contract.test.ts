@@ -34,6 +34,6 @@ describe('Loki Music Plus disclosures and compact Listen home', () => {
     expect(home).toContain('navigation.navigate(\'Offers\')');
     expect(home).not.toContain('RESTANTES · {listenEconomyStatus.used}');
     expect(home).not.toContain("Mon quota d'écoutes");
-    expect(home).toContain("{homeAboutOpen ? 'Réduire' : 'Plus'}");
+    expect(home).toContain("{homeAboutOpen ? 'Moins' : 'Plus'}");
   });
 });

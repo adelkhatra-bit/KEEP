@@ -8,12 +8,12 @@ describe('Simple mobile journeys', () => {
   const profile = read(__dirname, '..', 'ProfileSettingsMobileScreen.tsx');
 
   it('keeps Playlists understandable without permanent instructional clutter', () => {
-    expect(music).toContain('Écouter mes morceaux · {localKeptEntries.length}');
-    expect(music).toContain('Choisir ce qui est visible');
-    expect(music).toContain('Trier ma musique');
+    expect(music).toContain('Toute ma musique · {localKeptEntries.length}');
+    expect(music).toContain('Visibilité');
+    expect(music).toContain('Trier mes titres');
     expect(music).toContain('focusActionStack');
-    expect(music).toContain('Connecter mes applis musique');
-    expect(music).toContain('Spotify, Apple Music et autres');
+    expect(music).toContain('Mes services musicaux');
+    expect(music).toContain('Connecter ou synchroniser');
     expect(music).toContain('accessibilityLabel="Tout comprendre sur Playlists"');
     expect(music).toContain('Tout faire dans Playlists');
     expect(music).not.toContain('Choisis une action. Tu peux revenir ici quand tu veux.');

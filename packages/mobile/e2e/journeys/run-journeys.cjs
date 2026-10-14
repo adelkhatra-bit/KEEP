@@ -119,13 +119,13 @@ function popupJourney(mode) {
       const btn = page.locator('[aria-label^="Débloquer la collection"], [aria-label^="Commencer ma transaction PayPal"], [aria-label^="FREE insuffisants"], [aria-label^="Tu as déjà tous"]').last();
       r.desactive_avant_case = (await btn.getAttribute('aria-disabled')) === 'true';
       const box0 = page.locator('[role="checkbox"]').first();
-      r.liens_en_savoir_plus = await page.getByText('en savoir plus').count();
+      r.liens_en_savoir_plus = await page.getByText('Plus', { exact: true }).count();
       if (mode !== 'FREE') {
-        await box0.getByText('en savoir plus').click();
+        await box0.getByText('Plus', { exact: true }).click();
         await page.waitForTimeout(300);
         r.texte_complet_apres_clic = (await page.getByText(/je renonce à mon droit de rétractation/).count()) > 0;
         r.case_toujours_decochee = (await box0.getByText('✓').count()) === 0;
-        await box0.getByText('réduire').click();
+        await box0.getByText('Moins', { exact: true }).click();
         await page.waitForTimeout(200);
       }
       await shot('avant');
@@ -155,9 +155,9 @@ function popupJourney(mode) {
         ['bouton toujours visible après dépliage', r.bouton_visible_apres_depli],
       ];
       if (mode !== 'FREE') {
-        checks.push(['lien « en savoir plus » présent', r.liens_en_savoir_plus > 0]);
-        checks.push(['texte de rétractation complet après « en savoir plus »', r.texte_complet_apres_clic]);
-        checks.push(['« en savoir plus » ne coche pas la case', r.case_toujours_decochee]);
+        checks.push(['lien « Plus » présent', r.liens_en_savoir_plus > 0]);
+        checks.push(['texte de rétractation complet après « Plus »', r.texte_complet_apres_clic]);
+        checks.push(['« Plus » ne coche pas la case', r.case_toujours_decochee]);
       }
       return { details: r, failures: failed(checks), ok: 'case obligatoire, détail, bouton visible' };
     },
@@ -174,11 +174,11 @@ const boutiqueJourney = {
     const r = {};
     const profileUrl = `${BASE}/profile/${fake.SELLER_USERNAME}`;
     await page.goto(profileUrl, { waitUntil: 'load' });
-    await page.getByText('BOUTIQUE MUSICALE · SES PÉPITES').first().waitFor({ timeout: 40000 });
+    await page.getByText(/^BOUTIQUE · @/).first().waitFor({ timeout: 40000 });
     await page.waitForTimeout(2200);
 
-    r.banniere = (await page.getByText('BOUTIQUE MUSICALE · SES PÉPITES').count()) > 0;
-    r.titre_banniere = (await page.getByText('40 collections · 1 clic pour écouter').count()) > 0;
+    r.banniere = (await page.getByText(/^BOUTIQUE · @/).count()) > 0;
+    r.titre_banniere = (await page.getByText('40 collections à découvrir').count()) > 0;
     r.pastilles = {
       free: (await page.getByText(/^✦ \d+ en FREE$/).count()) > 0,
       euro: (await page.getByText(/^€ \d+$/).count()) > 0,
@@ -186,13 +186,13 @@ const boutiqueJourney = {
       filtre_nouveautes: (await page.getByText('Nouveautés', { exact: true }).count()) > 0,
     };
     r.aucune_image_banniere = await page.evaluate(() => {
-      const k = [...document.querySelectorAll('div')].find((n) => n.textContent.trim() === 'BOUTIQUE MUSICALE · SES PÉPITES');
+      const k = [...document.querySelectorAll('div')].find((n) => n.textContent.trim().startsWith('BOUTIQUE · @'));
       let b = k;
       for (let i = 0; i < 4 && b; i++) b = b.parentElement;
       return b ? b.querySelectorAll('img').length === 0 : null;
     });
-    r.pepite_une = (await page.getByText('★ PÉPITE À LA UNE').count()) > 0;
-    r.etagere_titre = (await page.getByText('Toutes les Pépites').count()) > 0;
+    r.pepite_une = (await page.getByText('★ À LA UNE').count()) > 0;
+    r.etagere_titre = (await page.getByText('Explorer').count()) > 0;
     r.tout_voir = (await page.getByText('Tout voir · 40 ›').count()) > 0;
     r.chips = {
       tout: (await page.getByText('Tout 40').count()) > 0,
@@ -212,7 +212,7 @@ const boutiqueJourney = {
     await page.locator('[aria-label^="Fermer"]').first().click({ force: true }).catch(() => {});
 
     await page.goto(profileUrl, { waitUntil: 'load' });
-    await page.getByText('BOUTIQUE MUSICALE · SES PÉPITES').first().waitFor({ timeout: 40000 });
+    await page.getByText(/^BOUTIQUE · @/).first().waitFor({ timeout: 40000 });
     await page.getByText('Tout voir · 40 ›').first().click({ force: true });
     await page.waitForTimeout(1000);
     r.boutique_titre = (await page.getByText('PÉPITES LOKI').count()) > 0;
@@ -230,14 +230,14 @@ const boutiqueJourney = {
     r.debordement_horizontal = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
 
     const checks = [
-      ['bannière Boutique musicale · Ses Pépites', r.banniere],
-      ['sous-titre « 40 collections · 1 clic pour écouter »', r.titre_banniere],
+      ['bannière Boutique · @vendeur', r.banniere],
+      ['sous-titre « 40 collections à découvrir »', r.titre_banniere],
       ['pastille FREE', r.pastilles.free],
       ['pastille €', r.pastilles.euro],
       ['filtre Nouveautés disponible même si aucune nouveauté n’est calculée', r.pastilles.filtre_nouveautes],
       ['aucune image dans la bannière', r.aucune_image_banniere === true],
       ['Pépite à la une visible', r.pepite_une],
-      ['étagère « Toutes les Pépites »', r.etagere_titre],
+      ['étagère « Explorer »', r.etagere_titre],
       ['lien « Tout voir · 40 »', r.tout_voir],
       ['filtre Tout 40', r.chips.tout],
       ['filtre FREE 2x', r.chips.free],
@@ -710,7 +710,7 @@ const battleArenaLayoutJourney = {
 // son prix réglés dans le Super Admin + « En savoir plus » clair.
 const soloRechargeJourney = {
   id: 'battle-recharger-solos',
-  titre: 'Battle — Solos épuisés : packs dynamiques du Super Admin + En savoir plus',
+  titre: 'Battle — Solos épuisés : packs dynamiques du Super Admin + Plus',
   devices: [ANDROID, MOBILE_SE, PC],
   mobileFlags: true,
   fakeOptions: { soloExhausted: true },
@@ -722,7 +722,7 @@ const soloRechargeJourney = {
     const body = await page.locator('body').innerText();
     r.prix_sous_bouton = body.includes('+12 Solos pour 4 Free') && body.includes('+30 Solos pour 7 Free');
     r.ancienne_phrase = body.includes('attends la recharge');
-    await page.getByRole('button', { name: /Deux packs au choix\. En savoir plus/ }).first().click();
+    await page.getByRole('button', { name: /Deux packs au choix\. Plus/ }).first().click();
     await page.waitForTimeout(400);
     r.explication = (await page.getByText(/Packs disponibles : \+12 Solos pour 4 Free · \+30 Solos pour 7 Free/).count()) > 0;
     await shot('recharger');
@@ -747,7 +747,7 @@ const soloRechargeJourney = {
       ['popup à 3 boutons : une seule ligne en bas, même largeur, toute la largeur', r.popup_alignee],
       ['sous le bouton : packs et prix du Super Admin (+12/4 et +30/7)', r.prix_sous_bouton],
       ['plus de « ou attends la recharge de 2 h »', !r.ancienne_phrase],
-      ['« En savoir plus » reprend exactement les packs dynamiques', r.explication],
+      ['« Plus » reprend exactement les packs dynamiques', r.explication],
     ];
     return { details: r, failures: failed(checks), ok: 'prix affiché, explication claire' };
   },
@@ -903,8 +903,17 @@ const desktopHomeStoryJourney = {
     checks.push(['compteur des spectateurs non coupé dans la Story', inViewport(viewerChip) && !!viewerChip && viewerChip.height >= 34]);
     checks.push(['lecteur Story entièrement contenu dans le viewport', inViewport(storyRect)]);
     checks.push(['titre Story accessible en haut', !!headerRect && headerRect.y >= 0 && headerRect.y <= viewport.height * 0.35]);
-    if (desktop) checks.push(['Story centrée horizontalement en fenêtre de téléphone',
-      !!storyRect && storyRect.width <= 525 && Math.abs(storyRect.x + storyRect.width / 2 - viewport.width / 2) < 15]);
+    if (desktop) {
+      // Design bureau « Swipe immersif » (#181) : lecteur Story (≤ 560 px) + panneau d'aide à droite,
+      // l'ENSEMBLE doit être centré dans la fenêtre et rester entièrement visible.
+      const aside = await page.locator('[data-testid="loki-desktop-story-aside"]').boundingBox();
+      const left = storyRect ? storyRect.x : 0;
+      const right = aside ? aside.x + aside.width : (storyRect ? storyRect.x + storyRect.width : 0);
+      checks.push(['lecteur Story ≤ 560 px de large (fenêtre de téléphone)', !!storyRect && storyRect.width <= 562]);
+      checks.push(['panneau d’aide Story présent à droite du lecteur', !!aside && !!storyRect && aside.x >= storyRect.x + storyRect.width - 2]);
+      checks.push(['Story + panneau centrés horizontalement et entièrement dans la fenêtre',
+        !!storyRect && left >= -2 && right <= viewport.width + 2 && Math.abs((left + right) / 2 - viewport.width / 2) < 15]);
+    }
     await shot('story-cadree');
     return {
       details: { homeRect, buttonRect, storyRect, headerRect, viewerChip },
@@ -916,7 +925,7 @@ const desktopHomeStoryJourney = {
 
 const listenPcAndEventStoryJourney = {
   id: 'mobile-pc-quotas-event-story',
-  titre: 'Transfert PC, quota restant, Story de soirée avec réponse et points Pulse',
+  titre: 'Transfert PC, accueil sans RESTANTES, Story de soirée avec réponse et points Pulse',
   devices: [
     ['PC compact 1098x620', { width: 1098, height: 620 }],
     ['iPhone simulé 390x844', { width: 390, height: 844 }],
@@ -937,7 +946,7 @@ const listenPcAndEventStoryJourney = {
     } else {
       const transfer = page.locator('[data-testid="home-transfer-to-pc"]');
       checks.push(['transfert PC visible depuis accueil iPhone', await transfer.isVisible()]);
-      checks.push(['quota restant renseigné', (await page.locator('body').innerText()).includes('RESTANTES')]);
+      checks.push(['ancien compteur RESTANTES absent de l’accueil', !(await page.locator('body').innerText()).includes('RESTANTES')]);
       const shareErrors = [];
       page.on('pageerror', (error) => { shareErrors.push(String(error.message)); });
       page.on('dialog', (dialog) => { void dialog.dismiss(); });
@@ -973,11 +982,14 @@ const desktopPartiesBattleSidebarJourney = {
     ['PC compact 1024x560', { width: 1024, height: 560 }],
     ['PC HP 1098x620', { width: 1098, height: 620 }],
     ['PC standard 1440x900', { width: 1440, height: 900 }],
+    ['PC large 1920x1080', { width: 1920, height: 1080 }],
   ],
   mobileFlags: false,
   fakeOptions: { pcSession: true },
   async run({ page, viewport, shot }) {
     const checks = [];
+    // Règle produit (PartiesScreen.desktopBattleWide) : panneaux latéraux seulement à partir de 1800 px de large.
+    const wide = viewport.width >= 1800 && viewport.height >= 550;
     const fit = (rect) => Boolean(rect && rect.y >= -2 && rect.y + rect.height <= viewport.height + 2 && rect.x >= -2 && rect.x + rect.width <= viewport.width + 2);
     await page.goto(`${BASE}/Main/Parties/`, { waitUntil: 'load' });
     const sidebar = page.getByTestId('desktop-sidebar');
@@ -1013,11 +1025,19 @@ const desktopPartiesBattleSidebarJourney = {
     const sidebarRect = await sidebar.boundingBox();
     checks.push(['Battle occupe toute la largeur hors barre latérale', !!stageRect && !!sidebarRect && stageRect.width >= viewport.width - sidebarRect.width - 18]);
     checks.push(['fond Battle violet présent sur la totalité du bureau', await page.getByTestId('desktop-battle-atmosphere').isVisible()]);
-    checks.push(['panneau informations gauche présent sans chevauchement', await page.getByTestId('desktop-battle-left').isVisible()]);
-    checks.push(['panneau informations droit présent sans chevauchement', await page.getByTestId('desktop-battle-right').isVisible()]);
-    const left = await page.getByTestId('desktop-battle-left').boundingBox();
-    const right = await page.getByTestId('desktop-battle-right').boundingBox();
-    checks.push(['panneaux desktop entièrement dans leur zone', !!left && !!right && !!stageRect && left.x >= stageRect.x && right.x + right.width <= stageRect.x + stageRect.width + 2 && left.x + left.width < right.x]);
+    const leftPanel = page.getByTestId('desktop-battle-left');
+    const rightPanel = page.getByTestId('desktop-battle-right');
+    let left = null; let right = null;
+    if (wide) {
+      checks.push(['panneau informations gauche présent sans chevauchement', await leftPanel.isVisible()]);
+      checks.push(['panneau informations droit présent sans chevauchement', await rightPanel.isVisible()]);
+      left = await leftPanel.boundingBox();
+      right = await rightPanel.boundingBox();
+      checks.push(['panneaux desktop entièrement dans leur zone', !!left && !!right && !!stageRect && left.x >= stageRect.x && right.x + right.width <= stageRect.x + stageRect.width + 2 && left.x + left.width < right.x]);
+    } else {
+      // Fenêtre < 1800 px : aucun panneau latéral (il écraserait le cockpit) — la zone centrale garde toute la largeur.
+      checks.push(['sous 1800 px : aucun panneau latéral qui rogne le cockpit Battle', (await leftPanel.count()) === 0 && (await rightPanel.count()) === 0]);
+    }
     await shot('battle-pleine-largeur');
     const docWidth = await page.evaluate(() => document.documentElement.scrollWidth);
     checks.push(['aucun débordement horizontal page', docWidth <= viewport.width + 4]);
@@ -1027,9 +1047,126 @@ const desktopPartiesBattleSidebarJourney = {
   },
 };
 
+
+// Swipe sur les titres importés via YouTube (incident 14/10/2026) : l'iframe du fournisseur avalait tous les gestes
+// (aperçu du profil) et les Stories défilaient seules en 2,4 s sans jamais proposer la vidéo.
+async function dragGesture(page, viewport, x, y, dx, dy) {
+  if (viewport.width < 500) {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+    for (let i = 1; i <= 10; i += 1) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + (dx * i) / 10, y: y + (dy * i) / 10 }] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  } else {
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    for (let i = 1; i <= 10; i += 1) await page.mouse.move(x + (dx * i) / 10, y + (dy * i) / 10);
+    await page.mouse.up();
+  }
+  await page.waitForTimeout(900);
+}
+const swipeYoutubeJourney = {
+  id: 'swipe-stories-youtube',
+  titre: 'Swipe des Stories et de l’aperçu du profil, titres importés via YouTube',
+  devices: [PC, ANDROID],
+  mobileFlags: true,
+  fakeOptions: { pcSession: true, ownStory: 'multi', ownKeeps: true },
+  async run({ page, viewport, shot }) {
+    const checks = [];
+    const meta = page.locator('[data-testid="swipe-metadata-below-artwork"]');
+    const title = async () => (await meta.innerText().catch(() => '')).replace(/\s+/g, ' ');
+    // --- Story : on passe d'une musique à l'autre au geste, sans défilement automatique des titres YouTube.
+    await page.goto(`${BASE}/Main/Profile/`, { waitUntil: 'load' });
+    await page.locator('[data-testid="home-story-own"]').waitFor({ state: 'visible', timeout: 35000 });
+    await page.locator('[data-testid="home-story-own"]').click();
+    await page.locator('[data-testid="story-player"]').waitFor({ state: 'visible', timeout: 20000 });
+    await page.waitForTimeout(700);
+    const card = await page.locator('[data-testid="swipe-neon-depth-card"]').boundingBox();
+    const cx = card.x + card.width / 2;
+    const cy = card.y + card.height / 2;
+    checks.push(['Story : départ sur la première musique', (await title()).includes('Ma musique de démonstration')]);
+    await dragGesture(page, viewport, cx, cy, -200, 0);
+    checks.push(['Story : glisser à gauche passe à la musique suivante', (await title()).includes('démonstration 2')]);
+    await dragGesture(page, viewport, cx, cy, 0, -200);
+    checks.push(['Story : glisser vers le haut passe à la musique suivante', (await title()).includes('démonstration 3')]);
+    await page.waitForTimeout(3300);
+    checks.push(['Story : un titre YouTube sans extrait ne défile pas tout seul', (await title()).includes('démonstration 3')]);
+    checks.push(['Story : le bouton ▶ ÉCOUTER DANS LOKI est proposé pour le titre YouTube', await page.locator('[data-testid="story-open-source-player"]').isVisible()]);
+    await shot('story-youtube');
+    await page.getByLabel('Fermer le swipe').first().click({ force: true }).catch(() => {});
+    await page.waitForTimeout(500);
+    // --- Aperçu du profil : le lecteur YouTube ouvert ne doit pas rendre le Swipe inerte.
+    await page.getByLabel('Voir aperçu').first().waitFor({ state: 'visible', timeout: 30000 });
+    await page.getByLabel('Voir aperçu').first().click();
+    await page.locator('[data-testid="swipe-neon-depth-card"]').waitFor({ state: 'visible', timeout: 20000 });
+    await page.waitForTimeout(700);
+    let guard = 0;
+    while (!(await page.locator('[data-testid="swipe-exact-source-player"]').count()) && guard < 5) {
+      await page.keyboard.press('ArrowUp');
+      await page.waitForTimeout(900);
+      guard += 1;
+    }
+    const overlay = await page.locator('[data-testid="swipe-exact-source-player"]').boundingBox();
+    checks.push(['Aperçu : le lecteur YouTube officiel s’ouvre sur un titre importé via YouTube', !!overlay]);
+    if (overlay) {
+      const before = await title();
+      const gx = overlay.x + 18;
+      const gy = overlay.y + overlay.height / 2;
+      const hit = await page.evaluate(([x, y]) => { const el = document.elementFromPoint(x, y); return el ? el.tagName.toLowerCase() : ''; }, [gx, gy]);
+      checks.push(['Aperçu : la gouttière du lecteur reste libre pour le geste (pas l’iframe)', hit !== 'iframe']);
+      await dragGesture(page, viewport, gx, gy, -200, 0);
+      const afterGesture = await title();
+      checks.push(['Aperçu : glisser depuis la gouttière passe à la musique suivante', afterGesture !== before]);
+      // Flèches du clavier (PC) : même geste, même quand l'iframe occupe la carte.
+      if (viewport.width >= 1024) {
+        await page.keyboard.press('ArrowUp');
+        await page.waitForTimeout(900);
+        checks.push(['Aperçu PC : la flèche ↑ passe à la musique suivante', (await title()) !== afterGesture]);
+      }
+    }
+    await shot('apercu-youtube');
+    return {
+      details: { overlay },
+      failures: failed(checks),
+      ok: 'Stories et aperçu du profil : Swipe fonctionnel, titres YouTube jouables et sans défilement automatique',
+    };
+  },
+};
+
+// Lecture d'un titre importé via YouTube depuis la liste du profil / de la playlist (incident 14/10/2026) :
+// le bouton ▶ ouvrait YouTube hors de Loki. Il doit lire la source officielle DANS l'app, sur PC comme sur mobile.
+const playYoutubeInAppJourney = {
+  id: 'lecture-youtube-dans-loki',
+  titre: 'Lecture d’un titre YouTube depuis la liste du profil, sans quitter Loki Music',
+  devices: [PC, ANDROID],
+  mobileFlags: true,
+  fakeOptions: { pcSession: true, ownKeeps: true },
+  async run({ page, shot }) {
+    const checks = [];
+    await page.goto(`${BASE}/Main/Profile/`, { waitUntil: 'load' });
+    await page.getByText('Tous les morceaux', { exact: true }).first().waitFor({ state: 'visible', timeout: 35000 });
+    await page.getByText('Tous les morceaux', { exact: true }).first().click();
+    const play = page.getByLabel('Écouter ce morceau dans Loki Music').first();
+    await play.waitFor({ state: 'visible', timeout: 20000 });
+    const urlBefore = page.url();
+    const pagesBefore = page.context().pages().length;
+    await play.click();
+    await page.waitForTimeout(1200);
+    checks.push(['le lecteur officiel s’ouvre dans une fenêtre de Loki Music', await page.locator('[data-testid="embedded-source-modal"]').isVisible()]);
+    checks.push(['le lecteur YouTube intégré est chargé (iframe)', (await page.locator('iframe').count()) >= 1]);
+    checks.push(['l’utilisateur reste dans l’application (même adresse, aucun nouvel onglet)', page.url() === urlBefore && page.context().pages().length === pagesBefore]);
+    await shot('lecteur-integre');
+    await page.locator('[data-testid="embedded-source-close"]').click();
+    await page.waitForTimeout(500);
+    checks.push(['la fenêtre se ferme et le profil reste utilisable', (await page.locator('[data-testid="embedded-source-modal"]').count()) === 0]);
+    return { details: {}, failures: failed(checks), ok: 'Le ▶ d’un titre YouTube lit la source dans Loki Music, sans redirection' };
+  },
+};
+
 const JOURNEYS = [
   desktopPartiesBattleSidebarJourney,
   listenPcAndEventStoryJourney,
+  swipeYoutubeJourney,
+  playYoutubeInAppJourney,
   desktopHomeStoryJourney,
   pcConnectionCountdownJourney,
   crossDeviceReadJourney,

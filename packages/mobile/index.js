@@ -283,6 +283,10 @@ class RootRenderBoundary extends React.Component {
   }
 
   componentDidCatch(error, info) {
+    // Safe CI-only diagnostic for real-browser failures: never expose private user data.
+    if (typeof window !== 'undefined' && /^(127\.0\.0\.1|localhost)$/.test(window.location.hostname)) {
+      console.error('[LOKI_BATTLE_RENDER_DIAGNOSTIC]', String(error?.message || error), String(info?.componentStack || '').slice(0, 2400));
+    }
     reportRootDiagnostic('ROOT_RENDER_CRASH', error, {
       componentStack: shortDiagnosticText(info?.componentStack, 1800),
     });

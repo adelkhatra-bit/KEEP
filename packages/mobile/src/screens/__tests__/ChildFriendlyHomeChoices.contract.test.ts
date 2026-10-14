@@ -25,7 +25,7 @@ describe('Child-friendly home choices', () => {
   });
 
   it('uses simple actions on Playlists and moves explanations behind the help button', () => {
-    for (const label of ['Écouter mes morceaux', 'Choisir ce qui est visible', 'Trier ma musique', 'Connecter mes applis musique']) {
+    for (const label of ['Toute ma musique', 'Visibilité', 'Trier mes titres', 'Mes services musicaux']) {
       expect(music).toContain(label);
     }
     expect(music).toContain('accessibilityLabel="Tout comprendre sur Playlists"');
@@ -36,7 +36,9 @@ describe('Child-friendly home choices', () => {
 
   it('keeps every primary choice as a large one-tap row', () => {
     expect(parties).toContain('partyHomeChoice:{minHeight:74');
-    expect(music).toContain('focusActionRow:{minHeight:70');
-    expect(music).toContain('focusPrimary:{minHeight:80');
+    expect(music).toContain('focusActionRow:{minHeight:54');
+    expect(music).toContain('focusPrimary:{minHeight:60');
+    // Les cibles restent supérieures à 48 px même après compactage.
+    expect(music).toContain('focusActionStackDesktop');
   });
 });
