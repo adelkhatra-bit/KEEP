@@ -603,6 +603,9 @@ export default function MusicSwipeDeckModal({
         // Never load YouTube/Spotify ads inside a public Story. Try an exact
         // catalogue audio clip first; without one, let the clean card progress.
         reportAutoDiagnostic('STORY_PREVIEW_NO_AD_FREE_AUDIO', String(current.id).slice(0, 36));
+        // Titre importé via YouTube/Spotify : la source officielle existe, le spectateur peut
+        // la lancer lui-même (▶ ÉCOUTER DANS LOKI). On ne fait donc pas défiler la Story tout seul.
+        if (sourcePlayer) return;
         if (index + 1 < deckTracks.length || loop) {
           if (endAdvanceTimer.current) clearTimeout(endAdvanceTimer.current);
           endAdvanceTimer.current = setTimeout(() => {
@@ -1077,7 +1080,7 @@ export default function MusicSwipeDeckModal({
   const previewLabel = previewResolving
     ? 'Recherche de l’extrait…'
     : !resolvedPreviewUrl
-      ? (trackAddedAt ? 'Extrait indisponible · Story suivante' : sourcePlayer ? 'Source vidéo officielle · lecture selon autorisation' : 'Extrait indisponible')
+      ? (trackAddedAt && !sourcePlayer ? 'Extrait indisponible · Story suivante' : sourcePlayer ? 'Source vidéo officielle · lecture selon autorisation' : 'Extrait indisponible')
       : autoplayBlocked
         ? 'Appuie ci-dessous pour écouter'
         : previewEnded
@@ -1097,6 +1100,38 @@ export default function MusicSwipeDeckModal({
     : `↑ suivant · ← passer · → garder${keepDebitAmount && keepDebitAmount > 0 ? ` · ${keepDebitAmount} FREE` : ''}`;
 
   const controlsLocked = processing || preparingDeck || keepPromptOpen || !!keepSuccess || previewInfoOpen || alreadyKeepInfoOpen;
+
+  // PC : les flèches font le même geste que le Swipe (← passer, → garder, ↑ suivant). Indispensable quand le lecteur
+  // YouTube/Spotify du fournisseur occupe la carte : son iframe avale la souris et ne laisse aucun geste au Swipe.
+  const keyActionsRef = useRef<{ pass: () => void; keep: () => void; next: () => void; locked: boolean; ready: boolean }>({ pass: () => {}, keep: () => {}, next: () => {}, locked: true, ready: false });
+  keyActionsRef.current = {
+    pass: () => { void pass(); },
+    keep: () => { void requestKeep(); },
+    next: () => {
+      if (actionInFlight.current) return;
+      actionInFlight.current = true;
+      void advance().finally(() => { actionInFlight.current = false; });
+    },
+    locked: controlsLocked,
+    ready: Boolean(current),
+  };
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !visible || typeof window === 'undefined') return undefined;
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const tag = String(target?.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || target?.isContentEditable) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const actions = keyActionsRef.current;
+      if (!actions.ready || actions.locked) return;
+      if (event.key === 'ArrowLeft') { event.preventDefault(); actions.pass(); }
+      else if (event.key === 'ArrowRight') { event.preventDefault(); actions.keep(); }
+      else if (event.key === 'ArrowUp') { event.preventDefault(); actions.next(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [visible]);
+
   // Musique d'une story d'un autre : EN VENTE (payante) ou GRATUITE (disponible pour ton profil, FREE annoncés dans l'indication). Jamais sur ma propre story.
   const priceBadge: { label: string; paid: boolean } | null = !current || previewOnly || !trackAddedAt
     ? null
@@ -1285,8 +1320,8 @@ export default function MusicSwipeDeckModal({
                 {/* Adel 05/10/2026 : « il faut que ce soit très lisible, que les utilisateurs ne se fassent pas tromper » -- PAYANT (PayPal) ou GRATUIT, toujours dit en clair sur la carte. */}
                 {storyEmbeddedSource ? <View style={s.storyEmbeddedInCard} testID="story-official-inline-area"><StoryEmbeddedSourcePlayer sourceUrl={storyEmbeddedSource} compact={compactDeck} /></View> : null}
                 {Boolean(trackAddedAt) && !resolvedPreviewUrl && !previewResolving && sourcePlayer ? <Text testID="story-no-provider-ads" style={s.cleanStoryNotice}>Lecture sans publicité intégrée · extrait indisponible</Text> : null}
-                {!trackAddedAt && sourcePlayerOpen && !resolvedPreviewUrl && sourcePlayer ? (
-                  <View testID="swipe-exact-source-player" style={s.sourcePlayerOverlay}>
+                {sourcePlayerOpen && !resolvedPreviewUrl && sourcePlayer ? (
+                  <View testID="swipe-exact-source-player" style={s.sourcePlayerOverlay} pointerEvents="box-none">
                     <View style={s.sourcePlayerToolbar}>
                     <TouchableOpacity style={s.sourcePlayerClose} accessibilityRole="button" accessibilityLabel="Fermer le lecteur et revoir la jaquette" onPress={() => setSourcePlayerOpen(false)}>
                       <Text style={s.sourcePlayerCloseText}>✕ JAQUETTE</Text>
@@ -1294,6 +1329,7 @@ export default function MusicSwipeDeckModal({
                     <TouchableOpacity style={s.sourcePlayerClose} accessibilityRole="button" accessibilityLabel="Relancer le lecteur officiel" onPress={() => { setSourcePlayerFailed(false); setSourcePlayerAttempt((n) => n + 1); }}><Text style={s.sourcePlayerCloseText}>↻ RELANCER</Text></TouchableOpacity>
                     <TouchableOpacity style={s.sourcePlayerClose} accessibilityRole="button" accessibilityLabel="Ouvrir la vidéo originale si la lecture intégrée ne fonctionne pas" onPress={() => { const exact = current.externalUrls?.source || current.externalUrls?.youtube || ''; if (resolveEmbeddedMusicPlayer(exact)) void Linking.openURL(exact).catch(() => {}); }}><Text style={s.sourcePlayerCloseText}>↗ SOURCE</Text></TouchableOpacity>
                     </View>
+                    <View style={s.sourcePlayerFrame} pointerEvents="auto" testID="swipe-source-player-frame">
                     {Platform.OS === 'web'
                       ? React.createElement('iframe', {
                           key: `${sourcePlayer.url}:${sourcePlayerAttempt}`,
@@ -1317,6 +1353,7 @@ export default function MusicSwipeDeckModal({
                           javaScriptEnabled: true,
                           style: { flex: 1, width: '100%' },
                         })}
+                    </View>
                     {sourcePlayerFailed ? <Text style={s.sourcePlayerError}>La plateforme bloque cette préécoute. Essaie ↻ RELANCER ou ↗ SOURCE.</Text> :
                       <Text testID="preview-youtube-autoplay-hint" style={s.sourcePlayerError}>Lecture automatique demandée · si le son est bloqué, touche ▶ dans le lecteur.</Text>}
                   </View>
@@ -1331,7 +1368,7 @@ export default function MusicSwipeDeckModal({
                       <Text style={s.nextInlineText}>↑ SUIVANT</Text>
                     </TouchableOpacity>
                   </View>
-                  {!trackAddedAt && !resolvedPreviewUrl && sourcePlayer && !sourcePlayerOpen ? (
+                  {!resolvedPreviewUrl && !previewResolving && sourcePlayer && !sourcePlayerOpen ? (
                     <TouchableOpacity testID="story-open-source-player" style={s.manualPlayButton} accessibilityRole="button" accessibilityLabel="Écouter la vidéo originale dans Loki Music" onPress={() => { stopTrackPreviewFast(); setSourcePlayerOpen(true); }}>
                       <Text style={s.manualPlayText}>▶ ÉCOUTER DANS LOKI</Text>
                     </TouchableOpacity>
@@ -1528,7 +1565,10 @@ const s = StyleSheet.create({
   sourceOverlay:{position:'relative',alignSelf:'flex-start',minHeight:26,maxWidth:'100%',marginBottom:5,paddingHorizontal:8,borderRadius:12,backgroundColor:'#251A39',borderWidth:1,borderColor:'#9B78D3',alignItems:'center',justifyContent:'center'},sourceOverlayText:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},
   card:{flex:1,minHeight:0,maxHeight:720,borderRadius:24,overflow:'hidden',backgroundColor:'#151020',borderWidth:1.5,borderColor:'#684A93',justifyContent:'flex-start'},
   artworkStage:{flex:1,minHeight:90,width:'100%',overflow:'hidden',position:'relative',alignItems:'center',justifyContent:'center',backgroundColor:'#090610'},
-  sourcePlayerOverlay:{position:'absolute',top:0,left:0,right:0,bottom:0,zIndex:15,backgroundColor:'#100B18',padding:8,justifyContent:'flex-start'},
+  // Gouttières latérales (SWIPE_GUTTER) : l'iframe/WebView du fournisseur avale tous les gestes ; sans marge, le Swipe était mort sur
+  // chaque titre importé via YouTube. Un doigt posé sur une gouttière (ou sur le titre) passe au Swipe ; l'overlay est « box-none ».
+  sourcePlayerOverlay:{position:'absolute',top:0,left:0,right:0,bottom:0,zIndex:15,backgroundColor:'#100B18',paddingVertical:8,paddingHorizontal:44,justifyContent:'flex-start'},
+  sourcePlayerFrame:{flex:1,minHeight:0,width:'100%'},
   sourcePlayerToolbar:{flexDirection:'row',gap:6,paddingBottom:6},sourcePlayerError:{color:'#F5CE87',fontSize:11,lineHeight:15,paddingTop:5,textAlign:'center'},
   sourcePlayerClose:{flex:1,minHeight:40,alignItems:'center',justifyContent:'center',backgroundColor:'#32224A',borderWidth:1,borderColor:'#7E5AB8',borderRadius:10,paddingHorizontal:3},
   sourcePlayerCloseText:{color:'#FFFFFF',fontWeight:'800',fontSize:12},

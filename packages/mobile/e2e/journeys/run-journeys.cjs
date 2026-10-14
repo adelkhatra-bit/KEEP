@@ -1047,9 +1047,95 @@ const desktopPartiesBattleSidebarJourney = {
   },
 };
 
+
+// Swipe sur les titres importés via YouTube (incident 14/10/2026) : l'iframe du fournisseur avalait tous les gestes
+// (aperçu du profil) et les Stories défilaient seules en 2,4 s sans jamais proposer la vidéo.
+async function dragGesture(page, viewport, x, y, dx, dy) {
+  if (viewport.width < 500) {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+    for (let i = 1; i <= 10; i += 1) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + (dx * i) / 10, y: y + (dy * i) / 10 }] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  } else {
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    for (let i = 1; i <= 10; i += 1) await page.mouse.move(x + (dx * i) / 10, y + (dy * i) / 10);
+    await page.mouse.up();
+  }
+  await page.waitForTimeout(900);
+}
+const swipeYoutubeJourney = {
+  id: 'swipe-stories-youtube',
+  titre: 'Swipe des Stories et de l’aperçu du profil, titres importés via YouTube',
+  devices: [PC, ANDROID],
+  mobileFlags: true,
+  fakeOptions: { pcSession: true, ownStory: 'multi', ownKeeps: true },
+  async run({ page, viewport, shot }) {
+    const checks = [];
+    const meta = page.locator('[data-testid="swipe-metadata-below-artwork"]');
+    const title = async () => (await meta.innerText().catch(() => '')).replace(/\s+/g, ' ');
+    // --- Story : on passe d'une musique à l'autre au geste, sans défilement automatique des titres YouTube.
+    await page.goto(`${BASE}/Main/Profile/`, { waitUntil: 'load' });
+    await page.locator('[data-testid="home-story-own"]').waitFor({ state: 'visible', timeout: 35000 });
+    await page.locator('[data-testid="home-story-own"]').click();
+    await page.locator('[data-testid="story-player"]').waitFor({ state: 'visible', timeout: 20000 });
+    await page.waitForTimeout(700);
+    const card = await page.locator('[data-testid="swipe-neon-depth-card"]').boundingBox();
+    const cx = card.x + card.width / 2;
+    const cy = card.y + card.height / 2;
+    checks.push(['Story : départ sur la première musique', (await title()).includes('Ma musique de démonstration')]);
+    await dragGesture(page, viewport, cx, cy, -200, 0);
+    checks.push(['Story : glisser à gauche passe à la musique suivante', (await title()).includes('démonstration 2')]);
+    await dragGesture(page, viewport, cx, cy, 0, -200);
+    checks.push(['Story : glisser vers le haut passe à la musique suivante', (await title()).includes('démonstration 3')]);
+    await page.waitForTimeout(3300);
+    checks.push(['Story : un titre YouTube sans extrait ne défile pas tout seul', (await title()).includes('démonstration 3')]);
+    checks.push(['Story : le bouton ▶ ÉCOUTER DANS LOKI est proposé pour le titre YouTube', await page.locator('[data-testid="story-open-source-player"]').isVisible()]);
+    await shot('story-youtube');
+    await page.getByLabel('Fermer le swipe').first().click({ force: true }).catch(() => {});
+    await page.waitForTimeout(500);
+    // --- Aperçu du profil : le lecteur YouTube ouvert ne doit pas rendre le Swipe inerte.
+    await page.getByLabel('Voir aperçu').first().waitFor({ state: 'visible', timeout: 30000 });
+    await page.getByLabel('Voir aperçu').first().click();
+    await page.locator('[data-testid="swipe-neon-depth-card"]').waitFor({ state: 'visible', timeout: 20000 });
+    await page.waitForTimeout(700);
+    let guard = 0;
+    while (!(await page.locator('[data-testid="swipe-exact-source-player"]').count()) && guard < 5) {
+      await page.keyboard.press('ArrowUp');
+      await page.waitForTimeout(900);
+      guard += 1;
+    }
+    const overlay = await page.locator('[data-testid="swipe-exact-source-player"]').boundingBox();
+    checks.push(['Aperçu : le lecteur YouTube officiel s’ouvre sur un titre importé via YouTube', !!overlay]);
+    if (overlay) {
+      const before = await title();
+      const gx = overlay.x + 18;
+      const gy = overlay.y + overlay.height / 2;
+      const hit = await page.evaluate(([x, y]) => { const el = document.elementFromPoint(x, y); return el ? el.tagName.toLowerCase() : ''; }, [gx, gy]);
+      checks.push(['Aperçu : la gouttière du lecteur reste libre pour le geste (pas l’iframe)', hit !== 'iframe']);
+      await dragGesture(page, viewport, gx, gy, -200, 0);
+      const afterGesture = await title();
+      checks.push(['Aperçu : glisser depuis la gouttière passe à la musique suivante', afterGesture !== before]);
+      // Flèches du clavier (PC) : même geste, même quand l'iframe occupe la carte.
+      if (viewport.width >= 1024) {
+        await page.keyboard.press('ArrowUp');
+        await page.waitForTimeout(900);
+        checks.push(['Aperçu PC : la flèche ↑ passe à la musique suivante', (await title()) !== afterGesture]);
+      }
+    }
+    await shot('apercu-youtube');
+    return {
+      details: { overlay },
+      failures: failed(checks),
+      ok: 'Stories et aperçu du profil : Swipe fonctionnel, titres YouTube jouables et sans défilement automatique',
+    };
+  },
+};
+
 const JOURNEYS = [
   desktopPartiesBattleSidebarJourney,
   listenPcAndEventStoryJourney,
+  swipeYoutubeJourney,
   desktopHomeStoryJourney,
   pcConnectionCountdownJourney,
   crossDeviceReadJourney,
