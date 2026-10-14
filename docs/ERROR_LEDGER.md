@@ -672,3 +672,8 @@ Limites : migration non appliquée par cette session ; état live Supabase, parc
 Audit du code partagé mobile/Web : le rafraîchissement du lobby effectue plusieurs RPC et celui du spectateur une RPC ; si une réponse dépasse leur cadence respective, le tick suivant peut repartir avant sa fin, empilant requêtes et charge réseau. Le chemin multi-invitation rechargeait aussi le crédit, la présence cible et l'arène à répétition.
 Correctif : gardes « une requête à la fois » pour lobby/spectateur, coalescence des lectures simultanées des joueurs, crédit envoyé relu une fois par groupe, contrôles d'éligibilité finaux laissés au RPC serveur et relecture de l'arène évitée après la première invitation.
 Preuve : contrat Battle 7/7 et tsc mobile OK ; mesure comparative de latence sur appareils et réseau réel non faite. Statut : FIXED_UNVERIFIED.
+
+## ERR-BATTLE-CLOCK-RENDER-20261014 — horloge Battle active hors écran/manche — FIXED_UNVERIFIED
+Le composant Battle mettait `now` à jour toutes les 100 ms sans condition, même lorsque l'écran était désactivé ou qu'aucune manche ne tournait, provoquant dix mises à jour d'état/rendus par seconde pour l'ensemble du composant.
+Correctif : cadence de 100 ms conservée pendant Solo/arène active, ramenée à 1 s au lobby/résultats et arrêtée lorsque `enabled` est faux. Contrat de non-régression ajouté. Aucun changement de cadence des manches actives.
+Preuve : suite mobile complète 350 suites / 1713 tests avant l'ajout de ce dernier contrat ; contrat ciblé et typecheck à rejouer. Gain CPU/batterie non mesuré sur un appareil réel. Statut : FIXED_UNVERIFIED.

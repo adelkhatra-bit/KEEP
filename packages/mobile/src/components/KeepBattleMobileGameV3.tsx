@@ -522,8 +522,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const [saveSessionEnabled, setSaveSessionEnabled] = React.useState(false);
   // BUG RÉEL (Adel, 01/09/2026 : "si tu appuies et tu tombes sur la bonne
   // réponse à la dernière seconde, ça saute une étape, 8/8 est quasi
-  // impossible") : le compte à rebours affiché (`now`) n'avance que toutes
-  // les 100ms, donc un appui juste avant l'échéance pouvait courir en
+  // impossible") : le compte à rebours affiché (`now`) avance toutes les
+  // 100ms pendant une manche, donc un appui juste avant l'échéance pouvait courir en
   // parallèle de l'effet d'auto-timeout sans qu'aucun des deux ne "voie"
   // l'autre avant de committer son propre setSoloAnswer -- risque de
   // verdict incohérent tout près du buzzer. Un verrou synchrone (ref, pas un
@@ -752,7 +752,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // Adel (03/09/2026) : "l'utilisateur verra dans combien de minutes il
   // pourra renvoyer une invite" -- profileId -> instant exact de déblocage
   // (ms epoch), lu depuis le message d'erreur serveur. Rendu vivant via
-  // `now`, qui tourne déjà toutes les 100ms sur cet écran (voir plus bas) :
+  // `now`, dont la cadence baisse au lobby et hors écran (voir plus bas) :
   // pas de minuteur supplémentaire à gérer/nettoyer.
   const [inviteBlockedUntil, setInviteBlockedUntil] = React.useState<Record<string, number>>({});
   const [arenaInvitedIds, setArenaInvitedIds] = React.useState<string[]>([]);
@@ -824,10 +824,18 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   };
 
   React.useEffect(() => { void loadKeepBattleThemes().then((rows) => rows.length && setThemes(rows)).catch(() => {}); }, []);
-  React.useEffect(() => { const id = setInterval(() => setNow(Date.now()), 100); return () => clearInterval(id); }, []);
+  const isBattleClockActive = Boolean(solo) || arena?.status === 'ACTIVE';
+  React.useEffect(() => {
+    if (!enabled) return undefined;
+    setNow(Date.now());
+    const id = isBattleClockActive
+      ? setInterval(() => setNow(Date.now()), 100)
+      : setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [enabled, isBattleClockActive]);
   // Adel (28/09/2026) : charger le statut quotidien SOLO au démarrage et
-  // quand on revient sur l'écran (enabled change). Affichage en temps réel
-  // via le minuteur `now` existant (toutes les 100ms).
+  // quand on revient sur l'écran (enabled change). Affichage via le minuteur
+  // `now` existant (100ms en manche, 1s au lobby).
   // Adel (29/09/2026) : le compteur « Solos : X / 10 » doit bouger dès qu'une
   // partie est lancée ou quittée -- il n'était relu qu'à l'ouverture de
   // l'écran. On le relit aussi à chaque retour à l'accueil Battle (solo null).
@@ -1419,8 +1427,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // une seule requête réseau ratée/en retard suffit à laisser la bannière
   // "PAUSE" affichée avec un compte à rebours à 0s indéfiniment, la partie
   // solo restant figée tant que ce sondage n'a pas confirmé la disparition.
-  // Filet de sécurité 100% local : dès que l'horloge locale (`now`, déjà
-  // mise à jour toutes les 100ms) dépasse `expiresAt`, l'invitation est
+  // Filet de sécurité 100% local : dès que l'horloge locale (`now`, mise à
+  // jour à 100ms pendant une manche) dépasse `expiresAt`, l'invitation est
   // retirée immédiatement sans attendre le serveur -- la partie ne peut
   // plus jamais rester en pause à cause d'une invitation qui a expiré.
   React.useEffect(() => {

@@ -802,6 +802,11 @@
       },
       {
         "file": "packages/mobile/src/components/KeepBattleMobileGameV3.tsx",
+        "snippet": "setInterval(() => setNow(Date.now()), 1000)",
+        "reason": "Horloge locale au lobby Battle seulement; rafraîchit les délais d’invitation sans requête réseau"
+      },
+      {
+        "file": "packages/mobile/src/components/KeepBattleMobileGameV3.tsx",
         "snippet": "setInterval(() => { void tick(); }, 1500)",
         "reason": "RÉSEAU : mode spectateur uniquement, arrêté hors spectateur"
       },

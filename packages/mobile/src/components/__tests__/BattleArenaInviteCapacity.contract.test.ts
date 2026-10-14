@@ -52,6 +52,13 @@ describe('Battle group invitation capacity contract', () => {
     expect(component).toContain('if (!alive || spectatingPollInFlightRef.current) return;');
   });
 
+  it('reduces the Battle clock wakeups outside active rounds and while disabled', () => {
+    expect(component).toContain('if (!enabled) return undefined;');
+    expect(component).toContain('const isBattleClockActive = Boolean(solo) || arena?.status === \'ACTIVE\';');
+    expect(component).toContain('? setInterval(() => setNow(Date.now()), 100)');
+    expect(component).toContain(': setInterval(() => setNow(Date.now()), 1000)');
+  });
+
   it('retains the bounded Solo catalogue query already prepared in the source', () => {
     expect(soloMigration).toContain('order by random()');
     expect(soloMigration).toContain('limit 500');
