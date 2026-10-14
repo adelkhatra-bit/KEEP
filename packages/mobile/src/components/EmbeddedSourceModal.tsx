@@ -2,6 +2,7 @@ import React from 'react';
 import { Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import KeepModal from './KeepModal';
 import StoryEmbeddedSourcePlayer from './StoryEmbeddedSourcePlayer';
+import { colors } from '../theme/colors';
 
 /**
  * Lecture « dans Loki Music » d'un titre qui n'a ni extrait catalogue ni lecteur natif : on affiche le lecteur officiel
@@ -38,7 +39,7 @@ const styles = StyleSheet.create({
   card: { width: '100%', maxWidth: 420, borderRadius: 18, backgroundColor: '#151020', borderWidth: 1, borderColor: '#493369', padding: 14 },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 10 },
   title: { color: '#F8F6FC', fontSize: 13, fontWeight: '800', flex: 1 },
-  close: { color: '#8F879D', fontSize: 18, fontWeight: '900', paddingHorizontal: 6 },
+  close: { color: colors.textPrimary, fontSize: 18, fontWeight: '900', paddingHorizontal: 6 },
   external: { minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: '#493369', alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   externalText: { color: '#C9B8FF', fontSize: 12, fontWeight: '800' },
 });
