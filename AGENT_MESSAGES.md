@@ -2970,3 +2970,7 @@ PR112 reprise : audit captures Chromium. Correctif ciblé en cours : rendre les 
 ## [2026-10-13T10:33:58.340Z] codex
 
 Reprise livraison Soirees PC: navigation officielle sans retour accueil confirme; integration locale sur eb060ac1, conservation des corrections QR/profil deja publiees, verification navigateur avant publication.
+## [2026-10-14T19:57:06.991Z] codex
+
+Audit en cours de l’issue #205 : retrait/épinglage de musique dans la Session. Clone de revue actualisé depuis reconcile/claude-main-20260825 ; analyse lecture seule des handlers, persistence/RPC et tests, aucune donnée production touchée. La cause doit être reproduite avant correction.
+
