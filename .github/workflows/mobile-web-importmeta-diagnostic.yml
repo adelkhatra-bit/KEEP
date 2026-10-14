@@ -109,6 +109,11 @@ jobs:
               return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
             });
 
+            // Même règle pour Realtime : l'indicateur « en train d'écrire » du tchat POSTe vers
+            // /realtime/v1/api/broadcast quand le WebSocket n'est pas encore ouvert ; la requête réelle vers la
+            // production était coupée (ERR_ABORTED) à la fermeture de la page et faisait échouer l'audit.
+            await context.route(/\/realtime\/v1\/api\/broadcast/, route => route.fulfill({ status: 202, contentType: 'application/json', body: '{}' }));
+
             const page = await context.newPage();
             const errors = [];
             const httpFailures = [];
