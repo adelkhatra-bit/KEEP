@@ -1,3 +1,5 @@
+**AUDIT TRANSVERSAL OBLIGATOIRE (12/10/2026) :** avant de modifier Loki Music, Découvertes, Playlists, Soirées, Profil, Hamburger, Sessions, boutique, audio ou Super Admin, lire la section « AUDIT TRANSVERSAL EXÉCUTOIRE — 12/10/2026 » de `MASTER_PLAN.md` et consulter [GitHub #153](https://github.com/adelkhatra-bit/KEEP/issues/153). Vérifier les PR ouvertes, mettre à jour `STATE.md` et `docs/ERROR_LEDGER.md`, et ne jamais déclarer déployé/testé sans preuve web et mobile.
+
 ## 💡 IDÉES D'ADEL — À NOTER IMMÉDIATEMENT (règle pour toutes les IA)
 Toute idée ou demande nouvelle d'Adel (« je voudrais… », « il faudrait… ») qui n'existe pas encore dans le produit doit être ajoutée dans `docs/IDEAS_INBOX.md` **dans la même réponse**, avant tout code, avec le statut `IDÉE`. Ne jamais la ranger dans un commentaire, un message de commit ou la seule conversation. Avant de dire « ce qui reste à faire », lire `docs/IDEAS_INBOX.md`.
 

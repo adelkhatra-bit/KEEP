@@ -7,7 +7,7 @@ describe('Accueil épuré + bandelette + robot des sessions (Adel 05/10/2026)', 
     expect(home).toContain('title="À toi de jouer"');
     expect(home).not.toContain('>Identifier</Text>');
     expect(home).not.toContain('Ça joue quoi');
-    const idleTop = home.indexOf('<TopBar navigation={navigation} readyCount={detected} />');
+    const idleTop = home.indexOf('<TopBar navigation={navigation} readyCount={readyToSwipe} />');
     expect(idleTop).toBeGreaterThan(0);
   });
   it('bandelette communicative sur l\'accueil, seulement si l\'écran a la place', () => {

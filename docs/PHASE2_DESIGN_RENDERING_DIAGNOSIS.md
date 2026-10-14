@@ -1,3 +1,23 @@
+## Revue statique du 12/10/2026 — fenêtres téléphone / ordinateur (PR #120, non livrée)
+**Périmètre et preuve** : analyse des composants Expo de la branche canonique, sans capture réelle de TestFlight ni validation visuelle de la production. Le site officiel est GitHub Pages ; aucun HTML parallèle créé.
+
+| Surface | Avant | Correction ou constat | Contrôle restant |
+|---|---|---|---|
+| Écouter > hamburger > session active | panneau bas (58 %), aucun bouton direct vers Swipe | panneau centré et limité à 78 %, bouton « ARRÊTER ET SWIPER » après sauvegarde et arrêt de la capture | TestFlight : lecture sonore ET ouverture visible, fermeture puis reprise micro explicite |
+| Mes Sessions | mobile collé en bas, PC collé à droite ; navigation depuis un écran `transparentModal` | panneau centré avec largeur limitée sur PC, `replace` avant récap pour ne pas empiler le transparentModal | 390×844, 1440×900, touches, fermeture, scroll, recharge |
+| Récap > Swipe | `openSwipe` déclenché depuis un `useEffect` dès l'arrivée de la route | attendre focus + fin des interactions avant de monter le lecteur ; bouton manuel conservé | iOS vrai appareil, Android et Web avec aperçu réel |
+| KeepVisibilityChoiceModal et KeepSuccessModal | overlay centré, largeur max 390 | pas de refonte, les décisions Public/Privé et coûts FREE sont préservés | vérifier superposition au-dessus de Swipe |
+| ContextHelpSheet | fenêtre centrée, largeur max 460, hauteur max 82 % | déjà conforme en structure | vérifier scroll, bouton fermer sur écran court |
+| PlaylistSaleImmersivePreview | modal centrée, maxWidth 420, maxHeight dynamique | déjà conforme en structure ; paiement non modifié | boutons, clavier et limites achats iOS à tester |
+| SourceProfileQuickView | modal centrée, largeur max 440 | déjà conforme en structure | avatar, actions et retour |
+| Notifications | détail centré, maxWidth 440 / maxHeight 86 % | conforme en structure sur inspection ; autres tests séparés | fermeture, liens/alertes et hauteur réelle |
+| Profil édition : pays / date / compte | `modalBackdrop` aligné en bas ; `modalCard` max 88 % | écart identifié, NON modifié dans ce correctif de sessions | centrer avec gestion clavier et défilement ; persistance après recharge |
+| Soirées/Battle | plusieurs `KeepModal` par écran, parfois `animationType=slide` | risque d'ouvertures concurrentes à vérifier ; aucune modification hors périmètre | tester simultanéité, actions, audio, billets, clavier 390 et 1440 |
+| Profil public | menu, styles, partage, QR, goûts, etc. avec plusieurs états modal indépendants | audit antérieur : risque de superposition multiple ; pas encore vérifié par navigateur | parcours complet, fermer/revenir, zéro modal fantôme |
+
+**Règle d'intégration** : les dialogues d'action doivent être centrés et contraints au viewport avec défilement intérieur ; la lecture immersive Swipe/Stories conserve ses commandes visibles, peut remplir l'écran du téléphone et une colonne centrale sur PC. Ne pas uniformiser les lecteurs immersifs à une petite boîte qui couperait pochettes ou boutons. Toutes les actions restent réelles et liées à l'unique source Expo `packages/mobile`, sans toucher à `App.tsx`, `Navigation.tsx` ni aux cinq onglets. Un statut « conforme » ci-dessus désigne seulement une observation statique, pas un test visuel réussi.
+
+
 # PHASE 2 — Diagnostic et Réparation (Designs coincés après refresh)
 
 **Date** : 28 septembre 2026  

@@ -31,6 +31,8 @@ export default function WebPairingLifecycle() {
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const [pendingApproval, setPendingApproval] = React.useState<PendingApproval | null>(null);
   const approvingRef = React.useRef(false);
+  // Une seule demande de connexion par QR, même si plusieurs événements d'auth se succèdent.
+  const loginPromptedForRef = React.useRef<string | null>(null);
 
   // Le même compte QR partage son historique d'écoute sur iPhone et PC.
   React.useEffect(() => {
@@ -43,17 +45,39 @@ export default function WebPairingLifecycle() {
     if (Platform.OS === 'web' || !url) return;
     const parsed = parsePairingDeepLink(url);
     if (!parsed) return;
+    // Un deep link peut arriver AVANT la restauration du JWT et du profil.
+    // Ne jamais déduire une déconnexion du store encore vide au premier rendu.
     setPendingApproval(parsed);
-
-    const state = useUserStore.getState();
-    if (!state.user || state.isLocalGuest || state.isDemoMode) {
-      Alert.alert(
-        'Connexion ordinateur',
-        'Connecte-toi à ton compte Loki Music sur ce téléphone pour autoriser cet ordinateur.',
-      );
-      useAccountGateStore.getState().requestAccount('login');
-    }
   }, []);
+
+  React.useEffect(() => {
+    if (Platform.OS === 'web' || !pendingApproval || !supabase) return undefined;
+    if (user && !isLocalGuest && !isDemoMode) return undefined;
+    const key = `${pendingApproval.pairingId}:${pendingApproval.token}`;
+    if (loginPromptedForRef.current === key) return undefined;
+    let active = true;
+
+    // Attendre la restauration Supabase, commune à l'app, AVANT de proposer
+    // une connexion. Une erreur réseau n'est pas une déconnexion.
+    void createAuthService(supabase).getCurrentSession()
+      .then((restoredSession) => {
+        if (!active) return;
+        const state = useUserStore.getState();
+        if (restoredSession?.userId || (state.user && !state.isLocalGuest && !state.isDemoMode)) return;
+        if (loginPromptedForRef.current === key) return;
+        loginPromptedForRef.current = key;
+        Alert.alert(
+          'Connexion ordinateur',
+          'Connecte-toi à ton compte Loki Music sur ce téléphone pour autoriser cet ordinateur.',
+        );
+        useAccountGateStore.getState().requestAccount('login');
+      })
+      .catch(() => {
+        // Une restauration incertaine ne doit jamais ouvrir une fausse
+        // demande de connexion ni fermer la session du téléphone.
+      });
+    return () => { active = false; };
+  }, [pendingApproval?.pairingId, pendingApproval?.token, user?.id, isLocalGuest, isDemoMode]);
 
   React.useEffect(() => {
     if (Platform.OS === 'web') return undefined;

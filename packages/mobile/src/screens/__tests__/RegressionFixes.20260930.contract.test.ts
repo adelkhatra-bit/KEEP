@@ -33,7 +33,7 @@ describe('30/09 regression locks', () => {
     const parties = read('screens/PartiesScreen.tsx');
     expect(parties).toContain('accessibilityLabel="Ouvrir Soirées"');
     expect(parties).toContain('accessibilityLabel="Ouvrir directement Battle"');
-    expect(parties).toContain('setPendingArenaId(undefined); setBattleOpen(true);');
+    expect(parties).toContain("setPartiesTab('BATTLE'); setBattleOpen(true);");
     expect(parties).toContain("partiesTab === 'SOIREES'");
   });
 });

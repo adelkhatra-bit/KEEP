@@ -9,7 +9,7 @@ let mockUserState: any = { isDemoMode: false, isLocalGuest: false, user: { id: '
 jest.mock('../musicEngine', () => ({ musicEngine: { getSession: () => mockGetSession(), musicProvider: {}, router: {} } }));
 jest.mock('../keepMusicCoreRecognition', () => ({ recordKeepDecision: (...a: any[]) => mockRecordKeepDecision(...a) }));
 jest.mock('../creditService', () => ({ ensureDownloadCreditAvailable: jest.fn(async () => ({})) }));
-jest.mock('../connectedMusicLibrary', () => ({ checkOwnKeepLibrary: jest.fn(async () => null) }));
+jest.mock('../connectedMusicLibrary', () => ({ checkOwnKeepLibrary: jest.fn(async () => ({ exists: false, match: null })) }));
 jest.mock('../keepLibraryService', () => ({ syncPlaylistTrack: jest.fn() }));
 jest.mock('../retry', () => ({ withRetry: (fn: any) => fn() }));
 jest.mock('../../store/usePlaylistStore', () => ({ usePlaylistStore: { getState: () => ({ refresh: mockRefresh }) } }));

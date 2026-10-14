@@ -51,7 +51,7 @@ const routes = [
   { path: '/Main/Profile/', marker: 'Profil' },
 ];
 const TAB_LABELS = ['Loki Music', 'Découvertes', 'Playlists', 'Soirées', 'Profil'];
-const LOCAL_SURFACE_ONLY = /^https?:\/\/(127\.0\.0\.1|localhost)(?::\d+)?\//i.test(BASE);
+const LOCAL_SURFACE_ONLY = /^https?:\/\/(127\.0\.0\.1|localhost)(?::\d+)?(?:\/|$)/i.test(BASE);
 const PROD_SUPABASE_HOST = 'rrhqsqzcplvmwxizqnla.supabase.co';
 
 // Décision d'Adel (04/10/2026) : sur ordinateur, Loki ne s'ouvre que par QR
@@ -189,7 +189,9 @@ async function measure(page, expectedTab) {
   }, { tabLabels: TAB_LABELS, expectedTab });
 }
 
-(async () => {
+module.exports = { seedApprovedDevice, isolateSurfaceGateFromProduction, gateAuthPages };
+
+if (require.main === module) (async () => {
   const failures = [];
   const browser = await chromium.launch({ headless: true });
   for (const scenario of scenarios) {

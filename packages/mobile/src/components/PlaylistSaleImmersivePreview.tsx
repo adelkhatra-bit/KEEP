@@ -48,7 +48,7 @@ function MoreToggle({ open, onToggle }: { open: boolean; onToggle: () => void })
       accessibilityRole="button"
       suppressHighlighting
     >
-      {open ? ' réduire' : ' en savoir plus'}
+      {open ? ' Moins' : ' Plus'}
     </Text>
   );
 }

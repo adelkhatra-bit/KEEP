@@ -48,7 +48,14 @@ const corsHeaders = {
 };
 
 const SOCIAL_HOSTS = ["tiktok.com", "instagram.com", "youtube.com", "youtu.be", "snapchat.com", "snap.com", "facebook.com", "fb.watch"];
-const MUSIC_HOSTS = ["music.apple.com", "open.spotify.com", "deezer.com", "soundcloud.com", "listen.tidal.com"];
+// "Copier le lien" des applications renvoie souvent des domaines courts :
+// tous les hôtes ci-dessous sont autorisés explicitement pour empêcher SSRF.
+const MUSIC_HOSTS = [
+  "music.apple.com", "open.spotify.com", "spotify.link", "spotify.app.link", "link.tospotify.com",
+  "deezer.com", "deezer.page.link", "link.deezer.com", "dzr.page.link",
+  "soundcloud.com", "on.soundcloud.com", "listen.tidal.com", "tidal.com",
+  "song.link", "odesli.co",
+];
 const ALLOWED_HOSTS = [...SOCIAL_HOSTS, ...MUSIC_HOSTS];
 
 function json(status: number, payload: unknown) {
@@ -109,6 +116,48 @@ function safeUrl(value: string, base?: URL): URL | null {
   } catch {
     return null;
   }
+}
+
+// Une action "Partager -> Copier le lien" peut produire un message entier :
+// « Écoute ce titre : https://spotify.link/... ». L'URL n'était jamais extraite.
+function sharedUrl(value: unknown): URL | null {
+  const text = String(value ?? "").replace(/[\u200B-\u200D\uFEFF]/g, "").trim();
+  const spotifyUri = text.match(/(?:^|\s)spotify:(track|album|playlist|artist):([a-z0-9]{10,40})(?=$|\s|[),;.!?])/i);
+  if (spotifyUri) return safeUrl(`https://open.spotify.com/${spotifyUri[1]}/${spotifyUri[2]}`);
+  const match = text.match(/https?:\/\/[^\s<>"'«»]+/i);
+  const raw = match?.[0]?.replace(/[)\]},;.!?]+$/g, "").replace(/&amp;/gi, "&");
+  return raw ? safeUrl(raw) : null;
+}
+
+/**
+ * All YouTube apps share the same 11-character video identifier.
+ * A copied mobile youtu.be/Shorts/Music URL is resolved through precisely
+ * the same YouTube oEmbed lookup and cache as a desktop /watch link.
+ */
+function canonicalYoutubeVideoUrl(url: URL | null): URL | null {
+  if (!url) return null;
+  const host = url.hostname.toLowerCase();
+  if (!(host === "youtu.be" || host === "youtube.com" || host.endsWith(".youtube.com"))) return url;
+  const segments = url.pathname.split("/").filter(Boolean);
+  const id = host === "youtu.be"
+    ? segments[0]
+    : url.pathname === "/watch"
+      ? url.searchParams.get("v")
+      : ["shorts", "live", "embed", "v"].includes(segments[0] ?? "") ? segments[1] : null;
+  if (!id || !/^[a-zA-Z0-9_-]{11}$/.test(id)) return url;
+  return new URL(`https://www.youtube.com/watch?v=${id}`);
+}
+
+function linkPlatform(url: URL | null, fallback: string): string {
+  if (!url) return fallback;
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  if (host === "youtu.be" || host === "youtube.com" || host.endsWith(".youtube.com")) return "YOUTUBE";
+  if (host === "tiktok.com" || host.endsWith(".tiktok.com")) return "TIKTOK";
+  if (host === "instagram.com" || host.endsWith(".instagram.com")) return "INSTAGRAM";
+  if (host.includes("spotify.")) return "SPOTIFY";
+  if (host.includes("deezer.") || host === "dzr.page.link") return "DEEZER";
+  if (host.includes("soundcloud.")) return "SOUNDCLOUD";
+  return fallback;
 }
 
 function normalize(value: unknown) {
@@ -309,6 +358,22 @@ async function fetchJson(url: string) {
   } catch { return null; }
 }
 
+// Some provider short links return an HTML interstitial instead of a HTTP
+// redirect. Follow a canonical/og:url only for the allowlisted provider hosts.
+function providerCanonicalUrl(html: string, from: URL): URL | null {
+  const hostname = from.hostname.toLowerCase().replace(/^www\./, "");
+  const shortHosts = new Set([
+    "spotify.link", "spotify.app.link", "link.tospotify.com",
+    "deezer.page.link", "dzr.page.link", "link.deezer.com", "on.soundcloud.com",
+  ]);
+  if (!shortHosts.has(hostname)) return null;
+  const canonical = metaContent(html, "og:url")
+    || html.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)/i)?.[1]
+    || html.match(/<link[^>]+href=["']([^"']+)["'][^>]+rel=["']canonical["']/i)?.[1];
+  const found = canonical ? safeUrl(canonical, from) : null;
+  return found?.toString() === from.toString() ? null : found;
+}
+
 async function fetchPage(start: URL): Promise<{ url: URL; html: string }> {
   let current = start;
   for (let hop = 0; hop < 5; hop += 1) {
@@ -327,7 +392,10 @@ async function fetchPage(start: URL): Promise<{ url: URL; html: string }> {
       continue;
     }
     const type = response.headers.get("content-type") || "";
-    return { url: current, html: /text\/html|application\/xhtml/i.test(type) ? (await response.text()).slice(0, 1_800_000) : "" };
+    const html = /text\/html|application\/xhtml/i.test(type) ? (await response.text()).slice(0, 1_800_000) : "";
+    const canonical = html ? providerCanonicalUrl(html, current) : null;
+    if (canonical && hop < 4) { current = canonical; continue; }
+    return { url: current, html };
   }
   return { url: current, html: "" };
 }
@@ -336,6 +404,9 @@ async function oEmbed(platform: string, url: string) {
   let endpoint = "";
   if (platform === "TIKTOK") endpoint = `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`;
   if (platform === "YOUTUBE") endpoint = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+  // API oEmbed publique documentée par Spotify : pas de clé, pas d'audio copié.
+  if (platform === "SPOTIFY") endpoint = `https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`;
+  if (platform === "SOUNDCLOUD") endpoint = `https://soundcloud.com/oembed?format=json&url=${encodeURIComponent(url)}`;
   return endpoint ? fetchJson(endpoint) : null;
 }
 
@@ -491,10 +562,13 @@ Deno.serve(async (req) => {
     if (!(await allowRequest(req, userId))) return json(429, { ok: false, provider: "KEYLESS_SOURCE", error: "keyless_rate_limited", recognition: null });
 
     const rawUrl = String(body?.url ?? "").trim();
-    const sourceUrl = safeUrl(rawUrl);
+    const sourceUrl = canonicalYoutubeVideoUrl(sharedUrl(rawUrl) ?? sharedUrl(body?.rawText) ?? sharedUrl(body?.title));
     const rawText = cleanMusicText(body?.rawText ?? "").slice(0, 1500);
     const suppliedTitle = cleanMusicText(body?.title ?? "").slice(0, 500);
-    const platform = String(body?.platform ?? "UNKNOWN").toUpperCase();
+    const platform = linkPlatform(sourceUrl, String(body?.platform ?? "UNKNOWN").toUpperCase());
+    // A copied YouTube URL must be matched against THAT video, never a
+    // similarly named song pulled from the clipboard caption or a broad search.
+    const strictYoutubeLink = Boolean(sourceUrl && platform === "YOUTUBE");
     if (!sourceUrl && !rawText && !suppliedTitle) return json(200, { ok: true, provider: "KEYLESS_SOURCE", recognition: null });
 
     if (sourceUrl?.hostname.toLowerCase().includes("music.apple.com")) {
@@ -532,15 +606,50 @@ Deno.serve(async (req) => {
     if (sourceUrl) {
       try { const fetched = await fetchPage(sourceUrl); page = { url: fetched.url, html: fetched.html }; } catch { /* metadata best effort */ }
     }
-    const embedded = page.url ? await oEmbed(platform, page.url.toString()) : null;
-    const explicit = extractExplicitMusic(page.html);
+    // Les URL courtes Deezer redirigent vers /track/<id>. Vérifier l'ID APRÈS
+    // les redirections, pas uniquement celui de l'URL collée.
+    if (page.url && page.url.toString() !== sourceUrl?.toString()) {
+      const resolvedHost = page.url.hostname.toLowerCase();
+      const deezerId = resolvedHost.includes("deezer.com") ? page.url.pathname.match(/\/track\/(\d+)/i)?.[1] : null;
+      if (deezerId) {
+        const exact = await deezerLookup(deezerId);
+        if (exact) {
+          const rec = await recognition(exact, 0.99, page.url.toString());
+          seedInBackground(rec);
+          return json(200, { ok: true, provider: "KEYLESS_SOURCE", strategy: "deezer-short-direct", recognition: rec });
+        }
+      }
+    }
+    // oEmbed peut répondre sur un lien court Spotify même si la page HTML
+    // et sa chaîne de redirection restent bloquées par le site fournisseur.
+    const embedded = sourceUrl && strictYoutubeLink
+      ? await oEmbed("YOUTUBE", sourceUrl.toString())
+      : page.url ? (await oEmbed(platform, page.url.toString())
+        ?? (sourceUrl && sourceUrl.toString() !== page.url.toString() ? await oEmbed(platform, sourceUrl.toString()) : null)) : null;
+    // Video HTML includes recommendations and unrelated audio tracks: the only
+    // trusted title for YouTube is the exact video oEmbed response.
+    const explicit = strictYoutubeLink ? null : extractExplicitMusic(page.html);
     const ogTitle = metaContent(page.html, "og:title") || metaContent(page.html, "twitter:title") || titleTag(page.html);
     const ogDescription = metaContent(page.html, "og:description") || metaContent(page.html, "twitter:description") || metaContent(page.html, "description");
     const embeddedTitle = String(embedded?.title ?? "");
     const embeddedAuthor = String(embedded?.author_name ?? "");
-    const evidence = [explicit?.title, explicit?.artist, embeddedTitle, embeddedAuthor, ogTitle, ogDescription, suppliedTitle, rawText].filter(Boolean).join(" ").slice(0, 5000);
+    const evidence = [explicit?.title, explicit?.artist, embeddedTitle, embeddedAuthor, ogTitle, ogDescription,
+      ...(strictYoutubeLink ? [] : [suppliedTitle, rawText])].filter(Boolean).join(" ").slice(0, 5000);
 
-    const artistTitleCandidates = buildCandidates({ explicit, suppliedTitle, rawText, embeddedTitle, embeddedAuthor, ogTitle });
+    const artistTitleCandidates = buildCandidates({ explicit,
+      suppliedTitle: strictYoutubeLink ? "" : suppliedTitle,
+      rawText: strictYoutubeLink ? "" : rawText,
+      embeddedTitle, embeddedAuthor, ogTitle: strictYoutubeLink ? "" : ogTitle });
+    // Only metadata obtained from the actual video can prove the title/artist.
+    // A search result with partial tokens must NEVER replace that video.
+    const videoPairs = strictYoutubeLink ? [
+      ...(explicit ? [{ artist: explicit.artist, title: explicit.title }] : []),
+      ...[embeddedTitle].flatMap((title) => {
+        const bySeparator = parseArtistTitle(title);
+        const quoted = parseQuotedTitle(title);
+        return [bySeparator, quoted].filter((x): x is { artist: string; title: string } => Boolean(x));
+      }),
+    ] : [];
 
     const respond = (payload: Record<string, unknown>) => {
       if (cacheKey) cacheSet(cacheKey, payload);
@@ -549,20 +658,27 @@ Deno.serve(async (req) => {
 
     // Repli source verifiee : preparee des maintenant, utilisee seulement si
     // aucun match catalogue suffisamment confiant n'est trouve plus bas.
-    const bestTitleGuess = artistTitleCandidates[0]?.title || cleanMusicText(embeddedTitle || ogTitle || suppliedTitle);
-    const bestArtistGuess = artistTitleCandidates[0]?.artist || embeddedAuthor;
-    const canSourceVerify = Boolean(page.url && bestTitleGuess);
+    const videoMetadata = strictYoutubeLink ? (parseArtistTitle(embeddedTitle) || parseQuotedTitle(embeddedTitle)) : null;
+    const bestTitleGuess = strictYoutubeLink
+      ? (videoMetadata?.title || cleanMusicText(embeddedTitle))
+      : artistTitleCandidates[0]?.title || cleanMusicText(embeddedTitle || ogTitle || suppliedTitle);
+    const bestArtistGuess = strictYoutubeLink
+      ? (videoMetadata?.artist || embeddedAuthor)
+      : artistTitleCandidates[0]?.artist || embeddedAuthor;
+    // No trustworthy video metadata -> show the actual embedded video only.
+    // Never invent an artist or publish a different catalogue song.
+    const canSourceVerify = Boolean(page.url && bestTitleGuess && (!strictYoutubeLink || embeddedTitle));
     const sourceVerifiedFallback = () => {
       if (!canSourceVerify) return respond({ ok: true, provider: "KEYLESS_SOURCE", recognition: null, reason: "catalog_no_match" });
       const rec = sourceVerifiedRecognition({
-        url: page.url!.toString(),
+        url: strictYoutubeLink && sourceUrl ? sourceUrl.toString() : page.url!.toString(),
         title: bestTitleGuess,
         artist: bestArtistGuess,
         thumbnail: typeof embedded?.thumbnail_url === "string" ? embedded.thumbnail_url : undefined,
       });
       return respond({
         ok: true, provider: "KEYLESS_SOURCE", strategy: "source_verified", recognition: rec,
-        evidence: { platform, explicitMusicMetadata: Boolean(explicit), candidateCount: artistTitleCandidates.length, crossCatalogConfirmed: false },
+        evidence: { platform, explicitMusicMetadata: Boolean(explicit), candidateCount: artistTitleCandidates.length, crossCatalogConfirmed: false, videoIdentityVerified: Boolean(strictYoutubeLink && embeddedTitle) },
       });
     };
 
@@ -589,13 +705,25 @@ Deno.serve(async (req) => {
     // sous ce seuil ne renvoie plus null : il tombe sur SOURCE_VERIFIED.
     const threshold = directMusicHost ? 0.58 : 0.68;
     if (confidence < threshold) return sourceVerifiedFallback();
+    if (strictYoutubeLink) {
+      // A generic iTunes/Deezer hit can score highly just by repeating words
+      // in descriptions/captions. Both artist AND title must independently
+      // agree with the metadata of the exact shared YouTube video.
+      const verified = videoPairs.some((pair) =>
+        tokenCoverage(pair.title, best.track.title) >= 0.78
+        && tokenCoverage(best.track.title, pair.title) >= 0.68
+        && tokenCoverage(pair.artist, best.track.artist) >= 0.72
+        && tokenCoverage(best.track.artist, pair.artist) >= 0.72,
+      );
+      if (!verified) return sourceVerifiedFallback();
+    }
 
     const finalRecognition = await recognition(best.track, confidence, page.url?.toString() || rawUrl, corroborating);
     seedInBackground(finalRecognition);
     return respond({
       ok: true, provider: "KEYLESS_SOURCE", strategy: corroborating ? "cross-catalog" : explicit ? "explicit-music-metadata" : "public-metadata",
       recognition: finalRecognition,
-      evidence: { platform, explicitMusicMetadata: Boolean(explicit), candidateCount: artistTitleCandidates.length, crossCatalogConfirmed: Boolean(corroborating), directMusicHost },
+      evidence: { platform, explicitMusicMetadata: Boolean(explicit), candidateCount: artistTitleCandidates.length, crossCatalogConfirmed: Boolean(corroborating), directMusicHost, videoIdentityVerified: Boolean(strictYoutubeLink && embeddedTitle) },
     });
   } catch (error) {
     console.error("[keep-music-keyless-source]", error);

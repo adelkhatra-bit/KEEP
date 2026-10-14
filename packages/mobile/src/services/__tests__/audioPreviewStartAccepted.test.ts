@@ -1,4 +1,4 @@
-import { isPreviewStartAccepted } from '../audioPreviewStart';
+import { isPreviewStartAccepted, isPreviewStillStalled } from '../audioPreviewStart';
 
 // Cause racine AUDIO_PREVIEW_NOT_PLAYING (06/10/2026) : un extrait qui tamponne avec la lecture demandée n'est pas un échec.
 describe('isPreviewStartAccepted', () => {
@@ -13,5 +13,18 @@ describe('isPreviewStartAccepted', () => {
   });
   it('refuse un son non chargé', () => {
     expect(isPreviewStartAccepted({ isLoaded: false } as any)).toBe(false);
+  });
+});
+
+describe('iOS Swipe recovery: no endless buffering', () => {
+  it('advances a clip whose playback request never produces audible progress', () => {
+    expect(isPreviewStillStalled({ isLoaded: true, isPlaying: false, isBuffering: true, shouldPlay: true, positionMillis: 0 })).toBe(true);
+    expect(isPreviewStillStalled({ isLoaded: true, isPlaying: true, isBuffering: false, shouldPlay: true, positionMillis: 0 })).toBe(true);
+    expect(isPreviewStillStalled({ isLoaded: false, shouldPlay: true })).toBe(true);
+  });
+
+  it('keeps a genuinely playing excerpt and never mistakes an intentional pause for a stall', () => {
+    expect(isPreviewStillStalled({ isLoaded: true, isPlaying: true, shouldPlay: true, positionMillis: 2800 })).toBe(false);
+    expect(isPreviewStillStalled({ isLoaded: true, isPlaying: false, shouldPlay: false, positionMillis: 0 })).toBe(false);
   });
 });

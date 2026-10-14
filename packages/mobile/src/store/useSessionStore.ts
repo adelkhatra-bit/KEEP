@@ -16,6 +16,7 @@ import { useAccountGateStore } from './useAccountGateStore';
 import { useUserStore } from './useUserStore';
 import { advanceMusicPresenceGate, classifyMusicPresence, createMusicPresenceGateState, type MusicPresenceVerdict } from '../services/musicPresence';
 import { listenQuotaMessage, loadListenEconomyStatus, recordListenSuccess, type ListenEconomyStatus } from '../services/listenEconomyService';
+import { isProtectedStoryPlaybackActive } from '../services/storyPlaybackProtection';
 
 const RECOGNITION_TICK_MS = 700;
 // Le serveur autorise 12 fingerprints/minute par identité. Un départ toutes les
@@ -194,7 +195,7 @@ interface SessionStore {
   resumeListening: () => void;
   useFreeForNextListen: () => void;
   dismissListenFreePrompt: () => void;
-  startSession: () => void;
+  startSession: (options?: { captureMode?: 'microphone' | 'tab' }) => void;
   requestEndSession: (title?: string) => string | null;
   dismissEndPrompt: () => void;
   keepTrack: (entryId: string, playlistId?: string, visibility?: KeepVisibility) => Promise<void>;
@@ -204,6 +205,9 @@ interface SessionStore {
   setSilenceTimeoutMin: (minutes: number) => void;
   attachLocation: (label: string, lat?: number, lng?: number) => void;
   submitManualSearch: (query: string) => Promise<'added' | 'duplicate' | 'not_found'>;
+  /** Même chemin anti-doublon et quota FREE que la reconnaissance micro. */
+  submitCapturedAudioRecognition: (recognition: RecognitionResult) => Promise<'added' | 'duplicate' | 'inactive'>;
+  submitSharedLinkRecognition: (recognition: RecognitionResult) => Promise<'added' | 'duplicate' | 'inactive'>;
 }
 
 function persistLiveSession(state: SessionStore) {
@@ -476,17 +480,21 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     set({ listenFreeRequired: false, listenFreeInsufficient: false });
   },
 
-  startSession: () => {
+  startSession: (options) => {
+    if (isProtectedStoryPlaybackActive()) return;
+    const fromSharedTab = options?.captureMode === 'tab';
     clearTimers();
     // Nettoyer l'ancienne capture AVANT de préparer le nouvel AudioContext.
     // Sur web, l'ancien ordre faisait exactement l'inverse : on débloquait
     // WebAudio dans le geste utilisateur puis cancelAudioCapture() refermait
     // immédiatement ce contexte. Le tick suivant recréait un AudioContext
     // hors geste utilisateur, que Safari/iOS peut laisser suspendu.
-    void cancelAudioCapture();
-    // Doit rester dans le geste tactile d'origine pour Samsung Internet /
-    // Chrome Android / Safari iOS.
-    prepareAudioCaptureFromUserGesture();
+    if (!fromSharedTab) {
+      void cancelAudioCapture();
+      // Le micro normal exige son propre geste tactile utilisateur ; un onglet
+      // partagé ne doit JAMAIS ouvrir le micro après la reconnaissance.
+      prepareAudioCaptureFromUserGesture();
+    }
     void prepareRecognitionNotifications();
     // Une écoute lancée normalement ne doit jamais reprendre une ancienne URL
     // TikTok/Instagram. Le handoff social pose sa nouvelle source juste après.
@@ -509,7 +517,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       recognizing: false,
       micLevel: 0,
       musicPresence: 'unknown',
-      micPaused: false,
+      micPaused: fromSharedTab,
       error: null,
       signalHint: null,
       listenFreeRequired: false,
@@ -520,7 +528,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     });
 
     const tick = async () => {
-      if (!get().isActive || get().recognizing || get().micPaused) return;
+      if (!get().isActive || get().recognizing || get().micPaused || isProtectedStoryPlaybackActive()) return;
       const listenEconomy = get().listenEconomyStatus;
       if (listenEconomy?.overQuota && !listenFreeAuthorizedForNextSuccess) {
         set({
@@ -560,10 +568,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
             if (silencePromptGraceHandle) { clearTimeout(silencePromptGraceHandle); silencePromptGraceHandle = null; }
           }
         }
-        // La classification locale ne connaît pas le titre, mais elle sait
-        // distinguer un silence/une conversation. Dans ces deux cas, aucun
-        // fournisseur de reconnaissance (donc aucun appel payant) ne doit partir.
-        if (presence.verdict === 'speech' || presence.verdict === 'silence') {
+        // L'enveloppe audio ne distingue pas fiablement la parole d'un rap ou
+        // d'un morceau avec pauses : seul le silence bloque le fingerprint.
+        if (presence.verdict === 'silence' && !musicEngine.isDemoMode) {
           consecutiveNoMatches = Math.min(5, consecutiveNoMatches + 1);
           consecutiveWeakSamples = presence.verdict === 'silence' ? consecutiveWeakSamples + 1 : 0;
           set({ recognizing: false, micLevel: 0, error: null, signalHint: null });
@@ -721,6 +728,16 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   setSilenceTimeoutMin: (minutes) => set({ silenceTimeoutMin: minutes }),
   attachLocation: (label, lat, lng) => { set({ locationLabel: label, lat, lng }); persistLiveSession(get()); },
 
+  submitCapturedAudioRecognition: async (recognition) => {
+    if (!get().isActive) return 'inactive';
+    return applyDetectedTrack(set, get, recognition, 'listen');
+  },
+  // Un lien partagé fournit des métadonnées, pas une empreinte audio : il ne
+  // débite jamais le quota de reconnaissance microphone.
+  submitSharedLinkRecognition: async (recognition) => {
+    if (!get().isActive) return 'inactive';
+    return applyDetectedTrack(set, get, recognition, 'manual-search');
+  },
   submitManualSearch: async (query) => {
     const trimmed = query.trim();
     if (!trimmed || !get().isActive) return 'not_found';

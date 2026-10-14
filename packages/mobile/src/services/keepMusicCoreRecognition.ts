@@ -5,6 +5,8 @@ import type { CanonicalTrack, MusicRecognitionProvider, RecognitionResult } from
 import type { KeepVisibility } from '../types';
 import { getSupabaseAccessToken, supabase } from './supabaseClient';
 import { getSharedMusicSource } from './sharedMusicSourceService';
+import { sharedSourcePlatformFromUrl } from './sharedSourcePlatform';
+import { parseMusicShareInput } from './musicShareLink';
 import { APP_NAME } from '../config/brand';
 import { updateRecognitionConsensus, type RecognitionConsensusState } from './recognitionConsensus';
 
@@ -517,12 +519,13 @@ async function keylessSourceRecognition(accessToken: string | null): Promise<Rec
 export async function searchTrackByText(query: string): Promise<RecognitionResult | null> {
   const trimmed = query.trim();
   if (!trimmed || !configured(SUPABASE_URL) || !configured(SUPABASE_ANON_KEY)) return null;
-  // Un lien Spotify/Deezer/Apple Music/SoundCloud/Tidal collé donne une bien
-  // meilleure preuve qu'un titre tapé à la main -- keep-music-keyless-source
-  // sait déjà lire ces hôtes (lookup exact Apple/Deezer, page title sinon) et
-  // applique un seuil de confiance plus permissif que pour du texte libre.
-  const looksLikeUrl = /^https?:\/\//i.test(trimmed);
-  const body = looksLikeUrl ? { url: trimmed } : { title: trimmed };
+  // Liens musicaux : lookup direct Apple/Deezer ; liens YouTube : métadonnées
+  // publiques/oEmbed et recherche catalogue. Ce n'est PAS une empreinte audio.
+  // Le serveur a besoin du champ platform pour choisir le bon oEmbed.
+  const input = parseMusicShareInput(trimmed);
+  const body = 'url' in input
+    ? { url: input.url, rawText: input.rawText, platform: sharedSourcePlatformFromUrl(input.url) }
+    : { title: input.title };
   try {
     const accessToken = await getSupabaseAccessToken();
     const response = await fetch(`${SUPABASE_URL!.replace(/\/$/, '')}/functions/v1/keep-music-keyless-source`, {
@@ -535,6 +538,26 @@ export async function searchTrackByText(query: string): Promise<RecognitionResul
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || !payload?.recognition) return null;
+    if ('url' in input && sharedSourcePlatformFromUrl(input.url) === 'YOUTUBE') {
+      // Never display a similarly named catalogue song for a pasted video.
+      // A stale resolver lacking exact-video provenance must fail closed:
+      // the original YouTube video remains embeddable as an unverified link.
+      if (payload.evidence?.videoIdentityVerified !== true) return null;
+      const extractVideoId = (value: string): string | null => {
+        try {
+          const u = new URL(value);
+          const host = u.hostname.toLowerCase().replace(/^www[.]/, '');
+          if (!(host === 'youtu.be' || host === 'youtube.com' || host.endsWith('.youtube.com'))) return null;
+          const parts = u.pathname.split('/').filter(Boolean);
+          const id = host === 'youtu.be' ? parts[0]
+            : u.searchParams.get('v') || (['shorts', 'live', 'embed'].includes(parts[0]) ? parts[1] : null);
+          return id && /^[A-Za-z0-9_-]{11}$/.test(id) ? id : null;
+        } catch { return null; }
+      };
+      const originalId = extractVideoId(input.url);
+      const resolvedId = extractVideoId(String(payload.recognition.externalUrls?.source ?? ''));
+      if (!originalId || originalId !== resolvedId) return null;
+    }
     return payload.recognition as RecognitionResult;
   } catch {
     return null;
@@ -570,7 +593,14 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     return this.recognizeInternal(audioSample, true);
   }
 
-  private async recognizeInternal(audioSample: ArrayBuffer | Blob, skipMemory: boolean): Promise<RecognitionResult | null> {
+  /** Un onglet PC peut changer de chanson sans fin de session : il n'utilise
+   * pas la fenêtre "même musique" fondée sur le micro ambiant, ni une ancienne
+   * URL partagée. Les limites de coût/quotas serveur restent obligatoires. */
+  async recognizeFreshTabAudio(audioSample: ArrayBuffer | Blob): Promise<RecognitionResult | null> {
+    return this.recognizeInternal(audioSample, false, true);
+  }
+
+  private async recognizeInternal(audioSample: ArrayBuffer | Blob, skipMemory: boolean, tabAudio = false): Promise<RecognitionResult | null> {
     if (!configured(SUPABASE_URL) || !configured(SUPABASE_ANON_KEY)) {
       throw new Error(`Reconnaissance ${APP_NAME} indisponible : Supabase n’est pas configuré.`);
     }
@@ -607,7 +637,7 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
 
     // Musique probablement toujours la même qu'à l'instant : on laisse une
     // chance de plus à la mémoire gratuite avant de rouvrir AudD/ACRCloud.
-    if (Date.now() < stickyMatchUntil) {
+    if (!tabAudio && Date.now() < stickyMatchUntil) {
       stickyMemoryMissStreak += 1;
       if (stickyMemoryMissStreak < STICKY_MEMORY_MISS_TOLERANCE) return null;
       stickyMatchUntil = 0;
@@ -618,7 +648,7 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     // valide. Cela supprime les 409 AudD observés sur TestFlight/Web sans
     // désactiver la reconnaissance : le même échantillon part directement
     // vers le fournisseur réellement configuré.
-    if (!fallbackKnownUnavailable() && Date.now() >= paidProviderSuppressedUntil && Date.now() - lastPaidProviderAttemptAt >= PAID_PROVIDER_MIN_GAP_MS) {
+    if (!fallbackKnownUnavailable() && (tabAudio || Date.now() >= paidProviderSuppressedUntil) && Date.now() - lastPaidProviderAttemptAt >= PAID_PROVIDER_MIN_GAP_MS) {
       const useFree = paidListenAuthorizationActive();
       lastPaidProviderAttemptAt = Date.now();
       const acr = await recognitionAttempt('keep-music-fallback', blob, accessToken, deviceId, useFree);
@@ -697,7 +727,9 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
       }
     }
 
-    const keyless = await keylessSourceRecognition(accessToken);
+    // Une URL de partage mémorisée n'est jamais une preuve que le son du
+    // nouvel onglet correspond encore à cette chanson.
+    const keyless = tabAudio ? null : await keylessSourceRecognition(accessToken);
     if (keyless) {
       recognitionBackoffUntil = 0;
       noteSuccessfulRecognitionForPaidSuppression(keyless);
@@ -710,5 +742,9 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     return null;
   }
 }
+
+/** Moteur commun PC/mobile ; seul l'adaptateur de capture est spécifique. */
+const tabAudioRecognitionProvider = new KeepMusicCoreRecognitionProvider();
+export const recognizeFreshTabAudio = (sample: Blob) => tabAudioRecognitionProvider.recognizeFreshTabAudio(sample);
 
 export const isSecureRecognitionConfigured = configured(SUPABASE_URL) && configured(SUPABASE_ANON_KEY);

@@ -29,6 +29,7 @@ on:
 # guardian. This prevents CI fan-out from starving GoTrue/Postgres.
 concurrency:
   group: keep-production-supabase-browser-audits
+  queue: max
   cancel-in-progress: false
 
 permissions:
@@ -77,6 +78,9 @@ jobs:
           done
           cat /tmp/keep-dual-runtime.log
           exit 1
+
+      - name: Test pasted music link preview — PC and iPhone viewport
+        run: node scripts/test-temporary-music-search-browser.cjs
 
       - name: Test KEEP critical loop — mobile 390x844 + desktop smoke 1440x900
         run: |
@@ -136,7 +140,7 @@ jobs:
             if (await tryFree.isVisible().catch(()=>false)) {
               await tryFree.click({force:true,timeout:1500}).catch(()=>{});
             }
-            for (const tab of tabs) await page.getByText(tab,{exact:true}).last().waitFor({state:'visible',timeout:15000});
+            for (const tab of tabs) await page.getByText(tab,{exact:true}).filter({visible:true}).first().waitFor({state:'visible',timeout:15000});
           }
 
           async function openEdit(page) {
@@ -249,7 +253,7 @@ jobs:
                 });
                 if (surface.bodyText < 10 || surface.rootChildren < 1) throw new Error(`${label}: blank application surface ${JSON.stringify(surface)}`);
                 if (surface.rootWidth < width - 2 || surface.rootHeight < height - 2) throw new Error(`${label}: root does not expand with viewport ${JSON.stringify(surface)}`);
-                for (const tab of tabs) await page.getByText(tab,{exact:true}).last().waitFor({state:'visible',timeout:10000});
+                for (const tab of tabs) await page.getByText(tab,{exact:true}).filter({visible:true}).first().waitFor({state:'visible',timeout:10000});
                 await assertNoOverflow(page,label);
               };
 
@@ -307,11 +311,11 @@ jobs:
             await page.screenshot({path:'artifacts/dual-viewport/01-mobile-390x844-listen-idle.png',fullPage:true});
 
             // Contrat visuel accueil 390x844 :
-            // - ouvrir « En savoir plus » ne doit déplacer ni le CTA ni les bulles ;
+            // - ouvrir « Plus » ne doit déplacer ni le CTA ni les bulles ;
             // - si Loki Pulse a des bulles pour ce compte, elles restent près des onglets ;
             // - l'absence momentanée de recommandations ne doit pas faire échouer le layout.
             {
-              const help=page.getByLabel('En savoir plus sur Loki Music').last();
+              const help=page.getByLabel('Plus : Loki Music').last();
               const cta=page.getByLabel(/Trouver le morceau|Identifier un morceau/).last();
               const rail=page.getByTestId('home-loki-pulse-track-bubbles').last();
               await Promise.all([
@@ -326,12 +330,12 @@ jobs:
               const afterCta=await cta.boundingBox();
               const afterRail=railVisible ? await rail.boundingBox() : null;
               if(!beforeCta||!afterCta) throw new Error('Accueil: mesure CTA impossible');
-              if(Math.abs(beforeCta.y-afterCta.y)>3) throw new Error(`Accueil: IDENTIFIER bouge avec En savoir plus ${beforeCta.y} -> ${afterCta.y}`);
+              if(Math.abs(beforeCta.y-afterCta.y)>3) throw new Error(`Accueil: IDENTIFIER bouge avec Plus ${beforeCta.y} -> ${afterCta.y}`);
               if(railVisible && beforeRail && afterRail){
-                if(Math.abs(beforeRail.y-afterRail.y)>3) throw new Error(`Accueil: bulles bougent avec En savoir plus ${beforeRail.y} -> ${afterRail.y}`);
+                if(Math.abs(beforeRail.y-afterRail.y)>3) throw new Error(`Accueil: bulles bougent avec Plus ${beforeRail.y} -> ${afterRail.y}`);
                 const gap=afterRail.y-(afterCta.y+afterCta.height);
                 if(gap<12) throw new Error(`Accueil: espace CTA/bulles insuffisant (${gap}px)`);
-                const bottomTab=page.getByText('Loki Music',{exact:true}).last();
+                const bottomTab=page.getByText('Loki Music',{exact:true}).filter({visible:true}).first();
                 const tabBox=await bottomTab.boundingBox();
                 if(tabBox){
                   const railBottom=afterRail.y+afterRail.height;
