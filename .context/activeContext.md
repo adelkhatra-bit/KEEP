@@ -1,5 +1,11 @@
 # KEEP — Contexte actif
 
+## 14/10/2026 — Audit lenteur Battle Solo / En ligne
+- Revue sur `copilot/audit-find-all-bugs`, alignée au code canonique ; la branche reste une branche de revue, pas une source de publication.
+- Correctifs locaux : limite client de 10 joueurs, capacité réservée par les invitations actives, expiration ignorée au démarrage, invitations de groupe sans rechargement réseau par cible, lectures identiques coalescées, gardes anti-chevauchement du lobby/spectateur.
+- Preuves locales : replay de toutes les migrations sur PostgreSQL 16 jetable + rejeu idempotent de la migration Battle ; contrat ciblé 7/7 ; `tsc --noEmit -p packages/mobile` ; `verify-source-of-truth` et garde de préservation des données. ESLint ciblé signale 1 erreur préexistante (`if (false)` vers la ligne 3425 du composant Battle) et des warnings hérités ; aucun n'est causé par les changements.
+- Limites : aucun changement en base Supabase ni déploiement ; pas de mesure sur appareil ou réseau réel, ni validation CI distante. L'optimisation Solo `20261010130000_battle_solo_pack_fast.sql` a un historique d'état contradictoire dans les notes ; confirmer son application en lecture seule avant de la dire active.
+
 ## IDEA-189 — versions / preuves / contrôles (07/10/2026, LOCAL_ONLY)
 - Branche de revue conservée, HEAD `08a116e7`, base canonique `0138b4e5f93e8271735857fe3f9b885802e6ee61` confirmée après fetch + approfondissement de l’historique superficiel. Aucun commit/push/deploiement/report_progress ni écriture production. Aucun changement mobile App/Navigation/Stories, dépendances du dépôt inchangées.
 - `/home/runner/work/KEEP/KEEP/packages/admin/pages/operations.tsx` étendu par `/home/runner/work/KEEP/KEEP/packages/admin/components/ReleaseEvidence.tsx` : version.json canonique observé, dernière app native signalée, compteurs exacts ou indisponibles, correctifs bornés à 100 avec liens SHA/test et registre existant. Aucun export public de signalements. Les compteurs push existants ne retombent plus à zéro sur erreur.

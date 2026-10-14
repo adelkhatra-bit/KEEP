@@ -1049,62 +1049,62 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     if (refreshSocialInFlightRef.current) return refreshSocialInFlightRef.current;
     const request = (async () => {
       try {
-      const [players, inbox, outbox, pendingRematches, salons] = await Promise.all([
-        loadLiveSoloPlayers(20, roundCount),
-        loadIncomingBattleChallenges(),
-        loadOutgoingBattleChallenges(),
-        loadPendingArenaRematches().catch(() => []),
-        browseOnline ? loadOpenBattleSalons().catch(() => []) : Promise.resolve<KeepBattleOpenSalon[]>([]),
-      ]);
-      setLivePlayers(players);
-      setIncoming(inbox);
-      if (browseOnline) setOpenSalons(salons);
-      setPendingRematch(pendingRematches);
-      const pendingOutgoing = outbox.filter((x) => x.status === 'PENDING');
-      setOutgoingPendingTargetIds(new Set(pendingOutgoing.map((x) => x.targetId)));
-      setOutgoingPendingByTarget(Object.fromEntries(pendingOutgoing.map((x) => [x.targetId, x])));
-      // Adel (03/09/2026) : "quand j'appuie sur la croix, ça revient
-      // automatiquement ici" -- vrai bug trouvé : keep_battle_challenge_outgoing
-      // renvoie l'historique des 10 dernières minutes, donc le DÉFI ACCEPTÉ qui a
-      // lancé CE match reste visible ici bien après la fin du match. Avant, ce
-      // même défi accepté redéclenchait l'entrée dans l'arène à CHAQUE sondage
-      // (toutes les 650ms) tant qu'il restait dans cette fenêtre de 10 minutes --
-      // fermer l'arène remettait `arena` à null, le sondage suivant retrouvait
-      // ce même défi toujours "ACCEPTED" et rouvrait la même arène aussitôt,
-      // rendant × et QUITTER inopérants en pratique. Un défi accepté ne doit
-      // faire entrer dans l'arène qu'UNE seule fois.
-      // Une réponse sociale ne doit JAMAIS interrompre une partie en cours.
-      // L'entrée dans l'arène acceptée est différée jusqu'à la fin du Solo.
-      const accepted = !solo ? outbox.find((x) => x.status === 'ACCEPTED' && x.arenaId && !autoJoinedChallengeIds.has(x.id)) : undefined;
-      if (accepted?.arenaId) {
-        autoJoinedChallengeIds.add(accepted.id);
-        await stopTrackPreview();
-        await leaveSoloBattle().catch(() => {});
-        setSolo(null); setBrowseOnline(false); setAudioReady(false);
-        setArena(await loadKeepBattleArena(accepted.arenaId));
-        animateVersus();
-        return;
-      }
-      // Adel (02/09/2026) : "sa aussi pas logique" -- un popup "invitation
-      // expirée/refusée" surgissait EN PLEIN MILIEU d'une manche solo en
-      // cours (question affichée, chrono qui tourne), puisque ce tick
-      // tourne toutes les 650ms sans se soucier de ce que l'utilisateur est
-      // en train de faire. On retarde l'alerte tant qu'une manche solo est
-      // activement en attente de réponse ; elle s'affichera dès que la
-      // manche est répondue/révélée (prochain tick, id pas encore marqué
-      // "handled" donc toujours dans la liste).
-      // Adel (03/09/2026) : "pas répondu à une requête, c'est pas la peine
-      // de l'envoyer ... pas nécessaire, faut pas lui mettre en plein milieu
-      // de son Battle" -- une simple absence de réponse (EXPIRED) n'est plus
-      // signalée du tout : rien d'actionnable pour l'utilisateur, contrairement
-      // à un refus explicite (DECLINED), qui reste affiché une seule fois
-      // (handledOutgoingIds) et jamais pendant une manche solo en cours.
-      // Refus/expiration = aucun popup ni notification supplémentaire.
-      // Le bouton redevient simplement disponible. Les décisions vraiment
-      // actionnables restent les invitations entrantes.
-      for (const feedback of outbox.filter((x) => x.status === 'DECLINED' && !handledOutgoingIds.has(x.id))) {
-        handledOutgoingIds.add(feedback.id);
-      }
+        const [players, inbox, outbox, pendingRematches, salons] = await Promise.all([
+          loadLiveSoloPlayers(20, roundCount),
+          loadIncomingBattleChallenges(),
+          loadOutgoingBattleChallenges(),
+          loadPendingArenaRematches().catch(() => []),
+          browseOnline ? loadOpenBattleSalons().catch(() => []) : Promise.resolve<KeepBattleOpenSalon[]>([]),
+        ]);
+        setLivePlayers(players);
+        setIncoming(inbox);
+        if (browseOnline) setOpenSalons(salons);
+        setPendingRematch(pendingRematches);
+        const pendingOutgoing = outbox.filter((x) => x.status === 'PENDING');
+        setOutgoingPendingTargetIds(new Set(pendingOutgoing.map((x) => x.targetId)));
+        setOutgoingPendingByTarget(Object.fromEntries(pendingOutgoing.map((x) => [x.targetId, x])));
+        // Adel (03/09/2026) : "quand j'appuie sur la croix, ça revient
+        // automatiquement ici" -- vrai bug trouvé : keep_battle_challenge_outgoing
+        // renvoie l'historique des 10 dernières minutes, donc le DÉFI ACCEPTÉ qui a
+        // lancé CE match reste visible ici bien après la fin du match. Avant, ce
+        // même défi accepté redéclenchait l'entrée dans l'arène à CHAQUE sondage
+        // (toutes les 650ms) tant qu'il restait dans cette fenêtre de 10 minutes --
+        // fermer l'arène remettait `arena` à null, le sondage suivant retrouvait
+        // ce même défi toujours "ACCEPTED" et rouvrait la même arène aussitôt,
+        // rendant × et QUITTER inopérants en pratique. Un défi accepté ne doit
+        // faire entrer dans l'arène qu'UNE seule fois.
+        // Une réponse sociale ne doit JAMAIS interrompre une partie en cours.
+        // L'entrée dans l'arène acceptée est différée jusqu'à la fin du Solo.
+        const accepted = !solo ? outbox.find((x) => x.status === 'ACCEPTED' && x.arenaId && !autoJoinedChallengeIds.has(x.id)) : undefined;
+        if (accepted?.arenaId) {
+          autoJoinedChallengeIds.add(accepted.id);
+          await stopTrackPreview();
+          await leaveSoloBattle().catch(() => {});
+          setSolo(null); setBrowseOnline(false); setAudioReady(false);
+          setArena(await loadKeepBattleArena(accepted.arenaId));
+          animateVersus();
+          return;
+        }
+        // Adel (02/09/2026) : "sa aussi pas logique" -- un popup "invitation
+        // expirée/refusée" surgissait EN PLEIN MILIEU d'une manche solo en
+        // cours (question affichée, chrono qui tourne), puisque ce tick
+        // tourne toutes les 650ms sans se soucier de ce que l'utilisateur est
+        // en train de faire. On retarde l'alerte tant qu'une manche solo est
+        // activement en attente de réponse ; elle s'affichera dès que la
+        // manche est répondue/révélée (prochain tick, id pas encore marqué
+        // "handled" donc toujours dans la liste).
+        // Adel (03/09/2026) : "pas répondu à une requête, c'est pas la peine
+        // de l'envoyer ... pas nécessaire, faut pas lui mettre en plein milieu
+        // de son Battle" -- une simple absence de réponse (EXPIRED) n'est plus
+        // signalée du tout : rien d'actionnable pour l'utilisateur, contrairement
+        // à un refus explicite (DECLINED), qui reste affiché une seule fois
+        // (handledOutgoingIds) et jamais pendant une manche solo en cours.
+        // Refus/expiration = aucun popup ni notification supplémentaire.
+        // Le bouton redevient simplement disponible. Les décisions vraiment
+        // actionnables restent les invitations entrantes.
+        for (const feedback of outbox.filter((x) => x.status === 'DECLINED' && !handledOutgoingIds.has(x.id))) {
+          handledOutgoingIds.add(feedback.id);
+        }
       } catch {}
     })();
     refreshSocialInFlightRef.current = request;

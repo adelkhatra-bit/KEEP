@@ -75,8 +75,8 @@ begin
     new_text := ' active_count integer; pending_count integer;';
     if position(old_text in ddl) = 0 then raise exception 'BATTLE_MATCHMAKE_CAPACITY_DECLARATION_NOT_FOUND'; end if;
     ddl := replace(ddl, old_text, new_text);
-    old_text := '  existing_status:=case when active_count<a.max_players then ''ACTIVE'' else ''QUEUED'' end;';
-    new_text := '  select count(distinct c.target_id) into pending_count
+    old_text := 'existing_status:=case when active_count<a.max_players then ''ACTIVE'' else ''QUEUED'' end;';
+    new_text := 'select count(distinct c.target_id) into pending_count
   from public.keep_battle_challenges c
   where c.arena_id=a.id and c.status=''PENDING'' and c.expires_at>now()
     and not exists(select 1 from public.keep_battle_arena_members m where m.arena_id=a.id and m.profile_id=c.target_id and m.seat_status=''ACTIVE'');
@@ -91,8 +91,8 @@ begin
   if position('pending_invites' in ddl) = 0 then
     if position(old_text in ddl) = 0 then raise exception 'BATTLE_SALON_OPEN_SEATS_NOT_FOUND'; end if;
     ddl := replace(ddl, old_text, new_text);
-    old_text := '         (select count(*)::int from public.keep_battle_arena_members m where m.arena_id=a.id and m.seat_status=''QUEUED'') queue_count';
-    new_text := '         (select count(*)::int from public.keep_battle_arena_members m where m.arena_id=a.id and m.seat_status=''QUEUED'') queue_count,
+    old_text := '(select count(*)::int from public.keep_battle_arena_members m where m.arena_id=a.id and m.seat_status=''QUEUED'') queue_count';
+    new_text := '(select count(*)::int from public.keep_battle_arena_members m where m.arena_id=a.id and m.seat_status=''QUEUED'') queue_count,
          (select count(distinct c.target_id)::int from public.keep_battle_challenges c
           where c.arena_id=a.id and c.status=''PENDING'' and c.expires_at>now()
             and not exists(select 1 from public.keep_battle_arena_members m where m.arena_id=a.id and m.profile_id=c.target_id and m.seat_status=''ACTIVE'')) pending_invites';
