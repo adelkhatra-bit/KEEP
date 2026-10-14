@@ -736,6 +736,9 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const buildingArenaIdRef = React.useRef<string | null>(null);
   const battleSocialPollInFlightRef = React.useRef(false);
   const spectatingPollInFlightRef = React.useRef(false);
+  const arenaRefreshInFlightRef = React.useRef(false);
+  const freeCountersRefreshInFlightRef = React.useRef(false);
+  const soloRankRefreshInFlightRef = React.useRef(false);
   const setBuildingArena = React.useCallback((id: string | null) => {
     buildingArenaIdRef.current = id;
     setBuildingArenaId(id);
@@ -1639,29 +1642,33 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
 
   const refreshArena = React.useCallback(async () => {
     const requestedId = arena?.id;
-    if (!requestedId) return;
+    if (!requestedId || arenaRefreshInFlightRef.current) return;
+    arenaRefreshInFlightRef.current = true;
     try {
       const result = await loadKeepBattleArena(requestedId);
       // L'utilisateur a peut-être fermé/quitté pendant l'appel réseau : ne
       // jamais réafficher une arène que l'écran actuel ne montre plus.
       if (arenaIdLiveRef.current !== requestedId) return;
-      setArena(result);
-    } catch {}
+      setArena((current) => current && JSON.stringify(current) === JSON.stringify(result) ? current : result);
+    } catch {
+      // Le sondage de secours retentera sans empiler une nouvelle requête.
+    } finally {
+      arenaRefreshInFlightRef.current = false;
+    }
   }, [arena?.id]);
   React.useEffect(() => {
     if (!arena?.id) return undefined;
     const off = subscribeKeepBattleArena(arena.id, () => { void refreshArena(); });
-    // Adel (28/09/2026) : Force aggressive polling for match results. If arena status
-    // is WAITING but lastResult is missing, keep polling at high frequency (150ms) to catch
-    // results when they populate from the server.
-    const baseInterval = arena.status === 'WAITING' && !arena.lastResult ? 150 : 300;
-    const id = setInterval(() => { void refreshArena(); }, baseInterval);
-    // Adel (28/09/2026) : Debug logging to catch arena.lastResult population timing
-    if (arena.status === 'WAITING') {
-      console.log('[Battle] Arena WAITING state:', { arenaId: arena.id, matchNo: arena.matchNo, lastResult: arena.lastResult, interval: baseInterval, message: 'lastResult only populated on match > 1' });
-    }
+    // L'arène doit rester synchronisée pendant les manches de 10 s, mais le
+    // polling historique à 150/300 ms lançait plusieurs RPC par seconde et
+    // réaffichait toute l'interface même sans changement. Les abonnements
+    // Realtime restent un accélérateur éventuel ; ce filet est borné à une
+    // lecture/1,5 s en match actif et une lecture/5 s entre les matchs.
+    const id = arena.status === 'ACTIVE'
+      ? setInterval(() => { void refreshArena(); }, 1500)
+      : setInterval(() => { void refreshArena(); }, 5000);
     return () => { off(); clearInterval(id); };
-  }, [arena?.id, arena?.status, arena?.lastResult, refreshArena]);
+  }, [arena?.id, arena?.status, refreshArena]);
 
   // Fin de Battle : la revanche est une demande explicite. Tant qu'aucun
   // joueur ne touche REVANCHE, rien ne redémarre. Quand une demande existe,
@@ -1672,13 +1679,17 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       return undefined;
     }
     let live = true;
+    let inFlight = false;
     const refreshRematchStatus = () => {
+      if (!live || inFlight) return;
+      inFlight = true;
       void loadKeepBattleArenaRematchStatus(arena.id)
         .then((rows) => { if (live) setRematchParticipants(rows); })
-        .catch(() => { if (live) setRematchParticipants([]); });
+        .catch(() => { if (live) setRematchParticipants([]); })
+        .finally(() => { inFlight = false; });
     };
     refreshRematchStatus();
-    const id = setInterval(refreshRematchStatus, 800);
+    const id = setInterval(refreshRematchStatus, 5000);
     return () => { live = false; clearInterval(id); };
   }, [arena?.id, arena?.rematchDeadline]);
 
@@ -1688,6 +1699,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // donc rester à 0 après un résultat. On rafraîchit solde + gagnés/perdus
   // ensemble, pour tous les comptes réels, sans toucher aux réglages individuels.
   const refreshMyFreeCounters = React.useCallback(async () => {
+    if (freeCountersRefreshInFlightRef.current) return;
     const userState = useUserStore.getState();
     const userId = userState.user?.id;
     if (!userId || userState.isLocalGuest || userState.isDemoMode) {
@@ -1695,12 +1707,17 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       setMyPlayerStats(null);
       return;
     }
-    const [credit, stats] = await Promise.all([
-      loadBattleCreditStatusIfAuthenticated().catch(() => null),
-      loadKeepBattlePlayerStats(userId).catch(() => null),
-    ]);
-    if (credit) setMyCreditStatus(credit);
-    if (stats) setMyPlayerStats(stats);
+    freeCountersRefreshInFlightRef.current = true;
+    try {
+      const [credit, stats] = await Promise.all([
+        loadBattleCreditStatusIfAuthenticated().catch(() => null),
+        loadKeepBattlePlayerStats(userId).catch(() => null),
+      ]);
+      if (credit) setMyCreditStatus(credit);
+      if (stats) setMyPlayerStats(stats);
+    } finally {
+      freeCountersRefreshInFlightRef.current = false;
+    }
   }, []);
 
   React.useEffect(() => {
@@ -1710,9 +1727,9 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       void refreshMyFreeCounters();
     };
     load();
-    // Filet de sécurité pendant l'écran Battle : un crédit peut être appliqué
-    // côté serveur après la dernière réponse ou à la fin d'un match distant.
-    const id = setInterval(load, 3000);
+    // Filet de sécurité au repos ; les fins de Solo et résultats d'arène
+    // rafraîchissent déjà ces données immédiatement.
+    const id = setInterval(load, 15000);
     return () => { live = false; clearInterval(id); };
   }, [refreshMyFreeCounters]);
 
@@ -1728,19 +1745,25 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       setMySoloRank(null);
       return;
     }
-    const next = await loadMyKeepBattleSoloRank().catch(() => null);
-    if (!next) return;
-    setMySoloRank((previous) => {
-      if (previous?.rank && next.rank && next.rank < previous.rank) {
-        setSoloRankDelta((current) => Math.max(current, previous.rank! - next.rank!));
-      }
-      return next;
-    });
+    if (soloRankRefreshInFlightRef.current) return;
+    soloRankRefreshInFlightRef.current = true;
+    try {
+      const next = await loadMyKeepBattleSoloRank().catch(() => null);
+      if (!next) return;
+      setMySoloRank((previous) => {
+        if (previous?.rank && next.rank && next.rank < previous.rank) {
+          setSoloRankDelta((current) => Math.max(current, previous.rank! - next.rank!));
+        }
+        return next;
+      });
+    } finally {
+      soloRankRefreshInFlightRef.current = false;
+    }
   }, []);
 
   React.useEffect(() => {
     void refreshMySoloRank();
-    const id = setInterval(() => { void refreshMySoloRank(); }, 8000);
+    const id = setInterval(() => { void refreshMySoloRank(); }, 30000);
     return () => clearInterval(id);
   }, [refreshMySoloRank]);
 

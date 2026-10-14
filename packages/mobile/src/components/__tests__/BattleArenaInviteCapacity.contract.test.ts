@@ -52,6 +52,16 @@ describe('Battle group invitation capacity contract', () => {
     expect(component).toContain('if (!alive || spectatingPollInFlightRef.current) return;');
   });
 
+  it('bounds online arena polling and avoids unchanged state renders', () => {
+    expect(component).toContain('if (!requestedId || arenaRefreshInFlightRef.current) return;');
+    expect(component).toContain('setInterval(() => { void refreshArena(); }, 1500)');
+    expect(component).toContain('setInterval(() => { void refreshArena(); }, 5000)');
+    expect(component).toContain('JSON.stringify(current) === JSON.stringify(result)');
+    expect(component).toContain('setInterval(refreshRematchStatus, 5000)');
+    expect(component).toContain('setInterval(load, 15000)');
+    expect(component).toContain('setInterval(() => { void refreshMySoloRank(); }, 30000)');
+  });
+
   it('reduces the Battle clock wakeups outside active rounds and while disabled', () => {
     expect(component).toContain('if (!enabled) return undefined;');
     expect(component).toContain('const isBattleClockActive = Boolean(solo) || arena?.status === \'ACTIVE\';');

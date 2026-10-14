@@ -812,13 +812,8 @@
       },
       {
         "file": "packages/mobile/src/components/KeepBattleMobileGameV3.tsx",
-        "snippet": "setInterval(refreshRematchStatus, 800)",
-        "reason": "RÉSEAU : fenêtre de revanche uniquement (rematchDeadline), arrêté ensuite"
-      },
-      {
-        "file": "packages/mobile/src/components/KeepBattleMobileGameV3.tsx",
-        "snippet": "setInterval(load, 3000)",
-        "reason": "RÉSEAU : écran Battle ouvert uniquement"
+        "snippet": "setInterval(() => { void refreshArena(); }, 1500)",
+        "reason": "RÉSEAU : filet de synchronisation d'une arène ACTIVE à manches de 10 s ; une seule lecture à la fois, Realtime restant le chemin immédiat"
       },
       {
         "file": "packages/mobile/src/components/GlobalChatDock.tsx",
