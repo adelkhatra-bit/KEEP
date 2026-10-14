@@ -1,5 +1,14 @@
 [
   {
+    "commit": "82aae496b1166a5bf945ebc55fc7e597e02c5e0f",
+    "web": "82aae496b1166a5bf945ebc55fc7e597e02c5e0f",
+    "testflight": "iOS #243 in_progress (release 82aae49)",
+    "ota": "OTA #1034 in_progress (release 82aae49)",
+    "date": "2026-10-14 11:54",
+    "tests": "pass",
+    "changes": "fix(playlist): lire un titre YouTube dans Loki Music au lieu de rediriger vers YouTube (#202)"
+  },
+  {
     "commit": "3b4bff95d54223ecb81641ee392826c4a5a9c9c4",
     "web": "3b4bff95d54223ecb81641ee392826c4a5a9c9c4",
     "testflight": "iOS #242 in_progress (release 3b4bff9)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 20:10",
     "tests": "pass",
     "changes": "fix(swipe): advance only after server confirms KEEP and FREE debit"
-  },
-  {
-    "commit": "1b02f9ac1850bda212458089cbdba297265a93da",
-    "web": "1b02f9ac1850bda212458089cbdba297265a93da",
-    "testflight": "iOS #230 success (release 1f44ee1)",
-    "ota": "OTA #1021 success (release 1f44ee1)",
-    "date": "2026-10-12 20:01",
-    "tests": "pass",
-    "changes": "fix(listen): keep PC tab monitoring through song changes, preserve previews and honest FREE keeps"
   }
 ]
