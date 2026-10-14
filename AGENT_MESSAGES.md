@@ -2970,3 +2970,6 @@ PR112 reprise : audit captures Chromium. Correctif ciblé en cours : rendre les 
 ## [2026-10-13T10:33:58.340Z] codex
 
 Reprise livraison Soirees PC: navigation officielle sans retour accueil confirme; integration locale sur eb060ac1, conservation des corrections QR/profil deja publiees, verification navigateur avant publication.
+## [2026-10-14T22:00:27.429Z] codex
+
+Audit et correctif Battle Solo/En ligne en cours sur la branche de revue alignée à e0aa9d2. Causes confirmées en ligne : invitations expirées qui bloquent start, envois de groupe qui ne réservent pas les places; correctif additif + contrats, aucune écriture production.

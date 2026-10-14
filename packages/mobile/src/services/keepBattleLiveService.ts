@@ -102,7 +102,7 @@ export async function leaveSoloBattle(): Promise<void> {
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_LEAVE_FAILED'));
 }
 
-export async function loadLiveSoloPlayers(limit = 12, roundCount = 8): Promise<KeepBattleLivePlayer[]> {
+async function loadLiveSoloPlayersUncoalesced(limit = 12, roundCount = 8): Promise<KeepBattleLivePlayer[]> {
   const { data, error } = await client().rpc('keep_battle_solo_available', {
     p_limit: limit,
     p_round_count: Math.max(5, Math.min(Math.round(roundCount) || 8, 30)),
@@ -123,6 +123,10 @@ export async function loadLiveSoloPlayers(limit = 12, roundCount = 8): Promise<K
     soloRoundTotal: row?.soloRoundTotal ?? row?.solo_round_total ?? null,
     soloRoundRemaining: row?.soloRoundRemaining ?? row?.solo_round_remaining ?? null,
   })).filter((row) => row.profileId) : [];
+}
+
+export function loadLiveSoloPlayers(limit = 12, roundCount = 8): Promise<KeepBattleLivePlayer[]> {
+  return coalesced(`loadLiveSoloPlayers:${limit}:${roundCount}`, () => loadLiveSoloPlayersUncoalesced(limit, roundCount));
 }
 
 // Adel (03/09/2026) : "je puisse sélectionner plusieurs styles ... et que ça

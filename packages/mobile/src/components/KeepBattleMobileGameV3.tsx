@@ -49,6 +49,8 @@ import KeepModal from './KeepModal';
 
 const ROUND_MS = 10000;
 const SOLO_SHOW_LIVE_PLAYERS = false;
+const BATTLE_ARENA_MAX_PLAYERS = 10;
+const BATTLE_ARENA_MAX_OPPONENTS = BATTLE_ARENA_MAX_PLAYERS - 1;
 const A11Y_TOUCH_HIT_SLOP = { top: 9, bottom: 9, left: 9, right: 9 } as const;
 const SOLO_RESULT_HOLD_MS = 650;
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -732,6 +734,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // reste à jour de façon synchrone, y compris entre deux `await` sans
   // re-rendu entre les deux.
   const buildingArenaIdRef = React.useRef<string | null>(null);
+  const battleSocialPollInFlightRef = React.useRef(false);
+  const spectatingPollInFlightRef = React.useRef(false);
   const setBuildingArena = React.useCallback((id: string | null) => {
     buildingArenaIdRef.current = id;
     setBuildingArenaId(id);
@@ -1039,9 +1043,12 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     await shareBattleInvite(`Rejoins notre Loki Music Battle ⚡\n${state.seats.length} joueur${state.seats.length > 1 ? 's' : ''} déjà dans le groupe`, link);
   }, []);
 
-  const refreshSocial = React.useCallback(async () => {
-    if (!enabled || arena) return;
-    try {
+  const refreshSocialInFlightRef = React.useRef<Promise<void> | null>(null);
+  const refreshSocial = React.useCallback(() => {
+    if (!enabled || arena) return Promise.resolve();
+    if (refreshSocialInFlightRef.current) return refreshSocialInFlightRef.current;
+    const request = (async () => {
+      try {
       const [players, inbox, outbox, pendingRematches, salons] = await Promise.all([
         loadLiveSoloPlayers(20, roundCount),
         loadIncomingBattleChallenges(),
@@ -1098,7 +1105,13 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       for (const feedback of outbox.filter((x) => x.status === 'DECLINED' && !handledOutgoingIds.has(x.id))) {
         handledOutgoingIds.add(feedback.id);
       }
-    } catch {}
+      } catch {}
+    })();
+    refreshSocialInFlightRef.current = request;
+    void request.finally(() => {
+      if (refreshSocialInFlightRef.current === request) refreshSocialInFlightRef.current = null;
+    });
+    return request;
   }, [enabled, solo, soloAnswer, browseOnline, animateVersus, shareInvite, roundCount]);
 
   const cancelOutgoingChallenge = React.useCallback(async (item: KeepBattleOutgoingChallenge) => {
@@ -1193,9 +1206,14 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     if (!enabled || arena) return undefined;
     let alive = true;
     const tick = async () => {
-      if (!alive) return;
-      if (solo) await heartbeatSoloBattle(solo.themeCode, soloIndex, solo.rounds.length).catch(() => {});
-      await refreshSocial();
+      if (!alive || battleSocialPollInFlightRef.current) return;
+      battleSocialPollInFlightRef.current = true;
+      try {
+        if (solo) await heartbeatSoloBattle(solo.themeCode, soloIndex, solo.rounds.length).catch(() => {});
+        await refreshSocial();
+      } finally {
+        battleSocialPollInFlightRef.current = false;
+      }
     };
     void tick();
     // Les invitations/revanches arrivent déjà par Realtime via
@@ -1217,12 +1235,15 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     let alive = true;
     const code = spectating.arenaCode;
     const tick = async () => {
-      if (!alive) return;
+      if (!alive || spectatingPollInFlightRef.current) return;
+      spectatingPollInFlightRef.current = true;
       try {
         const next = await spectateKeepBattleArena(code);
         if (alive) setSpectating(next);
       } catch {
         if (alive) setSpectating(null);
+      } finally {
+        spectatingPollInFlightRef.current = false;
       }
     };
     const id = setInterval(() => { void tick(); }, 1500);
@@ -2127,11 +2148,16 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     );
   };
 
-  const challenge = async (player: KeepBattleLivePlayer): Promise<boolean> => {
+  const challenge = async (
+    player: KeepBattleLivePlayer,
+    preflight?: { credit: KeepBattleCreditStatus | null; skipArenaReload?: boolean },
+  ): Promise<boolean> => {
     if (challengeBusyId) return false;
-    const freshCredit = canLoadAuthenticatedBattleCredit()
-      ? await loadBattleCreditStatusIfAuthenticated().then((value) => value ?? myCreditStatus)
-      : myCreditStatus;
+    const freshCredit = preflight
+      ? preflight.credit ?? myCreditStatus
+      : canLoadAuthenticatedBattleCredit()
+        ? await loadBattleCreditStatusIfAuthenticated().then((value) => value ?? myCreditStatus)
+        : myCreditStatus;
     if (freshCredit) setMyCreditStatus(freshCredit);
     const senderShort = freshCredit
       ? freshCredit.hasPaidBattleAccess !== true && freshCredit.remainingFree < stakeForRounds(roundCount)
@@ -2140,18 +2166,6 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       notEnoughFreeAlert(`Il te faut au moins ${stakeForRounds(roundCount)} Free pour lancer un Battle de ${roundCount} morceaux`);
       return false;
     }
-    const freshTarget = await loadLiveSoloPlayers(30, roundCount).then((rows) => rows.find((row) => row.profileId === player.profileId) || null).catch(() => player);
-    if (!freshTarget) {
-      Alert.alert('Battle', `${player.username} n’est plus disponible.`);
-      void refreshSocial();
-      return false;
-    }
-    if (insufficientForOpponent(freshTarget)) {
-      Alert.alert('Battle', `${freshTarget.username} n’a que ${freshTarget.remainingFree} Free. Il en faut ${stakeForRounds(roundCount)} pour ce Battle de ${roundCount} morceaux.`);
-      void refreshSocial();
-      return false;
-    }
-    player = freshTarget;
     // Adel (03/09/2026) : "j'entends pas le son" -- le camp qui ENVOIE le
     // défi ne retape jamais rien au moment où l'autre accepte (détecté par
     // sondage, pas par un geste) -- ce tap "BATTLE"/"Défier" est son dernier
@@ -2164,7 +2178,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       // l'écran. Ne jamais réutiliser indéfiniment un id périmé : c'était un
       // bouton "Démarrer la Battle" qui semblait mort après une première
       // tentative expirée.
-      if (arenaId) {
+      if (arenaId && !preflight?.skipArenaReload) {
         const existingArena = await loadKeepBattleArena(arenaId).catch(() => null);
         if (!existingArena || existingArena.status !== 'WAITING' || existingArena.openSeats <= 0) {
           setBuildingArena(null);
@@ -2200,7 +2214,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       const message = String(e?.message || e || '');
       if (message.includes('BATTLE_CHALLENGER_NO_CREDIT') || message.includes('BATTLE_ARENA_MINIMUM_THREE_FREE_REQUIRED')) notEnoughFreeAlert(`Il te faut au moins ${parseRequiredFree(message, stakeForRounds(roundCount))} Free pour lancer un Battle de ${roundCount} morceaux`);
       else if (message.includes('BATTLE_TARGET_NO_CREDIT')) Alert.alert('Battle', `${player.username} n’a pas assez de Free pour jouer ${roundCount} morceaux maintenant.`);
-      else if (message.includes('BATTLE_ARENA_FULL')) Alert.alert('Battle', 'Ton groupe est déjà complet : 10 joueurs.');
+      else if (message.includes('BATTLE_ARENA_FULL')) Alert.alert('Battle', `Ton groupe est déjà complet : ${BATTLE_ARENA_MAX_PLAYERS} joueurs.`);
       else if (message.includes('BATTLE_TARGET_BLOCKED_TOO_MANY_DECLINES')) {
         const until = parseInviteBlockedUntilMs(message);
         if (until) {
@@ -2245,6 +2259,10 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   }, [insufficientForOpponent, outgoingPendingTargetIds, inviteBlockedUntil, now]);
   const toggleBattlePlayerSelection = (player: KeepBattleLivePlayer) => {
     if (!isPlayerSelectable(player)) return;
+    if (!selectedBattlePlayerIds.has(player.profileId) && selectedBattlePlayerIds.size >= BATTLE_ARENA_MAX_OPPONENTS) {
+      Alert.alert('Groupe complet', `Une Battle accueille au maximum ${BATTLE_ARENA_MAX_PLAYERS} joueurs, toi compris. Choisis jusqu’à ${BATTLE_ARENA_MAX_OPPONENTS} adversaires.`);
+      return;
+    }
     setSelectedBattlePlayerIds((prev) => {
       const next = new Set(prev);
       if (next.has(player.profileId)) next.delete(player.profileId); else next.add(player.profileId);
@@ -2273,9 +2291,20 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     setSelectionRequired(false);
     setStartingGroupBattle(true);
     try {
+      const freshCredit = canLoadAuthenticatedBattleCredit()
+        ? await loadBattleCreditStatusIfAuthenticated().then((value) => value ?? myCreditStatus)
+        : myCreditStatus;
+      if (freshCredit) setMyCreditStatus(freshCredit);
+      const senderShort = freshCredit
+        ? freshCredit.hasPaidBattleAccess !== true && freshCredit.remainingFree < stakeForRounds(roundCount)
+        : insufficientForRoundCount(roundCount);
+      if (senderShort) {
+        notEnoughFreeAlert(`Il te faut au moins ${stakeForRounds(roundCount)} Free pour lancer un Battle de ${roundCount} morceaux`);
+        return;
+      }
       let sentCount = 0;
-      for (const player of targets) {
-        if (await challenge(player)) sentCount += 1;
+      for (let index = 0; index < targets.length; index += 1) {
+        if (await challenge(targets[index], { credit: freshCredit, skipArenaReload: index > 0 })) sentCount += 1;
       }
       if (sentCount < 1) return;
       setSelectedBattlePlayerIds(new Set());
