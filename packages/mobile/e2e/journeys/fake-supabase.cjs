@@ -330,6 +330,12 @@ function createFakeSupabase(options = {}) {
       })));
     }
     if (p === '/rest/v1/notifications' && req.method() === 'GET') return json(200, unreadNotifications.filter((n) => !state.readNotifications.includes(n.id)).sort((a, b) => b.created_at.localeCompare(a.created_at)));
+    if (p === '/rest/v1/tracks' && opts.ownKeeps && /^eq\.0b5e7a1c-0000-4000-8000-0000000e00[12]$/.test(u.searchParams.get('id') || '')) {
+      // Titre importé via YouTube : aucun extrait, seule la source officielle existe (comme en production).
+      const id = u.searchParams.get('id').replace('eq.', '');
+      const row = { id, title: `Titre YouTube ${id.slice(-1)}`, artist: 'Chaîne YouTube', preview_url: null, external_urls: { source: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' } };
+      return obj ? json(200, row) : json(200, [row]);
+    }
     if (p === '/rest/v1/tracks' && opts.newKeepNotif && u.searchParams.get('id') === `eq.${SECRET_TRACK.id}`) {
       const row = { ...SECRET_TRACK, preview_url: `${opts.origin}/none.mp3` };
       return obj ? json(200, row) : json(200, [row]);
