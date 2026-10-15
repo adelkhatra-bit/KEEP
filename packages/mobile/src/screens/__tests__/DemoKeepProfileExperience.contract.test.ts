@@ -138,8 +138,9 @@ describe('Demo keep confirmation + visited profile premium design', () => {
   it('identifies the listened profile and first discoverer inside Swipe for the whole playback session', () => {
     expect(swipe).toContain('sourceUsername?: string;');
     expect(swipe).toContain('sourceProfileId?: string;');
-    expect(swipe).toContain("Découvert par @{currentSourceUsername.replace(/^@/, '')}");
-    expect(swipe).toContain('◎ DÉCOUVERT PAR @{currentSourceUsername.replace(/^@/, \'\')} · VOIR / SUIVRE');
+    expect(swipe).toContain('testID="deck-source-profile-inline"');
+    expect(swipe).toContain('sourceProfileInlineAction');
+    expect(swipe).not.toContain('sourceProfileButtonText');
     expect(profile).toContain('sourceUsername={profile.username}');
     expect(profile).toContain('sourceAvatarUrl={profile.avatar}');
     expect(profile).toContain('sourceProfileId={profile.id}');
