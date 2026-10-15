@@ -61,7 +61,7 @@ export function buildNativeYouTubeEmbedDocument(
     if (url.protocol !== 'https:' || !['youtube-nocookie.com', 'www.youtube-nocookie.com'].includes(host)) return null;
     const pathParts = url.pathname.split('/').filter(Boolean);
     const videoId = pathParts[pathParts.length - 1] || '';
-    if (!/^[\\w-]{11}$/.test(videoId)) return null;
+    if (!/^[\w-]{11}$/.test(videoId)) return null;
     const start = Math.max(0, Math.floor(options.startSeconds ?? 0));
     const end = options.endSeconds === undefined ? undefined : Math.max(start + 1, Math.floor(options.endSeconds));
     const playerVars = {
