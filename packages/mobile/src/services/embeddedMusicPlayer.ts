@@ -59,7 +59,8 @@ export function buildNativeYouTubeEmbedDocument(
     const url = new URL(player.url);
     const host = url.hostname.toLowerCase();
     if (url.protocol !== 'https:' || !['youtube-nocookie.com', 'www.youtube-nocookie.com'].includes(host)) return null;
-    const videoId = url.pathname.split('/').filter(Boolean).at(-1) || '';
+    const pathParts = url.pathname.split('/').filter(Boolean);
+    const videoId = pathParts[pathParts.length - 1] || '';
     if (!/^[\\w-]{11}$/.test(videoId)) return null;
     url.searchParams.set('origin', LOKI_PUBLIC_ORIGIN);
     url.searchParams.set('enablejsapi', '1');
