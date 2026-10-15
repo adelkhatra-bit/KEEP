@@ -51,6 +51,9 @@ function shuffle<T>(input: T[]): T[] {
 type KeepVisibilityChoice = 'PUBLIC' | 'PRIVATE';
 type AlreadyKeptState = 'checking' | 'yes' | 'no';
 
+// Network writes must never hold the Swipe controls indefinitely.
+const KEEP_ACTION_TIMEOUT_MS = 20_000;
+
 type Props = {
   visible: boolean;
   tracks: CanonicalTrack[];
@@ -197,6 +200,8 @@ export default function MusicSwipeDeckModal({
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const [previewEnded, setPreviewEnded] = useState(false);
   const actionInFlight = useRef(false);
+  // Keep the same track single-flight even after the UI timeout; a late server response must not race a second debit.
+  const keepRequestsInFlightRef = useRef(new Set<string>());
   const playbackGeneration = useRef(0);
   // Stop the outgoing clip as soon as the visible card changes, before a slow
   // Apple preview lookup for the new card can leave old audio audible.
@@ -902,11 +907,50 @@ export default function MusicSwipeDeckModal({
   const confirmKeep = async (visibility: KeepVisibilityChoice) => {
     if (!current || processing) return;
     const keptTrack = current;
+    if (keepRequestsInFlightRef.current.has(keptTrack.id)) {
+      setKeepPromptOpen(false);
+      actionInFlight.current = false;
+      Alert.alert('Demande toujours en cours', 'La demande précédente pour ce morceau n’a pas encore répondu. Pour éviter un double débit, ne la relance pas ; tu peux fermer le Swipe et revenir vérifier Mes Gardés.');
+      return;
+    }
+
     setKeepPromptOpen(false);
     setProcessing(true);
     actionInFlight.current = true;
+    let timedOut = false;
+    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+    keepRequestsInFlightRef.current.add(keptTrack.id);
+    const request = Promise.resolve().then(() => onKeep?.(keptTrack, visibility));
     try {
-      const result = await onKeep?.(keptTrack, visibility);
+      const outcome = await Promise.race([
+        request.then(
+          (value) => ({ kind: 'result' as const, value }),
+          (error) => ({ kind: 'error' as const, error }),
+        ),
+        new Promise<{ kind: 'timeout' }>((resolve) => {
+          timeoutHandle = setTimeout(() => resolve({ kind: 'timeout' }), KEEP_ACTION_TIMEOUT_MS);
+        }),
+      ]);
+
+      if (outcome.kind === 'timeout') {
+        timedOut = true;
+        // Keep the track single-flight until the original request really settles.
+        // The underlying write is not cancelled; the server remains authoritative.
+        void request.then(
+          () => { keepRequestsInFlightRef.current.delete(keptTrack.id); },
+          () => { keepRequestsInFlightRef.current.delete(keptTrack.id); },
+        );
+        Alert.alert('Le serveur tarde à répondre', 'Le morceau reste dans ta session. Le Swipe est débloqué, mais la demande est encore en cours : ferme cette fenêtre et vérifie Mes Gardés avant de réessayer.');
+        return;
+      }
+
+      keepRequestsInFlightRef.current.delete(keptTrack.id);
+      if (outcome.kind === 'error') {
+        Alert.alert('GARDER non confirmé', 'Une erreur réseau a empêché la confirmation. Le morceau reste dans ta session ; aucun succès n’est affiché.');
+        return;
+      }
+
+      const result = outcome.value;
       if (result === false && !isSaleStoryTrack(keptTrack)) reportAutoDiagnostic('KEEP_NOT_CONFIRMED', visibility);
       if (result !== false) {
         // GARDER en Public = nouvelle musique dans ma story : le cercle de ma photo doit s'allumer tout de suite.
@@ -922,6 +966,8 @@ export default function MusicSwipeDeckModal({
         await advance();
       }
     } finally {
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+      if (!timedOut) keepRequestsInFlightRef.current.delete(keptTrack.id);
       actionInFlight.current = false;
       setProcessing(false);
     }
