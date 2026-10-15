@@ -8,7 +8,7 @@ describe('native provider embeds', () => {
     expect(document).not.toBeNull();
     expect(document?.baseUrl).toBe('https://adelkhatra-bit.github.io/KEEP/');
     expect(document?.html).toContain('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ');
-    expect(document?.html).toContain('origin=https://adelkhatra-bit.github.io');
+    expect(document?.html).toContain('origin=https%3A%2F%2Fadelkhatra-bit.github.io');
     expect(document?.html).toContain('enablejsapi=1');
     expect(document?.html).toContain('referrerpolicy="strict-origin-when-cross-origin"');
     expect(document?.html).toContain('start=0');
