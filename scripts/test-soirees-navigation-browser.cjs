@@ -62,7 +62,7 @@ const visible = (locator) => locator.filter({ visible: true }).last();
           }
         }
         const globalSoirees = mobile
-          ? visible(page.getByRole('button', { name: 'Soirées', exact: true }))
+          ? visible(page.getByRole('button', { name: 'Aller à l’onglet Soirées', exact: true }))
           : visible(page.getByTestId('desktop-nav-Parties'));
         await globalSoirees.click({ timeout: 15000 });
         await visible(page.getByTestId('parties-home-actions')).waitFor({ state: 'visible', timeout: 15000 });
