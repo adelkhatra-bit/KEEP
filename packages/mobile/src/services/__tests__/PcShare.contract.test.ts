@@ -19,6 +19,19 @@ describe('Partager sur mon PC · 24 h', () => {
     expect(pcShareMessage(5)).toContain('5 FREE');
     expect(pcShareMessage(0)).toContain('24 h');
   });
+  it('le bouton accueil PC est court et répond même sans ordinateur connecté', () => {
+    const panel = read('packages/mobile/src/components/WebCompanionSessionsPanel.tsx');
+    expect(panel).toContain('<Text style={s.quickShareText}>PC ↗</Text>');
+    expect(panel).toContain('const pcInvitation =');
+    expect(panel).toContain('await Share.share({ message: pcInvitation, title:');
+    expect(panel).toContain('Ouvre Loki Music sur l’ordinateur et scanne son QR avec ton téléphone.');
+    expect(panel).toContain('requestWebCompanionScreen(session.id, screen)');
+    expect(panel).toContain('accessibilityLabel="Choisir un ordinateur ou partager un lien PC"');
+    expect(panel).toContain('https://adelkhatra-bit.github.io/KEEP/');
+    expect(panel).not.toContain('PC ↗ Transférer sur mon ordinateur');
+    expect(panel).not.toContain('challenge.qrUrl');
+    expect(panel).not.toContain('session.access_token');
+  });
   it('bouton dans le panneau, durée appliquée côté serveur, prix piloté par le Super Admin', () => {
     expect(read('packages/mobile/src/components/WebCompanionSessionsPanel.tsx')).toContain('Partager sur mon PC');
     const fn = read('supabase/functions/keep-web-pairing/index.ts');

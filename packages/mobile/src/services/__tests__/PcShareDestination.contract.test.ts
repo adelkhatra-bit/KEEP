@@ -6,7 +6,8 @@ const panel = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 
 describe('PC destination picker and safe social sharing', () => {
   it('shows the destination popup on both the quick action and the native sessions panel', () => {
     expect(panel).toContain('const destinationModal = <KeepModal');
-    expect(panel).toContain('PC ↗ Transférer ou partager');
+    expect(panel).toContain('accessibilityLabel="Choisir un ordinateur ou partager un lien PC"');
+    expect(panel).toContain('<Text style={s.quickShareText}>PC ↗</Text>');
     expect(panel).toContain('Où veux-tu partager ?');
     expect(panel).toContain('{destinationModal}');
   });

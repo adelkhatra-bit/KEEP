@@ -153,7 +153,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const [items, setItems] = useState<KeepNotification[]>([]);
-  // Règle d'Adel (05/10/2026) : jamais plus de 2 lignes de texte, sinon « En savoir plus ».
+  // Règle d'Adel (05/10/2026) : jamais plus de 2 lignes de texte, sinon « Plus ».
   const [expandedNotificationIds, setExpandedNotificationIds] = useState<Set<string>>(() => new Set());
   const toggleNotificationExpanded = (id: string) => setExpandedNotificationIds((current) => {
     const next = new Set(current);
@@ -187,7 +187,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
   // il ne restait que l'affichage/l'action ici.
   const [eventRsvps, setEventRsvps] = useState<Record<string, EventRsvpStatus>>({});
   const [rsvpBusyId, setRsvpBusyId] = useState<string | null>(null);
-  // Adel (08/09/2026) : "un bouton en savoir plus ... avoir quelques images
+  // Adel (08/09/2026) : "un bouton Plus ... avoir quelques images
   // de l'evenement ... un popup" -- detail complet et A JOUR (jamais le
   // texte fige de la notification) charge a la demande, avec les memes
   // boutons de reponse repris a l'identique dans le popup.
@@ -1468,7 +1468,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
       </KeepModal>
 
       {/* Adel (08/09/2026) : "un popup ... la photo ... du texte avec des
-          explications, tenue exigee etc. ... un bouton en savoir plus ...
+          explications, tenue exigee etc. ... un bouton Plus ...
           et ensuite a partir de la il a les boutons" -- detail complet,
           jamais tronque, avec les memes boutons de reponse. */}
       <KeepModal visible={Boolean(detailItem)} transparent animationType="fade" onRequestClose={closeEventDetail}>

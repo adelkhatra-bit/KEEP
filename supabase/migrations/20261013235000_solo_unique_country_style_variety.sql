@@ -391,5 +391,3 @@ begin
     'roundCount',jsonb_array_length(v_rounds),'stakeFree',0,'rewardFree',0,'rounds',v_rounds);
 end;
 $function$
-
-

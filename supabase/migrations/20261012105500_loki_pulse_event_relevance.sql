@@ -1,0 +1,50 @@
+-- Loki Pulse event cards: organic recommendations from actual user activity.
+-- Same shared moderated Story feed; no invented ads, billing, event data or scores.
+-- Preserve existing age restrictions, 24h expiry and user-specific permissions.
+DO $loki_event_pulse$
+DECLARE
+  v_old text;
+  v_new text;
+  v_order_old text := $old$
+  order by
+    -- Followed organizers first; taste and locality decide the rest.
+    case when exists(select 1 from public.follows f where f.follower_id=auth.uid() and f.followee_id=e.creator_id) then 0 else 1 end,
+    case when exists(
+      select 1 from public.profiles viewer
+      where viewer.id=auth.uid() and exists(
+        select 1 from unnest(coalesce(viewer.favorite_artists,array[]::text[])) as favorite(artist)
+        join unnest(coalesce(e.dj_artist_names,array[]::text[])) as advertised(artist)
+          on lower(trim(favorite.artist))=lower(trim(advertised.artist))
+      )
+    ) then 0 else 1 end,
+    case when exists(select 1 from public.profiles viewer where viewer.id=auth.uid() and viewer.country_code=e.country_code) then 0 else 1 end,
+    (r.going_count*5 + r.maybe_count + r.checked_in_count*10) desc,
+    s.created_at desc
+$old$;
+  v_order_new text := $new$
+  order by
+    case when exists(select 1 from public.follows f where f.follower_id=auth.uid() and f.followee_id=e.creator_id) then 0 else 1 end,
+    case when exists(select 1 from public.keep_decisions k where k.profile_id=auth.uid() and k.source_user_id=e.creator_id and k.decision='KEPT') then 0 else 1 end,
+    case when e.country_code is not null and e.country_code=(select v.country_code from viewer v) then 0 else 1 end,
+    (r.going_count*5 + r.maybe_count + r.checked_in_count*10) desc,
+    s.created_at desc
+$new$;
+BEGIN
+  v_old := pg_get_functiondef(to_regprocedure('public.keep_event_story_list(integer)'));
+  IF v_old IS NULL THEN
+    RAISE EXCEPTION 'Loki event Story feed RPC missing';
+  END IF;
+  IF strpos(v_old,v_order_old)=0 THEN
+    RAISE EXCEPTION 'Loki event Story feed ordering changed unexpectedly';
+  END IF;
+  v_new := replace(v_old,
+    'select p.is_adult from public.profiles p where p.id=auth.uid()',
+    'select p.is_adult,p.country_code from public.profiles p where p.id=auth.uid()');
+  v_new := replace(v_new,v_order_old,v_order_new);
+  IF v_new = v_old OR v_new NOT ILIKE '%SECURITY DEFINER%'
+     OR v_new NOT ILIKE '%ADULTS_18_PLUS%' THEN
+    RAISE EXCEPTION 'Loki personalized event feed fails privacy guard';
+  END IF;
+  EXECUTE v_new;
+END;
+$loki_event_pulse$;

@@ -2970,3 +2970,6 @@ PR112 reprise : audit captures Chromium. Correctif ciblé en cours : rendre les 
 ## [2026-10-13T10:33:58.340Z] codex
 
 Reprise livraison Soirees PC: navigation officielle sans retour accueil confirme; integration locale sur eb060ac1, conservation des corrections QR/profil deja publiees, verification navigateur avant publication.
+## [2026-10-14T20:36:15.527Z] codex
+
+Finalisation de la résolution des conflits de la PR #114 sur fix/loki-ux-plus-20261012 ; tests locaux complets verts, vérifications avant commit en cours. Aucun déploiement ni écriture production.

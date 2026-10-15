@@ -28,7 +28,7 @@ describe('PublicUserProfileScreen — Boutique musicale et titres nouveaux', () 
 
   it('affiche la Boutique musicale sans toucher aux compteurs du profil', () => {
     expect(source).toContain('BOUTIQUE MUSICALE');
-    expect(boutique).toContain("ownerMode ? 'MA BOUTIQUE' : `BOUTIQUE · @${sellerName}`");
+    expect(boutique).toContain("ownerMode ? 'COLLECTIONS À LA UNE' : 'BOUTIQUE MUSICALE · SES PÉPITES'");
   });
 
   it('le bouton pluriel enchaîne toutes les Pépites à la une', () => {

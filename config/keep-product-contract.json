@@ -419,7 +419,7 @@
     "moneyModeUsesSavedPayPal": true
   },
   "battlePreferences": {
-    "maxSelectedStyles": 3,
+    "maxSelectedStyles": 6,
     "soloMustMixAllSelectedStyles": true,
     "battleMustMixAllSelectedStyles": true,
     "selectedStylesPersistInSupabase": true,

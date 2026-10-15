@@ -3,7 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../theme/colors';
 
 // Adel (29/09/2026) : « trop de texte… tu laisses juste les deux premiers
-// mots, puis une flèche pour en savoir plus qui se déroule ». Règle UI :
+// mots, puis une flèche pour Plus qui se déroule ». Règle UI :
 // une information longue s'affiche en UNE ligne courte + ›, jamais dans un
 // bouton, jamais en gros bloc rouge. Le détail se déplie au toucher.
 type Tone = 'info' | 'warn';

@@ -443,8 +443,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     setMyPreferredThemes((rows) => {
       if (code === 'MIX') return ['MIX'];
       const real = rows.filter((item) => item !== 'MIX');
-      if (!real.includes(code) && real.length >= 3) {
-        Alert.alert('3 styles maximum', 'Choisis jusqu’à 3 styles : le Solo et les Battles les mélangeront réellement pendant la partie.');
+      if (!real.includes(code) && real.length >= 6) {
+        Alert.alert('6 styles maximum', 'Choisis jusqu’à 6 styles pour varier les morceaux du Solo et des Battles.');
         return rows;
       }
       const has = rows.includes(code);

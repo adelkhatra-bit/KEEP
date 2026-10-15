@@ -189,7 +189,7 @@ export default function OffersScreen({ navigation, route }: any) {
   const [showFreeDetails, setShowFreeDetails] = useState(false);
   const [discoveryExpanded, setDiscoveryExpanded] = useState(false);
   // Lot n°9.2 (05/10/2026) : l'écran doit se lire en 5 secondes. Trois cartes
-  // en haut ; les textes longs passent dans « En savoir plus » (rien n'est supprimé).
+  // en haut ; les textes longs passent dans « Plus » (rien n'est supprimé).
   const [introExpanded, setIntroExpanded] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const sectionY = useRef<Record<string, number>>({});

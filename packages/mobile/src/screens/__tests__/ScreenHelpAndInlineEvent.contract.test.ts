@@ -23,7 +23,7 @@ describe('compact help + inline profile event UI contract', () => {
     const headerStart = playlists.indexOf('<View style={styles.header}>');
     const headerEnd = playlists.indexOf('</View>\n\n      {mobileSection', headerStart);
     const header = playlists.slice(headerStart, headerEnd);
-    expect(header).toContain('<Text style={styles.title} numberOfLines={1}>Playlists</Text>');
+    expect(header).toContain("<Text style={styles.title} numberOfLines={1}>{isDesktopLibrary ? 'Ma musique' : 'Playlists'}</Text>");
     expect(header).toContain('accessibilityLabel="Tout comprendre sur Playlists"');
     expect(playlists).toContain('title="Tout faire dans Playlists"');
     expect(header).not.toContain('Écouter · Trier · Organiser');

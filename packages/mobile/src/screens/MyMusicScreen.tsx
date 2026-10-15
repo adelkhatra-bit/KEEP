@@ -1471,7 +1471,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
     <SafeAreaView style={styles.container}><PersonalThemeBackdrop />
       <View style={styles.header}>
         <View style={styles.headerCopy}>
-          <Text style={styles.title} numberOfLines={1}>Playlists</Text>
+          <Text style={styles.title} numberOfLines={1}>{isDesktopLibrary ? 'Ma musique' : 'Playlists'}</Text>
         </View>
         <TouchableOpacity
           style={styles.headerHelpButton}

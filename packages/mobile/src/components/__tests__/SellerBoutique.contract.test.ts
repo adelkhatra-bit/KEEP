@@ -48,7 +48,7 @@ describe('seller boutique', () => {
   });
 
   it('shows the Boutique musicale with a featured Pépite and a full searchable store', () => {
-    expect(boutique).toContain("ownerMode ? 'MA BOUTIQUE' : `BOUTIQUE · @${sellerName}`");
+    expect(boutique).toContain("ownerMode ? 'COLLECTIONS À LA UNE' : 'BOUTIQUE MUSICALE · SES PÉPITES'");
     expect(boutique).toContain('★ À LA UNE');
     expect(boutique).toContain('▶ ÉCOUTER LES APERÇUS');
     expect(boutique).toContain('Tout voir · {visibleOffers.length} ›');

@@ -32,7 +32,7 @@ import KeepModal from './KeepModal';
 // Fenêtre en 3 couches (validée par Adel le 02/10/2026) : haut fixe (titre,
 // vendeur, prix), milieu qui défile (écoute, détails), bas toujours visible
 // (confirmation + déblocage). Tout texte de plus d'une ligne est réduit à une
-// ligne avec un « en savoir plus » discret : l'utilisateur qui connaît déjà le
+// ligne avec un « Plus » discret : l'utilisateur qui connaît déjà le
 // fonctionnement n'a pas à relire.
 const PAYPAL_FLOW_FULL = 'PAYPAL DIRECT · tu paies le créateur · il confirme la réception · Loki débloque la collection';
 const NO_REFUND_FULL = 'Après confirmation du paiement et déblocage du contenu, aucun remboursement possible sur cet accès numérique déjà fourni.';
@@ -420,7 +420,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
               l'UI que le vendeur doit confirmer réception, et prévois un
               encart avertissement acheteur" -- fonctionnement manuel tant
               que l'API PayPal réelle n'est pas intégrée. Encart permanent,
-              réduit à une ligne + « en savoir plus » (Adel, 02/10/2026). */}
+              réduit à une ligne + « Plus » (Adel, 02/10/2026). */}
           {purchaseEnabled && !freeAccess ? (
             <View style={s.moneyFlow}>
               <View style={s.moneyFlowDot} />

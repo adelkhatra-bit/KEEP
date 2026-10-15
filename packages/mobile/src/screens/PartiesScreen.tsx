@@ -570,22 +570,36 @@ export default function PartiesScreen({ navigation, route }: any) {
   const [ticketPriceCents, setTicketPriceCents] = useState<number | null>(null);
   const [eventPayoutLink, setEventPayoutLink] = useState('');
   const [eventPayoutQrConfigured, setEventPayoutQrConfigured] = useState(false);
+  const [ticketPayoutSaving, setTicketPayoutSaving] = useState(false);
+  useEffect(() => {
+    if (!createOpen || !user?.id) return undefined;
+    let active = true;
+    void getMyPayoutMethods().then((method) => {
+      if (!active) return;
+      setEventPayoutLink(method.link || '');
+      setEventPayoutQrConfigured(Boolean(method.qrUrl));
+    }).catch(() => { if (active) setEventPayoutQrConfigured(false); });
+    return () => { active = false; };
+  }, [createOpen, user?.id]);
+
+  const ticketPayoutReady = Boolean(normalizePayoutLinkInput(eventPayoutLink) || eventPayoutQrConfigured);
+  const saveTicketPayout = async () => {
+    const payoutLink = normalizePayoutLinkInput(eventPayoutLink);
+    if (!payoutLink || ticketPayoutSaving) return;
+    setTicketPayoutSaving(true);
+    try {
+      await setMyPayoutLink(payoutLink);
+      Alert.alert('Paiement prêt', 'Ton PayPal est enregistré. Les billets payés seront à confirmer dans Mes soirées.');
+    } catch {
+      Alert.alert('PayPal à vérifier', 'Indique ton pseudo PayPal.Me ou un lien sécurisé valide.');
+    } finally {
+      setTicketPayoutSaving(false);
+    }
+  };
   // Adel (08/09/2026) : "un numero de telephone ... je souhaite montrer mon
   // numero de telephone ou pas" -- optionnel, masque par defaut.
   const [organizerPhone, setOrganizerPhone] = useState('');
   const [showOrganizerPhone, setShowOrganizerPhone] = useState(false);
-  // Load the existing PayPal.Me/QR setup directly inside event creation.
-  useEffect(() => {
-    if (!createOpen || !user?.id) return undefined;
-    let live = true;
-    void getMyPayoutMethods().then((methods) => {
-      if (live) {
-        setEventPayoutLink(methods.link);
-        setEventPayoutQrConfigured(Boolean(methods.qrUrl));
-      }
-    }).catch(() => {});
-    return () => { live = false; };
-  }, [createOpen, user?.id]);
   const [myTicket, setMyTicket] = useState<EventTicket | null>(null);
   const [ticketModalOpen, setTicketModalOpen] = useState(false);
   const [ticketLoading, setTicketLoading] = useState(false);
@@ -1109,15 +1123,16 @@ export default function PartiesScreen({ navigation, route }: any) {
     const iso = parseDate();
     if (name.trim().length < 3) return Alert.alert('Événement', 'Indique un nom pour l’événement.');
     if (!iso) return Alert.alert('Événement', 'Indique la date au format AAAA-MM-JJTHH:MM.');
-    if (ticketPriceCents !== null && !normalizePayoutLinkInput(eventPayoutLink) && !eventPayoutQrConfigured) {
+    if (ticketPriceCents !== null && !ticketPayoutReady) {
       Alert.alert('Paiement requis', 'Entre ton PayPal.Me ci-dessous avant de vendre des billets. Si tu as déjà un QR PayPal, vérifie sa configuration.');
       return;
     }
     setCreateBusy(true);
     try {
       // The seller's own payout link is saved before event creation; Loki never holds funds.
-      if (ticketPriceCents !== null && eventPayoutLink.trim()) {
-        await setMyPayoutLink(eventPayoutLink);
+      const payoutLink = normalizePayoutLinkInput(eventPayoutLink);
+      if (ticketPriceCents !== null && payoutLink) {
+        await setMyPayoutLink(payoutLink);
       }
       const payload = { name: name.trim(), description: description.trim(), venueName: venueName.trim(), startsAt: iso, endsAt: new Date(Date.parse(iso) + eventDurationHours * 3600000).toISOString(), countryCode: countryCode.trim().toUpperCase().slice(0,2), imageUrls: eventImageUrls, requireQrCode, audienceMode, organizerPhone: organizerPhone.trim() || undefined, showOrganizerPhone, lat: venueCoords?.lat, lng: venueCoords?.lng };
       if (editingEventId) {
@@ -1125,7 +1140,7 @@ export default function PartiesScreen({ navigation, route }: any) {
         await setEventTicketPrice(editingEventId, ticketPriceCents);
         resetEventForm();
         await reload();
-        Alert.alert('Événement modifié', 'Envoyé au Super Admin pour validation — il redevient visible dès l’approbation.');
+        Alert.alert('Événement modifié', 'Modifications envoyées au Super Admin pour validation.');
       } else {
         const created = await createCreatorEvent({ ...payload, djArtistNames: user?.username ? [user.username] : [], includeRsvpButtons });
         // A failed ticket-price call must never create a second copy when the
@@ -1423,24 +1438,30 @@ export default function PartiesScreen({ navigation, route }: any) {
       <View style={[styles.battleFullscreen, desktopParties && styles.desktopBattleFullscreen]} testID="desktop-battle-stage">
         {desktopParties ? <LinearGradient testID="desktop-battle-atmosphere" pointerEvents="none" colors={['#201434','#352052','#201434']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFillObject} /> : null}
         {desktopBattleWide ? <>
-          <View testID="desktop-battle-left" style={[styles.desktopBattleSide, styles.desktopBattleLeft]}>
-             <Text style={styles.desktopBattleKicker}>LOKI · ARENA</Text>
-             <Text style={styles.desktopBattleSideTitle}>Ton cockpit</Text>
-             <Text style={styles.desktopBattleSideCopy}>Les manches, réponses et commandes restent au centre.</Text>
-             <View style={styles.desktopBattleDivision} />
-             <Text style={styles.desktopBattleSideCopy}>Compte : @{user?.username || 'Loki'}</Text>
-             <Text style={styles.desktopBattleSideCopy}>Musique · Solo · En ligne</Text>
-           </View>
+          <View testID="desktop-battle-left" pointerEvents="none" style={[styles.desktopBattleSide, styles.desktopBattleLeft]}>
+            <Text style={styles.desktopBattleKicker}>LOKI MUSIC · ARENA</Text>
+            <Text style={styles.desktopBattleSideTitle}>LE COCKPIT</Text>
+            <Text style={styles.desktopBattleSideCopy}>SOLO · DUEL · GROUPE</Text>
+            <View style={styles.desktopBattleInfoLine}><Text style={styles.desktopBattleInfoNumber}>6</Text><Text style={styles.desktopBattleInfoLabel}>styles au choix</Text></View>
+            <View style={styles.desktopBattleInfoLine}><Text style={styles.desktopBattleInfoNumber}>4</Text><Text style={styles.desktopBattleInfoLabel}>réponses par titre</Text></View>
+            <Text style={styles.desktopBattleSideCopy}>Parties et règles identiques sur iPhone et PC.</Text>
+          </View>
           <View testID="desktop-battle-right" style={[styles.desktopBattleSide, styles.desktopBattleRight]}>
-             <Text style={styles.desktopBattleKicker}>TA COMMUNAUTÉ</Text>
-             <Text style={styles.desktopBattleSideTitle}>Classement</Text>
-             <Text style={styles.desktopBattleSideCopy}>Tes résultats et ceux des autres joueurs, sans quitter Battle.</Text>
-             <TouchableOpacity style={styles.desktopBattleLeaderboardButton}
+            <Text style={styles.desktopBattleKicker}>CLASSEMENT RÉEL</Text>
+            <Text style={styles.desktopBattleSideTitle}>TOP SOLO</Text>
+            {leaderboard.length ? leaderboard.slice(0, 3).map((entry, index) => (
+             <View key={entry.profileId} style={styles.desktopBattleRankRow}>
+               <Text style={styles.desktopBattleRankName} numberOfLines={1}>{index + 1}. @{entry.username}</Text>
+               <Text style={styles.desktopBattleRankWins}>{entry.wins}</Text>
+             </View>
+            )) : <Text style={styles.desktopBattleSideCopy}>Le podium s’affiche après les premières parties.</Text>}
+            <Text style={styles.desktopBattleSideCopy}>Scores partagés entre PC et iPhone.</Text>
+            <TouchableOpacity style={styles.desktopBattleLeaderboardButton}
                accessibilityRole="button" accessibilityLabel="Voir le classement Battle sans quitter le jeu"
                onPress={() => { setLeaderboardOpen(true); setBattleSummaryOpen(true); }}>
                <Text style={styles.desktopBattleLeaderboardText}>VOIR LES SCORES ›</Text>
              </TouchableOpacity>
-           </View>
+          </View>
         </> : null}
         <KeepBattleArenaPanel
           enabled={Boolean(user && !isLocalGuest && !isDemoMode)}
@@ -1664,9 +1685,9 @@ export default function PartiesScreen({ navigation, route }: any) {
           <Text style={styles.eventModeCount}>{visibleEvents.length} événement{visibleEvents.length > 1 ? 's' : ''}</Text>
         </View> : null}
           
-        {!eventAccess || !['CREATOR_PRO','VENUE_PRO'].includes(eventAccess.planCode) ? <TouchableOpacity style={styles.creatorHint} onPress={() => void openCreate()}><Text style={styles.creatorHintText}>🔒 À partir de {minEventFollowers} abonnés : Creator Pro · 2 événements/mois. Venue Pro · événements illimités.</Text></TouchableOpacity>
+        {!eventAccess || !['CREATOR_PRO','VENUE_PRO'].includes(eventAccess.planCode) ? <TouchableOpacity style={styles.creatorHint} onPress={() => void openCreate()}><Text style={styles.creatorHintText}>🔒 Dès {minEventFollowers} abonnés : Créateur Pro · 2 événements/mois · Lieu Pro · événements illimités. Voir les offres.</Text></TouchableOpacity>
           : !audienceReady ? <TouchableOpacity style={styles.creatorHint} onPress={() => void openCreate()}><Text style={styles.creatorHintText}>🔒 Audience événements : {followers}/{minEventFollowers} abonnés. La formule est prête, il reste à atteindre le seuil communautaire.</Text></TouchableOpacity>
-            : eventAccess.planCode === 'CREATOR_PRO' ? <TouchableOpacity style={styles.creatorHint} onPress={() => !canCreate && navigation.navigate('Offers',{focusPlan:'VENUE_PRO',sourceFeature:'CREATE_EVENT'})}><Text style={styles.creatorHintText}>{canCreate ? `Creator Pro : ta création du mois est disponible · seuil ${minEventFollowers} abonnés atteint.` : 'Limite du mois atteinte · Venue Pro débloque les événements en illimité.'}</Text></TouchableOpacity>
+            : eventAccess.planCode === 'CREATOR_PRO' ? <TouchableOpacity style={styles.creatorHint} onPress={() => !canCreate && navigation.navigate('Offers',{focusPlan:'VENUE_PRO',sourceFeature:'CREATE_EVENT'})}><Text style={styles.creatorHintText}>{canCreate ? `Créateur Pro : tu peux publier · ${minEventFollowers} abonnés atteints.` : 'Limite atteinte · Voir les offres.'}</Text></TouchableOpacity>
               : <View style={styles.creatorHint}><Text style={styles.creatorHintText}>Venue Pro : événements illimités · seuil {minEventFollowers} abonnés atteint.</Text></View>}
 
         {loading ? <ActivityIndicator color={colors.primaryLight}/> : null}
@@ -1747,6 +1768,15 @@ export default function PartiesScreen({ navigation, route }: any) {
                 {!isPendingPreview ? <Text style={styles.meta}>{[currentEvent.venueName,currentEvent.countryCode].filter(Boolean).join(' · ')}</Text> : null}
                 {!isPendingPreview && currentEvent.ticketPriceCents ? <Text style={styles.rsvpCountsText}>🎟 Entrée : {(currentEvent.ticketPriceCents / 100).toFixed(2)}€</Text> : null}
                 {!isPendingPreview && currentEventReviewSummary && currentEventReviewSummary.reviewCount > 0 ? <Text style={styles.reviewSummary}>⭐ {currentEventReviewSummary.averageRating.toFixed(1)} · {currentEventReviewSummary.reviewCount} avis</Text> : null}
+                {isOwnEvent && Boolean(currentEvent.ticketPriceCents) ? <View style={styles.eventSalesDashboard} testID="event-sales-dashboard">
+                  <Text style={styles.eventSalesTitle}>BILLETTERIE · TOUTES MES SOIRÉES</Text>
+                  <View style={styles.eventSalesMetrics}>
+                    <View style={styles.eventSalesMetric}><Text style={styles.eventSalesValue}>{ticketSales.filter((sale) => sale.status === 'COMPLETED').length}</Text><Text style={styles.eventSalesCaption}>Billets confirmés</Text></View>
+                    <View style={styles.eventSalesMetric}><Text style={styles.eventSalesValue}>{(ticketSales.filter((sale) => sale.status === 'COMPLETED' && sale.currencyCode === 'EUR').reduce((sum, sale) => sum + sale.amountCents, 0) / 100).toFixed(2)} €</Text><Text style={styles.eventSalesCaption}>Confirmé sur Loki</Text></View>
+                    <View style={styles.eventSalesMetric}><Text style={styles.eventSalesValue}>{ticketSales.filter((sale) => sale.status === 'PENDING').length}</Text><Text style={styles.eventSalesCaption}>À vérifier</Text></View>
+                  </View>
+                  <Text style={styles.eventSalesNote}>Chiffres déclarés dans Loki, pas un relevé PayPal.</Text>
+                </View> : null}
                 {user?.id === currentEvent.creatorId && rsvpCounts && (rsvpCounts.going + rsvpCounts.maybe + rsvpCounts.notGoing) > 0 ? <Text style={styles.rsvpCountsText}>✓ {rsvpCounts.going} participent · {rsvpCounts.maybe} peut-être · {rsvpCounts.notGoing} ne viennent pas</Text> : null}
                 {!isPendingPreview && currentEvent.moderationStatus === 'APPROVED' && rsvpCounts ? (
                   <Text style={styles.rsvpCountsText}>LOKI PULSE · {rsvpCounts.going * 5 + rsvpCounts.maybe} pts de participation</Text>
@@ -1852,7 +1882,7 @@ export default function PartiesScreen({ navigation, route }: any) {
     </ScrollView>
 
     {renderRankingModals()}
-    <KeepModal visible={createOpen} transparent animationType="slide" onRequestClose={resetEventForm}><View style={[styles.backdrop, desktopParties && styles.desktopEventBackdrop]}><View style={[styles.sheet, desktopParties && styles.desktopEventSheet]}><View style={styles.modalHeader}><View style={{ flex: 1 }}><Text style={styles.modalTitle}>{editingEventId ? 'Modifier ma soirée' : 'Créer ma soirée'}</Text>{desktopParties ? <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}>Visuel · Date · Billets · Publier</Text> : null}</View><TouchableOpacity onPress={resetEventForm}><Text style={styles.close}>Fermer</Text></TouchableOpacity></View><ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+    <KeepModal visible={createOpen} transparent animationType="slide" onRequestClose={resetEventForm}><View style={[styles.backdrop, desktopParties && styles.desktopEventBackdrop]}><View style={[styles.sheet, desktopParties && styles.desktopEventSheet]}><View style={styles.modalHeader}><View style={{ flex: 1 }}><Text style={styles.modalTitle}>{editingEventId ? 'Modifier ma soirée' : 'Créer ma soirée · Billets'}</Text>{desktopParties ? <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}>Visuel · Date · Billets · Publier</Text> : null}</View><TouchableOpacity onPress={resetEventForm}><Text style={styles.close}>Fermer</Text></TouchableOpacity></View><ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Nom de l’événement" placeholderTextColor={colors.textMuted}/>
       {/* Adel (08/09/2026) : "le truc photo tu le remontes un peu plus
           haut" -- juste sous le nom, avant la date. "il puisse ajouter
@@ -1947,25 +1977,28 @@ export default function PartiesScreen({ navigation, route }: any) {
           </TouchableOpacity>
         ))}
       </View>
-      {ticketPriceCents !== null ? (
-        <View style={{ borderRadius: 16, borderWidth: 1, borderColor: colors.primaryLight, backgroundColor: 'rgba(124,92,252,.10)', padding: 12, gap: 8, marginBottom: 12 }} testID="event-ticket-seller-onboarding">
-          <Text style={{ color: colors.white, fontSize: 15, fontWeight: '900' }}>Vendre des billets</Text>
-          <Text style={{ color: colors.textPrimary, fontSize: 12, lineHeight: 19 }}>1. Fixe le prix · 2. Entre ton PayPal.Me · 3. Confirme le paiement reçu pour délivrer le billet.</Text>
+      {ticketPriceCents !== null ? <View style={styles.eventPayoutCard} testID="event-direct-ticket-payout">
+        <Text style={styles.eventPayoutTitle}>{ticketPayoutReady ? 'Vendre des billets · ✓ PAIEMENT PRÊT' : 'Vendre des billets'}</Text>
+        <Text style={styles.eventPayoutHint}>Paiement direct sur ton PayPal. Tu confirmes chaque règlement avant d’émettre le billet.</Text>
+        <View style={styles.eventPayoutRow}>
           <TextInput
-            style={styles.input}
+            style={[styles.input, styles.eventPayoutInput]}
             value={eventPayoutLink}
             onChangeText={setEventPayoutLink}
-            placeholder="Ton pseudo PayPal.Me ou lien https://"
+            placeholder="Ton pseudo PayPal.Me"
             placeholderTextColor={colors.textMuted}
-            accessibilityLabel="Compte PayPal.Me pour recevoir le prix de l'événement"
             autoCapitalize="none"
             autoCorrect={false}
+            accessibilityLabel="Pseudo PayPal.Me pour recevoir les billets"
           />
-          <Text style={{ color: colors.keep, fontSize: 11, fontWeight: '800' }}>
-            {eventPayoutQrConfigured ? '✓ QR PayPal déjà configuré' : 'Paiement direct à ton compte · aucun encaissement par Loki'}
-          </Text>
+          <TouchableOpacity style={styles.eventPayoutSave} disabled={ticketPayoutSaving || !normalizePayoutLinkInput(eventPayoutLink)}
+            onPress={() => { void saveTicketPayout(); }} accessibilityRole="button" accessibilityLabel="Enregistrer mon PayPal pour la billetterie">
+            <Text style={styles.eventPayoutSaveText}>{ticketPayoutSaving ? '…' : '✓ OK'}</Text>
+          </TouchableOpacity>
         </View>
-      ) : null}
+        {eventPayoutQrConfigured ? <Text style={styles.eventPayoutHint}>✓ QR PayPal déjà configuré</Text> : null}
+        <Text style={styles.eventPayoutHint}>2 · Après validation, la soirée apparaît aussi en Story 24 h et Loki Pulse. Aucun paiement n’est prélevé par Loki Music.</Text>
+      </View> : null}
 
       {/* Adel (08/09/2026) : "les trucs à cocher tu les mets ensemble en
           dessous, à la fin ... que tu comprends l'idée" -- les trois
@@ -1992,7 +2025,7 @@ export default function PartiesScreen({ navigation, route }: any) {
       {/* Adel (08/09/2026) : "publie sans notification pour moi c'est pas
           logique" -- un seul bouton desormais, qui notifie toujours à la
           création. */}
-      <TouchableOpacity style={styles.publish} onPress={()=>void publish()} disabled={createBusy}>{createBusy?<ActivityIndicator color={colors.white}/>:<Text style={styles.publishText}>{editingEventId ? 'ENREGISTRER LES MODIFICATIONS' : 'PUBLIER + NOTIFIER'}</Text>}</TouchableOpacity>
+      <TouchableOpacity style={styles.publish} onPress={()=>void publish()} disabled={createBusy}>{createBusy?<ActivityIndicator color={colors.white}/>:<Text style={styles.publishText}>{editingEventId ? 'ENREGISTRER' : ticketPriceCents !== null ? 'PUBLIER · BILLETS' : 'PUBLIER · GRATUIT'}</Text>}</TouchableOpacity>
     </ScrollView></View></View></KeepModal>
 
     {/* Adel (08/09/2026) : "voir tous les participants" */}
@@ -2110,6 +2143,20 @@ export default function PartiesScreen({ navigation, route }: any) {
 }
 
 const styles=StyleSheet.create({
+eventSalesDashboard:{marginTop:14,padding:12,gap:8,borderRadius:16,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundCard},
+eventSalesTitle:{fontSize:12,fontWeight:'900',color:colors.primaryLight},
+eventSalesMetrics:{flexDirection:'row',gap:6,justifyContent:'space-between'},
+eventSalesMetric:{flex:1,minWidth:0,alignItems:'center',justifyContent:'center'},
+eventSalesValue:{fontSize:17,fontWeight:'900',color:colors.white},
+eventSalesCaption:{fontSize:11,fontWeight:'800',color:colors.textPrimary,textAlign:'center'},
+eventSalesNote:{fontSize:11,color:colors.textSecondary},
+eventPayoutCard:{marginTop:10,marginBottom:12,padding:14,gap:10,borderRadius:18,borderWidth:1,borderColor:colors.warning,backgroundColor:colors.backgroundCard},
+eventPayoutTitle:{color:colors.warning,fontSize:14,fontWeight:'900'},
+eventPayoutHint:{color:colors.textPrimary,fontSize:12,lineHeight:17},
+eventPayoutRow:{flexDirection:'row',gap:8,alignItems:'center'},
+eventPayoutInput:{flex:1,minWidth:0,marginBottom:0},
+eventPayoutSave:{minWidth:70,minHeight:48,paddingHorizontal:12,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary,borderRadius:14},
+eventPayoutSaveText:{color:colors.white,fontSize:12,fontWeight:'900'},
 desktopContent:{flexGrow:1,width:'100%',maxWidth:'100%',alignSelf:'stretch',paddingHorizontal:24,paddingTop:14,paddingBottom:24,backgroundColor:'rgba(32,20,52,.84)'},
 desktopPartyHome:{flexDirection:'row',flexWrap:'wrap',justifyContent:'center',alignItems:'stretch',flexGrow:1,paddingVertical:14,gap:14},
 desktopPartyHomeChoice:{flexGrow:1,flexBasis:208,minWidth:190,minHeight:174,flexDirection:'column',alignItems:'flex-start',justifyContent:'space-between',paddingHorizontal:22,paddingVertical:20},
@@ -2123,6 +2170,12 @@ desktopBattleRight:{right:14},
 desktopBattleKicker:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:1},
 desktopBattleSideTitle:{color:colors.white,fontSize:17,fontWeight:'900'},
 desktopBattleSideCopy:{color:colors.textPrimary,fontSize:12,lineHeight:19},
+desktopBattleInfoLine:{flexDirection:'row',alignItems:'baseline',gap:8,paddingVertical:6,borderBottomWidth:1,borderBottomColor:'rgba(167,139,250,.2)'},
+desktopBattleInfoNumber:{fontSize:24,fontWeight:'900',color:colors.primaryLight},
+desktopBattleInfoLabel:{flex:1,fontSize:11,fontWeight:'800',color:colors.textPrimary},
+desktopBattleRankRow:{minHeight:34,flexDirection:'row',alignItems:'center',gap:4,borderBottomWidth:1,borderBottomColor:'rgba(167,139,250,.2)'},
+desktopBattleRankName:{flex:1,fontSize:12,fontWeight:'900',color:colors.white},
+desktopBattleRankWins:{fontSize:14,fontWeight:'900',color:colors.keep},
 desktopBattleDivision:{height:1,backgroundColor:'rgba(167,139,250,.35)',marginVertical:4},
 desktopBattleLeaderboardButton:{minHeight:46,marginTop:4,paddingHorizontal:10,borderRadius:14,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.08)',alignItems:'center',justifyContent:'center'},
 desktopBattleLeaderboardText:{color:colors.keep,fontSize:11,fontWeight:'900',letterSpacing:.2},

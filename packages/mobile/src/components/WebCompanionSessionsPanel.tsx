@@ -1,5 +1,5 @@
 import React from 'react';
-import { AppState, Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AppState, Linking, Platform, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { colors } from '../theme/colors';
 import { navigationRef } from '../navigation/navigationRef';
@@ -111,6 +111,15 @@ export default function WebCompanionSessionsPanel({ buttonOnly = false }: { butt
       Alert.alert('Partage public', 'Impossible d’ouvrir cette application. Réessaie depuis le partage de ton profil.');
     }
   };
+  const pcInvitation = 'Loki Music sur PC : https://adelkhatra-bit.github.io/KEEP/\nSur le PC, affiche le QR puis scanne-le sur ton téléphone.';
+  const sharePcLink = async () => {
+    try {
+      await Share.share({ message: pcInvitation, title: 'Loki Music PC' });
+      setDestinationOpen(false);
+    } catch {
+      Alert.alert('Lien PC', 'Partage indisponible. Réessaie depuis le partage de ton ordinateur.');
+    }
+  };
 
   const explainShare = async () => {
     setDestinationOpen(true);
@@ -148,6 +157,11 @@ export default function WebCompanionSessionsPanel({ buttonOnly = false }: { butt
             <Text style={s.destinationSub}>En ligne · accès QR autorisé</Text>
           </TouchableOpacity>
         )) : <Text style={s.muted}>Aucun PC connecté en ligne. Ouvre Loki Music sur l’ordinateur et scanne son QR avec ton téléphone.</Text>}
+        <Text style={s.destinationSection}>INVITER QUELQU’UN SUR UN PC</Text>
+        <TouchableOpacity style={s.destinationButton} accessibilityRole="button" accessibilityLabel="Partager le lien public pour ouvrir Loki Music sur PC" onPress={() => { void sharePcLink(); }}>
+          <Text style={s.destinationButtonText}>Envoyer le lien PC</Text>
+          <Text style={s.destinationSub}>Le QR s’affiche ensuite sur l’ordinateur · aucun code de connexion n’est partagé</Text>
+        </TouchableOpacity>
         <Text style={s.destinationSection}>PARTAGER MON PROFIL PUBLIC</Text>
         <View style={s.destinationChannels}>
           <TouchableOpacity style={[s.destinationButton, s.destinationChannel]} accessibilityRole="button" onPress={() => { void sharePublicProfile('WHATSAPP'); }}><Text style={s.destinationButtonText}>WhatsApp</Text></TouchableOpacity>
@@ -160,8 +174,8 @@ export default function WebCompanionSessionsPanel({ buttonOnly = false }: { butt
 
   if (buttonOnly) return <>
     <TouchableOpacity style={s.quickShare} onPress={() => { void explainShare(); }} accessibilityRole="button"
-      accessibilityLabel="Choisir un ordinateur, WhatsApp ou e-mail" testID="home-transfer-to-pc">
-      <Text style={s.quickShareText}>PC ↗ Transférer ou partager</Text>
+      accessibilityLabel="Choisir un ordinateur ou partager un lien PC" testID="home-transfer-to-pc">
+      <Text style={s.quickShareText}>PC ↗</Text>
     </TouchableOpacity>
     {destinationModal}
   </>;
@@ -191,7 +205,7 @@ export default function WebCompanionSessionsPanel({ buttonOnly = false }: { butt
   return (
     <View style={s.wrap}>
       <TouchableOpacity style={s.share} onPress={() => { void explainShare(); }} accessibilityRole="button" accessibilityLabel="Partager sur mon PC" testID="pc-share-button">
-        <Text style={s.shareText}>🖥️ Partager sur mon PC · 24 h</Text>
+        <Text style={s.shareText}>PC · Partager</Text>
       </TouchableOpacity>
       <Text style={s.title}>Ordinateurs connectés</Text>
       <Text style={s.help}>Les connexions ordinateur se font uniquement avec le QR Loki Music affiché sur le Web.</Text>

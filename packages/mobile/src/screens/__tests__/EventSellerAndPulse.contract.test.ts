@@ -12,12 +12,12 @@ describe('Loki events: seller checkout, moderation and Pulse visibility', () => 
   const ranking = read('supabase/migrations/20261012013500_personalized_event_pulse_ranking.sql');
 
   it('offers a clear direct organizer payout setup inside the same event form', () => {
-    expect(parties).toContain('testID="event-ticket-seller-onboarding"');
+    expect(parties).toContain('testID="event-direct-ticket-payout"');
     expect(parties).toContain('desktopParties && styles.desktopEventBackdrop');
     expect(parties).toContain('desktopParties && styles.desktopEventSheet');
     expect(parties).toContain("maxWidth:960,height:'90%'");
     expect(parties).toContain('Vendre des billets');
-    expect(parties).toContain('setMyPayoutLink(eventPayoutLink)');
+    expect(parties).toContain('setMyPayoutLink(payoutLink)');
     expect(parties).toContain('getMyPayoutMethods()');
     expect(parties).toContain('eventPayoutQrConfigured');
     expect(parties).toContain('await setEventTicketPrice(created.id, ticketPriceCents);');
@@ -51,9 +51,10 @@ describe('Loki events: seller checkout, moderation and Pulse visibility', () => 
   });
 
   it('gives other users a chance to discover events in Pulse without exposing 18+ to minors', () => {
-    expect(profile).toContain('setMyPulseEventStories(items.slice(0, 6))');
-    expect(profile).not.toContain('setMyPulseEventStories(items.filter((item) => item.creatorId === user.id))');
+    expect(profile).toContain('setMyPulseEventStories(items.filter((item) => item.creatorId === user.id).slice(0, 3))');
+    expect(profile).toContain('setRecommendedEventStories(items.filter((item) => item.creatorId !== user.id).slice(0, 2))');
     expect(profile).toContain('SOIRÉES À DÉCOUVRIR · LOKI PULSE');
+    expect(profile).toContain('SOIRÉES POUR TOI · CRÉATEURS');
     expect(ranking).toContain("favorite_artists");
     expect(ranking).toContain('viewer.country_code=e.country_code');
     expect(ranking).toContain('r.going_count*5 + r.maybe_count');

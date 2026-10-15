@@ -80,7 +80,7 @@ describe('Demo keep confirmation + visited profile premium design', () => {
   it('makes a seller and their Drops unmistakable without adding a bulky shop header', () => {
     expect(profile).toContain('offers={profileBoutiqueOffers}');
     expect(boutique).toContain('★ À LA UNE');
-    expect(boutique).toContain("ownerMode ? 'MA BOUTIQUE' : `BOUTIQUE · @${sellerName}`");
+    expect(boutique).toContain("ownerMode ? 'COLLECTIONS À LA UNE' : 'BOUTIQUE MUSICALE · SES PÉPITES'");
     expect(boutique).toContain('Tout voir · {visibleOffers.length} ›');
     expect(boutique).toContain('▶ ÉCOUTER');
     expect(profile).not.toContain('BOUTIQUE MUSICALE ACTIVE');
@@ -146,10 +146,10 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(ownerProfile).toContain('sourceUsername={user.username}');
   });
 
-  it('keeps Battle match preferences intentionally compact at three mixed styles', () => {
-    expect(battle).toContain('real.length >= 3');
-    expect(battle).toContain('3 styles maximum');
-    expect(battle).toContain('le Solo et les Battles les mélangeront réellement pendant la partie');
+  it('keeps Battle match preferences readable at six mixed styles', () => {
+    expect(battle).toContain('real.length >= 6');
+    expect(battle).toContain('6 styles maximum');
+    expect(battle).toContain('Choisis jusqu’à 6 styles pour varier les morceaux du Solo et des Battles.');
   });
 
   it('never calls the authenticated Battle credit RPC for demo or local guests', () => {

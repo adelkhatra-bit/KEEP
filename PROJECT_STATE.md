@@ -34,10 +34,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-10-13T10:39:11.068Z
-- Branche : `reconcile/claude-main-20260825`
-- Dernier commit : `eb060ac1` (eb060ac154e1f6b84fc5d43655f6de37dea5d2dc) — chore(registre): release c7f97df vérifiée en ligne [skip ci]
-- Date du dernier commit : 2026-10-13T10:22:16Z
+- Régénéré le : 2026-10-14T20:37:51.700Z
+- Branche : `fix/loki-ux-plus-20261012`
+- Dernier commit : `52792d7b` (52792d7bad22ee5b67c382af5681ceb591ac16dd) — test(ui): assert actual centered Swipe session and history without reverting PR120
+- Date du dernier commit : 2026-10-12T04:00:16+02:00
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -124,16 +124,16 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
-- `eb060ac1` (2026-10-13, github-actions[bot]) — chore(registre): release c7f97df vérifiée en ligne [skip ci]
-- `5c5ff6c8` (2026-10-13, github-actions[bot]) — chore(registre): release 8e5905b vérifiée en ligne [skip ci]
-- `c7f97df0` (2026-10-13, adelkhatra-bit) — chore(release): ship profile persistence, KEEP modal and iOS OTA updater (#163)
-- `737feaa1` (2026-10-13, adelkhatra-bit) — fix(ios): check OTA on app foreground and periodically (#164)
-- `11c6126e` (2026-10-13, github-actions[bot]) — chore(registre): release 466a4f2 vérifiée en ligne [skip ci]
-- `8e5905bb` (2026-10-13, adelkhatra-bit) — refactor(keep): remove unused KEEP choice modal (#162)
-- `466a4f2d` (2026-10-13, adelkhatra-bit) — fix(profile): preserve late-loaded birthday and gender on Save (#161)
-- `9d48ef7d` (2026-10-13, github-actions[bot]) — chore(registre): release c7cfb99 vérifiée en ligne [skip ci]
-- `c7cfb993` (2026-10-13, adelkhatra-bit) — chore(release): déclencher TestFlight et OTA du correctif QR #158
-- `7e2a16ee` (2026-10-13, github-actions[bot]) — chore(registre): release cbacd1a vérifiée en ligne [skip ci]
+- `52792d7b` (2026-10-12, adelkhatra-bit) — test(ui): assert actual centered Swipe session and history without reverting PR120
+- `90cb00e3` (2026-10-12, adelkhatra-bit) — merge(pr114): reconcile creator commerce and event UI with canonical session Swipe fix
+- `6aedbf41` (2026-10-12, github-actions[bot]) — chore(registre): release 43f1f94 vérifiée en ligne [skip ci]
+- `28726e76` (2026-10-12, adelkhatra-bit) — test(notifications): enforce the canonical Plus disclosure with readable 2-line cards
+- `08eae23f` (2026-10-12, adelkhatra-bit) — fix(ci): safe auto merge without admin bypass or conflict overwrite (#98)
+- `43f1f945` (2026-10-12, adelkhatra-bit) — fix(mobile/web): ouvrir réellement Swipe depuis les sessions et centrer les fenêtres (#120)
+- `1bb64b74` (2026-10-12, adelkhatra-bit) — fix(ux): use Plus disclosure in notifications per product contract
+- `f07796c9` (2026-10-12, adelkhatra-bit) — fix(notifications): restore En savoir plus link required by mobile contract
+- `587fba50` (2026-10-12, adelkhatra-bit) — fix(notifications): remove last En savoir plus disclosures in PR114
+- `cd32f131` (2026-10-12, adelkhatra-bit) — test(tickets): enforce immutable price of approved event
 <!-- AUTO:RECENT-COMMITS:END -->
 
 ## Registre de versions (généré par le workflow de release, jamais à la main)
@@ -202,6 +202,7 @@ agent) et messages des sessions de chat (non versionnés).
 
 ## 4. Points ouverts
 
+- **14/10/2026 — PR #114, résolution des conflits LOCAL_ONLY** : fusion de `reconcile/claude-main-20260825` sur `fix/loki-ux-plus-20261012` résolue ; type-check et tests workspace (353 suites / 1 731 tests mobile, backend et music) PASS, garde navigateur local 6 profils/routes/reloads PASS. `verify-source-of-truth.cjs` refuse le nom `fix/*` ; garde non affaiblie. Aucun déploiement ni écriture Supabase de production. Commit de fusion à finaliser.
 - 13/10 : retour global Soirées + Battle PC large préparés ; tsc et 1635 tests PASS. Validation navigateur CI et publication restent non vérifiées (Chromium local EPERM).
 
 - **07/10/2026 — IDEA-189, LOCAL_ONLY** : tableau versions/preuves dans Opérations existant, SHA/test obligatoires pour les nouveaux « Corrigé », compteurs exacts avec erreurs honnêtes, actionlint épinglé et synthèse GitHub lecture seule. Typechecks admin/mobile, build admin, 1377 tests mobile, PostgreSQL isolé et navigateur fixtures 390/1440 réussis. Migration `/home/runner/work/KEEP/KEEP/supabase/migrations/20261006235000_problem_report_evidence.sql` non appliquée ; intégration/CI/livraison restent à faire par le parent, sans PASS global. Actionlint global hérité rouge, version publique DNS indisponible, TestFlight inconnu. Détails dans `/home/runner/work/KEEP/KEEP/.context/activeContext.md` et `/home/runner/work/KEEP/KEEP/AGENT_MESSAGES.md`.

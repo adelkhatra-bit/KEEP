@@ -128,7 +128,7 @@ export default function ProblemReports() {
               </details>
               {r.message.length > 110 ? (
                 <button className="btn" onClick={() => setOpen((p) => ({ ...p, [r.id]: !expanded }))} style={{ justifySelf: 'start', background: 'transparent', border: 'none', color: 'var(--primary-light)', fontWeight: 800, padding: 0 }}>
-                  {expanded ? 'Réduire' : 'En savoir plus'}
+                  {expanded ? 'Réduire' : 'Plus'}
                 </button>
               ) : null}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 8 }}>
