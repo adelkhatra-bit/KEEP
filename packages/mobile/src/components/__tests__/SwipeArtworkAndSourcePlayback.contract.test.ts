@@ -22,9 +22,10 @@ describe('shared iPhone / desktop Swipe: album art, metadata and exact source pl
 
   it('moves discoverer identity outside the cover and keeps buttons accessible without scrolling', () => {
     const meta = deck.indexOf('testID="swipe-metadata-below-artwork"');
-    const source = deck.indexOf('testID="deck-source-glow"', meta);
+    const source = deck.indexOf('testID="deck-source-profile-inline"');
     const next = deck.indexOf('testID="swipe-next-without-gesture"', meta);
-    expect(source).toBeGreaterThan(meta);
+    expect(source).toBeGreaterThan(0);
+    expect(source).toBeLessThan(meta);
     expect(next).toBeGreaterThan(meta);
     expect(deck).toContain("nextInlineButton:{minHeight:40");
     expect(deck).toContain('testID="desktop-story-next-track"');
@@ -40,10 +41,13 @@ describe('shared iPhone / desktop Swipe: album art, metadata and exact source pl
     expect(deck).toContain('const preferCleanStoryPlayer = true');
     expect(deck).toContain('if (!trackAddedAt) { setSourcePlayerFailed(false); setSourcePlayerOpen(true); }');
     expect(deck).toContain('testID="swipe-exact-source-player"');
-    expect(deck).toContain('https://com.adelkhatra.keep');
+    expect(deck).toContain('buildNativeYouTubeEmbedDocument(sourcePlayer');
+    expect(deck).toContain('nativeSourcePlayerDocument.baseUrl');
+    expect(deck).not.toContain('https://com.adelkhatra.keep');
     expect(deck).toContain('&autoplay=1');
     expect(deck).toContain('sourcePlayerAttempt');
-    expect(deck).toContain('↗ SOURCE');
+    expect(deck).not.toContain('↗ SOURCE');
+    expect(deck).toContain("message?.type === 'youtube-error'");
     expect(deck).toContain('sourcePlayerFailed');
     expect(deck).toContain('scheduleEmbeddedStoryNext();');
   });

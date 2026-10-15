@@ -42,7 +42,8 @@ jobs:
       EXPO_PUBLIC_SUPABASE_URL: https://rrhqsqzcplvmwxizqnla.supabase.co
       EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru
       EXPO_PUBLIC_DEMO_MODE: 'false'
-      EXPO_PUBLIC_KEEP_PREVIEW: '0'
+      # The guest-gate browser scenario must be able to enter the local trial surface before checking Soirées → Battle.
+      EXPO_PUBLIC_KEEP_PREVIEW: '1'
       EXPO_PUBLIC_KEEP_REAL_RECOGNITION: 'false'
       EXPO_PUBLIC_API_URL: http://127.0.0.1:3010
     steps:
@@ -83,7 +84,10 @@ jobs:
             await page.goto('http://127.0.0.1:8081', { waitUntil: 'networkidle', timeout: 60000 });
             const tryFree = page.getByText('ESSAYER GRATUITEMENT', { exact: true }).last();
             if (await tryFree.isVisible().catch(() => false)) await tryFree.click();
-            await page.getByText('Soirées', { exact: true }).last().click();
+            // Mobile navigation renders the visible label as text rather than an ARIA tab.
+            const soireesTab = page.getByText('Soirées', { exact: true }).filter({ visible: true }).last();
+            await soireesTab.waitFor({ state: 'visible', timeout: 15000 });
+            await soireesTab.click({ timeout: 10000 });
             const openBattle = page.getByLabel('Ouvrir directement Battle').last();
             await openBattle.waitFor({ state: 'visible', timeout: 15000 });
             await openBattle.click();
@@ -100,7 +104,8 @@ jobs:
             // est vérifié séparément par les tests Supabase/release.
             await page.waitForTimeout(500);
             if (!dialogs.some(x => /Compte Loki Music requis|mode invité.*Battle.*réservé/i.test(x))) {
-              throw new Error(`Guest Solo did not show account gate. Dialogs: ${dialogs.join(' | ')}`);
+              await page.screenshot({ path: 'battle-solo-guest-gate-failure.png', fullPage: false }).catch(() => {});
+              throw new Error(`Guest Solo did not show account gate. Dialogs: ${dialogs.join(' | ')}; visible text: ${(await page.locator('body').innerText().catch(() => '')).slice(0, 1600)}`);
             }
             if (errors.length) throw new Error(`Page errors: ${errors.join('\n')}`);
             await browser.close();

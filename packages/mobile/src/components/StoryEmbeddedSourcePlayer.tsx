@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Platform, Text, View } from 'react-native';
-import { resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
+import { buildNativeYouTubeEmbedDocument, resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
 
 /**
  * Official provider player displayed INSIDE a public Loki story.
@@ -12,6 +12,9 @@ import { resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
 export default function StoryEmbeddedSourcePlayer({ sourceUrl, compact = false }: { sourceUrl: string; compact?: boolean }) {
   const player = resolveEmbeddedMusicPlayer(sourceUrl);
   const [unavailable, setUnavailable] = useState(false);
+  const nativeYouTubeDocument = Platform.OS !== 'web' && player
+    ? buildNativeYouTubeEmbedDocument(player, { autoplay: true, startSeconds: 0, endSeconds: 30 })
+    : null;
   if (!player) return null;
 
   // A story must not require an extra "voir/écouter la vidéo" action.
@@ -27,7 +30,7 @@ export default function StoryEmbeddedSourcePlayer({ sourceUrl, compact = false }
     <View testID="story-official-embedded-player" style={{ marginHorizontal: 4, marginBottom: 8, padding: 8, borderRadius: 14, borderWidth: 1, borderColor: '#6956BB', backgroundColor: '#171020' }}>
       {unavailable ? (
         <Text testID="story-embedded-unavailable" style={{ color: '#F5CE87', fontSize: 12, textAlign: 'center', padding: 10 }}>
-          Le fournisseur empêche la lecture intégrée. Tu restes sur ta Story Loki Music.
+          Lecture indisponible. Passe à la suite de ta Story.
         </Text>
       ) : (
         <View testID="story-embedded-frame" style={{ width: '100%', height: compact ? 104 : player.provider === 'YOUTUBE' ? 140 : 120, overflow: 'hidden', borderRadius: 10, backgroundColor: '#090713' }}>
@@ -45,7 +48,7 @@ export default function StoryEmbeddedSourcePlayer({ sourceUrl, compact = false }
           ) : (
             React.createElement(require('react-native-webview').WebView, {
               key: excerptUrl,
-              source: { uri: excerptUrl, ...(player.provider === 'YOUTUBE' ? { headers: { Referer: 'https://com.adelkhatra.keep' } } : {}) },
+              source: nativeYouTubeDocument ? { html: nativeYouTubeDocument.html, baseUrl: nativeYouTubeDocument.baseUrl } : { uri: excerptUrl },
               style: { flex: 1 },
               javaScriptEnabled: true,
               domStorageEnabled: true,
@@ -54,8 +57,16 @@ export default function StoryEmbeddedSourcePlayer({ sourceUrl, compact = false }
               mediaPlaybackRequiresUserAction: false,
               setSupportMultipleWindows: false,
               onError: () => setUnavailable(true),
+              onMessage: (event: { nativeEvent?: { data?: string } }) => {
+                try {
+                  const message = JSON.parse(String(event?.nativeEvent?.data || '{}'));
+                  if (message?.type === 'youtube-error') setUnavailable(true);
+                } catch {}
+              },
               onShouldStartLoadWithRequest: (request: { url: string; isTopFrame?: boolean }) => (
-                request.isTopFrame === false || request.url.startsWith(player.url.split('?')[0])
+                request.isTopFrame === false
+                || Boolean(nativeYouTubeDocument && request.url.startsWith(nativeYouTubeDocument.baseUrl))
+                || request.url.startsWith(player.url.split('?')[0])
               ),
             })
           )}

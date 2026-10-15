@@ -14,9 +14,15 @@ async function openHome(page) {
   await page.getByText('Loki Music',{exact:true}).filter({visible:true}).first().waitFor({state:'visible',timeout:20000});
   // First-run tour is a real interactive sheet. Dismiss it as a user would,
   // rather than force-click through the help bubble covering the search control.
-  const skipTour = page.getByLabel('Passer le mini-tour').filter({visible:true}).first();
-  if (await skipTour.isVisible().catch(()=>false)) {
-    await skipTour.click({timeout:5000});
+  const tourCopy = page.getByText(/Découvre la musique autour de toi/).filter({visible:true}).last();
+  if (await tourCopy.isVisible().catch(()=>false)) {
+    // The coach mark sits above the underlying home CTA. Dismiss it through
+    // its actual visible "Passer" control before attempting the music search.
+    const skipTour = page.getByText('Passer', { exact:true }).filter({visible:true}).last();
+    await skipTour.waitFor({state:'visible',timeout:5000});
+    await skipTour.scrollIntoViewIfNeeded().catch(()=>{});
+    await skipTour.click({force:true,timeout:5000});
+    await tourCopy.waitFor({state:'hidden',timeout:5000});
   }
 }
 

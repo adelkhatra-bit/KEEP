@@ -22,7 +22,9 @@ describe('Profile preview: exact source playback across iPhone and desktop', () 
 
   it('requests autoplay from the legitimate YouTube player without misleading users about sound', () => {
     expect(source).toContain("&autoplay=1&start=0&end=30");
-    expect(source).toContain("Referer: 'https://com.adelkhatra.keep'");
+    expect(source).toContain('buildNativeYouTubeEmbedDocument(sourcePlayer');
+    expect(source).toContain('nativeSourcePlayerDocument.baseUrl');
+    expect(source).toContain("message?.type === 'youtube-error'");
     expect(source).toContain('mediaPlaybackRequiresUserAction: false');
     expect(source).toContain('domStorageEnabled: true');
     expect(source).toContain('testID="preview-youtube-autoplay-hint"');
