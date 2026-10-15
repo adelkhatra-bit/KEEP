@@ -62,24 +62,47 @@ export function buildNativeYouTubeEmbedDocument(
     const pathParts = url.pathname.split('/').filter(Boolean);
     const videoId = pathParts[pathParts.length - 1] || '';
     if (!/^[\\w-]{11}$/.test(videoId)) return null;
-    url.searchParams.set('origin', LOKI_PUBLIC_ORIGIN);
-    url.searchParams.set('enablejsapi', '1');
-    url.searchParams.set('playsinline', '1');
-    url.searchParams.set('start', String(Math.max(0, Math.floor(options.startSeconds ?? 0))));
-    if (options.endSeconds !== undefined) url.searchParams.set('end', String(Math.max(1, Math.floor(options.endSeconds))));
-    if (options.autoplay) url.searchParams.set('autoplay', '1');
-    else url.searchParams.delete('autoplay');
-    const src = url.toString().replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    const start = Math.max(0, Math.floor(options.startSeconds ?? 0));
+    const end = options.endSeconds === undefined ? undefined : Math.max(start + 1, Math.floor(options.endSeconds));
+    const playerVars = {
+      autoplay: options.autoplay ? 1 : 0,
+      controls: 1,
+      enablejsapi: 1,
+      playsinline: 1,
+      rel: 0,
+      start,
+      ...(end === undefined ? {} : { end }),
+      origin: LOKI_PUBLIC_ORIGIN,
+    };
+    const config = JSON.stringify({ videoId, playerVars });
     const html = `<!doctype html>
 <html lang="fr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <meta name="referrer" content="strict-origin-when-cross-origin">
-<style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#090713}iframe{display:block;width:100%;height:100%;border:0}</style>
+<style>html,body,#loki-youtube-player{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#090713}iframe{display:block;width:100%;height:100%;border:0}</style>
 </head>
 <body>
-<iframe id="loki-youtube-player" src="${src}" title="Lecteur YouTube dans Loki Music" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+<div id="loki-youtube-player" aria-label="Lecteur YouTube dans Loki Music"></div>
+<script>
+(function () {
+  var config = ${JSON.stringify(config)};
+  window.onYouTubeIframeAPIReady = function () {
+    try {
+      var settings = JSON.parse(config);
+      settings.events = { onError: function (event) {
+        try {
+          var message = JSON.stringify({ type: 'youtube-error', code: event.data });
+          if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) window.ReactNativeWebView.postMessage(message);
+        } catch (_) {}
+      }};
+      new YT.Player('loki-youtube-player', settings);
+    } catch (_) {}
+  };
+}());
+</script>
+<script src="https://www.youtube.com/iframe_api"></script>
 </body>
 </html>`;
     return { html, baseUrl: LOKI_PUBLIC_BASE_URL };
