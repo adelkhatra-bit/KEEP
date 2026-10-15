@@ -208,9 +208,10 @@ export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8, 
   const selectedThemes = Array.from(new Set((themeCodes || [])
     .map((code) => code.trim().toUpperCase())
     .filter((code) => code && code !== 'MIX'))).slice(0, 3);
+  const expectedRoundCount = Math.max(5, Math.min(roundCount, 30));
   const { data, error } = await client().rpc('keep_battle_solo_pack', {
     p_theme_code: selectedThemes[0] || themeCode.toUpperCase(),
-    p_round_count: Math.max(5, Math.min(roundCount, 30)),
+    p_round_count: expectedRoundCount,
     p_theme_codes: selectedThemes.length ? selectedThemes : null,
   });
   if (error || !data || typeof data !== 'object') throw new Error(String(error?.message || 'BATTLE_SOLO_UNAVAILABLE'));
@@ -233,7 +234,12 @@ export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8, 
     choices: Array.isArray(round.choices) ? round.choices.map((name: unknown) => String(name ?? '').trim()) : [],
     correctAnswer: String(round.correctAnswer || round.artist || '').trim(),
   })).filter((round: KeepBattleSoloRound) => round.trackId && round.previewUrl && round.correctAnswer) : [];
-  if (rounds.length < 5) throw new Error('BATTLE_CATALOG_TOO_SMALL');
+  // Never silently start a 7-question Solo when the listener selected 8.
+  // Allow the existing theme->MIX fallback to retry without consuming FREE
+  // or creating any answered/remembered session on an incomplete pack.
+  if (rounds.length !== expectedRoundCount || Number(raw.roundCount) !== expectedRoundCount) {
+    throw new Error(`BATTLE_THEME_CATALOG_TOO_SMALL: requested=${expectedRoundCount} received=${rounds.length}`);
+  }
   for (const round of rounds) {
     const names = (round.choices as string[]).map(normalizeArtist);
     const correct = normalizeArtist(round.correctAnswer);

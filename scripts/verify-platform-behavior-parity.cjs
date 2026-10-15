@@ -21,7 +21,7 @@ must(!/Platform\.OS/.test(experience), 'Battle catalogue/business service must n
 must(battle.includes('const ROUND_MS = 10000;'), 'Battle round duration must have one shared source');
 must(battle.includes('const SOLO_RESULT_HOLD_MS = 650;'), 'Solo result hold must have one shared source');
 must(battle.includes("loadKeepBattleSoloPack(themeCode, roundCount, preferredThemes)"), 'Solo must use shared catalogue loader');
-must(experience.includes("p_round_count: Math.max(5, Math.min(roundCount, 30))"), 'Solo round count clamp must be shared');
+must(experience.includes("const expectedRoundCount = Math.max(5, Math.min(roundCount, 30))") && experience.includes("p_round_count: expectedRoundCount") && experience.includes("rounds.length !== expectedRoundCount"), 'Solo round count clamp and strict exact-round validation must be shared');
 must(experience.includes("p_theme_codes: selectedThemes.length ? selectedThemes : null"), 'Solo theme filters must be shared');
 must(!/Platform\.OS/.test(keepAction), 'KEEP business/credit logic must never branch by platform');
 must(!/Platform\.OS/.test(sale), 'Marketplace purchase guards must never branch by platform');
