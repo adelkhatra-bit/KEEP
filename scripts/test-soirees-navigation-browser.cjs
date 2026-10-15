@@ -24,6 +24,12 @@ const visible = (locator) => locator.filter({ visible: true }).last();
       await isolateSurfaceGateFromProduction(page);
       const errors = [];
       page.on('pageerror', error => { errors.push(error.stack || error.message); console.error('BATTLE_PAGE_ERROR', error.stack || error.message); });
+      page.on('console', message => {
+        if (message.type() === 'error') {
+          errors.push(message.text());
+          console.error('BATTLE_CONSOLE_ERROR', message.text());
+        }
+      });
       await page.goto(base + '/Main/Parties/', { waitUntil: 'domcontentloaded' });
       const home = visible(page.getByTestId('parties-home-actions'));
       await home.waitFor({ state: 'visible', timeout: 30000 });
@@ -35,6 +41,11 @@ const visible = (locator) => locator.filter({ visible: true }).last();
           await page.screenshot({ path: path.join(output, `battle-crash-${width}.png`), fullPage: false });
           throw error;
         });
+        const rootCrash = visible(page.getByText('Loki Music reste disponible', { exact: true }));
+        if (await rootCrash.isVisible().catch(() => false)) {
+          await page.screenshot({ path: path.join(output, `battle-root-crash-${width}.png`), fullPage: false });
+          throw new Error(`Root render boundary while opening Battle at ${width}x${height}: ${(await page.locator('body').innerText()).slice(0, 1600)}`);
+        }
         if (cycle === 0) {
           await page.screenshot({ path: path.join(output, `battle-${width}.png`), fullPage: false });
           if (!mobile) {
