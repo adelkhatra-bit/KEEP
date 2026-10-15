@@ -1,5 +1,14 @@
 [
   {
+    "commit": "94bb940d26236e347ed126af496fbb92f2a2c071",
+    "web": "94bb940d26236e347ed126af496fbb92f2a2c071",
+    "testflight": "iOS #243 success (release 82aae49)",
+    "ota": "OTA #1034 success (release 82aae49)",
+    "date": "2026-10-15 20:40",
+    "tests": "pass",
+    "changes": "fix(swipe): release controls when GARDER stalls (#211)"
+  },
+  {
     "commit": "0822229584ba4a878a6b588eff146c90db79f1fd",
     "web": "0822229584ba4a878a6b588eff146c90db79f1fd",
     "testflight": "iOS #243 success (release 82aae49)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 20:24",
     "tests": "pass",
     "changes": "fix(ci): remove duplicate pending-session counter declaration blocking mobile typecheck"
-  },
-  {
-    "commit": "48c651cd7e6a73b7ab405d00f723adae2b2179ad",
-    "web": "48c651cd7e6a73b7ab405d00f723adae2b2179ad",
-    "testflight": "iOS #230 success (release 1f44ee1)",
-    "ota": "OTA #1021 success (release 1f44ee1)",
-    "date": "2026-10-12 20:17",
-    "tests": "pass",
-    "changes": "fix(stories): exact embedded YouTube source over unrelated previews; no repeated KEEP on own Story"
   }
 ]

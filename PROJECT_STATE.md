@@ -143,6 +143,7 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
+| `94bb940` | `94bb940` | iOS #243 success (release 82aae49) | OTA #1034 success (release 82aae49) | 2026-10-15 20:40 | pass | fix(swipe): release controls when GARDER stalls (#211) |
 | `0822229` | `0822229` | iOS #243 success (release 82aae49) | OTA #1034 success (release 82aae49) | 2026-10-15 20:23 | pass | fix(session): prevent deleted history from reappearing |
 | `82aae49` | `82aae49` | iOS #243 in_progress (release 82aae49) | OTA #1034 in_progress (release 82aae49) | 2026-10-14 11:54 | pass | fix(playlist): lire un titre YouTube dans Loki Music au lieu de rediriger vers YouTube (#202) |
 | `3b4bff9` | `3b4bff9` | iOS #242 in_progress (release 3b4bff9) | OTA #1033 in_progress (release 3b4bff9) | 2026-10-14 00:31 | pass | fix(swipe): rétablir le Swipe de l'aperçu profil et des Stories avec titres YouTube (#199) |
@@ -182,7 +183,6 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 | `204bc62` | `204bc62` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 21:45 | pass | fix(ci): safely guard absent saved entry in unified Keep confirmation |
 | `87267b5` | `87267b5` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 20:35 | pass | fix(ci): use verified provider player identity for YouTube video id |
 | `82d6a00` | `82d6a00` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 20:24 | pass | fix(ci): remove duplicate pending-session counter declaration blocking mobile typecheck |
-| `48c651c` | `48c651c` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 20:17 | pass | fix(stories): exact embedded YouTube source over unrelated previews; no repeated KEEP on own Story |
 <!-- AUTO:RELEASE-REGISTER:END -->
 
 
