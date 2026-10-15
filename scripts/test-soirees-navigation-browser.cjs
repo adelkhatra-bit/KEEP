@@ -1,4 +1,5 @@
-// Real rendered application; test-only account and intercepted backend, no production writes.
+// Browser regression for the real Soirées/Battle navigation and desktop layout.
+// Uses the local test-only account/backend isolation; no production writes.
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert/strict');
@@ -8,7 +9,10 @@ const { seedApprovedDevice, isolateSurfaceGateFromProduction, gateAuthPages } = 
 const base = process.argv[2];
 const output = process.env.LOKI_PROOF_DIR || '/tmp/loki-soirees-proof';
 
+const visible = (locator) => locator.filter({ visible: true }).last();
+
 (async () => {
+  if (!base) throw new Error('Missing local KEEP Web base URL');
   fs.mkdirSync(output, { recursive: true });
   const browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined });
   try {
@@ -20,25 +24,39 @@ const output = process.env.LOKI_PROOF_DIR || '/tmp/loki-soirees-proof';
       await isolateSurfaceGateFromProduction(page);
       const errors = [];
       page.on('pageerror', error => { errors.push(error.stack || error.message); console.error('BATTLE_PAGE_ERROR', error.stack || error.message); });
-      page.on('console', message => { if (message.type() === 'error') console.error('BATTLE_CONSOLE_ERROR', message.text()); });
       await page.goto(base + '/Main/Parties/', { waitUntil: 'domcontentloaded' });
-      await page.getByTestId('parties-home-actions').waitFor({ state: 'visible', timeout: 30000 }).catch(async error => { await page.screenshot({ path: path.join(output, 'failure.png') }); console.error(await page.locator('body').innerText(), errors); throw error; });
+      const home = visible(page.getByTestId('parties-home-actions'));
+      await home.waitFor({ state: 'visible', timeout: 30000 });
       for (let cycle = 0; cycle < 2; cycle++) {
-        await page.getByRole('button', { name: 'Ouvrir directement Battle', exact: true }).click();
-        await page.getByTestId('desktop-battle-stage').waitFor({ state: 'visible' }).catch(async error => { console.error('BATTLE_STAGE_NOT_VISIBLE', errors, (await page.locator('body').innerText()).slice(0, 2000)); await page.screenshot({ path: path.join(output, `battle-crash-${width}.png`), fullPage: false }); throw error; });
+        await visible(page.getByRole('button', { name: 'Ouvrir directement Battle', exact: true })).click({ timeout: 15000 });
+        const stage = visible(page.getByTestId('desktop-battle-stage'));
+        await stage.waitFor({ state: 'visible', timeout: 30000 }).catch(async error => {
+          console.error('BATTLE_STAGE_NOT_VISIBLE', errors, (await page.locator('body').innerText()).slice(0, 2500));
+          await page.screenshot({ path: path.join(output, `battle-crash-${width}.png`), fullPage: false });
+          throw error;
+        });
         if (cycle === 0) {
           await page.screenshot({ path: path.join(output, `battle-${width}.png`), fullPage: false });
           if (!mobile) {
-            const stage = await page.getByTestId('desktop-battle-stage').boundingBox({ timeout: 8000 }).catch(async error => { console.error('BATTLE_STAGE_DISAPPEARED', errors, (await page.locator('body').innerText()).slice(0, 2000)); await page.screenshot({ path: path.join(output, `battle-crash-${width}.png`), fullPage: false }); throw error; });
-            const setup = await page.getByText('FORMAT DU BATTLE', { exact: true }).boundingBox();
-            assert(stage.width > width * 0.7, 'Battle must fill desktop content area');
-            assert(setup, 'Battle setup must be visible');
+            // Evaluate the actual rendered element after it is visible; don't
+            // call boundingBox on a hidden duplicate left by the navigation stack.
+            const box = await stage.evaluate(el => {
+              const r = el.getBoundingClientRect();
+              const css = getComputedStyle(el);
+              return { x:r.x, y:r.y, width:r.width, height:r.height, display:css.display, visibility:css.visibility };
+            });
+            assert(box.display !== 'none' && box.visibility !== 'hidden' && box.height > 0, 'Battle stage must be visibly rendered');
+            assert(box.width > width * 0.7, `Battle must fill desktop content area: ${JSON.stringify(box)}`);
+            await page.getByText('FORMAT DU BATTLE', { exact: true }).filter({ visible: true }).last().waitFor({ state: 'visible', timeout: 15000 });
           }
         }
-        if (mobile) await page.getByText('Soirées', { exact: true }).click();
-        else await page.getByTestId('desktop-nav-Parties').click();
-        await page.getByTestId('parties-home-actions').waitFor({ state: 'visible' });
-        assert.equal(await page.getByTestId('desktop-battle-stage').count(), 0, 'Soirées must close Battle');
+        const globalSoirees = mobile
+          ? visible(page.getByRole('button', { name: 'Soirées', exact: true }))
+          : visible(page.getByTestId('desktop-nav-Parties'));
+        await globalSoirees.click({ timeout: 15000 });
+        await visible(page.getByTestId('parties-home-actions')).waitFor({ state: 'visible', timeout: 15000 });
+        await page.getByTestId('desktop-battle-stage').filter({ visible: true }).waitFor({ state: 'hidden', timeout: 10000 });
+        assert.equal(await page.getByTestId('desktop-battle-stage').filter({ visible: true }).count(), 0, 'Global Soirées must close the Battle panel');
       }
       await page.screenshot({ path: path.join(output, `soirees-${width}.png`), fullPage: false });
       assert.deepEqual(errors, [], 'No uncaught application errors');
