@@ -1344,7 +1344,6 @@ export default function MusicSwipeDeckModal({
                       <Text style={s.sourcePlayerCloseText}>✕ JAQUETTE</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={s.sourcePlayerClose} accessibilityRole="button" accessibilityLabel="Relancer le lecteur officiel" onPress={() => { setSourcePlayerFailed(false); setSourcePlayerAttempt((n) => n + 1); }}><Text style={s.sourcePlayerCloseText}>↻ RELANCER</Text></TouchableOpacity>
-                    <TouchableOpacity style={s.sourcePlayerClose} accessibilityRole="button" accessibilityLabel="Ouvrir la vidéo originale si la lecture intégrée ne fonctionne pas" onPress={() => { const exact = current.externalUrls?.source || current.externalUrls?.youtube || ''; if (resolveEmbeddedMusicPlayer(exact)) void Linking.openURL(exact).catch(() => {}); }}><Text style={s.sourcePlayerCloseText}>↗ SOURCE</Text></TouchableOpacity>
                     </View>
                     <View style={s.sourcePlayerFrame} pointerEvents="auto" testID="swipe-source-player-frame">
                     {Platform.OS === 'web'
@@ -1369,11 +1368,17 @@ export default function MusicSwipeDeckModal({
                           setSupportMultipleWindows: false,
                           onError: () => setSourcePlayerFailed(true),
                           onHttpError: () => setSourcePlayerFailed(true),
+                          onMessage: (event: { nativeEvent?: { data?: string } }) => {
+                            try {
+                              const message = JSON.parse(String(event?.nativeEvent?.data || '{}'));
+                              if (message?.type === 'youtube-error') setSourcePlayerFailed(true);
+                            } catch {}
+                          },
                           javaScriptEnabled: true,
                           style: { flex: 1, width: '100%' },
                         })}
                     </View>
-                    {sourcePlayerFailed ? <Text style={s.sourcePlayerError}>La plateforme bloque cette préécoute. Essaie ↻ RELANCER ou ↗ SOURCE.</Text> :
+                    {sourcePlayerFailed ? <Text style={s.sourcePlayerError}>Lecture intégrée indisponible. Passe au titre suivant.</Text> :
                       <Text testID="preview-youtube-autoplay-hint" style={s.sourcePlayerError}>Lecture automatique demandée · si le son est bloqué, touche ▶ dans le lecteur.</Text>}
                   </View>
                 ) : null}
