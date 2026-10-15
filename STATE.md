@@ -104,3 +104,5 @@ Tests de contrats mis à jour : les anciennes assertions exigeant un centre de 5
 2026-10-14 · claude/fix-runtime-audit-20261014 (base reconcile 3b4bff9) · Real Browser Web Runtime Audit : Escape fermait le tchat (Modal RNW) + libellé Playlists périmé (« Toute ma musique ») · 13/13 vérifications PASS en local ; CI distante à confirmer
 2026-10-14 · claude/fix-youtube-stories-20261014 (base reconcile 356e4d7) · ▶ d'un titre YouTube lu dans Loki (EmbeddedSourceModal) au lieu de rediriger vers YouTube ; audit lecture seule des comptes récents · jest/tsc OK, robot ciblé 4/4 ; CI distante à confirmer
 2026-10-14 · claude/fix-runtime-audit2-20261014 (base reconcile 356e4d7) · Real Browser Web Runtime Audit : POST Realtime vers la production mocké (ERR_ABORTED) · 0 erreur / 0 échec HTTP en local ; CI distante à confirmer
+
+2026-10-15 · fix/story-player-153-attribution-20261015 · 32c97af81560847a101b4f00c530c2fa0c78dad1 + 419ed7a/66cbdf6 · Audit Story/Battle : sélecteur mobile Soirées corrigé dans les deux tests navigateur ; ERR-CI-SOIREES-MOBILE-SELECTOR-20261015 ajouté au registre · preuve : CI relancée, en cours ; iPhone réel, fusion et publication non vérifiés.
