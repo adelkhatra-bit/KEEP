@@ -41,6 +41,7 @@ interface SessionHistoryStore {
   // intact côté serveur, toujours visible sur le profil/Mes Morceaux).
   dismissedKeepDecisionIds: string[];
   dismissedSessionIds: string[];
+  dismissedFavoriteImportIds: string[];
   addSession: (session: KeepSession) => void;
   upsertSession: (session: KeepSession) => void;
   addSharedLinkTrack: (track: CanonicalTrack, sourceUrl?: string, ownerUserId?: string) => { sessionId: string; entryId?: string; added: boolean };
@@ -325,9 +326,15 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
       sessions: [],
       dismissedKeepDecisionIds: [],
       dismissedSessionIds: [],
+      dismissedFavoriteImportIds: [],
 
-      addSession: (session) => set((s) => ({ sessions: [session, ...s.sessions] })),
+      // A dismissed session must not be resurrected by a late end-of-listen
+      // callback after the user deleted it. New listening sessions use new IDs.
+      addSession: (session) => set((s) => s.dismissedSessionIds.includes(session.id)
+        ? s
+        : { sessions: [session, ...s.sessions] }),
       upsertSession: (session) => set((s) => {
+        if (s.dismissedSessionIds.includes(session.id)) return s;
         const exists = s.sessions.some((item) => item.id === session.id);
         return { sessions: exists ? s.sessions.map((item) => item.id === session.id ? session : item) : [session, ...s.sessions] };
       }),
@@ -377,13 +384,29 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
       deleteSession: (sessionId) => set((s) => {
         const target = s.sessions.find((session) => session.id === sessionId);
         const decisionIds = (target?.tracks ?? []).map((t) => t.keepDecisionId).filter((id): id is string => Boolean(id));
+        const favoriteImportIds = (target?.tracks ?? []).filter((t) => t.id.startsWith('favimport-')).map((t) => t.id);
         return {
           sessions: s.sessions.filter((session) => session.id !== sessionId),
-          dismissedKeepDecisionIds: decisionIds.length ? Array.from(new Set([...s.dismissedKeepDecisionIds, ...decisionIds])) : s.dismissedKeepDecisionIds,
+          dismissedKeepDecisionIds: Array.from(new Set([...s.dismissedKeepDecisionIds, ...decisionIds])),
           dismissedSessionIds: Array.from(new Set([...s.dismissedSessionIds, sessionId])),
+          dismissedFavoriteImportIds: Array.from(new Set([...s.dismissedFavoriteImportIds, ...favoriteImportIds])),
         };
       }),
-      clearSessions: () => set({ sessions: [] }),
+      // Clear the visible history without deleting saved Keep decisions from the
+      // profile. Tombstones prevent cloud reconciliation and provider imports
+      // from silently restoring the items the user just cleared.
+      clearSessions: () => set((s) => ({
+        sessions: [],
+        dismissedKeepDecisionIds: Array.from(new Set([
+          ...s.dismissedKeepDecisionIds,
+          ...s.sessions.flatMap((session) => session.tracks.map((track) => track.keepDecisionId).filter((id): id is string => Boolean(id))),
+        ])),
+        dismissedSessionIds: Array.from(new Set([...s.dismissedSessionIds, ...s.sessions.map((session) => session.id)])),
+        dismissedFavoriteImportIds: Array.from(new Set([
+          ...s.dismissedFavoriteImportIds,
+          ...s.sessions.flatMap((session) => session.tracks.filter((track) => track.id.startsWith('favimport-')).map((track) => track.id)),
+        ])),
+      })),
       renameSession: (sessionId, title) => set((s) => ({ sessions: s.sessions.map((sess) => sess.id === sessionId ? { ...sess, title } : sess) })),
 
       reconcileOrphanedLiveSessions: (activeSessionId = null) => set((state) => ({
@@ -501,9 +524,10 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
         set((state) => {
           const existing = state.sessions.find((s) => s.id === FAVORITES_IMPORT_SESSION_ID);
           const knownProviderIds = new Set((existing?.tracks ?? []).map((t) => t.id));
+          const dismissedProviderIds = new Set(state.dismissedFavoriteImportIds);
           const now = new Date().toISOString();
           const additions: SessionTrackEntry[] = pending
-            .filter((item) => !knownProviderIds.has(`favimport-${item.id}`))
+            .filter((item) => !dismissedProviderIds.has(`favimport-${item.id}`) && !knownProviderIds.has(`favimport-${item.id}`))
             .map((item) => ({
               id: `favimport-${item.id}`,
               track: {
@@ -534,7 +558,12 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
           const sessions = existing
             ? state.sessions.map((s) => s.id === FAVORITES_IMPORT_SESSION_ID ? session : s)
             : [session, ...state.sessions];
-          return { sessions };
+          // Re-open the stable import-session ID only when genuinely new provider
+          // favorites arrive; previously dismissed import rows stay tombstoned.
+          return {
+            sessions,
+            dismissedSessionIds: state.dismissedSessionIds.filter((id) => id !== FAVORITES_IMPORT_SESSION_ID),
+          };
         });
       },
 
@@ -560,7 +589,7 @@ export function setSessionHistoryDemoIsolation(active: boolean): void {
   if (demoIsolation === active) return;
   demoIsolation = active;
   if (active) {
-    useSessionHistoryStore.setState({ sessions: [], dismissedKeepDecisionIds: [], dismissedSessionIds: [] });
+    useSessionHistoryStore.setState({ sessions: [], dismissedKeepDecisionIds: [], dismissedSessionIds: [], dismissedFavoriteImportIds: [] });
   } else {
     void useSessionHistoryStore.persist.rehydrate();
   }
