@@ -14,7 +14,7 @@ describe('session deletion and anti-resurrection contract', () => {
   });
 
   it('clear-all records tombstones before server reconciliation can restore old sessions', () => {
-    const clear = store.slice(store.indexOf('clearSessions: () =>'), store.indexOf('renameSession:'));
+    const clear = store.slice(store.indexOf('clearSessions: () => set('), store.indexOf('renameSession: (sessionId, title) => set('));
     expect(clear).toContain('sessions: []');
     expect(clear).toContain('...s.sessions.map((session) => session.id)');
     expect(clear).toContain('session.tracks.map((track) => track.keepDecisionId)');
