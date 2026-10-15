@@ -152,7 +152,7 @@ export default function PartiesScreen({ navigation, route }: any) {
   // tiennent sans recouvrir les actions au centre.
   // Les panneaux latéraux ne s'affichent que lorsque la zone centrale garde
   // assez de largeur ; les fenêtres PC plus étroites utilisent toute la scène.
-  const desktopBattleWide = desktopParties && partyViewportWidth >= 1800 && partyViewportHeight >= 550;
+  const desktopBattleWide = desktopParties && partyViewportWidth >= 1280 && partyViewportHeight >= 600;
   const user = useUserStore((s) => s.user);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
