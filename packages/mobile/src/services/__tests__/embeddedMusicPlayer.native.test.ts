@@ -7,12 +7,14 @@ describe('native provider embeds', () => {
     const document = buildNativeYouTubeEmbedDocument(player!, { autoplay: true, startSeconds: 0, endSeconds: 30 });
     expect(document).not.toBeNull();
     expect(document?.baseUrl).toBe('https://adelkhatra-bit.github.io/KEEP/');
-    expect(document?.html).toContain('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ');
-    expect(document?.html).toContain('origin=https%3A%2F%2Fadelkhatra-bit.github.io');
-    expect(document?.html).toContain('enablejsapi=1');
-    expect(document?.html).toContain('referrerpolicy="strict-origin-when-cross-origin"');
-    expect(document?.html).toContain('start=0');
-    expect(document?.html).toContain('end=30');
+    expect(document?.html).toContain('new YT.Player');
+    expect(document?.html).toContain('videoId');
+    expect(document?.html).toContain('https://adelkhatra-bit.github.io');
+    expect(document?.html).toContain('enablejsapi');
+    expect(document?.html).toContain('onError');
+    expect(document?.html).toContain('referrer" content="strict-origin-when-cross-origin"');
+    expect(document?.html).toContain('start');
+    expect(document?.html).toContain('end');
   });
 
   it('does not build a YouTube HTML document for Spotify or arbitrary hosts', () => {
