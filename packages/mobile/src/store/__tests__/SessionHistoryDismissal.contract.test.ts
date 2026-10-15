@@ -13,12 +13,12 @@ describe('session deletion and anti-resurrection contract', () => {
     expect(deletion).not.toContain('deleteKeepDecision');
   });
 
-  it('clear-all records tombstones before server reconciliation can restore old sessions', () => {
+  it('keeps account-switch clearing separate from user-requested deletion', () => {
     const clear = store.slice(store.indexOf('clearSessions: () => set('), store.indexOf('renameSession: (sessionId, title) => set('));
-    expect(clear).toContain('sessions: []');
-    expect(clear).toContain('...s.sessions.map((session) => session.id)');
-    expect(clear).toContain('session.tracks.map((track) => track.keepDecisionId)');
-    expect(clear).toContain("track.id.startsWith('favimport-')");
+    expect(clear).toContain('clearSessions: () => set({ sessions: [] })');
+    expect(clear).not.toContain('dismissedSessionIds');
+    expect(clear).not.toContain('dismissedKeepDecisionIds');
+    expect(clear).not.toContain('dismissedFavoriteImportIds');
   });
 
   it('does not accept late session upserts after the user dismissed that session', () => {
