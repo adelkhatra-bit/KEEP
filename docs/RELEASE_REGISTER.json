@@ -1,5 +1,14 @@
 [
   {
+    "commit": "f95d036b290cf45860e23ad121f1ed077898c95f",
+    "web": "f95d036b290cf45860e23ad121f1ed077898c95f",
+    "testflight": "iOS #243 success (release 82aae49)",
+    "ota": "OTA #1034 success (release 82aae49)",
+    "date": "2026-10-15 23:21",
+    "tests": "pass",
+    "changes": "fix(story): native YouTube 153 fallback and compact attribution"
+  },
+  {
     "commit": "bebb0a9aacb7ec94f492813d735d99c4c9f87042",
     "web": "bebb0a9aacb7ec94f492813d735d99c4c9f87042",
     "testflight": "iOS #243 success (release 82aae49)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 21:45",
     "tests": "pass",
     "changes": "fix(ci): safely guard absent saved entry in unified Keep confirmation"
-  },
-  {
-    "commit": "87267b5631b7f167a31762298a021ce934be090b",
-    "web": "87267b5631b7f167a31762298a021ce934be090b",
-    "testflight": "iOS #230 success (release 1f44ee1)",
-    "ota": "OTA #1021 success (release 1f44ee1)",
-    "date": "2026-10-12 20:35",
-    "tests": "pass",
-    "changes": "fix(ci): use verified provider player identity for YouTube video id"
   }
 ]

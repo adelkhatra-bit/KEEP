@@ -143,6 +143,7 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
+| `f95d036` | `f95d036` | iOS #243 success (release 82aae49) | OTA #1034 success (release 82aae49) | 2026-10-15 23:21 | pass | fix(story): native YouTube 153 fallback and compact attribution |
 | `bebb0a9` | `bebb0a9` | iOS #243 success (release 82aae49) | OTA #1034 success (release 82aae49) | 2026-10-15 21:02 | pass | docs(email): update live Brevo delivery readiness |
 | `94bb940` | `94bb940` | iOS #243 success (release 82aae49) | OTA #1034 success (release 82aae49) | 2026-10-15 20:40 | pass | fix(swipe): release controls when GARDER stalls (#211) |
 | `0822229` | `0822229` | iOS #243 success (release 82aae49) | OTA #1034 success (release 82aae49) | 2026-10-15 20:23 | pass | fix(session): prevent deleted history from reappearing |
@@ -182,7 +183,6 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 | `7e6cce6` | `7e6cce6` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 22:07 | pass | test(music): align 12 regression suites with unified link preview, confirmed FREE KEEP and automatic public Story |
 | `54d74a5` | `54d74a5` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 22:00 | pass | fix(music): let a second shared link supersede slow first search and honor confirmed visibility |
 | `204bc62` | `204bc62` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 21:45 | pass | fix(ci): safely guard absent saved entry in unified Keep confirmation |
-| `87267b5` | `87267b5` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 20:35 | pass | fix(ci): use verified provider player identity for YouTube video id |
 <!-- AUTO:RELEASE-REGISTER:END -->
 
 
