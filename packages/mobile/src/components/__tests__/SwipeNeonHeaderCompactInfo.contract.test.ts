@@ -33,7 +33,7 @@ describe('Loki Swipe responsive desktop header + compact help', () => {
     expect(swipe).toContain('style={[s.headerTopLine, desktopSwipeLayout && s.headerTopLineDesktop]} testID="deck-reactions-above-title"');
     expect(swipe).toContain('testID="swipe-metadata-below-artwork"');
     expect(swipe).toContain('desktopSwipeLayout && s.desktopPlayer');
-    expect(swipe).toContain('testID="desktop-story-next-track"');
+    expect(swipe).not.toContain('testID="desktop-story-next-track"');
     expect(swipe).toContain('testID="loki-desktop-story-aside"');
   });
 

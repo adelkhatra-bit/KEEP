@@ -187,6 +187,7 @@ export default function MusicSwipeDeckModal({
   const [alreadyKeptState, setAlreadyKeptState] = useState<AlreadyKeptState>('checking');
   const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState<string | null>(null);
   const [previewResolving, setPreviewResolving] = useState(false);
+  const [previewStarting, setPreviewStarting] = useState(false);
   const [sourcePlayerOpen, setSourcePlayerOpen] = useState(false);
   const [sourcePlayerFailed, setSourcePlayerFailed] = useState(false);
   const [sourcePlayerAttempt, setSourcePlayerAttempt] = useState(0);
@@ -587,6 +588,7 @@ export default function MusicSwipeDeckModal({
     setPreviewInfoOpen(false);
     setAutoplayBlocked(false);
     setPreviewEnded(false);
+    setPreviewStarting(Boolean(visible && !preparingDeck && current));
     setSourcePlayerOpen(false);
     setSourcePlayerFailed(false);
     setSourcePlayerAttempt(0);
@@ -607,6 +609,7 @@ export default function MusicSwipeDeckModal({
     };
     const skipUnavailablePreview = (reason: string) => {
       if (!alive || playbackGeneration.current !== generation || !current) return;
+      setPreviewStarting(false);
       const source = current.externalUrls?.source || current.externalUrls?.youtube || null;
       if (trackAddedAt && preferCleanStoryPlayer) {
         // Never load YouTube/Spotify ads inside a public Story. Try an exact
@@ -650,6 +653,7 @@ export default function MusicSwipeDeckModal({
 
     if (!visible || preparingDeck || !current) {
       setPreviewResolving(false);
+      setPreviewStarting(false);
       void stopTrackPreview();
       return () => { alive = false; };
     }
@@ -661,6 +665,7 @@ export default function MusicSwipeDeckModal({
     if (!trackAddedAt && !current.previewUrl?.trim() && !hasCatalogIdentity && !isSaleStoryTrack(current)
         && resolveEmbeddedMusicPlayer(current.externalUrls?.source || current.externalUrls?.youtube || null)) {
       setPreviewResolving(false);
+      setPreviewStarting(false);
       setResolvedPreviewUrl(null);
       if (!trackAddedAt) { setSourcePlayerFailed(false); setSourcePlayerOpen(true); }
       scheduleEmbeddedStoryNext();
@@ -702,7 +707,7 @@ export default function MusicSwipeDeckModal({
                 const waited = Date.now() - cardShownAt;
                 if (waited > 2500) reportAutoDiagnostic('SWIPE_SLOW', `${Math.round(waited / 100) / 10}s host=${String(previewUrl ?? '').replace(/^https?:\/\//, '').split('/')[0] || 'none'}`);
               }
-              if (playing) recordSwipeListenOnce(current.id, currentSourceProfileId);
+              if (playing) { setPreviewStarting(false); recordSwipeListenOnce(current.id, currentSourceProfileId); }
             },
             () => {
               if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
@@ -729,7 +734,7 @@ export default function MusicSwipeDeckModal({
           // On web, autoplay can be denied until a real tap. A catalogue
           // re-search cannot grant a gesture; expose Play immediately instead.
           if (Platform.OS === 'web' && isWebAudioGestureRequired(initialPlayError)) {
-            if (alive && playbackGeneration.current === generation) setAutoplayBlocked(true);
+            if (alive && playbackGeneration.current === generation) { setPreviewStarting(false); setAutoplayBlocked(true); }
             return;
           }
           // Une URL de preview persistée peut expirer côté catalogue. Avant de
@@ -739,7 +744,7 @@ export default function MusicSwipeDeckModal({
           try {
             const refreshedUrl = await resolveTrackPreviewUrl(current, { forceRefresh: true });
             if (!alive || playbackGeneration.current !== generation || !refreshedUrl || !playbackKey) {
-              if (alive) setAutoplayBlocked(true);
+              if (alive) { setPreviewStarting(false); setAutoplayBlocked(true); }
               return;
             }
             setResolvedPreviewUrl(refreshedUrl);
@@ -748,7 +753,7 @@ export default function MusicSwipeDeckModal({
               playbackKey,
               refreshedUrl,
               (playing) => {
-                if (playing) recordSwipeListenOnce(current.id, currentSourceProfileId);
+                if (playing) { setPreviewStarting(false); recordSwipeListenOnce(current.id, currentSourceProfileId); }
               },
               () => {
                 if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
@@ -783,7 +788,7 @@ export default function MusicSwipeDeckModal({
                     playbackKey,
                     retryUrl,
                     (playing) => {
-                      if (playing) recordSwipeListenOnce(current.id, currentSourceProfileId);
+                      if (playing) { setPreviewStarting(false); recordSwipeListenOnce(current.id, currentSourceProfileId); }
                     },
                     () => {
                       if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
@@ -839,12 +844,13 @@ export default function MusicSwipeDeckModal({
 
   const manualPlay = async () => {
     if (!current || !resolvedPreviewUrl) return;
+    setPreviewStarting(true);
     try {
       await playTrackPreviewFromGesture(
         `swipe-${current.id}-${index}`,
         resolvedPreviewUrl,
         (playing) => {
-          if (playing) recordSwipeListenOnce(current.id, currentSourceProfileId);
+          if (playing) { setPreviewStarting(false); recordSwipeListenOnce(current.id, currentSourceProfileId); }
         },
         () => {
           setPreviewEnded(true);
@@ -874,7 +880,7 @@ export default function MusicSwipeDeckModal({
           `swipe-${current.id}-${index}`,
           refreshedUrl,
           (playing) => {
-            if (playing) recordSwipeListenOnce(current.id, currentSourceProfileId);
+            if (playing) { setPreviewStarting(false); recordSwipeListenOnce(current.id, currentSourceProfileId); }
           },
           () => {
             setPreviewEnded(true);
@@ -890,6 +896,7 @@ export default function MusicSwipeDeckModal({
         setAutoplayBlocked(false);
         setPreviewEnded(false);
       } catch {
+        setPreviewStarting(false);
         setAutoplayBlocked(true);
       }
     }
@@ -1129,6 +1136,8 @@ export default function MusicSwipeDeckModal({
 
   const previewLabel = previewResolving
     ? 'Recherche de l’extrait…'
+    : previewStarting
+      ? 'Chargement audio…'
     : !resolvedPreviewUrl
       ? (trackAddedAt && !sourcePlayer ? 'Extrait indisponible · Story suivante' : sourcePlayer ? 'Source vidéo officielle · lecture selon autorisation' : 'Extrait indisponible')
       : autoplayBlocked
@@ -1145,10 +1154,6 @@ export default function MusicSwipeDeckModal({
   const desktopStoryLayout = desktopSwipeLayout && Boolean(trackAddedAt);
   // Fenêtre PC réduite : la Story doit conserver les actions accessibles.
   const compactDeck = windowHeight < 640 || (desktopSwipeLayout && windowHeight < 760);
-  const swipeHint = currentAlreadyKept && !previewOnly
-    ? '↑ suivant · ← passer'
-    : `↑ suivant · ← passer · → garder${keepDebitAmount && keepDebitAmount > 0 ? ` · ${keepDebitAmount} FREE` : ''}`;
-
   const controlsLocked = processing || preparingDeck || keepPromptOpen || !!keepSuccess || previewInfoOpen || alreadyKeepInfoOpen;
 
   // PC : les flèches font le même geste que le Swipe (← passer, → garder, ↑ suivant). Indispensable quand le lecteur
@@ -1374,7 +1379,7 @@ export default function MusicSwipeDeckModal({
               leftLabel="PASSER"
               rightLabel={ownStoryView ? 'DÉJÀ EN STORY' : currentAlreadyKept ? 'DÉJÀ' : 'GARDER'}
               upLabel="SUIVANT"
-              hint={swipeHint}
+              hint={undefined}
               fill
             >
               <View style={[s.card, desktopSwipeLayout && s.desktopStoryCard, compactDeck && s.cardCompact]} testID="swipe-neon-depth-card">
@@ -1432,7 +1437,7 @@ export default function MusicSwipeDeckModal({
                 <View style={[s.gradientFake, compactDeck && s.gradientCompact, storyEmbeddedSource && s.gradientStoryEmbed]} testID="swipe-metadata-below-artwork">
 
                   <View style={s.autoRow}>
-                    <View style={[s.dot,resolvedPreviewUrl ? s.dotOn : s.dotOff]} />
+                    {previewResolving || previewStarting ? <ActivityIndicator testID="swipe-audio-loading" size="small" color="#68F2B1" accessibilityLabel="Chargement de la musique" /> : <View style={[s.dot,resolvedPreviewUrl ? s.dotOn : s.dotOff]} />}
                     <Text style={s.autoText} numberOfLines={2}>{previewLabel}</Text>
                     <TouchableOpacity testID="swipe-next-without-gesture" accessibilityRole="button" accessibilityLabel="Morceau suivant" style={s.nextInlineButton} disabled={controlsLocked} onPress={() => { void advance(); }}>
                       <Text style={s.nextInlineText}>↑ SUIVANT</Text>
@@ -1581,14 +1586,9 @@ export default function MusicSwipeDeckModal({
       <View style={s.desktopProgressTrack} accessibilityLabel={deckTracks.length ? `Morceau ${Math.min(index + 1, deckTracks.length)} sur ${deckTracks.length}` : 'Aucun morceau'}>
         <View style={[s.desktopProgressFill, { width: `${deckTracks.length ? Math.min(100, Math.max(0, (index + 1) / deckTracks.length * 100)) : 0}%` }]} />
       </View>
-      {current && !controlsLocked ? <TouchableOpacity testID="desktop-story-next-track" onPress={() => { void advance(); }}
-        accessibilityRole="button" accessibilityLabel="Écouter le morceau suivant" style={s.desktopNextButton}>
-        <Text style={s.desktopNextText}>↑ MORCEAU SUIVANT</Text>
-      </TouchableOpacity> : null}
       <Text style={s.desktopAsideSection}>À TOI DE CHOISIR</Text>
       <View style={s.desktopTips}>
         <Text style={s.desktopAsideHint}>← PASSER   ·   GARDER →</Text>
-        <Text style={s.desktopAsideHint}>↑ Le morceau suivant</Text>
         <Text style={s.desktopAsideHint}>▶ Préécoute sans quitter Loki</Text>
       </View>
       <View style={s.desktopAsideDivider} />

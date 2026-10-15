@@ -20,7 +20,9 @@ describe('TikTok-style upward swipe contract', () => {
     expect(modal).toContain('onSwipeUp={() => {');
     expect(modal).toContain('void advance().finally');
     expect(modal).toContain('upLabel="SUIVANT"');
-    expect(modal).toContain('↑ suivant · ← passer');
+    expect(modal).toContain('testID="swipe-next-without-gesture"');
+    expect(modal).not.toContain('testID="desktop-story-next-track"');
+    expect(modal).toContain('hint={undefined}'); // one visual next action, while upward gesture still works
   });
 
   it('maps swipe up to next detected track in Listen too', () => {
@@ -61,7 +63,7 @@ describe('swipe iPhone : PanResponder créé une seule fois + carte qui s\'adapt
     expect(modal).toContain("card:{flex:1,minHeight:0,maxHeight:720,");
     expect(modal).toContain('desktopSwipeLayout && s.desktopStoryCard');
     expect(modal).not.toContain("card:{height:500,maxHeight:'70%'");
-    expect(modal).toMatch(/hint=\{swipeHint\}\s+fill/);
+    expect(modal).toContain('hint={undefined}');
   });
 });
 

@@ -28,7 +28,7 @@ describe('shared iPhone / desktop Swipe: album art, metadata and exact source pl
     expect(source).toBeLessThan(meta);
     expect(next).toBeGreaterThan(meta);
     expect(deck).toContain("nextInlineButton:{minHeight:40");
-    expect(deck).toContain('testID="desktop-story-next-track"');
+    expect(deck).not.toContain('testID="desktop-story-next-track"');
     expect(deck).toContain('desktopSwipeLayout && s.desktopStoryCard');
     expect(deck).toContain('testID="loki-desktop-story-aside"');
     expect(deck).toContain('accessibilityLabel="Passer cette musique"');

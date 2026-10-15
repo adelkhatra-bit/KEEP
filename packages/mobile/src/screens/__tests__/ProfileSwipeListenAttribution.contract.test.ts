@@ -19,7 +19,7 @@ describe('Visited profile Swipe listen attribution', () => {
   it('records only after preview playback really starts', () => {
     expect(swipe).toContain('sourceProfileId?: string;');
     expect(swipe).toContain('const currentSourceProfileId = currentSource?.profileId || sourceProfileId;');
-    expect(swipe).toContain('if (playing) recordSwipeListenOnce(current.id, currentSourceProfileId);');
+    expect(swipe).toContain('if (playing) { setPreviewStarting(false); recordSwipeListenOnce(current.id, currentSourceProfileId); }');
     expect(swipe).toContain('if (!fromProfileId || profileListenSentRef.current.has(trackId)) return;');
     expect(swipe).toContain('recordProfileSwipeListen(fromProfileId, trackId)');
   });
