@@ -6,8 +6,12 @@ describe('Story player on iPhone and desktop', () => {
   const deck = fs.readFileSync(path.resolve(__dirname, '..', 'MusicSwipeDeckModal.tsx'), 'utf8');
 
   it('identifies the app in native YouTube requests to avoid iframe error 153', () => {
-    expect(source).toContain("player.provider === 'YOUTUBE' ? { headers: { Referer: 'https://com.adelkhatra.keep' } } : {}");
-    expect(deck).toContain("sourcePlayer.provider === 'YOUTUBE' ? { headers: { Referer: 'https://com.adelkhatra.keep' } } : {}");
+    expect(source).toContain('buildNativeYouTubeEmbedDocument(player, { autoplay: true, startSeconds: 0, endSeconds: 30 })');
+    expect(source).toContain('nativeYouTubeDocument.baseUrl');
+    expect(source).toContain("message?.type === 'youtube-error'");
+    expect(deck).toContain('buildNativeYouTubeEmbedDocument(sourcePlayer');
+    expect(deck).toContain('nativeSourcePlayerDocument.baseUrl');
+    expect(deck).toContain("message?.type === 'youtube-error'");
   });
 
   it('keeps the embedded story player inside its swipe card, without overlapping title and controls', () => {
