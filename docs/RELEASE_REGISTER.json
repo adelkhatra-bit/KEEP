@@ -1,5 +1,14 @@
 [
   {
+    "commit": "0822229584ba4a878a6b588eff146c90db79f1fd",
+    "web": "0822229584ba4a878a6b588eff146c90db79f1fd",
+    "testflight": "iOS #243 success (release 82aae49)",
+    "ota": "OTA #1034 success (release 82aae49)",
+    "date": "2026-10-15 20:23",
+    "tests": "pass",
+    "changes": "fix(session): prevent deleted history from reappearing"
+  },
+  {
     "commit": "82aae496b1166a5bf945ebc55fc7e597e02c5e0f",
     "web": "82aae496b1166a5bf945ebc55fc7e597e02c5e0f",
     "testflight": "iOS #243 in_progress (release 82aae49)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 20:17",
     "tests": "pass",
     "changes": "fix(stories): exact embedded YouTube source over unrelated previews; no repeated KEEP on own Story"
-  },
-  {
-    "commit": "ce8b585a6fafc76519c8bd1efd1ea0ecae2ed182",
-    "web": "ce8b585a6fafc76519c8bd1efd1ea0ecae2ed182",
-    "testflight": "iOS #230 success (release 1f44ee1)",
-    "ota": "OTA #1021 success (release 1f44ee1)",
-    "date": "2026-10-12 20:10",
-    "tests": "pass",
-    "changes": "fix(swipe): advance only after server confirms KEEP and FREE debit"
   }
 ]
