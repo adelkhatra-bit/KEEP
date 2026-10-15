@@ -392,21 +392,10 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
           dismissedFavoriteImportIds: Array.from(new Set([...s.dismissedFavoriteImportIds, ...favoriteImportIds])),
         };
       }),
-      // Clear the visible history without deleting saved Keep decisions from the
-      // profile. Tombstones prevent cloud reconciliation and provider imports
-      // from silently restoring the items the user just cleared.
-      clearSessions: () => set((s) => ({
-        sessions: [],
-        dismissedKeepDecisionIds: Array.from(new Set([
-          ...s.dismissedKeepDecisionIds,
-          ...s.sessions.flatMap((session) => session.tracks.map((track) => track.keepDecisionId).filter((id): id is string => Boolean(id))),
-        ])),
-        dismissedSessionIds: Array.from(new Set([...s.dismissedSessionIds, ...s.sessions.map((session) => session.id)])),
-        dismissedFavoriteImportIds: Array.from(new Set([
-          ...s.dismissedFavoriteImportIds,
-          ...s.sessions.flatMap((session) => session.tracks.filter((track) => track.id.startsWith('favimport-')).map((track) => track.id)),
-        ])),
-      })),
+      // Account-switch isolation only: this is not a user deletion. Do not
+      // create tombstones here or we could delete the previous account's cloud
+      // sessions when that account reconnects on this device.
+      clearSessions: () => set({ sessions: [] }),
       renameSession: (sessionId, title) => set((s) => ({ sessions: s.sessions.map((sess) => sess.id === sessionId ? { ...sess, title } : sess) })),
 
       reconcileOrphanedLiveSessions: (activeSessionId = null) => set((state) => ({
