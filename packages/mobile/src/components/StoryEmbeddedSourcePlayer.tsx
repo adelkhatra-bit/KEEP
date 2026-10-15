@@ -30,7 +30,7 @@ export default function StoryEmbeddedSourcePlayer({ sourceUrl, compact = false }
     <View testID="story-official-embedded-player" style={{ marginHorizontal: 4, marginBottom: 8, padding: 8, borderRadius: 14, borderWidth: 1, borderColor: '#6956BB', backgroundColor: '#171020' }}>
       {unavailable ? (
         <Text testID="story-embedded-unavailable" style={{ color: '#F5CE87', fontSize: 12, textAlign: 'center', padding: 10 }}>
-          Le fournisseur empêche la lecture intégrée. Tu restes sur ta Story Loki Music.
+          Lecture indisponible. Passe à la suite de ta Story.
         </Text>
       ) : (
         <View testID="story-embedded-frame" style={{ width: '100%', height: compact ? 104 : player.provider === 'YOUTUBE' ? 140 : 120, overflow: 'hidden', borderRadius: 10, backgroundColor: '#090713' }}>
@@ -57,6 +57,12 @@ export default function StoryEmbeddedSourcePlayer({ sourceUrl, compact = false }
               mediaPlaybackRequiresUserAction: false,
               setSupportMultipleWindows: false,
               onError: () => setUnavailable(true),
+              onMessage: (event: { nativeEvent?: { data?: string } }) => {
+                try {
+                  const message = JSON.parse(String(event?.nativeEvent?.data || '{}'));
+                  if (message?.type === 'youtube-error') setUnavailable(true);
+                } catch {}
+              },
               onShouldStartLoadWithRequest: (request: { url: string; isTopFrame?: boolean }) => (
                 request.isTopFrame === false
                 || Boolean(nativeYouTubeDocument && request.url.startsWith(nativeYouTubeDocument.baseUrl))
