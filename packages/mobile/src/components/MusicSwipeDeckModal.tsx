@@ -18,11 +18,11 @@ import { isSaleStoryTrack, loadMyStoryTrackIds, loadOtherStoryHolders, notifyOwn
 import { loadMyOfferedTrackIds } from '../services/playlistSaleService';
 import { persistOwnTrackVisibility } from '../services/keepVisibilityService';
 import { isTrackPreviewActive, playTrackPreviewFromGesture, preloadTrackPreview, stopTrackPreview, stopTrackPreviewFast, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
-import { buildNativeYouTubeEmbedDocument } from '../services/embeddedMusicPlayer';
+
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { isWebAudioGestureRequired } from '../services/webAudioError';
 import StoryEmbeddedSourcePlayer from './StoryEmbeddedSourcePlayer';
-import { resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
+import { buildNativeYouTubeEmbedDocument, resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
 import { resolveTrackExternalDestination } from '../services/trackExternalLinkService';
 import { checkOwnKeepLibrary } from '../services/connectedMusicLibrary';
 import GlowRing from './GlowRing';
