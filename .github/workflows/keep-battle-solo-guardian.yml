@@ -84,7 +84,8 @@ jobs:
             await page.goto('http://127.0.0.1:8081', { waitUntil: 'networkidle', timeout: 60000 });
             const tryFree = page.getByText('ESSAYER GRATUITEMENT', { exact: true }).last();
             if (await tryFree.isVisible().catch(() => false)) await tryFree.click();
-            const soireesTab = page.getByRole('button', { name: 'Aller à l’onglet Soirées', exact: true }).filter({ visible: true }).last();
+            // In Main, the bottom navigator exposes its item as role=tab; the persistent-bar label is only used outside Main.
+            const soireesTab = page.getByRole('tab', { name: /Soirées/ }).filter({ visible: true }).last();
           await soireesTab.waitFor({ state: 'visible', timeout: 15000 });
           await soireesTab.click({ timeout: 10000 });
             const openBattle = page.getByLabel('Ouvrir directement Battle').last();
