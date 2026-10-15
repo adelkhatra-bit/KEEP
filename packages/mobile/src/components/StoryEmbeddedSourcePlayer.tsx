@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Platform, Text, View } from 'react-native';
-import { resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
+import { buildNativeYouTubeEmbedDocument, resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
 
 /**
  * Official provider player displayed INSIDE a public Loki story.
@@ -12,6 +12,9 @@ import { resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
 export default function StoryEmbeddedSourcePlayer({ sourceUrl, compact = false }: { sourceUrl: string; compact?: boolean }) {
   const player = resolveEmbeddedMusicPlayer(sourceUrl);
   const [unavailable, setUnavailable] = useState(false);
+  const nativeYouTubeDocument = Platform.OS !== 'web' && player
+    ? buildNativeYouTubeEmbedDocument(player, { autoplay: true, startSeconds: 0, endSeconds: 30 })
+    : null;
   if (!player) return null;
 
   // A story must not require an extra "voir/écouter la vidéo" action.
@@ -45,7 +48,7 @@ export default function StoryEmbeddedSourcePlayer({ sourceUrl, compact = false }
           ) : (
             React.createElement(require('react-native-webview').WebView, {
               key: excerptUrl,
-              source: { uri: excerptUrl, ...(player.provider === 'YOUTUBE' ? { headers: { Referer: 'https://com.adelkhatra.keep' } } : {}) },
+              source: nativeYouTubeDocument ? { html: nativeYouTubeDocument.html, baseUrl: nativeYouTubeDocument.baseUrl } : { uri: excerptUrl },
               style: { flex: 1 },
               javaScriptEnabled: true,
               domStorageEnabled: true,
@@ -55,7 +58,9 @@ export default function StoryEmbeddedSourcePlayer({ sourceUrl, compact = false }
               setSupportMultipleWindows: false,
               onError: () => setUnavailable(true),
               onShouldStartLoadWithRequest: (request: { url: string; isTopFrame?: boolean }) => (
-                request.isTopFrame === false || request.url.startsWith(player.url.split('?')[0])
+                request.isTopFrame === false
+                || Boolean(nativeYouTubeDocument && request.url.startsWith(nativeYouTubeDocument.baseUrl))
+                || request.url.startsWith(player.url.split('?')[0])
               ),
             })
           )}
