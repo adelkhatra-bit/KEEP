@@ -38,3 +38,51 @@ export function resolveEmbeddedMusicPlayer(raw: string | null | undefined): Embe
   }
   return null;
 }
+
+
+/**
+ * Native WebViews do not reliably preserve custom Referer headers across the
+ * YouTube iframe redirect chain. Error 153 is shown when YouTube receives no
+ * usable HTTP Referer / client identity. Load a tiny document from Loki's
+ * real public origin so WKWebView/Android WebView can send a valid referrer.
+ * This is still YouTube's official player; Loki does not suppress its ads.
+ */
+export const LOKI_PUBLIC_ORIGIN = 'https://adelkhatra-bit.github.io';
+export const LOKI_PUBLIC_BASE_URL = 'https://adelkhatra-bit.github.io/KEEP/';
+
+export function buildNativeYouTubeEmbedDocument(
+  player: EmbeddedMusicPlayer,
+  options: { autoplay?: boolean; startSeconds?: number; endSeconds?: number } = {},
+): { html: string; baseUrl: string } | null {
+  if (player.provider !== 'YOUTUBE') return null;
+  try {
+    const url = new URL(player.url);
+    const host = url.hostname.toLowerCase();
+    if (url.protocol !== 'https:' || !['youtube-nocookie.com', 'www.youtube-nocookie.com'].includes(host)) return null;
+    const videoId = url.pathname.split('/').filter(Boolean).at(-1) || '';
+    if (!/^[\\w-]{11}$/.test(videoId)) return null;
+    url.searchParams.set('origin', LOKI_PUBLIC_ORIGIN);
+    url.searchParams.set('enablejsapi', '1');
+    url.searchParams.set('playsinline', '1');
+    url.searchParams.set('start', String(Math.max(0, Math.floor(options.startSeconds ?? 0))));
+    if (options.endSeconds !== undefined) url.searchParams.set('end', String(Math.max(1, Math.floor(options.endSeconds))));
+    if (options.autoplay) url.searchParams.set('autoplay', '1');
+    else url.searchParams.delete('autoplay');
+    const src = url.toString().replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    const html = `<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#090713}iframe{display:block;width:100%;height:100%;border:0}</style>
+</head>
+<body>
+<iframe id="loki-youtube-player" src="${src}" title="Lecteur YouTube dans Loki Music" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+</body>
+</html>`;
+    return { html, baseUrl: LOKI_PUBLIC_BASE_URL };
+  } catch {
+    return null;
+  }
+}
