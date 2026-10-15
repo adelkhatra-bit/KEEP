@@ -332,7 +332,7 @@ describe('« Découvert par » mis en avant : contour lumineux qui pulse (Adel 0
     const fs = require('fs'); const path = require('path');
     const deck = fs.readFileSync(path.join(__dirname, '../../components/MusicSwipeDeckModal.tsx'), 'utf8');
     const glow = fs.readFileSync(path.join(__dirname, '../../components/GlowRing.tsx'), 'utf8');
-    expect(deck).toContain('<GlowRing radius={14} testID="deck-source-glow" />');
+    expect(deck).toContain('<GlowRing radius={14} testID="deck-source-profile-inline" />');
     expect(deck).toContain('<GlowRing radius={21} testID="deck-source-button-glow" />');
     expect(glow).toContain('pointerEvents="none"');
     expect(glow).toContain('isReduceMotionEnabled');
