@@ -1,5 +1,14 @@
 [
   {
+    "commit": "bebb0a9aacb7ec94f492813d735d99c4c9f87042",
+    "web": "bebb0a9aacb7ec94f492813d735d99c4c9f87042",
+    "testflight": "iOS #243 success (release 82aae49)",
+    "ota": "OTA #1034 success (release 82aae49)",
+    "date": "2026-10-15 21:02",
+    "tests": "pass",
+    "changes": "docs(email): update live Brevo delivery readiness"
+  },
+  {
     "commit": "94bb940d26236e347ed126af496fbb92f2a2c071",
     "web": "94bb940d26236e347ed126af496fbb92f2a2c071",
     "testflight": "iOS #243 success (release 82aae49)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 20:35",
     "tests": "pass",
     "changes": "fix(ci): use verified provider player identity for YouTube video id"
-  },
-  {
-    "commit": "82d6a0032075815111a5e2e23f552e2aec20bfd7",
-    "web": "82d6a0032075815111a5e2e23f552e2aec20bfd7",
-    "testflight": "iOS #230 success (release 1f44ee1)",
-    "ota": "OTA #1021 success (release 1f44ee1)",
-    "date": "2026-10-12 20:24",
-    "tests": "pass",
-    "changes": "fix(ci): remove duplicate pending-session counter declaration blocking mobile typecheck"
   }
 ]
