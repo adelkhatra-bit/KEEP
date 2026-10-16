@@ -1347,10 +1347,10 @@ export default function MyMusicScreen({ navigation, route }: any) {
         Alert.alert('Suppression indisponible', message);
         return;
       }
-      const message = \`« \${track.title} » sera retiré uniquement de la playlist « \${playlistContext.name} ». Les autres playlists et ton profil ne seront pas modifiés.\`;
+      const message = `« ${track.title} » sera retiré uniquement de la playlist « ${playlistContext.name} ». Les autres playlists et ton profil ne seront pas modifiés.`;
       if (Platform.OS === 'web') {
         const confirmFn = typeof globalThis !== 'undefined' ? (globalThis as any).confirm : undefined;
-        if (typeof confirmFn === 'function' && confirmFn(\`Retirer de la playlist ?\\n\\n\${message}\`)) {
+        if (typeof confirmFn === 'function' && confirmFn(`Retirer de la playlist ?\n\n${message}`)) {
           void removeTrackFromPlaylistNow(track, playlistContext);
         }
         return;
@@ -1366,10 +1366,10 @@ export default function MyMusicScreen({ navigation, route }: any) {
       return;
     }
 
-    const message = \`\${track.title} sera retiré de Loki Music et ne sera plus visible sur ton profil. Cette action ne supprime rien de Spotify ou Apple Music.\`;
+    const message = `${track.title} sera retiré de Loki Music et ne sera plus visible sur ton profil. Cette action ne supprime rien de Spotify ou Apple Music.`;
     if (Platform.OS === 'web') {
       const confirmFn = typeof globalThis !== 'undefined' ? (globalThis as any).confirm : undefined;
-      if (typeof confirmFn === 'function' && confirmFn(\`Supprimer ce morceau ?\\n\\n\${message}\`)) void removeTrackNow(track);
+      if (typeof confirmFn === 'function' && confirmFn(`Supprimer ce morceau ?\n\n${message}`)) void removeTrackNow(track);
       return;
     }
     Alert.alert(
