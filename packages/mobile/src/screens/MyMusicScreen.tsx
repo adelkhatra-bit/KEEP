@@ -1300,7 +1300,72 @@ export default function MyMusicScreen({ navigation, route }: any) {
     }
   };
 
-  const confirmRemoveTrack = (track: CanonicalTrack) => {
+  const removeTrackFromPlaylistNow = async (
+    track: CanonicalTrack,
+    playlist: Pick<ProviderPlaylist, 'id' | 'name'>,
+  ) => {
+    const key = trackIdentity(track);
+    if (trackDeleteBusy === key || trackVisibilityBusy === key) return;
+
+    const provider = musicEngine.musicProvider;
+    // The demo provider supports true per-playlist removal. Apple Music's public
+    // API does not expose this mutation; never fall back to deleting the global
+    // Loki KEEP decision when the user asked to remove one playlist occurrence.
+    if (provider.providerId !== 'demo') {
+      const message = provider.providerId === 'apple-music'
+        ? 'Apple Music ne permet pas à Loki de retirer un titre d’une playlist via son API. Rien n’a été supprimé. Retire ce titre directement dans l’app Musique.'
+        : 'Ce fournisseur ne permet pas de retirer un titre de cette playlist depuis Loki. Rien n’a été supprimé.';
+      Alert.alert('Suppression indisponible', message);
+      return;
+    }
+
+    setTrackDeleteBusy(key);
+    try {
+      const session = await musicEngine.getSession();
+      await provider.removeTrackFromPlaylist(session, playlist.id, track.id);
+      setTracksByPlaylist((state) => ({
+        ...state,
+        [playlist.id]: (state[playlist.id] ?? []).filter((item) => trackIdentity(item) !== key),
+      }));
+      await refresh().catch(() => {});
+    } catch (e: any) {
+      Alert.alert('Playlist', e?.message ?? 'Impossible de retirer ce morceau de cette playlist.');
+    } finally {
+      setTrackDeleteBusy(null);
+    }
+  };
+
+  const confirmRemoveTrack = (
+    track: CanonicalTrack,
+    playlistContext?: Pick<ProviderPlaylist, 'id' | 'name'>,
+  ) => {
+    if (playlistContext) {
+      if (musicEngine.musicProvider.providerId !== 'demo') {
+        const message = musicEngine.musicProvider.providerId === 'apple-music'
+          ? 'Apple Music ne permet pas à Loki de retirer un titre d’une playlist via son API. Rien n’a été supprimé. Retire ce titre directement dans l’app Musique.'
+          : 'Ce fournisseur ne permet pas de retirer un titre de cette playlist depuis Loki. Rien n’a été supprimé.';
+        Alert.alert('Suppression indisponible', message);
+        return;
+      }
+      const message = `« ${track.title} » sera retiré uniquement de la playlist « ${playlistContext.name} ». Les autres playlists et ton profil ne seront pas modifiés.`;
+      if (Platform.OS === 'web') {
+        const confirmFn = typeof globalThis !== 'undefined' ? (globalThis as any).confirm : undefined;
+        if (typeof confirmFn === 'function' && confirmFn(`Retirer de la playlist ?\n\n${message}`)) {
+          void removeTrackFromPlaylistNow(track, playlistContext);
+        }
+        return;
+      }
+      Alert.alert(
+        'Retirer de la playlist ?',
+        message,
+        [
+          { text: 'Annuler', style: 'cancel' },
+          { text: 'Retirer', style: 'destructive', onPress: () => void removeTrackFromPlaylistNow(track, playlistContext) },
+        ],
+      );
+      return;
+    }
+
     const message = `${track.title} sera retiré de Loki Music et ne sera plus visible sur ton profil. Cette action ne supprime rien de Spotify ou Apple Music.`;
     if (Platform.OS === 'web') {
       const confirmFn = typeof globalThis !== 'undefined' ? (globalThis as any).confirm : undefined;
@@ -1323,7 +1388,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
     navigation.navigate('PublicProfile', { username: clean });
   };
 
-  const renderTrack = (track: CanonicalTrack) => {
+  const renderTrack = (track: CanonicalTrack, playlistContext?: Pick<ProviderPlaylist, 'id' | 'name'>) => {
     const localEntry = localEntryForTrack(track);
     const key = trackIdentity(track);
     const publicTrack = localEntry?.visibility === 'PUBLIC';
@@ -1412,11 +1477,11 @@ export default function MyMusicScreen({ navigation, route }: any) {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.deleteTrackButton}
-                onPress={() => confirmRemoveTrack(track)}
+                onPress={() => confirmRemoveTrack(track, playlistContext)}
                 disabled={busy}
-                accessibilityLabel="Supprimer ce morceau de Loki Music"
+                accessibilityLabel={playlistContext ? `Retirer ce morceau de la playlist ${playlistContext.name}` : 'Supprimer ce morceau de Loki Music'}
               >
-                {deleteBusy ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.deleteTrackText}>SUPPRIMER</Text>}
+                {deleteBusy ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.deleteTrackText}>{playlistContext ? (musicEngine.musicProvider.providerId === 'demo' ? 'RETIRER' : 'INDISPONIBLE') : 'SUPPRIMER'}</Text>}
               </TouchableOpacity>
               {/* Vente centralisée dans Collections/Pépites : aucun bouton de
                   création de vente sur une ligne de morceau. */}
@@ -1449,7 +1514,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
         <Text style={styles.chevron}>{expanded ? '⌃' : '⌄'}</Text>
       </TouchableOpacity>
       {expanded ? <View style={styles.tracksPanel}>
-        {loadingPlaylist === item.id ? <Text style={styles.loadingText}>Chargement…</Text> : tracks.length ? tracks.map(renderTrack) : <Text style={styles.loadingText}>Aucun morceau dans cette collection.</Text>}
+        {loadingPlaylist === item.id ? <Text style={styles.loadingText}>Chargement…</Text> : tracks.length ? tracks.map((track) => renderTrack(track, (!isAllKeepView && !isGroupView && !isSmart) ? item : undefined)) : <Text style={styles.loadingText}>Aucun morceau dans cette collection.</Text>}
         {!isAllKeepView ? <View style={styles.collectionActions}>
           <TouchableOpacity style={styles.serviceMini} onPress={async () => {
             try {
