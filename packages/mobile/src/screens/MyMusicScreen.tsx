@@ -1494,14 +1494,16 @@ export default function MyMusicScreen({ navigation, route }: any) {
   );
   const sectionControls = mobileSection === 'HOME' ? null : (
     <View style={styles.sectionControls}>
-      {pageHeader}
+      {/* Adel (17/10/2026) : sur les sous-pages, une seule barre compacte (retour + titre + onglets) au lieu de
+          3 bandeaux empilés : toute la hauteur va aux musiques. */}
       <View style={styles.focusBar}>
         <TouchableOpacity style={styles.focusBack} onPress={() => { setMobileSection('HOME'); setWorkspaceTab('LIBRARY'); setManageMusicMode(false); }} accessibilityLabel="Revenir aux choix Mes musiques"><Text style={styles.focusBackText}>‹</Text></TouchableOpacity>
         <View style={styles.focusBarCopy}><Text style={styles.focusBarTitle}>{saleSelectionMode ? (saleEditOfferTarget ? 'Modifier la collection' : 'Créer une collection') : mobileSection === 'EDIT' ? 'Choisir ce qui est visible' : mobileSection === 'ORGANIZE' ? 'Trier ma musique' : `Toute ma musique · ${localKeptEntries.length}`}</Text></View>
+        {workspaceTab === 'LIBRARY' && mobileSection === 'ORGANIZE' && activeTab !== 'SERVICES' ? <View style={styles.focusBarTabs}>{LIBRARY_TABS.filter((tab) => tab.key !== 'MUSIQUES').map((tab) => (
+          <TouchableOpacity key={tab.key} style={[styles.focusBarTab, activeTab === tab.key && styles.focusBarTabOn]} onPress={() => setActiveTab(tab.key)} accessibilityRole="button" accessibilityState={{ selected: activeTab === tab.key }}><Text style={[styles.focusBarTabText, activeTab === tab.key && styles.focusBarTabTextOn]}>{tab.label}</Text></TouchableOpacity>
+        ))}</View> : null}
       </View>
-      {workspaceTab === 'LIBRARY' && mobileSection === 'ORGANIZE' ? <View style={styles.mobileAccordionBody}>{activeTab === 'SERVICES' ? <View style={styles.inlineServicesCard}><Text style={styles.inlineServicesTitle}>Services musicaux</Text><Text style={styles.inlineServicesText}>Connecte ou synchronise tes services depuis Mes musiques. La gestion détaillée reste intégrée à ce parcours.</Text><TouchableOpacity style={styles.inlineServicesAction} onPress={() => navigation.navigate('MusicConnections')}><Text style={styles.inlineServicesActionText}>GÉRER MES CONNEXIONS</Text></TouchableOpacity></View> : <View style={styles.tabs}>{LIBRARY_TABS.filter((tab) => tab.key !== 'MUSIQUES').map((tab) => (
-        <TouchableOpacity key={tab.key} style={styles.tab} onPress={() => setActiveTab(tab.key)}><Text style={[styles.tabText, activeTab === tab.key && styles.tabTextOn]}>{tab.label}</Text>{activeTab === tab.key ? <View style={styles.tabIndicator} /> : null}</TouchableOpacity>
-      ))}</View>}</View> : null}
+      {workspaceTab === 'LIBRARY' && mobileSection === 'ORGANIZE' && activeTab === 'SERVICES' ? <View style={styles.mobileAccordionBody}>{ <View style={styles.inlineServicesCard}><Text style={styles.inlineServicesTitle}>Services musicaux</Text><Text style={styles.inlineServicesText}>Connecte ou synchronise tes services depuis Mes musiques. La gestion détaillée reste intégrée à ce parcours.</Text><TouchableOpacity style={styles.inlineServicesAction} onPress={() => navigation.navigate('MusicConnections')}><Text style={styles.inlineServicesActionText}>GÉRER MES CONNEXIONS</Text></TouchableOpacity></View>}</View> : null}
 
       {workspaceTab === 'LIBRARY' && mobileSection === 'EDIT' && activeTab === 'MUSIQUES' ? (
         <View style={[styles.manageGuide, manageMusicMode && styles.manageGuideActive]}>
@@ -1532,8 +1534,8 @@ export default function MyMusicScreen({ navigation, route }: any) {
 
       {workspaceTab === 'LIBRARY' && mobileSection === 'ORGANIZE' && activeTab === 'VIBES' ? <View style={styles.organizeAction}>
         <View style={styles.organizeActionCopy}>
-          <Text style={styles.vibeBarTitle}>{sortGateLabel(sortAccess)}</Text>
-          <Text style={styles.vibeBarHint}>{sortDone ? `Classement à jour · ${localKeptTracks.length} morceaux · ${stylePlaylists.length} style${stylePlaylists.length > 1 ? 's' : ''}.` : sortAccess?.unlimited ? 'Loki Music classe automatiquement tes morceaux par style.' : sortAccess?.allowed ? 'Analyse tes morceaux et mets les styles à jour.' : 'Cette fonction nécessite Creator Pro ou un essai débloqué.'}</Text>
+          <Text style={styles.vibeBarTitle} numberOfLines={1}>{sortGateLabel(sortAccess)}</Text>
+          <Text style={styles.vibeBarHint} numberOfLines={1}>{sortDone ? `Classement à jour · ${localKeptTracks.length} morceaux · ${stylePlaylists.length} style${stylePlaylists.length > 1 ? 's' : ''}.` : sortAccess?.unlimited ? 'Loki Music classe automatiquement tes morceaux par style.' : sortAccess?.allowed ? 'Analyse tes morceaux et mets les styles à jour.' : 'Cette fonction nécessite Creator Pro ou un essai débloqué.'}</Text>
         </View>
         <TouchableOpacity style={[styles.organizeActionButton, sortDone && styles.organizeActionButtonDone, sortAccess && !sortAccess.allowed && !sortAccess.unlimited && styles.vibeBarLocked]} onPress={() => void runOrganizeAnalysis()} disabled={analyzing} accessibilityRole="button" accessibilityLabel="Mettre à jour le classement musical">
           {analyzing ? <ActivityIndicator color={colors.white} size="small" /> : <Text style={styles.organizeActionButtonText}>{sortDone ? '✓ TERMINÉ' : sortAccess?.allowed || sortAccess?.unlimited ? 'METTRE À JOUR' : 'DÉBLOQUER'}</Text>}
@@ -1766,7 +1768,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
           ListHeaderComponent={<>{sectionControls}{activeTab === 'VIBES' ? (
             <View style={styles.styleCountHeader}>
               <Text style={styles.styleCountTitle}>MES STYLES · {stylePlaylists.length}</Text>
-              <Text style={styles.styleCountHint}>{localKeptTracks.length} morceaux analysés · même source Supabase que ton profil. Tous les styles détectés sont listés ci-dessous, sans limite à 3.</Text>
+              <Text style={styles.styleCountHint} numberOfLines={1}>{localKeptTracks.length} morceaux · tous tes styles</Text>
             </View>
           ) : null}</>}
           ListFooterComponent={activeTab === 'VIBES' && uniqueAutomaticStylePlaylists.length ? (
@@ -2114,6 +2116,7 @@ const styles = StyleSheet.create({
   purchaseTrackRow:{minHeight:58,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,padding:7,flexDirection:'row',alignItems:'center',gap:9},
   purchaseTrackCover:{width:42,height:42,borderRadius:10,backgroundColor:colors.backgroundCard},purchaseTrackCoverFallback:{alignItems:'center',justifyContent:'center'},purchaseTrackCoverText:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},
   purchaseTrackCopy:{flex:1,minWidth:0},purchaseTrackTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},purchaseTrackArtist:{color:colors.textMuted,fontSize:10,fontWeight:'700',marginTop:2},
+  focusBarTabs:{flexDirection:'row',gap:6,flexShrink:0},focusBarTab:{minHeight:36,paddingHorizontal:14,borderRadius:18,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},focusBarTabOn:{backgroundColor:colors.primary,borderColor:colors.primary},focusBarTabText:{color:colors.textMuted,fontSize:12,fontWeight:'800'},focusBarTabTextOn:{color:'#FFFFFF'},
   focusBar:{marginHorizontal:12,marginTop:9,marginBottom:5,minHeight:54,borderRadius:15,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center',paddingHorizontal:8,gap:9},
   focusBack:{width:38,height:38,borderRadius:12,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center'},focusBackText:{color:colors.primaryLight,fontSize:30,fontWeight:'700',lineHeight:32},focusBarCopy:{flex:1},focusBarTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},focusBarHint:{color:colors.textMuted,fontSize:9,marginTop:1},
   mobileAccordion:{marginHorizontal:12,marginTop:8,gap:7},
@@ -2127,7 +2130,7 @@ const styles = StyleSheet.create({
   mobileAccordionChevron:{color:colors.textPrimary,fontSize:18,fontWeight:'900'},
   mobileAccordionBody:{borderWidth:1,borderColor:colors.primary,borderRadius:15,overflow:'hidden',backgroundColor:colors.backgroundCard},
   tabs:{marginTop:10,paddingHorizontal:10,flexDirection:'row',borderBottomWidth:1,borderBottomColor:colors.border},tab:{flex:1,minHeight:44,alignItems:'center',justifyContent:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:12,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},tabIndicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},
-  organizeAction:{marginHorizontal:0,marginBottom:10,borderWidth:1,borderColor:colors.primary,borderRadius:16,backgroundColor:colors.backgroundCard,padding:13,gap:11},organizeActionCopy:{gap:4},organizeActionButton:{minHeight:44,borderRadius:13,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',paddingHorizontal:16},organizeActionButtonDone:{backgroundColor:'#1F9D6B'},organizeActionButtonText:{color:colors.white,fontSize:12,fontWeight:'900',letterSpacing:.4},vibeBar:{marginHorizontal:14,marginTop:8,minHeight:44,borderRadius:14,borderWidth:1,borderColor:colors.primary,backgroundColor:'#171020',paddingHorizontal:12,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:8},vibeBarLocked:{borderColor:'#493369'},vibeBarCopy:{flex:1},vibeBarTitle:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},vibeBarHint:{color:'#FFFFFF',fontSize:11,lineHeight:15,marginTop:2,fontWeight:'700'},vibeArrow:{fontSize:16},
+  organizeAction:{marginHorizontal:12,marginTop:6,marginBottom:4,borderWidth:1,borderColor:colors.border,borderRadius:12,backgroundColor:colors.backgroundCard,paddingVertical:7,paddingHorizontal:10,gap:10,flexDirection:'row',alignItems:'center'},organizeActionCopy:{flex:1,minWidth:0,gap:1},organizeActionButton:{minHeight:36,borderRadius:13,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',paddingHorizontal:16},organizeActionButtonDone:{backgroundColor:'#1F9D6B'},organizeActionButtonText:{color:colors.white,fontSize:12,fontWeight:'900',letterSpacing:.4},vibeBar:{marginHorizontal:14,marginTop:8,minHeight:44,borderRadius:14,borderWidth:1,borderColor:colors.primary,backgroundColor:'#171020',paddingHorizontal:12,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:8},vibeBarLocked:{borderColor:'#493369'},vibeBarCopy:{flex:1},vibeBarTitle:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},vibeBarHint:{color:'#FFFFFF',fontSize:11,lineHeight:15,marginTop:2,fontWeight:'700'},vibeArrow:{fontSize:16},
   styleCountHeader:{marginBottom:10,padding:12,borderRadius:18,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.primary},
   styleCountTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900',letterSpacing:.5},
   styleCountHint:{color:colors.textMutedGrey,fontSize:11,lineHeight:16,marginTop:3},
