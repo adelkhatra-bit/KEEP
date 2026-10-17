@@ -4,7 +4,7 @@ import { colors } from '../theme/colors';
 import { useUserStore } from '../store/useUserStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
-import { DESKTOP_SIDEBAR_WIDTH } from '../layout/layoutMode';
+import { DESKTOP_MIN_WIDTH, DESKTOP_RAIL_WIDTH, DESKTOP_SIDEBAR_WIDTH } from '../layout/layoutMode';
 
 export type DesktopNavItem = { name: string; label: string; icon: string };
 
@@ -19,7 +19,9 @@ export default function DesktopSidebar({ items, activeName, onSelect, onOpenSess
   onSelect: (name: string) => void;
   onOpenSessions: () => void;
 }) {
-  const { height } = useWindowDimensions();
+  const { height, width } = useWindowDimensions();
+  // Sous 1024 px (PC zoomé + panneau ouvert) : rail d'icônes, toute la largeur restante va au contenu.
+  const rail = width < DESKTOP_MIN_WIDTH;
   // Aucun défilement de la sidebar PC : compacter les éléments AVANT que
   // « MICRO À L’ARRÊT » et « MES SESSIONS » passent sous la fenêtre.
   const compact = height < 900;
@@ -34,7 +36,20 @@ export default function DesktopSidebar({ items, activeName, onSelect, onOpenSess
   const sessions = useSessionHistoryStore((s) => s.sessions);
   const lastCount = sessions.find((session) => !session.id.startsWith('__keep-'))?.tracks.length ?? 0;
   return (
-    <View style={s.side} testID="desktop-sidebar" accessibilityLabel="Navigation Loki Music">
+    <View style={[s.side, rail && s.sideRail]} testID="desktop-sidebar" accessibilityLabel="Navigation Loki Music">
+      {rail ? <View style={s.railInner} testID="desktop-sidebar-rail">
+        <Text style={s.railBrand}>L</Text>
+        {items.map((item) => {
+          const active = item.name === activeName;
+          return (
+            <TouchableOpacity key={item.name} testID={`desktop-nav-${item.name}`} style={[s.railItem, active && s.itemActive]} accessibilityRole="button" accessibilityState={{ selected: active }} accessibilityLabel={`Aller à l’onglet ${item.label}`} onPress={() => onSelect(item.name)}>
+              <Text style={[s.railIcon, active && s.activeText]}>{item.icon}</Text>
+              <Text style={[s.railLabel, active && s.activeText]} numberOfLines={1}>{item.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+        <TouchableOpacity style={s.railSessions} onPress={onOpenSessions} accessibilityRole="button" accessibilityLabel="Afficher mes sessions"><Text style={s.railSessionsText}>{isListening ? '●' : '☰'}</Text></TouchableOpacity>
+      </View> : <>
       <View style={[s.inner, compact && s.innerCompact, veryShort && s.innerVeryShort, tiny && s.innerTiny]} testID="desktop-sidebar-fitted">
         <View style={[s.brandBox, compact && s.brandBoxCompact, veryShort && s.brandBoxVeryShort]} accessibilityLabel="Compte Loki Music connecté">
           <Text style={[s.brand, compact && s.brandCompact]}>Loki Music</Text>
@@ -73,11 +88,20 @@ export default function DesktopSidebar({ items, activeName, onSelect, onOpenSess
           </TouchableOpacity>
         </View>
       </View>
+    </>}
     </View>
   );
 }
 
 const s = StyleSheet.create({
+  sideRail: { width: DESKTOP_RAIL_WIDTH },
+  railInner: { flex: 1, alignItems: 'center', paddingVertical: 10, gap: 4 },
+  railBrand: { color: colors.primaryLight, fontSize: 22, fontWeight: '900', marginBottom: 8 },
+  railItem: { width: 64, minHeight: 52, borderRadius: 12, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  railIcon: { color: '#CFC3E6', fontSize: 18 },
+  railLabel: { color: '#CFC3E6', fontSize: 9, fontWeight: '800' },
+  railSessions: { marginTop: 'auto', width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  railSessionsText: { color: '#FFFFFF', fontSize: 16, fontWeight: '900' },
   side: { width: DESKTOP_SIDEBAR_WIDTH, height: '100%', flexShrink: 0, overflow: 'hidden', backgroundColor: '#0E0A14', borderRightWidth: 1, borderRightColor: '#2B2038' },
   innerCompact: { paddingTop: 10, paddingBottom: 10, paddingHorizontal: 10, gap: 1 },
   innerVeryShort: { paddingTop: 5, paddingBottom: 5, gap: 0 },
