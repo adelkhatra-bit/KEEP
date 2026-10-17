@@ -385,12 +385,19 @@ async function recognitionAttempt(
   useFree = false,
 ): Promise<RecognitionAttempt> {
   const form = new FormData();
-  form.append('audio', blob, `keep-sample.${audioExtension(blob)}`);
+  // Adel (17/10/2026) : « j'écoute la musique et ça ne marche pas sur l'application ». Les journaux Supabase
+  // montrent keep-music-memory en 400 « audio_required » : le File Expo passé à FormData + expo/fetch n'arrive
+  // PAS comme fichier côté serveur. Sur iPhone/Android, on envoie le fichier enregistré par son URI, le chemin
+  // multipart natif historique et fiable de React Native ({ uri, name, type }) avec le fetch global.
+  const nativeUri = Platform.OS !== 'web' ? String((blob as any)?.uri || '') : '';
+  const extension = audioExtension(blob);
+  if (nativeUri) {
+    form.append('audio', { uri: nativeUri, name: `keep-sample.${extension}`, type: extension === 'wav' ? 'audio/wav' : 'audio/m4a' } as any);
+  } else {
+    form.append('audio', blob, `keep-sample.${extension}`);
+  }
   try {
-    // Expo SDK 54 recommande expo/fetch pour les uploads Blob/File natifs.
-    // Le fetch React Native historique a été observé en production avec un
-    // multipart de 255 octets malgré un enregistrement micro valide.
-    const transportFetch: typeof fetch = Platform.OS === 'web' ? fetch : (expoFetch as unknown as typeof fetch);
+    const transportFetch: typeof fetch = Platform.OS === 'web' || nativeUri ? fetch : (expoFetch as unknown as typeof fetch);
     const response = await transportFetch(`${SUPABASE_URL!.replace(/\/$/, '')}/functions/v1/${functionName}`, {
       method: 'POST',
       headers: {
