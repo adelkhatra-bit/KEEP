@@ -23,11 +23,10 @@ describe('shared iPhone / desktop Swipe: album art, metadata and exact source pl
   it('moves discoverer identity outside the cover and keeps buttons accessible without scrolling', () => {
     const meta = deck.indexOf('testID="swipe-metadata-below-artwork"');
     const source = deck.indexOf('testID="deck-source-profile-inline"');
-    const next = deck.indexOf('testID="swipe-next-without-gesture"', meta);
     expect(source).toBeGreaterThan(0);
     expect(source).toBeLessThan(meta);
-    expect(next).toBeGreaterThan(meta);
-    expect(deck).toContain("nextInlineButton:{minHeight:40");
+    expect(deck).not.toContain('testID="swipe-next-without-gesture"');
+    expect(deck).toContain("storyEmbeddedInCard:{position:'absolute',left:0,right:0,bottom:0,height:'56%',paddingHorizontal:44");
     expect(deck).toContain('testID="desktop-story-next-track"');
     expect(deck).toContain('desktopSwipeLayout && s.desktopStoryCard');
     expect(deck).toContain('testID="loki-desktop-story-aside"');

@@ -682,6 +682,13 @@ export default function MyMusicScreen({ navigation, route }: any) {
     () => displayPlaylists.filter((playlist) => isSmartAlbumUiId(playlist.id)),
     [displayPlaylists],
   );
+  // Adel (17/10/2026) : une suggestion auto qui porte le même style qu'un Style
+  // déjà affiché (ex. « R&B / SOUL » = « R&B/Soul ») apparaissait en double.
+  const uniqueAutomaticStylePlaylists = useMemo(() => {
+    const norm = (value: string) => String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '').split('').sort().join('');
+    const existing = new Set(stylePlaylists.map((playlist) => norm(playlist.name)));
+    return automaticStylePlaylists.filter((playlist) => !existing.has(norm(playlist.name)));
+  }, [automaticStylePlaylists, stylePlaylists]);
   const regularPlaylists = useMemo(
     () => displayPlaylists.filter((playlist) => !isSmartAlbumUiId(playlist.id)),
     [displayPlaylists],
@@ -1467,8 +1474,10 @@ export default function MyMusicScreen({ navigation, route }: any) {
     </View>;
   };
 
-  return (
-    <SafeAreaView style={styles.container}><PersonalThemeBackdrop />
+  // Adel (17/10/2026) : sur les sous-pages Playlists, l'en-tête, les onglets et les
+  // commandes défilent AVEC la liste (plus de bandeau fixe) : la liste occupe tout
+  // l'espace entre le haut de l'écran et la barre de navigation, ordinateur et mobile.
+  const pageHeader = (
       <View style={styles.header}>
         <View style={styles.headerCopy}>
           <Text style={styles.title} numberOfLines={1}>Playlists</Text>
@@ -1482,66 +1491,19 @@ export default function MyMusicScreen({ navigation, route }: any) {
           <Text style={styles.headerHelpButtonText}>?</Text>
         </TouchableOpacity>
       </View>
-
-      {mobileSection === 'HOME' ? <View style={[styles.focusHome, isDesktopLibrary && styles.focusHomeDesktop]}>
-        <TouchableOpacity style={styles.focusPrimary} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('TRACKS'); setActiveTab('MUSIQUES'); }}>
-          <View style={styles.focusPrimaryIcon}><Text style={styles.focusPrimaryIconText}>♫</Text></View>
-          <View style={styles.focusPrimaryCopy}>
-            <Text style={styles.focusPrimaryTitle}>Toute ma musique · {localKeptEntries.length}</Text>
-            <Text style={styles.focusPrimaryHint}>Écouter et retrouver mes titres</Text>
-          </View>
-          <Text style={styles.focusChoiceArrow}>›</Text>
-        </TouchableOpacity>
-
-        {purchaseLibrary.length ? (
-          <View style={styles.purchaseHome}>
-            <View style={styles.purchaseHomeHead}>
-              <Text style={styles.purchaseHomeTitle}>DERNIERS ACHATS</Text>
-              <Text style={styles.purchaseHomeCount}>{purchaseLibrary.length}</Text>
-            </View>
-            {purchaseLibrary.slice(0, 3).map((entry) => (
-              <TouchableOpacity key={entry.paymentId} style={styles.purchaseHomeRow} onPress={() => { void openPurchasedCollection(entry); }} accessibilityLabel={`Écouter mon achat ${entry.playlistName}`}>
-                <View style={styles.purchaseHomeIcon}><Text style={styles.purchaseHomeIconText}>✓</Text></View>
-                <View style={styles.purchaseHomeCopy}>
-                  <Text style={styles.purchaseHomeName} numberOfLines={1}>{entry.playlistName}</Text>
-                  <Text style={styles.purchaseHomeMeta} numberOfLines={1}>@{entry.sellerUsername} · {entry.trackCount} titre{entry.trackCount > 1 ? 's' : ''}</Text>
-                </View>
-                <Text style={styles.purchaseHomePlay}>▶</Text>
-              </TouchableOpacity>
-            ))}
-            <Text style={styles.purchaseHomeHint}>Tes achats restent aussi classés automatiquement dans tes Styles.</Text>
-          </View>
-        ) : null}
-
-        <View style={[styles.focusActionStack, isDesktopLibrary && styles.focusActionStackDesktop]}>
-          <TouchableOpacity style={[styles.focusActionRow, isDesktopLibrary && styles.focusActionRowDesktop]} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('EDIT'); setActiveTab('MUSIQUES'); setManageMusicMode(true); }} accessibilityLabel="Gérer directement la visibilité de mes morceaux">
-            <View style={styles.focusActionIcon}><Text style={styles.focusActionIconText}>✎</Text></View>
-            <View style={styles.focusActionCopy}><Text style={styles.focusActionTitle}>Visibilité</Text><Text style={styles.focusActionHint}>Public ou privé</Text></View>
-            <Text style={styles.focusChoiceArrow}>›</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.focusActionRow, isDesktopLibrary && styles.focusActionRowDesktop]} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('ORGANIZE'); setActiveTab('VIBES'); }}>
-            <View style={styles.focusActionIcon}><Text style={styles.focusActionIconText}>☷</Text></View>
-            <View style={styles.focusActionCopy}><Text style={styles.focusActionTitle}>Trier mes titres</Text><Text style={styles.focusActionHint}>Styles et artistes</Text></View>
-            <Text style={styles.focusChoiceArrow}>›</Text>
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity style={styles.focusServiceLink} onPress={() => navigation.navigate('MusicConnections')} accessibilityLabel="Gérer directement mes connexions musicales">
-          <Text style={styles.focusServiceIcon}>＋</Text>
-          <View style={styles.focusServiceCopy}>
-            <Text style={styles.focusServiceTitle}>Mes services musicaux</Text>
-            <Text style={styles.focusServiceHint}>Connecter ou synchroniser</Text>
-          </View>
-          <Text style={styles.focusChoiceArrow}>›</Text>
-        </TouchableOpacity>
-
-      </View> : <View style={styles.focusBar}>
+  );
+  const sectionControls = mobileSection === 'HOME' ? null : (
+    <View style={styles.sectionControls}>
+      {/* Adel (17/10/2026) : sur les sous-pages, une seule barre compacte (retour + titre + onglets) au lieu de
+          3 bandeaux empilés : toute la hauteur va aux musiques. */}
+      <View style={styles.focusBar}>
         <TouchableOpacity style={styles.focusBack} onPress={() => { setMobileSection('HOME'); setWorkspaceTab('LIBRARY'); setManageMusicMode(false); }} accessibilityLabel="Revenir aux choix Mes musiques"><Text style={styles.focusBackText}>‹</Text></TouchableOpacity>
         <View style={styles.focusBarCopy}><Text style={styles.focusBarTitle}>{saleSelectionMode ? (saleEditOfferTarget ? 'Modifier la collection' : 'Créer une collection') : mobileSection === 'EDIT' ? 'Choisir ce qui est visible' : mobileSection === 'ORGANIZE' ? 'Trier ma musique' : `Toute ma musique · ${localKeptEntries.length}`}</Text></View>
-      </View>}
-      {workspaceTab === 'LIBRARY' && mobileSection === 'ORGANIZE' ? <View style={styles.mobileAccordionBody}>{activeTab === 'SERVICES' ? <View style={styles.inlineServicesCard}><Text style={styles.inlineServicesTitle}>Services musicaux</Text><Text style={styles.inlineServicesText}>Connecte ou synchronise tes services depuis Mes musiques. La gestion détaillée reste intégrée à ce parcours.</Text><TouchableOpacity style={styles.inlineServicesAction} onPress={() => navigation.navigate('MusicConnections')}><Text style={styles.inlineServicesActionText}>GÉRER MES CONNEXIONS</Text></TouchableOpacity></View> : <View style={styles.tabs}>{LIBRARY_TABS.filter((tab) => tab.key !== 'MUSIQUES').map((tab) => (
-        <TouchableOpacity key={tab.key} style={styles.tab} onPress={() => setActiveTab(tab.key)}><Text style={[styles.tabText, activeTab === tab.key && styles.tabTextOn]}>{tab.label}</Text>{activeTab === tab.key ? <View style={styles.tabIndicator} /> : null}</TouchableOpacity>
-      ))}</View>}</View> : null}
+        {workspaceTab === 'LIBRARY' && mobileSection === 'ORGANIZE' && activeTab !== 'SERVICES' ? <View style={styles.focusBarTabs}>{LIBRARY_TABS.filter((tab) => tab.key !== 'MUSIQUES').map((tab) => (
+          <TouchableOpacity key={tab.key} style={[styles.focusBarTab, activeTab === tab.key && styles.focusBarTabOn]} onPress={() => setActiveTab(tab.key)} accessibilityRole="button" accessibilityState={{ selected: activeTab === tab.key }}><Text style={[styles.focusBarTabText, activeTab === tab.key && styles.focusBarTabTextOn]}>{tab.label}</Text></TouchableOpacity>
+        ))}</View> : null}
+      </View>
+      {workspaceTab === 'LIBRARY' && mobileSection === 'ORGANIZE' && activeTab === 'SERVICES' ? <View style={styles.mobileAccordionBody}>{ <View style={styles.inlineServicesCard}><Text style={styles.inlineServicesTitle}>Services musicaux</Text><Text style={styles.inlineServicesText}>Connecte ou synchronise tes services depuis Mes musiques. La gestion détaillée reste intégrée à ce parcours.</Text><TouchableOpacity style={styles.inlineServicesAction} onPress={() => navigation.navigate('MusicConnections')}><Text style={styles.inlineServicesActionText}>GÉRER MES CONNEXIONS</Text></TouchableOpacity></View>}</View> : null}
 
       {workspaceTab === 'LIBRARY' && mobileSection === 'EDIT' && activeTab === 'MUSIQUES' ? (
         <View style={[styles.manageGuide, manageMusicMode && styles.manageGuideActive]}>
@@ -1572,8 +1534,8 @@ export default function MyMusicScreen({ navigation, route }: any) {
 
       {workspaceTab === 'LIBRARY' && mobileSection === 'ORGANIZE' && activeTab === 'VIBES' ? <View style={styles.organizeAction}>
         <View style={styles.organizeActionCopy}>
-          <Text style={styles.vibeBarTitle}>{sortGateLabel(sortAccess)}</Text>
-          <Text style={styles.vibeBarHint}>{sortDone ? `Classement à jour · ${localKeptTracks.length} morceaux · ${stylePlaylists.length} style${stylePlaylists.length > 1 ? 's' : ''}.` : sortAccess?.unlimited ? 'Loki Music classe automatiquement tes morceaux par style.' : sortAccess?.allowed ? 'Analyse tes morceaux et mets les styles à jour.' : 'Cette fonction nécessite Creator Pro ou un essai débloqué.'}</Text>
+          <Text style={styles.vibeBarTitle} numberOfLines={1}>{sortGateLabel(sortAccess)}</Text>
+          <Text style={styles.vibeBarHint} numberOfLines={1}>{sortDone ? `Classement à jour · ${localKeptTracks.length} morceaux · ${stylePlaylists.length} style${stylePlaylists.length > 1 ? 's' : ''}.` : sortAccess?.unlimited ? 'Loki Music classe automatiquement tes morceaux par style.' : sortAccess?.allowed ? 'Analyse tes morceaux et mets les styles à jour.' : 'Cette fonction nécessite Creator Pro ou un essai débloqué.'}</Text>
         </View>
         <TouchableOpacity style={[styles.organizeActionButton, sortDone && styles.organizeActionButtonDone, sortAccess && !sortAccess.allowed && !sortAccess.unlimited && styles.vibeBarLocked]} onPress={() => void runOrganizeAnalysis()} disabled={analyzing} accessibilityRole="button" accessibilityLabel="Mettre à jour le classement musical">
           {analyzing ? <ActivityIndicator color={colors.white} size="small" /> : <Text style={styles.organizeActionButtonText}>{sortDone ? '✓ TERMINÉ' : sortAccess?.allowed || sortAccess?.unlimited ? 'METTRE À JOUR' : 'DÉBLOQUER'}</Text>}
@@ -1647,6 +1609,66 @@ export default function MyMusicScreen({ navigation, route }: any) {
         ) : null}
         <Text style={styles.analysisHelp}>Loki Music crée les Styles automatiquement sans supprimer tes morceaux. Tu peux les renommer et les rendre publiques ou privées.</Text>
       </View> : null}
+    </View>
+  );
+
+  return (
+    <SafeAreaView style={styles.container}><PersonalThemeBackdrop />
+      {mobileSection === 'HOME' ? pageHeader : null}
+
+      {mobileSection === 'HOME' ? <View style={[styles.focusHome, isDesktopLibrary && styles.focusHomeDesktop]}>
+        <TouchableOpacity style={styles.focusPrimary} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('TRACKS'); setActiveTab('MUSIQUES'); }}>
+          <View style={styles.focusPrimaryIcon}><Text style={styles.focusPrimaryIconText}>♫</Text></View>
+          <View style={styles.focusPrimaryCopy}>
+            <Text style={styles.focusPrimaryTitle}>Toute ma musique · {localKeptEntries.length}</Text>
+            <Text style={styles.focusPrimaryHint}>Écouter et retrouver mes titres</Text>
+          </View>
+          <Text style={styles.focusChoiceArrow}>›</Text>
+        </TouchableOpacity>
+
+        {purchaseLibrary.length ? (
+          <View style={styles.purchaseHome}>
+            <View style={styles.purchaseHomeHead}>
+              <Text style={styles.purchaseHomeTitle}>DERNIERS ACHATS</Text>
+              <Text style={styles.purchaseHomeCount}>{purchaseLibrary.length}</Text>
+            </View>
+            {purchaseLibrary.slice(0, 3).map((entry) => (
+              <TouchableOpacity key={entry.paymentId} style={styles.purchaseHomeRow} onPress={() => { void openPurchasedCollection(entry); }} accessibilityLabel={`Écouter mon achat ${entry.playlistName}`}>
+                <View style={styles.purchaseHomeIcon}><Text style={styles.purchaseHomeIconText}>✓</Text></View>
+                <View style={styles.purchaseHomeCopy}>
+                  <Text style={styles.purchaseHomeName} numberOfLines={1}>{entry.playlistName}</Text>
+                  <Text style={styles.purchaseHomeMeta} numberOfLines={1}>@{entry.sellerUsername} · {entry.trackCount} titre{entry.trackCount > 1 ? 's' : ''}</Text>
+                </View>
+                <Text style={styles.purchaseHomePlay}>▶</Text>
+              </TouchableOpacity>
+            ))}
+            <Text style={styles.purchaseHomeHint}>Tes achats restent aussi classés automatiquement dans tes Styles.</Text>
+          </View>
+        ) : null}
+
+        <View style={[styles.focusActionStack, isDesktopLibrary && styles.focusActionStackDesktop]}>
+          <TouchableOpacity style={[styles.focusActionRow, isDesktopLibrary && styles.focusActionRowDesktop]} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('EDIT'); setActiveTab('MUSIQUES'); setManageMusicMode(true); }} accessibilityLabel="Gérer directement la visibilité de mes morceaux">
+            <View style={styles.focusActionIcon}><Text style={styles.focusActionIconText}>✎</Text></View>
+            <View style={styles.focusActionCopy}><Text style={styles.focusActionTitle}>Visibilité</Text><Text style={styles.focusActionHint}>Public ou privé</Text></View>
+            <Text style={styles.focusChoiceArrow}>›</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.focusActionRow, isDesktopLibrary && styles.focusActionRowDesktop]} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('ORGANIZE'); setActiveTab('VIBES'); }}>
+            <View style={styles.focusActionIcon}><Text style={styles.focusActionIconText}>☷</Text></View>
+            <View style={styles.focusActionCopy}><Text style={styles.focusActionTitle}>Trier mes titres</Text><Text style={styles.focusActionHint}>Styles et artistes</Text></View>
+            <Text style={styles.focusChoiceArrow}>›</Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity style={styles.focusServiceLink} onPress={() => navigation.navigate('MusicConnections')} accessibilityLabel="Gérer directement mes connexions musicales">
+          <Text style={styles.focusServiceIcon}>＋</Text>
+          <View style={styles.focusServiceCopy}>
+            <Text style={styles.focusServiceTitle}>Mes services musicaux</Text>
+            <Text style={styles.focusServiceHint}>Connecter ou synchroniser</Text>
+          </View>
+          <Text style={styles.focusChoiceArrow}>›</Text>
+        </TouchableOpacity>
+
+      </View> : null}
 
       {mobileSection === 'HOME' ? null : activeTab === 'MUSIQUES' ? (
         <FlatList
@@ -1665,7 +1687,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
           keyExtractor={(item) => `own:${trackIdentity(item)}`}
           refreshing={isLoading}
           onRefresh={() => { void refreshLibrary(); }}
-          ListHeaderComponent={saleSelectionMode ? (
+          ListHeaderComponent={<>{sectionControls}{saleSelectionMode ? (
             <View style={styles.saleWizardIntro}>
               <View style={styles.saleWizardTopRow}><Text style={styles.saleWizardStep}>ÉTAPE 1 SUR 4</Text><Text style={styles.saleWizardCount}>{selectedSaleTrackIds.size} sélectionné{selectedSaleTrackIds.size > 1 ? 's' : ''}</Text></View>
               <Text style={styles.saleWizardTitle}>Choisis les musiques</Text>
@@ -1716,7 +1738,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
                 </Text>
               </View>
             </View> : null}
-          </>}
+          </>}</>}
           ListFooterComponent={!saleSelectionMode && originFilter === 'ALL' && socialRepriseEntries.length ? <View style={[styles.originSection, styles.originSectionSocial]}>
             <TouchableOpacity
               style={styles.originSectionHeader}
@@ -1743,17 +1765,17 @@ export default function MyMusicScreen({ navigation, route }: any) {
           contentContainerStyle={styles.list}
           refreshing={isLoading}
           onRefresh={() => { void refreshLibrary(); }}
-          ListHeaderComponent={activeTab === 'VIBES' ? (
+          ListHeaderComponent={<>{sectionControls}{activeTab === 'VIBES' ? (
             <View style={styles.styleCountHeader}>
               <Text style={styles.styleCountTitle}>MES STYLES · {stylePlaylists.length}</Text>
-              <Text style={styles.styleCountHint}>{localKeptTracks.length} morceaux analysés · même source Supabase que ton profil. Tous les styles détectés sont listés ci-dessous, sans limite à 3.</Text>
+              <Text style={styles.styleCountHint} numberOfLines={1}>{localKeptTracks.length} morceaux · tous tes styles</Text>
             </View>
-          ) : null}
-          ListFooterComponent={activeTab === 'VIBES' && automaticStylePlaylists.length ? (
+          ) : null}</>}
+          ListFooterComponent={activeTab === 'VIBES' && uniqueAutomaticStylePlaylists.length ? (
             <View style={styles.autoStylesSection}>
-              <Text style={styles.autoStylesTitle}>SUGGESTIONS AUTO · {automaticStylePlaylists.length}</Text>
+              <Text style={styles.autoStylesTitle}>SUGGESTIONS AUTO · {uniqueAutomaticStylePlaylists.length}</Text>
               <Text style={styles.autoStylesHint}>Ces suggestions ne sont PAS comptées dans tes {stylePlaylists.length} Styles musicaux affichés sur ton profil.</Text>
-              {automaticStylePlaylists.map((playlist) => <View key={`auto:${playlist.id}`}>{renderPlaylist({ item: playlist })}</View>)}
+              {uniqueAutomaticStylePlaylists.map((playlist) => <View key={`auto:${playlist.id}`}>{renderPlaylist({ item: playlist })}</View>)}
             </View>
           ) : null}
           ListEmptyComponent={<View style={styles.emptyCard}><Text style={styles.emptyTitle}>{activeTab === 'ARTISTES' ? 'Tes artistes apparaîtront ici.' : 'Aucune musique gardée'}</Text><Text style={styles.emptyText}>Garde quelques morceaux : Loki Music construira ensuite ton univers et, selon ta formule, tes Styles automatiques.</Text><TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('Main', { screen: 'Listen' })}><Text style={styles.emptyButtonText}>ÉCOUTER</Text></TouchableOpacity></View>}
@@ -2094,6 +2116,7 @@ const styles = StyleSheet.create({
   purchaseTrackRow:{minHeight:58,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,padding:7,flexDirection:'row',alignItems:'center',gap:9},
   purchaseTrackCover:{width:42,height:42,borderRadius:10,backgroundColor:colors.backgroundCard},purchaseTrackCoverFallback:{alignItems:'center',justifyContent:'center'},purchaseTrackCoverText:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},
   purchaseTrackCopy:{flex:1,minWidth:0},purchaseTrackTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},purchaseTrackArtist:{color:colors.textMuted,fontSize:10,fontWeight:'700',marginTop:2},
+  focusBarTabs:{flexDirection:'row',gap:6,flexShrink:0},focusBarTab:{minHeight:36,paddingHorizontal:14,borderRadius:18,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},focusBarTabOn:{backgroundColor:colors.primary,borderColor:colors.primary},focusBarTabText:{color:colors.textMuted,fontSize:12,fontWeight:'800'},focusBarTabTextOn:{color:'#FFFFFF'},
   focusBar:{marginHorizontal:12,marginTop:9,marginBottom:5,minHeight:54,borderRadius:15,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center',paddingHorizontal:8,gap:9},
   focusBack:{width:38,height:38,borderRadius:12,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center'},focusBackText:{color:colors.primaryLight,fontSize:30,fontWeight:'700',lineHeight:32},focusBarCopy:{flex:1},focusBarTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},focusBarHint:{color:colors.textMuted,fontSize:9,marginTop:1},
   mobileAccordion:{marginHorizontal:12,marginTop:8,gap:7},
@@ -2107,7 +2130,7 @@ const styles = StyleSheet.create({
   mobileAccordionChevron:{color:colors.textPrimary,fontSize:18,fontWeight:'900'},
   mobileAccordionBody:{borderWidth:1,borderColor:colors.primary,borderRadius:15,overflow:'hidden',backgroundColor:colors.backgroundCard},
   tabs:{marginTop:10,paddingHorizontal:10,flexDirection:'row',borderBottomWidth:1,borderBottomColor:colors.border},tab:{flex:1,minHeight:44,alignItems:'center',justifyContent:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:12,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},tabIndicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},
-  organizeAction:{marginHorizontal:0,marginBottom:10,borderWidth:1,borderColor:colors.primary,borderRadius:16,backgroundColor:colors.backgroundCard,padding:13,gap:11},organizeActionCopy:{gap:4},organizeActionButton:{minHeight:44,borderRadius:13,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',paddingHorizontal:16},organizeActionButtonDone:{backgroundColor:'#1F9D6B'},organizeActionButtonText:{color:colors.white,fontSize:12,fontWeight:'900',letterSpacing:.4},vibeBar:{marginHorizontal:14,marginTop:8,minHeight:44,borderRadius:14,borderWidth:1,borderColor:colors.primary,backgroundColor:'#171020',paddingHorizontal:12,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:8},vibeBarLocked:{borderColor:'#493369'},vibeBarCopy:{flex:1},vibeBarTitle:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},vibeBarHint:{color:'#FFFFFF',fontSize:11,lineHeight:15,marginTop:2,fontWeight:'700'},vibeArrow:{fontSize:16},
+  organizeAction:{marginHorizontal:12,marginTop:6,marginBottom:4,borderWidth:1,borderColor:colors.border,borderRadius:12,backgroundColor:colors.backgroundCard,paddingVertical:7,paddingHorizontal:10,gap:10,flexDirection:'row',alignItems:'center'},organizeActionCopy:{flex:1,minWidth:0,gap:1},organizeActionButton:{minHeight:36,borderRadius:13,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',paddingHorizontal:16},organizeActionButtonDone:{backgroundColor:'#1F9D6B'},organizeActionButtonText:{color:colors.white,fontSize:12,fontWeight:'900',letterSpacing:.4},vibeBar:{marginHorizontal:14,marginTop:8,minHeight:44,borderRadius:14,borderWidth:1,borderColor:colors.primary,backgroundColor:'#171020',paddingHorizontal:12,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:8},vibeBarLocked:{borderColor:'#493369'},vibeBarCopy:{flex:1},vibeBarTitle:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},vibeBarHint:{color:'#FFFFFF',fontSize:11,lineHeight:15,marginTop:2,fontWeight:'700'},vibeArrow:{fontSize:16},
   styleCountHeader:{marginBottom:10,padding:12,borderRadius:18,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.primary},
   styleCountTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900',letterSpacing:.5},
   styleCountHint:{color:colors.textMutedGrey,fontSize:11,lineHeight:16,marginTop:3},
@@ -2147,7 +2170,7 @@ const styles = StyleSheet.create({
   selectionToolbarHint:{color:colors.textMutedGrey,fontSize:11,fontWeight:'700',marginTop:2},
   stickySelectionActions:{flexDirection:'row',alignItems:'stretch',gap:8},
   playlistFoldersIntro:{marginBottom:14},playlistFoldersTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900',letterSpacing:.6},playlistFoldersHint:{color:colors.textMuted,fontSize:12,lineHeight:17,marginTop:4,marginBottom:8},
-  list:{paddingHorizontal:12,paddingVertical:8,flexGrow:1},playlistBlock:{backgroundColor:colors.backgroundCard,borderRadius:13,marginVertical:5,overflow:'hidden',borderWidth:1,borderColor:colors.border},smartBlock:{borderColor:'#493369'},playlistCard:{flexDirection:'row',minHeight:70,alignItems:'center'},playlistCover:{width:70,height:70,backgroundColor:colors.backgroundElevated},playlistCoverFallback:{alignItems:'center',justifyContent:'center'},playlistCoverText:{color:colors.primaryLight,fontSize:22,fontWeight:'900'},playlistInfo:{flex:1,paddingHorizontal:10},playlistTitleRow:{flexDirection:'row',alignItems:'center',gap:6},playlistName:{flexShrink:1,fontSize:14,fontWeight:'800',color:colors.textPrimary},smartPill:{paddingHorizontal:6,paddingVertical:3,borderRadius:999,backgroundColor:'#2A203A',borderWidth:1,borderColor:'#7652AF'},smartPillText:{color:'#C9B3FF',fontSize:7,fontWeight:'900'},songCount:{fontSize:9,color:colors.keep,marginTop:4,fontWeight:'700'},chevron:{color:colors.primaryLight,fontSize:18,paddingHorizontal:8},miniEdit:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:colors.border},miniEditText:{color:colors.textSecondary,fontSize:13,fontWeight:'900'},
+  list:{paddingHorizontal:12,paddingVertical:8,flexGrow:1},sectionControls:{marginHorizontal:-12,marginTop:-8,marginBottom:6},playlistBlock:{backgroundColor:colors.backgroundCard,borderRadius:13,marginVertical:5,overflow:'hidden',borderWidth:1,borderColor:colors.border},smartBlock:{borderColor:'#493369'},playlistCard:{flexDirection:'row',minHeight:70,alignItems:'center'},playlistCover:{width:70,height:70,backgroundColor:colors.backgroundElevated},playlistCoverFallback:{alignItems:'center',justifyContent:'center'},playlistCoverText:{color:colors.primaryLight,fontSize:22,fontWeight:'900'},playlistInfo:{flex:1,paddingHorizontal:10},playlistTitleRow:{flexDirection:'row',alignItems:'center',gap:6},playlistName:{flexShrink:1,fontSize:14,fontWeight:'800',color:colors.textPrimary},smartPill:{paddingHorizontal:6,paddingVertical:3,borderRadius:999,backgroundColor:'#2A203A',borderWidth:1,borderColor:'#7652AF'},smartPillText:{color:'#C9B3FF',fontSize:7,fontWeight:'900'},songCount:{fontSize:9,color:colors.keep,marginTop:4,fontWeight:'700'},chevron:{color:colors.primaryLight,fontSize:18,paddingHorizontal:8},miniEdit:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:colors.border},miniEditText:{color:colors.textSecondary,fontSize:13,fontWeight:'900'},
   tracksPanel:{borderTopWidth:1,borderTopColor:colors.border,padding:8,gap:6,backgroundColor:colors.backgroundElevated},
   // Adel (21/09/2026) : hauteur fixe (56, plus compacte que les cartes de
   // profil car cette liste est déjà nichée dans un panneau déplié) --

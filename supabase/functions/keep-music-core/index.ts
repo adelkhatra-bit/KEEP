@@ -145,7 +145,7 @@ async function findFreeCatalogData(title: string, artist: string): Promise<FreeC
       const candidateTitle = normalizeText(item?.trackName);
       const candidateArtist = normalizeText(item?.artistName);
       return candidateTitle.includes(wantedTitle) && candidateArtist.includes(wantedArtist);
-    }) ?? results[0];
+    }) ?? null; // Adel 17/10/2026 : jamais un autre morceau au hasard
 
     const artwork = String(best?.artworkUrl100 || best?.artworkUrl60 || "").trim();
     const previewUrl = String(best?.previewUrl || "").trim();

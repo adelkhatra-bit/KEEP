@@ -36,6 +36,21 @@ export function readLinkMessage(hash: string): string | null {
     : 'La connexion de cet ordinateur a échoué. Scanne le nouveau QR avec ton téléphone.';
 }
 
+// Adel (17/10/2026) : sur une copie du site (ex. Vercel), la connexion doit revenir sur CETTE copie et non sur
+// le site officiel. Supabase n'accepte ce retour que si l'adresse figure dans ses URL de redirection autorisées ;
+// sinon il revient de lui-même au site officiel (aucun risque).
+function sameSiteActionLink(link: string): string {
+  try {
+    const url = new URL(link);
+    const here = `${window.location.origin}/`;
+    const target = url.searchParams.get('redirect_to');
+    if (target && new URL(target).origin !== window.location.origin) url.searchParams.set('redirect_to', here);
+    return url.toString();
+  } catch {
+    return link;
+  }
+}
+
 // Une seule création de QR à la fois (le double rendu de React créait 2 jumelages à 3 s d'écart).
 let inflightCreate: Promise<DesktopPairingChallenge> | null = null;
 function createOnce(): Promise<DesktopPairingChallenge> {
@@ -117,7 +132,7 @@ export default function WebCompanionPairingScreen() {
           rememberPendingWebPairing(challenge.pairingId, challenge.token);
           clearDesktopChallenge();
           setMessage('Téléphone validé. Connexion de cet ordinateur…');
-          window.location.assign(result.actionLink);
+          window.location.assign(sameSiteActionLink(result.actionLink));
           return;
         }
       } catch {

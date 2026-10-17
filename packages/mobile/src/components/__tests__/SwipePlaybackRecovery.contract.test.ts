@@ -44,10 +44,9 @@ describe('Loki Music Swipe iPhone / desktop audio recovery', () => {
     expect(modal).toContain('listenedIdsRef.current.clear();');
   });
 
-  it('offers an accessible one-tap next control and preserves the original three action buttons', () => {
-    expect(modal).toContain('testID="swipe-next-without-gesture"');
-    expect(modal).toContain('accessibilityLabel="Morceau suivant"');
-    expect(modal).toContain('onPress={() => { void advance(); }}');
+  it('has no Next button on the card (Adel 17/10/2026: swipe up) and preserves the original three action buttons', () => {
+    expect(modal).not.toContain('testID="swipe-next-without-gesture"');
+    expect(modal).toContain('onSwipeUp={() => {');
     expect(modal).toContain('>PASSER</Text>');
     expect(modal).toContain('>ARRÊTER</Text>');
     expect(modal).toContain('♡ GARDER');

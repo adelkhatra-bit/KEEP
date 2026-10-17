@@ -188,7 +188,7 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(fs.readFileSync(path.join(__dirname, '../../services/styleGroups.ts'), 'utf8')).toContain('for (const track of tracks)');
     expect(myMusic).toContain("if (playlist.id.startsWith(STYLE_ID_PREFIX))");
     expect(myMusic).toContain('MES STYLES · {stylePlaylists.length}');
-    expect(myMusic).toContain('SUGGESTIONS AUTO · {automaticStylePlaylists.length}');
+    expect(myMusic).toContain('SUGGESTIONS AUTO · {uniqueAutomaticStylePlaylists.length}');
     expect(myMusic).toContain('ne sont PAS comptées dans tes {stylePlaylists.length} Styles');
     expect(myMusic).not.toContain('for (const track of allKnownTracks)');
     expect(ownerProfile).toContain("{genreFolders.length} style{genreFolders.length > 1 ? 's' : ''}");
@@ -225,5 +225,19 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(profile).toContain('const visible = maskedIds.length ? normalized.filter((t) => !maskedIds.includes(t.trackId)) : normalized;');
     expect(profile).toContain('setTracks(visible);');
     expect(profile).toContain('const swipeTracks = useMemo<CanonicalTrack[]>(() => tracks.map((track) => ({');
+  });
+});
+
+describe('Playlists full-height layout (Adel 17/10/2026)', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const screen = fs.readFileSync(path.join(__dirname, '..', 'MyMusicScreen.tsx'), 'utf8');
+  it('scrolls the header, tabs and controls with the list instead of pinning them', () => {
+    expect(screen).toContain('ListHeaderComponent={<>{sectionControls}{saleSelectionMode ?');
+    expect(screen).toContain("ListHeaderComponent={<>{sectionControls}{activeTab === 'VIBES' ?");
+    expect(screen).toContain("{mobileSection === 'HOME' ? pageHeader : null}");
+  });
+  it('never repeats an existing Style inside the auto suggestions', () => {
+    expect(screen).toContain('!existing.has(norm(playlist.name))');
   });
 });
