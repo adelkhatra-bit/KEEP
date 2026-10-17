@@ -76,8 +76,11 @@ export function startCrossDeviceSessionSync(userId: string): () => void {
     const state = useUserStore.getState();
     return !stopped && state.user?.id === userId && !state.isLocalGuest && !state.isDemoMode;
   };
+  // Adel (17/10/2026) : « 9 prêts à trier sur PC, 23 sur iPhone ». Les sessions enregistrées avant l'ajout du
+  // champ ownerUserId n'étaient JAMAIS envoyées. Un changement de compte vide l'historique local (clearSessions),
+  // donc une session sans propriétaire sur cet appareil appartient au compte connecté : on l'adopte.
   const owned = (s: KeepSession) =>
-    s.ownerUserId === userId && !isCloudProfileRecoverySession(s);
+    (s.ownerUserId ?? userId) === userId && !isCloudProfileRecoverySession(s);
 
   const verifiedSession = async () => {
     if (!sameIdentity()) return false;
@@ -135,7 +138,7 @@ export function startCrossDeviceSessionSync(userId: string): () => void {
         if (!sameIdentity()) return;
         if (tombstones.has(id)) continue;
         const { data, error } = await client.rpc('keep_sync_device_session', {
-          p_session_id: id, p_snapshot: JSON.parse(serial(session)), p_deleted: false,
+          p_session_id: id, p_snapshot: JSON.parse(serial({ ...session, ownerUserId: userId })), p_deleted: false,
         });
         if (error) break;
         if (pending.get(id) === session) pending.delete(id);
@@ -170,7 +173,7 @@ export function startCrossDeviceSessionSync(userId: string): () => void {
             dismissed.add(row.session_id);
             changed = true;
           }
-          if (byId.get(row.session_id)?.ownerUserId === userId) {
+          if ((byId.get(row.session_id)?.ownerUserId ?? userId) === userId && byId.has(row.session_id)) {
             byId.delete(row.session_id);
             changed = true;
           }
