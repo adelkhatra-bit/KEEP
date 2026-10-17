@@ -1434,9 +1434,7 @@ export default function MusicSwipeDeckModal({
                   <View style={s.autoRow}>
                     <View style={[s.dot,resolvedPreviewUrl ? s.dotOn : s.dotOff]} />
                     <Text style={s.autoText} numberOfLines={2}>{previewLabel}</Text>
-                    <TouchableOpacity testID="swipe-next-without-gesture" accessibilityRole="button" accessibilityLabel="Morceau suivant" style={s.nextInlineButton} disabled={controlsLocked} onPress={() => { void advance(); }}>
-                      <Text style={s.nextInlineText}>↑ SUIVANT</Text>
-                    </TouchableOpacity>
+                    {/* Adel (17/10/2026) : plus de bouton SUIVANT sur la carte -- on swipe vers le haut (flèche ↑ au clavier sur PC). */}
                   </View>
                   {!resolvedPreviewUrl && !previewResolving && sourcePlayer && !sourcePlayerOpen ? (
                     <TouchableOpacity testID="story-open-source-player" style={s.manualPlayButton} accessibilityRole="button" accessibilityLabel="Écouter la vidéo originale dans Loki Music" onPress={() => { stopTrackPreviewFast(); setSourcePlayerOpen(true); }}>
@@ -1639,13 +1637,15 @@ const s = StyleSheet.create({
   artworkStage:{flex:1,minHeight:90,width:'100%',overflow:'hidden',position:'relative',alignItems:'center',justifyContent:'center',backgroundColor:'#090610'},
   // Gouttières latérales (SWIPE_GUTTER) : l'iframe/WebView du fournisseur avale tous les gestes ; sans marge, le Swipe était mort sur
   // chaque titre importé via YouTube. Un doigt posé sur une gouttière (ou sur le titre) passe au Swipe ; l'overlay est « box-none ».
-  sourcePlayerOverlay:{position:'absolute',top:0,left:0,right:0,bottom:0,zIndex:15,backgroundColor:'#100B18',paddingVertical:8,paddingHorizontal:44,justifyContent:'flex-start'},
+  sourcePlayerOverlay:{position:'absolute',top:'34%',left:0,right:0,bottom:0,zIndex:15,backgroundColor:'rgba(16,11,24,.94)',paddingVertical:8,paddingHorizontal:44,justifyContent:'flex-start'},
   sourcePlayerFrame:{flex:1,minHeight:0,width:'100%'},
   sourcePlayerToolbar:{flexDirection:'row',gap:6,paddingBottom:6},sourcePlayerError:{color:'#F5CE87',fontSize:11,lineHeight:15,paddingTop:5,textAlign:'center'},
   sourcePlayerClose:{flex:1,minHeight:40,alignItems:'center',justifyContent:'center',backgroundColor:'#32224A',borderWidth:1,borderColor:'#7E5AB8',borderRadius:10,paddingHorizontal:3},
   sourcePlayerCloseText:{color:'#FFFFFF',fontWeight:'800',fontSize:12},
   cover:{...StyleSheet.absoluteFillObject,width:'100%',height:'100%'},coverFallback:{alignItems:'center',justifyContent:'center',backgroundColor:'#241936'},coverK:{color:colors.primaryLight,fontSize:72,fontWeight:'900',letterSpacing:6},
-  storyEmbeddedInCard:{flex:1,minHeight:0,width:'100%',paddingHorizontal:6,paddingTop:38,justifyContent:'center'},
+  // Adel (17/10/2026) : la jaquette reste visible en haut et le lecteur officiel n'occupe que le bas, avec des gouttières
+  // latérales : le doigt posé sur la jaquette ou sur les bords swipe du premier coup (la WebView avale les gestes).
+  storyEmbeddedInCard:{position:'absolute',left:0,right:0,bottom:0,height:'56%',paddingHorizontal:44,paddingBottom:6,justifyContent:'flex-end'},
   cleanStoryNotice:{color:'#E1D6F4',fontSize:12,lineHeight:17,textAlign:'center',paddingTop:18,paddingHorizontal:14},
   gradientStoryEmbed:{paddingHorizontal:14,paddingTop:8,paddingBottom:10,backgroundColor:'rgba(9,6,16,.86)'},
   embeddedTrackTitle:{fontSize:19,lineHeight:23},
