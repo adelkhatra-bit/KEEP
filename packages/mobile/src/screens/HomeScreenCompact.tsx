@@ -867,9 +867,14 @@ export default function HomeScreenCompact({ navigation }: any) {
     requestEndSession();
   };
   const openSessionHistorySafely = () => {
+    // iOS : ne jamais présenter un nouvel écran pendant qu'une Modal se ferme (touches bloquées, écran figé).
+    // On coupe l'extrait, on ferme la fenêtre locale, puis on navigue après sa fermeture.
+    const peekWasOpen = sessionPeekOpen;
+    void stopTrackPreviewFast(undefined);
     setSessionPeekOpen(false);
     // Browse existing sessions without unexpectedly stopping a shared PC tab.
-    openSessionHistoryGuarded(() => navigation.navigate('SessionHistory'));
+    if (peekWasOpen) setTimeout(() => openSessionHistoryGuarded(() => navigation.navigate('SessionHistory')), 380);
+    else openSessionHistoryGuarded(() => navigation.navigate('SessionHistory'));
   };
   const showQueuedSessionSwipe = () => {
     const sessionId = queuedSwipeSessionId.current;
