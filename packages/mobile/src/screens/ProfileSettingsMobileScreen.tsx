@@ -66,6 +66,16 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
   const [citySearching, setCitySearching] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [countryOpen, setCountryOpen] = useState(false);
+
+  // Version réellement installée (Adel 18/10/2026 : « je ne vois pas le résultat ») : numéro de la mise à jour OTA affichée en bas des réglages.
+  const [versionLine, setVersionLine] = useState('Version Loki Music');
+  useEffect(() => {
+    if (Platform.OS === 'web') { setVersionLine('Version web Loki Music'); return; }
+    import('expo-updates').then((Updates) => {
+      const id = String((Updates as any).updateId || '').slice(0, 8);
+      setVersionLine(id ? `Mise à jour installée : ${id}` : 'Version d’origine de l’application (aucune mise à jour reçue)');
+    }).catch(() => {});
+  }, []);
   const [dateOpen, setDateOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
@@ -380,6 +390,7 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
       >
         {sessionBusy ? <ActivityIndicator color={hasRealAccount ? colors.danger : colors.primaryLight}/> : <Text style={hasRealAccount ? s.disconnectText : s.connectText}>{hasRealAccount ? 'SE DÉCONNECTER' : 'SE CONNECTER / CRÉER UN COMPTE'}</Text>}
       </TouchableOpacity>
+      <Text style={{ color: colors.textMuted, fontSize: 11, textAlign: 'center', marginTop: 14 }} testID="app-version-line">{versionLine}</Text>
     </ScrollView>
 
     <KeepModal visible={accountOpen} transparent animationType="fade" onRequestClose={()=>setAccountOpen(false)}><View style={s.modalBackdrop}><View style={s.modalCard}><View style={s.modalHeader}><Text style={s.modalTitle}>Débloquer mon profil</Text><TouchableOpacity onPress={()=>setAccountOpen(false)}><Text style={s.close}>Plus tard</Text></TouchableOpacity></View><UsernameAccountForm initialMode="create" onSuccess={()=>setAccountOpen(false)} /><TouchableOpacity style={s.continueTrial} onPress={()=>setAccountOpen(false)}><Text style={s.continueTrialText}>Continuer en mode essai</Text></TouchableOpacity></View></View></KeepModal>
