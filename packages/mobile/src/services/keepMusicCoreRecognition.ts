@@ -10,8 +10,10 @@ import { parseMusicShareInput } from './musicShareLink';
 import { APP_NAME } from '../config/brand';
 import { updateRecognitionConsensus, type RecognitionConsensusState } from './recognitionConsensus';
 
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+import { PUBLIC_SUPABASE_URL } from '../config/supabasePublic';
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || PUBLIC_SUPABASE_URL;
+import { PUBLIC_SUPABASE_ANON_KEY } from '../config/supabasePublic';
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || PUBLIC_SUPABASE_ANON_KEY;
 const DEVICE_KEY = '@keep/music-device-id-v1';
 const FALLBACK_RECHECK_MS = 30 * 1000;
 const FALLBACK_QUOTA_RECHECK_MS = 6 * 60 * 60 * 1000;

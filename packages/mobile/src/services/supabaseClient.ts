@@ -11,8 +11,10 @@ import 'react-native-url-polyfill/auto';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+import { PUBLIC_SUPABASE_URL } from '../config/supabasePublic';
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || PUBLIC_SUPABASE_URL;
+import { PUBLIC_SUPABASE_ANON_KEY } from '../config/supabasePublic';
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || PUBLIC_SUPABASE_ANON_KEY;
 const isWebRuntime = Boolean((globalThis as any)?.location?.href);
 
 // 02/10/2026 : les logs Supabase ont prouvé des rafales simultanées de RPC

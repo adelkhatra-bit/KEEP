@@ -3,8 +3,10 @@ import type { RecognitionResult } from '@keep/music';
 import { getSupabaseAccessToken } from './supabaseClient';
 import type { SharedMusicSource } from './sharedMusicSourceService';
 
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+import { PUBLIC_SUPABASE_URL } from '../config/supabasePublic';
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || PUBLIC_SUPABASE_URL;
+import { PUBLIC_SUPABASE_ANON_KEY } from '../config/supabasePublic';
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || PUBLIC_SUPABASE_ANON_KEY;
 const DEVICE_KEY = '@keep/music-device-id-v1';
 // Le serveur valide les liens directs de plateformes musicales dès 0.58.
 // N'abaisser le seuil QUE pour une source explicitement partagée sur une
