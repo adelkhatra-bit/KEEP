@@ -1555,14 +1555,14 @@ export default function MyMusicScreen({ navigation, route }: any) {
       </View> : null}
 
       {workspaceTab === 'LIBRARY' && mobileSection === 'TRACKS' && activeTab === 'MUSIQUES' && localKeptEntries.length && !saleSelectionMode ? <View style={styles.originSummary}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.originFilters}>
+        <View style={styles.originFilters}>
           {([
             ['ALL', 'TOUT'],
             ['PRIVATE', 'PRIVÉ'],
-            ['LISTEN', 'DÉCOUVERTE'],
+            ['LISTEN', 'DÉCOUV.'],
             ['SESSION', 'SESSION'],
-            ['USERS', '🔒 REPRISE'],
-            ['IDENTIFIED', 'IDENTIFIÉ'],
+            ['USERS', 'REPRISE'],
+            ['IDENTIFIED', 'IDENTIF.'],
             ['PULSE', 'LOKI'],
           ] as const).map(([key, label]) => (
             <TouchableOpacity
@@ -1573,10 +1573,10 @@ export default function MyMusicScreen({ navigation, route }: any) {
               accessibilityState={{ selected: originFilter === key }}
               accessibilityLabel={label}
             >
-              <Text style={[styles.originFilterText, originFilter === key && styles.originFilterTextOn]}>{label}</Text>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={[styles.originFilterText, originFilter === key && styles.originFilterTextOn]}>{label}</Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </View>
       </View> : null}
 
       {workspaceTab === 'LIBRARY' && mobileSection === 'ORGANIZE' && activeTab === 'VIBES' && analysis ? <TouchableOpacity style={styles.analysisSummary} onPress={() => setAnalysisExpanded((value) => !value)}>
@@ -2151,7 +2151,7 @@ const styles = StyleSheet.create({
   manageGuideText:{color:colors.textMutedGrey,fontSize:11,lineHeight:16,marginTop:2},
   libraryStrip:{marginHorizontal:14,marginTop:5,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,minHeight:50,flexDirection:'row',alignItems:'center',paddingHorizontal:8,gap:5},stat:{minWidth:46,alignItems:'center',justifyContent:'center',paddingHorizontal:3},statValue:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},statLabel:{color:colors.textMuted,fontSize:7,fontWeight:'900',marginTop:1},statLabelPublic:{color:'#68F2B1'},statLabelPrivate:{color:'#FF758F'},visibilityTools:{flex:1,flexDirection:'row',justifyContent:'flex-end',gap:5},visibilityMini:{minHeight:34,paddingHorizontal:7,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},visibilityMiniPublic:{backgroundColor:'#123D2C',borderColor:'#38D990'},visibilityMiniPrivate:{backgroundColor:'#4A171B',borderColor:'#F0525D'},visibilityMiniText:{color:'#FFFFFF',fontSize:7.5,fontWeight:'900'},
   originSummary:{marginHorizontal:14,marginTop:5,alignItems:'center'},originSummaryText:{color:colors.textMuted,fontSize:11,fontWeight:'800'},originOwnCount:{color:colors.keep},originSocialCount:{color:colors.primaryLight},originTotalCount:{color:colors.textPrimary},
-  originFilters:{width:'100%',flexDirection:'row',gap:6},originFilterButton:{flex:1,minHeight:36,paddingHorizontal:5,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},originFilterButtonOn:{borderColor:colors.primaryLight,backgroundColor:colors.backgroundCard},originFilterText:{color:colors.textMuted,fontSize:8,fontWeight:'900',textAlign:'center'},originFilterTextOn:{color:colors.textPrimary},
+  originFilters:{width:'100%',flexDirection:'row',flexWrap:'nowrap',gap:4,alignItems:'stretch'},originFilterButton:{flex:1,minWidth:0,minHeight:34,paddingHorizontal:3,borderRadius:10,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},originFilterButtonOn:{borderColor:colors.primaryLight,backgroundColor:colors.backgroundCard},originFilterText:{color:colors.textMuted,fontSize:10,fontWeight:'800',textAlign:'center'},originFilterTextOn:{color:colors.textPrimary},
   originSection:{borderRadius:18,borderWidth:1,overflow:'hidden',marginBottom:10},originSectionOwn:{borderColor:colors.keep,backgroundColor:colors.successFaint},originSectionSocial:{borderColor:colors.primary,backgroundColor:colors.primaryFaint,marginTop:10},originSectionHeader:{minHeight:52,paddingHorizontal:14,paddingVertical:10,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},originSectionTitleRow:{flexDirection:'row',alignItems:'center',gap:7,flex:1,minWidth:0},originSectionIcon:{fontSize:15},originSectionTitle:{fontSize:14,fontWeight:'900',flexShrink:1},originSectionTitleOwn:{color:colors.keep},originSectionTitleSocial:{color:colors.primaryLight},originSectionRight:{flexDirection:'row',alignItems:'center',gap:7},originSectionCount:{fontSize:10,fontWeight:'900'},originSectionCountOwn:{color:colors.keep},originSectionCountSocial:{color:colors.primaryLight},originSectionChevron:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},originSectionBody:{paddingHorizontal:8,paddingBottom:8,gap:6},
 
   analysisSummary:{marginHorizontal:14,marginTop:6,marginBottom:10,minHeight:44,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:10,flexDirection:'row',alignItems:'center',gap:8},analysisSummaryText:{flex:1,color:colors.textPrimary,fontSize:10,lineHeight:14,fontWeight:'800'},analysisChevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},analysisCard:{marginHorizontal:14,marginTop:4,backgroundColor:colors.backgroundElevated,borderRadius:12,padding:10,gap:4},analysisLine:{color:colors.textSecondary,fontSize:11},genreToggle:{flexDirection:'row',alignItems:'center',gap:6},genreLine:{flex:1,color:colors.primaryLight,fontSize:10,lineHeight:15},genreChevron:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},genreChips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:2},genreChip:{paddingHorizontal:9,paddingVertical:5,borderRadius:999,backgroundColor:'#2A203A',borderWidth:1,borderColor:'#7652AF'},genreChipText:{color:'#C9B3FF',fontSize:9,fontWeight:'800'},analysisHelp:{color:colors.textMuted,fontSize:9,lineHeight:14},
