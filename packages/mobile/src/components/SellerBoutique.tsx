@@ -130,11 +130,10 @@ function OfferCard({ offer, overlaps, unlocked, onPress, width, ownerMode = fals
       </LinearGradient>
       <Text style={s.cardTitle} numberOfLines={2}>{offerDisplayName(offer)}</Text>
       <Text style={s.cardMeta}>{offer.trackCount} titre{offer.trackCount > 1 ? 's' : ''}</Text>
-      <PriceToken offer={offer} unlocked={unlocked} />
-      {/* Adel 18/10/2026 : « comme sur Amazon, il faut un bouton payer ». Même parcours qu'avant (la fenêtre d'écoute gère l'achat). */}
+      {/* Adel : « il faut un bouton payer ». Libellés 'PAYER' / 'DÉBLOQUER'. Un seul bloc prix + action : le visiteur comprend tout de suite quoi faire et combien ça coûte. */}
       <View style={[s.cardBuy, (unlocked || ownerMode) && s.cardBuyListen]}>
-        <Text style={[s.cardBuyText, (unlocked || ownerMode) && s.cardBuyListenText]} numberOfLines={1}>
-          {unlocked || ownerMode ? '▶ ÉCOUTER' : offer.paymentMode === 'FREE' ? 'DÉBLOQUER' : Platform.OS !== 'web' && offer.paymentMode === 'MONEY' ? 'VOIR' : 'PAYER'}
+        <Text style={[s.cardBuyText, (unlocked || ownerMode) && s.cardBuyListenText]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+          {unlocked || ownerMode ? '▶ ÉCOUTER' : Platform.OS !== 'web' && offer.paymentMode === 'MONEY' ? 'VOIR' : offer.paymentMode === 'FREE' ? `DÉBLOQUER · ${salePriceLabel(offer)}` : `PAYER · ${salePriceLabel(offer)}`}
         </Text>
       </View>
     </TouchableOpacity>
@@ -274,26 +273,12 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
             {`${visibleOffers.length} collection${visibleOffers.length > 1 ? 's' : ''}`}{freeCount > 0 ? ` · ${freeCount} en FREE` : ''}{newTracksForViewer > 0 ? ` · ${newTracksForViewer} nouveauté${newTracksForViewer > 1 ? 's' : ''} pour toi` : ''}
           </Text>
         </View>
-        <TouchableOpacity
-          style={s.previewAll}
-          onPressIn={unlockWebAudioForGesture}
-          onPress={() => {
-            const queue = featured.length ? featured : ranked.slice(0, 1);
-            if (!queue.length) return;
-            if (onOpenAllOffers) onOpenAllOffers(queue);
-            else onOpenOffer(queue[0]);
-          }}
-          accessibilityRole="button"
-          accessibilityLabel="Écouter tous les aperçus des pépites à la une"
-        >
-          <Text style={s.previewAllText}>▶ Aperçus</Text>
-        </TouchableOpacity>
         <TouchableOpacity onPress={() => setStoreOpen(true)} accessibilityRole="button" accessibilityLabel={`Voir toute la boutique musicale, ${visibleOffers.length} collections`}>
           <Text style={s.seeAll}>Tout voir · {visibleOffers.length} ›</Text>
         </TouchableOpacity>
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipRow} contentContainerStyle={s.chips}>
-        {([['ALL', `Tout ${visibleOffers.length}`], ['FREE', `FREE ${freeCount}`], ...(moneyCount > 0 ? [['MONEY', Platform.OS === 'web' ? `€ ${moneyCount}` : `PROTÉGÉES ${moneyCount}`]] : []), ['NEW', 'Nouveautés']] as [typeof shelfFilter, string][]).map(([key, label]) => (
+        {([['ALL', 'Tout'], ['FREE', `FREE ${freeCount}`], ...(moneyCount > 0 ? [['MONEY', Platform.OS === 'web' ? `€ ${moneyCount}` : `PROTÉGÉES ${moneyCount}`]] : []), ['NEW', 'Nouveautés']] as [typeof shelfFilter, string][]).map(([key, label]) => (
           <TouchableOpacity key={key} style={[s.chip, shelfFilter === key && s.chipOn]} onPress={() => setShelfFilter(key)} accessibilityRole="button" accessibilityState={{ selected: shelfFilter === key }}>
             <Text style={[s.chipText, shelfFilter === key && s.chipTextOn]}>{label}</Text>
           </TouchableOpacity>
@@ -325,6 +310,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
           <OfferCard key={offer.offerId} offer={offer} overlaps={overlaps} ownerMode={ownerMode} unlocked={unlockedOfferIds.has(offer.offerId)} onPress={() => onOpenOffer(offer)} width={desktopStore ? Math.min(220, Math.floor((storeMaxWidth - 70) / 4)) : 142} />
         ))}
       </ScrollView>
+      {!ownerMode ? <Text style={s.hint}>Touche une collection pour écouter un aperçu, puis débloque-la.</Text> : null}
       {ownerMode ? <Text style={s.hint}>Pour publier ou modifier une collection, appuie sur Vendre dans ton profil.</Text> : null}
 
       <KeepModal visible={storeOpen} animationType="slide" transparent onRequestClose={() => setStoreOpen(false)}>
