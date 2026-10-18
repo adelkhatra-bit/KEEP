@@ -50,6 +50,10 @@ export default function StoryEmbeddedSourcePlayer({ sourceUrl, compact = false }
               key: excerptUrl,
               source: nativeYouTubeDocument ? { html: nativeYouTubeDocument.html, baseUrl: nativeYouTubeDocument.baseUrl } : { uri: excerptUrl },
               style: { flex: 1 },
+              // Audit tactile : un WebView qui défile avale le geste vers le haut du Swipe. Sans défilement propre, le doigt reste au Swipe (les appuis ▶ marchent toujours).
+              scrollEnabled: false,
+              bounces: false,
+              overScrollMode: 'never',
               javaScriptEnabled: true,
               domStorageEnabled: true,
               allowsInlineMediaPlayback: true,

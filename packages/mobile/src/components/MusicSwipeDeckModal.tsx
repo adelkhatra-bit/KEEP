@@ -1450,6 +1450,9 @@ export default function MusicSwipeDeckModal({
                             } catch {}
                           },
                           javaScriptEnabled: true,
+                          scrollEnabled: false,
+                          bounces: false,
+                          overScrollMode: 'never',
                           style: { flex: 1, width: '100%' },
                         })}
                     </View>
