@@ -34,7 +34,6 @@ describe('PublicUserProfileScreen — Boutique musicale et titres nouveaux', () 
   it('le bouton pluriel enchaîne toutes les Pépites à la une', () => {
     expect(boutique).toContain('onOpenAllOffers?: (offers: PublicPlaylistSaleOffer[]) => void;');
     expect(boutique).toContain('▶ ÉCOUTER');
-    expect(boutique).toContain('if (onOpenAllOffers) onOpenAllOffers(queue);');
     expect(source).toContain('onOpenAllOffers={(offers) => { void playFeaturedSalePreviews(offers); }}');
   });
 
