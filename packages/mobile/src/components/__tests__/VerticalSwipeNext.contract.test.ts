@@ -11,7 +11,7 @@ describe('TikTok-style upward swipe contract', () => {
 
   it('supports a real native upward gesture with a lower vertical threshold', () => {
     expect(deck).toContain("export type SwipeDirection = 'LEFT' | 'RIGHT' | 'UP';");
-    expect(deck).toContain('const VERTICAL_SWIPE_THRESHOLD = 40;');
+    expect(deck).toContain('const VERTICAL_SWIPE_THRESHOLD = 28;');
     expect(deck).toContain('onMoveShouldSetPanResponderCapture');
     expect(deck).toContain("return commitSwipe('UP')");
   });
