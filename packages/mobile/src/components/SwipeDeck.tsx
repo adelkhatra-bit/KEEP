@@ -19,9 +19,12 @@ type Props = {
 };
 
 const SWIPE_THRESHOLD = 72;
-const VERTICAL_SWIPE_THRESHOLD = 52;
-const VERTICAL_FLING_MIN_DISTANCE = 28;
-const VERTICAL_FLING_VELOCITY = -0.45;
+// Adel (18/10/2026) : « sur le téléphone, monter vers le haut ne change pas toujours de musique ». Seuils assouplis :
+// un geste franc du pouce (40 px, ou un petit coup de doigt rapide) suffit.
+const VERTICAL_SWIPE_THRESHOLD = 40;
+const VERTICAL_FLING_MIN_DISTANCE = 18;
+const VERTICAL_FLING_VELOCITY = -0.3;
+const SWIPE_SAFETY_RESET_MS = 2500;
 const EXIT_DISTANCE = 520;
 const EXIT_DISTANCE_Y = 760;
 
@@ -67,6 +70,8 @@ export default function SwipeDeck({
   const commitSwipe = (direction: SwipeDirection) => {
     if (animating.current) return;
     animating.current = true;
+    // Filet de sécurité : si le morceau suivant tarde (réseau), la carte ne reste jamais bloquée hors écran.
+    const safety = setTimeout(() => { x.setValue(0); y.setValue(0); animating.current = false; }, SWIPE_SAFETY_RESET_MS);
     const targetX = direction === 'RIGHT' ? EXIT_DISTANCE : direction === 'LEFT' ? -EXIT_DISTANCE : 0;
     const targetY = direction === 'UP' ? -EXIT_DISTANCE_Y : 0;
     Animated.parallel([
@@ -78,6 +83,7 @@ export default function SwipeDeck({
       Promise.resolve(callback?.())
         .catch(() => {})
         .finally(() => {
+          clearTimeout(safety);
           x.setValue(0);
           y.setValue(0);
           animating.current = false;
@@ -86,7 +92,7 @@ export default function SwipeDeck({
   };
 
   const wantsHorizontal = (gesture: any) => Boolean(latest.current.onSwipeLeft || latest.current.onSwipeRight) && Math.abs(gesture.dx) > 6 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.15;
-  const wantsUp = (gesture: any) => Boolean(latest.current.onSwipeUp) && gesture.dy < -6 && Math.abs(gesture.dy) > Math.abs(gesture.dx) * 1.1;
+  const wantsUp = (gesture: any) => Boolean(latest.current.onSwipeUp) && gesture.dy < -5 && Math.abs(gesture.dy) > Math.abs(gesture.dx) * 0.9;
 
   const responder = useRef(PanResponder.create({
     // Adel (05/10/2026) : « n'importe où où j'appuie, je dois pouvoir swiper vers le haut comme sur l'ordinateur ».
