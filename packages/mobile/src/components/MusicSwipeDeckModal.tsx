@@ -8,7 +8,7 @@ import { pushReportSurface } from '../services/reportSurface';
 import ChatDockHost from './ChatDockHost';
 import KeepVisibilityChoiceModal, { KeepSuccessModal } from './KeepVisibilityChoiceModal';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Image, Linking, Platform, SafeAreaView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, Linking, PanResponder, Platform, SafeAreaView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import type { CanonicalTrack } from '@keep/music';
 import SwipeDeck from './SwipeDeck';
@@ -1151,6 +1151,28 @@ export default function MusicSwipeDeckModal({
 
   const controlsLocked = processing || preparingDeck || keepPromptOpen || !!keepSuccess || previewInfoOpen || alreadyKeepInfoOpen;
 
+  // Style TikTok (Adel 18/10/2026 : « je n'arrive pas à remonter pour changer ») : un coup de doigt vers le haut
+  // N'IMPORTE OÙ sur l'écran (en-tête, bas de la fenêtre, zone hors carte) passe au morceau suivant.
+  // Phase « bulle » : si la carte (SwipeDeck) a déjà pris le geste, ce responder n'intervient pas.
+  const screenSwipeRef = useRef<{ locked: boolean; next: () => void }>({ locked: true, next: () => {} });
+  screenSwipeRef.current = {
+    locked: controlsLocked,
+    next: () => {
+      if (actionInFlight.current) return;
+      actionInFlight.current = true;
+      void advance().finally(() => { actionInFlight.current = false; });
+    },
+  };
+  const screenSwipe = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => false,
+    onMoveShouldSetPanResponder: (_, g) => !screenSwipeRef.current.locked && g.dy < -8 && Math.abs(g.dy) > Math.abs(g.dx) * 1.2,
+    onPanResponderTerminationRequest: () => false,
+    onPanResponderRelease: (_, g) => {
+      if (screenSwipeRef.current.locked) return;
+      if (g.dy <= -40 || (g.dy <= -18 && g.vy <= -0.3)) screenSwipeRef.current.next();
+    },
+  })).current;
+
   // PC : les flèches font le même geste que le Swipe (← passer, → garder, ↑ suivant). Indispensable quand le lecteur
   // YouTube/Spotify du fournisseur occupe la carte : son iframe avale la souris et ne laisse aucun geste au Swipe.
   const keyActionsRef = useRef<{ pass: () => void; keep: () => void; next: () => void; locked: boolean; ready: boolean }>({ pass: () => {}, keep: () => {}, next: () => {}, locked: true, ready: false });
@@ -1294,7 +1316,7 @@ export default function MusicSwipeDeckModal({
     : emptyTitle;
 
   return <KeepModal visible={visible} animationType="slide" onRequestClose={() => { void close(); }} presentationStyle="fullScreen">
-    <View style={[s.outer, desktopSwipeLayout && s.desktopOuter]} testID="story-viewport">
+    <View style={[s.outer, desktopSwipeLayout && s.desktopOuter]} testID="story-viewport" {...screenSwipe.panHandlers}>
     <SafeAreaView style={[s.container, desktopSwipeLayout && s.desktopPlayer, desktopSwipeLayout && { height: Math.max(410, windowHeight - 32) }]} testID="story-player">
       <View style={[s.header, desktopSwipeLayout && compactDeck && s.desktopHeaderCompact]}>
         <View style={s.headerText}>
