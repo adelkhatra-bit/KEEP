@@ -112,7 +112,7 @@ function PriceToken({ offer, unlocked }: { offer: PublicPlaylistSaleOffer; unloc
   );
 }
 
-function OfferCard({ offer, overlaps, unlocked, onPress, width }: { offer: PublicPlaylistSaleOffer; overlaps: Record<string, PlaylistSaleOverlap>; unlocked: boolean; onPress: () => void; width: number }) {
+function OfferCard({ offer, overlaps, unlocked, onPress, width, ownerMode = false }: { offer: PublicPlaylistSaleOffer; overlaps: Record<string, PlaylistSaleOverlap>; unlocked: boolean; onPress: () => void; width: number; ownerMode?: boolean }) {
   const genre = offer.genres?.[0] || 'Mix';
   const overlap = overlaps[offer.offerId];
   const ownedAll = Boolean(overlap && overlap.totalCount > 0 && overlap.missingCount === 0);
@@ -131,6 +131,12 @@ function OfferCard({ offer, overlaps, unlocked, onPress, width }: { offer: Publi
       <Text style={s.cardTitle} numberOfLines={2}>{offerDisplayName(offer)}</Text>
       <Text style={s.cardMeta}>{offer.trackCount} titre{offer.trackCount > 1 ? 's' : ''}</Text>
       <PriceToken offer={offer} unlocked={unlocked} />
+      {/* Adel 18/10/2026 : « comme sur Amazon, il faut un bouton payer ». Même parcours qu'avant (la fenêtre d'écoute gère l'achat). */}
+      <View style={[s.cardBuy, (unlocked || ownerMode) && s.cardBuyListen]}>
+        <Text style={[s.cardBuyText, (unlocked || ownerMode) && s.cardBuyListenText]} numberOfLines={1}>
+          {unlocked || ownerMode ? '▶ ÉCOUTER' : offer.paymentMode === 'FREE' ? 'DÉBLOQUER' : Platform.OS !== 'web' && offer.paymentMode === 'MONEY' ? 'VOIR' : 'PAYER'}
+        </Text>
+      </View>
     </TouchableOpacity>
   );
 }
@@ -261,34 +267,15 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
 
   return (
     <View style={s.root}>
-      <View style={s.banner}>
-        <View style={s.bannerHead}>
-          <View style={s.liveDot} />
-          <Text style={s.bannerKicker} numberOfLines={1}>{ownerMode ? 'MA BOUTIQUE' : `BOUTIQUE · @${sellerName}`}</Text>
-        </View>
-        <Text style={s.bannerTitle}>{`${visibleOffers.length} collection${visibleOffers.length > 1 ? 's' : ''} à découvrir`}</Text>
-        <Text style={s.bannerPersonal} numberOfLines={3}>
-          {ownerMode
-            ? 'Écoute tes collections ou ouvre Vendre pour les gérer.'
-            : viewerName
-              ? `${viewerName}, découvre la sélection de ${sellerName}.`
-              : `Découvre la sélection de ${sellerName}.`}
-        </Text>
-        <View style={s.buyerGuide}>
-          <Text style={s.buyerGuideTitle}>{ownerMode ? 'COMMENT VENDRE MES COLLECTIONS' : 'COMMENT ACHETER UNE COLLECTION'}</Text>
-          <Text style={s.buyerGuideText}>{ownerMode
-            ? '1. Ouvre Vendre dans ton profil · 2. Publie tes titres · 3. Configure ton PayPal pour recevoir les achats en euros.'
-            : Platform.OS === 'web'
-              ? '1. Écoute un extrait · 2. Choisis ta collection · 3. Débloque en FREE ou suis le paiement PayPal et la confirmation du vendeur.'
-              : '1. Écoute un extrait · 2. Choisis ta collection · 3. Débloque en FREE ou consulte les conditions de vente.'}</Text>
-        </View>
-        <View style={s.bannerPills}>
-          {freeCount > 0 ? <View style={[s.bannerPill, s.tokenFree]}><Text style={[s.bannerPillText, s.tokenTextFree]}>✦ {freeCount} en FREE</Text></View> : null}
-          {moneyCount > 0 ? <View style={[s.bannerPill, s.tokenMoney]}><Text style={[s.bannerPillText, s.tokenTextMoney]}>{Platform.OS === 'web' ? `€ ${moneyCount}` : `${moneyCount} PROTÉGÉE${moneyCount > 1 ? 'S' : ''}`}</Text></View> : null}
-          {newTracksForViewer > 0 ? <View style={[s.bannerPill, s.bannerPillNew]}><Text style={[s.bannerPillText, s.bannerPillNewText]}>{newTracksForViewer} nouveauté{newTracksForViewer > 1 ? 's' : ''} pour toi</Text></View> : null}
+      <View style={s.shelfHead}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={s.shelfTitle} numberOfLines={1}>{ownerMode ? 'Ma boutique' : `Boutique de @${sellerName}`}</Text>
+          <Text style={s.shelfSub} numberOfLines={1}>
+            {`${visibleOffers.length} collection${visibleOffers.length > 1 ? 's' : ''}`}{freeCount > 0 ? ` · ${freeCount} en FREE` : ''}{newTracksForViewer > 0 ? ` · ${newTracksForViewer} nouveauté${newTracksForViewer > 1 ? 's' : ''} pour toi` : ''}
+          </Text>
         </View>
         <TouchableOpacity
-          style={s.bannerCta}
+          style={s.previewAll}
           onPressIn={unlockWebAudioForGesture}
           onPress={() => {
             const queue = featured.length ? featured : ranked.slice(0, 1);
@@ -299,42 +286,8 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
           accessibilityRole="button"
           accessibilityLabel="Écouter tous les aperçus des pépites à la une"
         >
-          <Text style={s.bannerCtaText}>▶ ÉCOUTER LES APERÇUS</Text>
+          <Text style={s.previewAllText}>▶ Aperçus</Text>
         </TouchableOpacity>
-      </View>
-
-      {drop ? (
-        <TouchableOpacity style={s.drop} onPressIn={unlockWebAudioForGesture} onPress={() => onOpenOffer(drop)} accessibilityRole="button" accessibilityLabel={`Pépite à la une : ${offerDisplayName(drop)}, ${drop.paymentMode !== 'FREE' && Platform.OS !== 'web' ? 'protégée' : salePriceLabel(drop)}`}>
-          <LinearGradient colors={genreGradient(drop.genres?.[0] || 'Mix')} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.dropGradient}>
-            <View style={s.dropHead}>
-              <View style={s.dropLive}>
-                <View style={s.dropLiveDot} />
-                <Text style={s.dropKicker}>SÉLECTION</Text>
-              </View>
-            </View>
-            <View style={s.dropMain}>
-              <View style={s.dropCopy}>
-                <Text style={s.dropFeatured}>★ À LA UNE</Text>
-                <Text style={s.dropTitle} numberOfLines={1}>{offerDisplayName(drop)}</Text>
-                <Text style={s.dropMeta} numberOfLines={1}>
-                  {drop.trackCount} titres · {drop.genres?.[0] || 'Mix'}{ownerMode ? '' : dropNew > 0 ? ` · ${dropNew} nouveau${dropNew > 1 ? 'x' : ''} pour toi` : ' · déjà chez toi'}
-                </Text>
-              </View>
-              <View style={s.dropPlay}><Text style={s.dropPlayText}>▶</Text></View>
-            </View>
-            <View style={s.dropListenStrip}>
-              <Text style={s.dropListenText}>{'▶ ÉCOUTER'}</Text>
-              <Text style={s.dropListenArrow}>›</Text>
-            </View>
-            <View style={s.dropFoot}>
-              <PriceToken offer={drop} unlocked={false} />
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
-      ) : null}
-
-      <View style={s.shelfHead}>
-        <Text style={s.shelfTitle} numberOfLines={1}>{ownerMode ? 'Collections' : 'Explorer'}</Text>
         <TouchableOpacity onPress={() => setStoreOpen(true)} accessibilityRole="button" accessibilityLabel={`Voir toute la boutique musicale, ${visibleOffers.length} collections`}>
           <Text style={s.seeAll}>Tout voir · {visibleOffers.length} ›</Text>
         </TouchableOpacity>
@@ -369,12 +322,10 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
         contentContainerStyle={[s.shelf, desktopStore && { flexDirection: 'row', flexWrap: 'wrap', maxWidth: storeMaxWidth, alignSelf: 'center', justifyContent: 'center' }]}
         accessibilityLabel="Collections à débloquer">
         {shelf.map((offer) => (
-          <OfferCard key={offer.offerId} offer={offer} overlaps={overlaps} unlocked={unlockedOfferIds.has(offer.offerId)} onPress={() => onOpenOffer(offer)} width={desktopStore ? Math.min(220, Math.floor((storeMaxWidth - 70) / 4)) : 142} />
+          <OfferCard key={offer.offerId} offer={offer} overlaps={overlaps} ownerMode={ownerMode} unlocked={unlockedOfferIds.has(offer.offerId)} onPress={() => onOpenOffer(offer)} width={desktopStore ? Math.min(220, Math.floor((storeMaxWidth - 70) / 4)) : 142} />
         ))}
       </ScrollView>
-      <Text style={s.hint}>{ownerMode
-        ? 'Pour publier ou modifier une collection, appuie sur Vendre dans ton profil.'
-        : `Merci pour ta visite${viewerName ? ` ${viewerName}` : ''} · écoute, puis garde seulement ce qui te ressemble.`}</Text>
+      {ownerMode ? <Text style={s.hint}>Pour publier ou modifier une collection, appuie sur Vendre dans ton profil.</Text> : null}
 
       <KeepModal visible={storeOpen} animationType="slide" transparent onRequestClose={() => setStoreOpen(false)}>
         <View style={s.storeBackdrop}>
@@ -436,6 +387,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
                 <OfferCard
                   offer={offer}
                   overlaps={overlaps}
+                  ownerMode={ownerMode}
                   unlocked={unlockedOfferIds.has(offer.offerId)}
                   width={storeCardWidth}
                   onPress={() => { setStoreOpen(false); onOpenOffer(offer); }}
@@ -452,7 +404,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
 }
 
 const s = StyleSheet.create({
-  root: { gap: 10, marginTop: 10 },
+  root: { gap: 8, marginTop: 4 },
   banner: { borderRadius: 22, borderWidth: 1, borderColor: colors.primary, backgroundColor: '#140F24', padding: 16, gap: 12, overflow: 'hidden' },
   bannerHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.keep },
@@ -493,7 +445,10 @@ const s = StyleSheet.create({
   dropMeta: { color: '#F2EDFF', fontSize: 12, fontWeight: '700', marginTop: 4 },
   dropFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
   shelfHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 4 },
-  shelfTitle: { flex: 1, color: colors.textPrimary, fontSize: 16, fontWeight: '900' },
+  shelfTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '900' },
+  shelfSub: { color: colors.textSecondary, fontSize: 12, fontWeight: '700', marginTop: 2 },
+  previewAll: { minHeight: 30, paddingHorizontal: 10, borderRadius: 15, borderWidth: 1, borderColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  previewAllText: { color: colors.primaryLight, fontSize: 12, fontWeight: '900' },
   seeAll: { color: colors.primaryLight, fontSize: 12, fontWeight: '900' },
   // Rangées horizontales : jamais écrasées dans une colonne qui rétrécit.
   chipRow: { flexGrow: 0, flexShrink: 0 },
@@ -512,7 +467,7 @@ const s = StyleSheet.create({
   bundleButtonDisabled: { opacity: .55 },
   bundleButtonText: { color: GOLD_DARK, fontSize: 12, fontWeight: '900', letterSpacing: .5 },
   card: { borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard, padding: 8, gap: 5 },
-  cover: { height: 112, borderRadius: 12, padding: 8, justifyContent: 'space-between' },
+  cover: { height: 84, borderRadius: 12, padding: 8, justifyContent: 'space-between' },
   coverGenre: { color: '#FFFFFF', fontSize: 10, fontWeight: '900', letterSpacing: .8, alignSelf: 'flex-start' },
   coverNew: { alignSelf: 'flex-end', color: '#FFFFFF', fontSize: 10, fontWeight: '900', backgroundColor: 'rgba(0,0,0,.35)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, overflow: 'hidden' },
   coverOwned: { alignSelf: 'flex-end', color: colors.keep, fontSize: 10, fontWeight: '900', backgroundColor: 'rgba(0,0,0,.45)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, overflow: 'hidden' },
@@ -527,6 +482,10 @@ const s = StyleSheet.create({
   tokenTextMoney: { color: GOLD_DARK },
   tokenTextUnlocked: { color: colors.keep },
   hint: { color: '#F2EDFF', fontSize: 12, fontWeight: '600' },
+  cardBuy: { minHeight: 34, borderRadius: 10, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+  cardBuyListen: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.primaryLight },
+  cardBuyText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900', letterSpacing: .5 },
+  cardBuyListenText: { color: colors.primaryLight },
   storeBackdrop: { flex: 1, backgroundColor: 'rgba(3,2,7,.86)', justifyContent: 'flex-end', alignItems: 'center' },
   store: { width: '100%', maxWidth: 640, maxHeight: '92%', flexShrink: 1, backgroundColor: colors.backgroundElevated, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderColor: colors.border, padding: 16, gap: 10 },
   storeHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
