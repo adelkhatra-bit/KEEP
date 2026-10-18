@@ -1154,22 +1154,29 @@ export default function MusicSwipeDeckModal({
   // Style TikTok (Adel 18/10/2026 : « je n'arrive pas à remonter pour changer ») : un coup de doigt vers le haut
   // N'IMPORTE OÙ sur l'écran (en-tête, bas de la fenêtre, zone hors carte) passe au morceau suivant.
   // Phase « bulle » : si la carte (SwipeDeck) a déjà pris le geste, ce responder n'intervient pas.
+  const lastNextAtRef = useRef(0);
   const screenSwipeRef = useRef<{ locked: boolean; next: () => void }>({ locked: true, next: () => {} });
   screenSwipeRef.current = {
     locked: controlsLocked,
+    // Anti double-déclenchement par délai court (et non par actionInFlight, qui pouvait rester bloqué et ignorer le geste).
     next: () => {
-      if (actionInFlight.current) return;
-      actionInFlight.current = true;
-      void advance().finally(() => { actionInFlight.current = false; });
+      const now = Date.now();
+      if (now - lastNextAtRef.current < 350) return;
+      lastNextAtRef.current = now;
+      void advance();
     },
   };
   const screenSwipe = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => false,
-    onMoveShouldSetPanResponder: (_, g) => !screenSwipeRef.current.locked && g.dy < -8 && Math.abs(g.dy) > Math.abs(g.dx) * 1.2,
+    // Réactif : le geste est pris dès 3 px vers le haut, et le morceau change PENDANT le glissement (48 px), sans attendre le relâchement.
+    onMoveShouldSetPanResponder: (_, g) => !screenSwipeRef.current.locked && g.dy < -3 && Math.abs(g.dy) > Math.abs(g.dx) * 0.8,
     onPanResponderTerminationRequest: () => false,
+    onPanResponderMove: (_, g) => {
+      if (!screenSwipeRef.current.locked && g.dy <= -48 && Math.abs(g.dy) > Math.abs(g.dx)) screenSwipeRef.current.next();
+    },
     onPanResponderRelease: (_, g) => {
       if (screenSwipeRef.current.locked) return;
-      if (g.dy <= -40 || (g.dy <= -18 && g.vy <= -0.3)) screenSwipeRef.current.next();
+      if (g.dy <= -24 || (g.dy <= -10 && g.vy <= -0.2)) screenSwipeRef.current.next();
     },
   })).current;
 
@@ -1388,11 +1395,7 @@ export default function MusicSwipeDeckModal({
               enabled={!controlsLocked}
               onSwipeLeft={() => { void pass(); }}
               onSwipeRight={() => { void requestKeep(); }}
-              onSwipeUp={() => {
-                if (controlsLocked || actionInFlight.current) return;
-                actionInFlight.current = true;
-                void advance().finally(() => { actionInFlight.current = false; });
-              }}
+              onSwipeUp={() => { if (!controlsLocked) screenSwipeRef.current.next(); }}
               leftLabel="PASSER"
               rightLabel={ownStoryView ? 'DÉJÀ EN STORY' : currentAlreadyKept ? 'DÉJÀ' : 'GARDER'}
               upLabel="SUIVANT"

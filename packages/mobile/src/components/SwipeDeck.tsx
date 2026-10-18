@@ -21,9 +21,9 @@ type Props = {
 const SWIPE_THRESHOLD = 72;
 // Adel (18/10/2026) : « sur le téléphone, monter vers le haut ne change pas toujours de musique ». Seuils assouplis :
 // un geste franc du pouce (40 px, ou un petit coup de doigt rapide) suffit.
-const VERTICAL_SWIPE_THRESHOLD = 40;
-const VERTICAL_FLING_MIN_DISTANCE = 18;
-const VERTICAL_FLING_VELOCITY = -0.3;
+const VERTICAL_SWIPE_THRESHOLD = 28;
+const VERTICAL_FLING_MIN_DISTANCE = 10;
+const VERTICAL_FLING_VELOCITY = -0.2;
 const SWIPE_SAFETY_RESET_MS = 2500;
 const EXIT_DISTANCE = 520;
 const EXIT_DISTANCE_Y = 760;
@@ -92,7 +92,7 @@ export default function SwipeDeck({
   };
 
   const wantsHorizontal = (gesture: any) => Boolean(latest.current.onSwipeLeft || latest.current.onSwipeRight) && Math.abs(gesture.dx) > 6 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.15;
-  const wantsUp = (gesture: any) => Boolean(latest.current.onSwipeUp) && gesture.dy < -5 && Math.abs(gesture.dy) > Math.abs(gesture.dx) * 0.9;
+  const wantsUp = (gesture: any) => Boolean(latest.current.onSwipeUp) && gesture.dy < -3 && Math.abs(gesture.dy) > Math.abs(gesture.dx) * 0.8;
 
   const responder = useRef(PanResponder.create({
     // Adel (05/10/2026) : « n'importe où où j'appuie, je dois pouvoir swiper vers le haut comme sur l'ordinateur ».
@@ -107,6 +107,8 @@ export default function SwipeDeck({
     onPanResponderMove: (_, gesture) => {
       if (!latest.current.enabled || animating.current) return;
       if (wantsUp(gesture)) {
+        // Réactivité TikTok : le morceau change dès que le doigt a franchi 56 px, sans attendre qu'on le relâche.
+        if (gesture.dy <= -56) return commitSwipe('UP');
         x.setValue(gesture.dx * 0.12);
         y.setValue(Math.min(0, gesture.dy));
         return;
