@@ -110,6 +110,6 @@ describe('swipe haut style TikTok partout sur l\'écran', () => {
   const modal = require('fs').readFileSync(require('path').join(__dirname, '../MusicSwipeDeckModal.tsx'), 'utf8');
   it('un responder sur toute la fenêtre passe au suivant', () => {
     expect(modal).toContain('screenSwipe.panHandlers');
-    expect(modal).toContain('onMoveShouldSetPanResponder: (_, g) => !screenSwipeRef.current.locked');
+    expect(modal).toContain('onMoveShouldSetPanResponderCapture: (_, g) => !screenSwipeRef.current.locked');
   });
 });
