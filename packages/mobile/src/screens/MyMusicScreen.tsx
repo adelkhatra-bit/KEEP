@@ -1,4 +1,5 @@
 import { groupTracksByStyle } from '../services/styleGroups';
+import { songDuplicateKey } from '../services/trackDuplicateKey';
 import React, { useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
@@ -84,11 +85,8 @@ function saleCurrencyLabel(code: string): string {
 }
 
 function trackIdentity(track: CanonicalTrack) {
-  const isrc = track.isrc?.trim().toUpperCase();
-  if (isrc) return `isrc:${isrc}`;
-  const title = track.title.trim().toLowerCase().replace(/\s+/g, ' ');
-  const artist = track.artist.trim().toLowerCase().replace(/\s+/g, ' ');
-  return `meta:${title}|${artist}`;
+  // Même chanson = même clé, quel que soit l'ISRC (album / single / remaster) : plus de doublons, et SUPPRIMER retire toutes les copies.
+  return `song:${songDuplicateKey(track.title, track.artist)}`;
 }
 
 function sortGateLabel(access: QuotaAccess | null) {
