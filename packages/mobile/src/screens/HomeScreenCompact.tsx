@@ -211,6 +211,21 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [privacyBusy, setPrivacyBusy] = useState(false);
   const [manualSearchOpen, setManualSearchOpen] = useState(false);
   const [sessionPeekOpen, setSessionPeekOpen] = useState(false);
+  // Adel (18/10/2026) : « quand j'ouvre le petit hamburger la musique démarre direct et je ne peux plus rien toucher ».
+  // L'extrait se lançait/continuait derrière la feuille « Mes Sessions », et une Modal iOS restée ouverte bloquait les
+  // touches. Quand l'écran Loki perd le focus : on coupe l'extrait, on ferme les fenêtres locales, et l'autoplay est
+  // réservé à l'écran réellement au premier plan.
+  const [screenFocused, setScreenFocused] = useState(true);
+  useEffect(() => {
+    if (!navigation?.addListener) return undefined;
+    const onFocus = navigation.addListener('focus', () => setScreenFocused(true));
+    const onBlur = navigation.addListener('blur', () => {
+      setScreenFocused(false);
+      setSessionPeekOpen(false);
+      void stopTrackPreviewFast(undefined);
+    });
+    return () => { onFocus?.(); onBlur?.(); };
+  }, [navigation]);
   // Navigation différée : le lecteur Swipe ne doit jamais s'ouvrir derrière une Modal iOS encore en train de se fermer.
   const queuedSwipeSessionId = useRef<string | null>(null);
   const queuedSwipeFallback = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1327,7 +1342,7 @@ export default function HomeScreenCompact({ navigation }: any) {
                   <Text style={s.destination} numberOfLines={1}>→ {destination}</Text>
                 </View>
               </View>
-              <TrackListenControls track={current.track} previewKey={`current:${current.id}`} onPreviewFinished={canGoOlder ? goOlder : undefined} autoPlay={!tabMonitoring} />
+              <TrackListenControls track={current.track} previewKey={`current:${current.id}`} onPreviewFinished={canGoOlder ? goOlder : undefined} autoPlay={!tabMonitoring && screenFocused} />
               {alreadySaved ? (
                 <View style={s.saved}><Text style={s.savedText}>✓ Déjà dans ta playlist</Text></View>
               ) : current.status === 'kept' ? (
