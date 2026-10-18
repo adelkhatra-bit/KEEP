@@ -23,17 +23,17 @@ describe('PublicUserProfileScreen — Boutique musicale et titres nouveaux', () 
     expect(source).toContain('overlaps={saleOfferOverlaps}');
     expect(boutique).toContain("NOUVEAU{overlap.missingCount > 1 ? 'X' : ''}");
     expect(boutique).toContain('✓ DÉJÀ CHEZ TOI');
-    expect(boutique).toContain("nouveau${dropNew > 1 ? 'x' : ''} pour toi");
+    expect(boutique).toContain("nouveauté${newTracksForViewer > 1 ? 's' : ''} pour toi");
   });
 
   it('affiche la Boutique musicale sans toucher aux compteurs du profil', () => {
     expect(source).toContain('BOUTIQUE MUSICALE');
-    expect(boutique).toContain("ownerMode ? 'MA BOUTIQUE' : `BOUTIQUE · @${sellerName}`");
+    expect(boutique).toContain("ownerMode ? 'Ma boutique' : `Boutique de @${sellerName}`");
   });
 
   it('le bouton pluriel enchaîne toutes les Pépites à la une', () => {
     expect(boutique).toContain('onOpenAllOffers?: (offers: PublicPlaylistSaleOffer[]) => void;');
-    expect(boutique).toContain('▶ ÉCOUTER LES APERÇUS');
+    expect(boutique).toContain('▶ ÉCOUTER');
     expect(boutique).toContain('if (onOpenAllOffers) onOpenAllOffers(queue);');
     expect(source).toContain('onOpenAllOffers={(offers) => { void playFeaturedSalePreviews(offers); }}');
   });
@@ -50,12 +50,12 @@ describe('PublicUserProfileScreen — Boutique musicale et titres nouveaux', () 
     expect(boutique).toContain("const free = offer.paymentMode === 'FREE';");
     expect(boutique).toContain('✓ DÉBLOQUÉE');
     expect(source).toContain('onOpenOffer={(offer) => openSaleFolder(offer)}');
-    expect(boutique).toContain('★ À LA UNE');
+    expect(boutique).toContain('DÉBLOQUER');
     expect(boutique).toContain('▶ ÉCOUTER');
     expect(boutique).toContain('▶ ÉCOUTER');
     expect(boutique).toContain('dropPlay');
     expect(boutique).toContain('collection${visibleOffers.length > 1');
-    expect(boutique).toContain('▶ ÉCOUTER LES APERÇUS');
+    expect(boutique).toContain('▶ ÉCOUTER');
     expect(boutique).not.toContain('Afficher le drop');
     expect(boutique).not.toContain('setDropIndex');
   });
@@ -63,7 +63,7 @@ describe('PublicUserProfileScreen — Boutique musicale et titres nouveaux', () 
   it('affiche le total et garde achat groupé + achat individuel', () => {
     expect(boutique).toContain('TOTAL DES PÉPITES');
     expect(boutique).toContain('TOUT PRENDRE');
-    expect(boutique).toContain('onOpenOffer(drop)');
+    expect(boutique).toContain('onPress={() => onOpenOffer(offer)}');
     expect(source).toContain('buyAllPlaylistOffers');
     expect(source).toContain('requestPlaylistBundlePurchase');
     expect(source).toContain('purchasePlaylistBundleWithFree');
@@ -83,7 +83,7 @@ describe('PublicUserProfileScreen — Boutique musicale et titres nouveaux', () 
   });
 
   it('garde la même configuration d’écoute côté vendeur et réserve la gestion au bouton PÉPITES du profil', () => {
-    expect(boutique).toContain('▶ ÉCOUTER LES APERÇUS');
+    expect(boutique).toContain('▶ ÉCOUTER');
     expect(boutique).not.toContain('◆ GÉRER MES COLLECTIONS');
     expect(boutique).toContain('▶ ÉCOUTER');
   });
@@ -95,7 +95,7 @@ describe('PublicUserProfileScreen — Boutique musicale et titres nouveaux', () 
     expect(ownerSource).toContain("navigation.navigate('PlaylistSale'");
     expect(boutique).toContain('viewerUsername?: string;');
     expect(boutique).toContain("replace(/^@+/, '')");
-    expect(boutique).toContain('Merci pour ta visite');
+    expect(boutique).toContain('Pour publier ou modifier une collection');
     expect(boutique).not.toContain('LES PÉPITES DE @');
   });
 });

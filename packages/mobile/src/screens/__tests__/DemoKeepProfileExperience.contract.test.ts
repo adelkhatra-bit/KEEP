@@ -79,8 +79,8 @@ describe('Demo keep confirmation + visited profile premium design', () => {
 
   it('makes a seller and their Drops unmistakable without adding a bulky shop header', () => {
     expect(profile).toContain('offers={profileBoutiqueOffers}');
-    expect(boutique).toContain('★ À LA UNE');
-    expect(boutique).toContain("ownerMode ? 'MA BOUTIQUE' : `BOUTIQUE · @${sellerName}`");
+    expect(boutique).toContain('DÉBLOQUER');
+    expect(boutique).toContain("ownerMode ? 'Ma boutique' : `Boutique de @${sellerName}`");
     expect(boutique).toContain('Tout voir · {visibleOffers.length} ›');
     expect(boutique).toContain('▶ ÉCOUTER');
     expect(profile).not.toContain('BOUTIQUE MUSICALE ACTIVE');
