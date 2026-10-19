@@ -90,7 +90,7 @@ export default function SessionHistoryScreen({ navigation }: any) {
 
     return (
       <View style={[styles.card, pendingCount > 0 && styles.cardNeedsSorting]}>
-        <TouchableOpacity style={styles.cardMain} onPress={() => !isLive && navigation.replace('SessionRecap', { sessionId: item.id })} disabled={isLive}>
+        <TouchableOpacity style={styles.cardMain} onPress={() => !isLive && navigation.replace('SessionRecap', { sessionId: item.id, openSwipe: pendingCount > 0 })} disabled={isLive}>
           <View style={styles.cardTop}>
             <Text style={styles.cardTitle} numberOfLines={1}>{autoTitle(item)}</Text>
             <Text style={styles.cardTime}>{time}</Text>

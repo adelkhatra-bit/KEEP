@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList, TextInput, InteractionManager } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList, TextInput } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { Alert } from '../utils/keepAlert';
 import type { CanonicalTrack } from '@keep/music';
@@ -145,16 +145,14 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   useEffect(() => {
     if (!isFocused || !route.params?.openSwipe || !pendingSwipeTracks.length || swipeOpen) return;
     // iOS : ne pas monter une deuxième Modal ni lancer l'audio tant que le changement de route n'est pas achevé.
-    let cancelled = false;
-    const task = InteractionManager.runAfterInteractions(() => {
-      if (cancelled) return;
+    // Adel (20/10/2026) : « je suis obligé de descendre tout en bas pour swiper ». Cause : l'attente « après les interactions » attendait la fin
+    // de TOUTES les animations, or les halos/pulsations de l'app tournent en boucle : le Swipe ne s'ouvrait jamais et l'on restait
+    // sur la liste. Un délai fixe laisse finir la transition (≈ 350 ms) puis ouvre le Swipe plein écran.
+    const timer = setTimeout(() => {
       openSwipe();
       navigation?.setParams?.({ openSwipe: false });
-    });
-    return () => {
-      cancelled = true;
-      task.cancel?.();
-    };
+    }, 450);
+    return () => clearTimeout(timer);
   }, [isFocused, route.params?.openSwipe, pendingSwipeTracks.length, swipeOpen]);
 
   if (!session) {
