@@ -92,7 +92,7 @@ export default function SwipeDeck({
   };
 
   const wantsHorizontal = (gesture: any) => Boolean(latest.current.onSwipeLeft || latest.current.onSwipeRight) && Math.abs(gesture.dx) > 6 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.15;
-  const wantsUp = (gesture: any) => Boolean(latest.current.onSwipeUp) && gesture.dy < -3 && Math.abs(gesture.dy) > Math.abs(gesture.dx) * 0.8;
+  const wantsUp = (gesture: any) => Boolean(latest.current.onSwipeUp) && gesture.dy < -12 && Math.abs(gesture.dy) > Math.abs(gesture.dx) * 0.8;
 
   const responder = useRef(PanResponder.create({
     // Adel (05/10/2026) : « n'importe où où j'appuie, je dois pouvoir swiper vers le haut comme sur l'ordinateur ».
