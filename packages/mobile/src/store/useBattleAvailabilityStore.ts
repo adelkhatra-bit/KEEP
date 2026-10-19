@@ -51,6 +51,9 @@ type BattleAvailabilityState = {
 };
 
 let pingTimer: ReturnType<typeof setInterval> | null = null;
+// Un changement demandé pendant qu'un autre est encore en cours (double
+// tap, bascule rapide) est mémorisé et appliqué ensuite -- jamais ignoré.
+let pendingAvailable: boolean | null = null;
 
 function stopPing() {
   if (pingTimer) {
@@ -81,7 +84,7 @@ export const useBattleAvailabilityStore = create<BattleAvailabilityState>((set, 
   setBattleScreenOpen: (value) => set({ battleScreenOpen: value }),
   setPartiesTabOpen: (value) => set({ partiesTabOpen: value }),
   setAvailable: async (value) => {
-    if (get().busy) return;
+    if (get().busy) { pendingAvailable = value; return; }
     if (get().available === value) {
       // Un utilisateur qui rebascule "disponible" depuis le profil alors
       // qu'il l'était déjà automatiquement doit quand même passer en
@@ -99,6 +102,9 @@ export const useBattleAvailabilityStore = create<BattleAvailabilityState>((set, 
       startPing();
     } finally {
       set({ busy: false });
+      const next = pendingAvailable;
+      pendingAvailable = null;
+      if (next !== null && next !== get().available) void get().setAvailable(next);
     }
   },
   autoEnable: async () => {
@@ -146,6 +152,7 @@ export const useBattleAvailabilityStore = create<BattleAvailabilityState>((set, 
   },
   reset: () => {
     stopPing();
+    pendingAvailable = null;
     set({ available: false, activatedManually: false, busy: false });
   },
 }));
