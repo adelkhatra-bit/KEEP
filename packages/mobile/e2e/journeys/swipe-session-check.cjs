@@ -22,9 +22,10 @@ async function swipeUp(page,cdp,x,y0,y1){const steps=8;await cdp.send('Input.dis
  await page.screenshot({path:`${OUT}/2-apres-menu.png`});
  r.sessions_ouvertes=(await page.getByText(/SWIPER TOUTES/).count())>0;
  const t0=Date.now();await page.evaluate(()=>new Promise(r=>setTimeout(r,50)));r.page_reactive_ms=Date.now()-t0;
- if(r.sessions_ouvertes){await page.getByText(/SWIPER TOUTES/).first().tap();await page.waitForTimeout(3500);await page.screenshot({path:`${OUT}/3-recap.png`});
+ if(r.sessions_ouvertes){await page.getByText('Session test',{exact:true}).first().tap();await page.waitForTimeout(3500);await page.screenshot({path:`${OUT}/3-recap.png`});
   r.recap_scrollX=await page.evaluate(()=>[document.documentElement.scrollWidth,window.innerWidth,window.scrollX]);
-  const open=page.getByText(/SWIPER \/ PRÉÉCOUTER/).first();if(await open.isVisible().catch(()=>false)){await open.tap();await page.waitForTimeout(3500)}
+  r.swipe_ouvert_directement=await page.locator('[data-testid="story-player"]').last().isVisible().catch(()=>false);
+  const open=page.getByText(/SWIPER \/ PRÉÉCOUTER/).first();if(!r.swipe_ouvert_directement && await open.isVisible().catch(()=>false)){await open.tap();await page.waitForTimeout(3500)}
   await page.screenshot({path:`${OUT}/3b-deck.png`});
   const title=async()=>{const t=await page.locator('[data-testid="story-player"]').last().innerText().catch(()=>'');const m=t.match(/Titre test (\d)/);return m?Number(m[1]):null};
   r.titre_avant=await title();const cdp=await ctx.newCDPSession(page);
