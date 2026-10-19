@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Platform, Text, View } from 'react-native';
-import { buildNativeYouTubeEmbedDocument, resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
+import { buildNativeYouTubeEmbedDocument, resolveEmbeddedMusicPlayer, withSwipeLayer } from '../services/embeddedMusicPlayer';
 
 /**
  * Official provider player displayed INSIDE a public Loki story.
@@ -9,11 +9,11 @@ import { buildNativeYouTubeEmbedDocument, resolveEmbeddedMusicPlayer } from '../
  * there is no catalogue preview; provider ads and browser autoplay restrictions
  * cannot be removed by Loki. Never embed a track hidden in a paid collection.
  */
-export default function StoryEmbeddedSourcePlayer({ sourceUrl, compact = false }: { sourceUrl: string; compact?: boolean }) {
+export default function StoryEmbeddedSourcePlayer({ sourceUrl, compact = false, onSwipe }: { sourceUrl: string; compact?: boolean; onSwipe?: (direction: 'UP' | 'LEFT' | 'RIGHT') => void }) {
   const player = resolveEmbeddedMusicPlayer(sourceUrl);
   const [unavailable, setUnavailable] = useState(false);
   const nativeYouTubeDocument = Platform.OS !== 'web' && player
-    ? buildNativeYouTubeEmbedDocument(player, { autoplay: true, startSeconds: 0, endSeconds: 30 })
+    ? withSwipeLayer(buildNativeYouTubeEmbedDocument(player, { autoplay: true, startSeconds: 0, endSeconds: 30 }), Boolean(onSwipe))
     : null;
   if (!player) return null;
 
@@ -65,6 +65,7 @@ export default function StoryEmbeddedSourcePlayer({ sourceUrl, compact = false }
                 try {
                   const message = JSON.parse(String(event?.nativeEvent?.data || '{}'));
                   if (message?.type === 'youtube-error') setUnavailable(true);
+                  if (message?.type === 'loki-swipe' && ['UP', 'LEFT', 'RIGHT'].includes(message.direction)) onSwipe?.(message.direction);
                 } catch {}
               },
               onShouldStartLoadWithRequest: (request: { url: string; isTopFrame?: boolean }) => (

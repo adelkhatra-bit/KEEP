@@ -22,7 +22,7 @@ import { isTrackPreviewActive, playTrackPreviewFromGesture, preloadTrackPreview,
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { isWebAudioGestureRequired } from '../services/webAudioError';
 import StoryEmbeddedSourcePlayer from './StoryEmbeddedSourcePlayer';
-import { buildNativeYouTubeEmbedDocument, resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
+import { buildNativeYouTubeEmbedDocument, resolveEmbeddedMusicPlayer, withSwipeLayer } from '../services/embeddedMusicPlayer';
 import { resolveTrackExternalDestination } from '../services/trackExternalLinkService';
 import { checkOwnKeepLibrary } from '../services/connectedMusicLibrary';
 import GlowRing from './GlowRing';
@@ -301,7 +301,7 @@ export default function MusicSwipeDeckModal({
     ? resolveEmbeddedMusicPlayer(current.externalUrls?.source || current.externalUrls?.youtube || null)
     : null;
   const nativeSourcePlayerDocument = sourcePlayer?.provider === 'YOUTUBE'
-    ? buildNativeYouTubeEmbedDocument(sourcePlayer, { autoplay: true, startSeconds: 0, endSeconds: 30 })
+    ? withSwipeLayer(buildNativeYouTubeEmbedDocument(sourcePlayer, { autoplay: true, startSeconds: 0, endSeconds: 30 }))
     : null;
 
   const canAddToStory = storyAddContext;
@@ -1166,6 +1166,13 @@ export default function MusicSwipeDeckModal({
       void advance();
     },
   };
+  // Geste fait SUR le lecteur YouTube (iPhone) : la WebView le renvoie ici, même effet qu'un swipe sur la carte.
+  const handleEmbeddedSwipe = (direction: 'UP' | 'LEFT' | 'RIGHT') => {
+    if (controlsLocked) return;
+    if (direction === 'UP') screenSwipeRef.current.next();
+    else if (direction === 'LEFT') void pass();
+    else void requestKeep();
+  };
   const screenSwipe = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => false,
     // Réactif : le geste est pris dès 3 px vers le haut, et le morceau change PENDANT le glissement (48 px), sans attendre le relâchement.
@@ -1410,7 +1417,7 @@ export default function MusicSwipeDeckModal({
                 <View testID="swipe-artwork-stage" style={s.artworkStage}>
                 {ownerMasked ? <View style={[s.cover,s.coverFallback]}><MysteryArtwork caption="Titre masqué · aperçu de tes abonnés" /></View> : current.artworkUrl ? <Image source={{ uri: current.artworkUrl }} style={s.cover as any} resizeMode="contain" /> : <View style={[s.cover,s.coverFallback]}>{isSaleStoryTrack(current) ? <MysteryArtwork caption={priceBadge ? '' : 'Titre masqué · garde pour révéler'} /> : <Text style={s.coverK}>K</Text>}</View>}
                 {/* Adel 05/10/2026 : « il faut que ce soit très lisible, que les utilisateurs ne se fassent pas tromper » -- PAYANT (PayPal) ou GRATUIT, toujours dit en clair sur la carte. */}
-                {storyEmbeddedSource ? <View style={s.storyEmbeddedInCard} testID="story-official-inline-area"><StoryEmbeddedSourcePlayer sourceUrl={storyEmbeddedSource} compact={compactDeck} /></View> : null}
+                {storyEmbeddedSource ? <View style={s.storyEmbeddedInCard} testID="story-official-inline-area"><StoryEmbeddedSourcePlayer sourceUrl={storyEmbeddedSource} compact={compactDeck} onSwipe={handleEmbeddedSwipe} /></View> : null}
                 {Boolean(trackAddedAt) && !resolvedPreviewUrl && !previewResolving && sourcePlayer ? <Text testID="story-no-provider-ads" style={s.cleanStoryNotice}>Lecture sans publicité intégrée · extrait indisponible</Text> : null}
                 {sourcePlayerOpen && !resolvedPreviewUrl && sourcePlayer ? (
                   <View testID="swipe-exact-source-player" style={s.sourcePlayerOverlay} pointerEvents="box-none">
@@ -1447,6 +1454,7 @@ export default function MusicSwipeDeckModal({
                             try {
                               const message = JSON.parse(String(event?.nativeEvent?.data || '{}'));
                               if (message?.type === 'youtube-error') setSourcePlayerFailed(true);
+                              if (message?.type === 'loki-swipe') handleEmbeddedSwipe(message.direction);
                             } catch {}
                           },
                           javaScriptEnabled: true,
