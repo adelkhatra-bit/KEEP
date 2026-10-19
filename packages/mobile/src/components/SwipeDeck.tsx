@@ -16,6 +16,8 @@ type Props = {
   hint?: string;
   /** La carte remplit la hauteur disponible (jamais de débordement sur l'en-tête ni les boutons). */
   fill?: boolean;
+  /** Doigt posé sur la carte (true) / levé (false) : l'écran parent coupe son défilement pendant le geste (iPhone). */
+  onTouchActiveChange?: (active: boolean) => void;
 };
 
 const SWIPE_THRESHOLD = 72;
@@ -40,6 +42,7 @@ export default function SwipeDeck({
   upLabel = 'SUIVANT',
   hint = 'Glisse à gauche pour passer · à droite pour garder',
   fill = false,
+  onTouchActiveChange,
 }: Props) {
   const x = useRef(new Animated.Value(0)).current;
   const y = useRef(new Animated.Value(0)).current;
@@ -134,7 +137,7 @@ export default function SwipeDeck({
   const upOpacity = y.interpolate({ inputRange: [-150, -28, 0], outputRange: [1, .18, 0], extrapolate: 'clamp' });
   const upScale = y.interpolate({ inputRange: [-150, 0], outputRange: [1.08, 1], extrapolate: 'clamp' });
 
-  return <View collapsable={false} {...responder.panHandlers} style={[styles.shell, fill && styles.shellFill, Platform.OS === 'web' && styles.shellWeb, Platform.OS === 'web' && onSwipeUp ? styles.shellWebVertical : null]}>
+  return <View collapsable={false} {...responder.panHandlers} onTouchStart={() => onTouchActiveChange?.(true)} onTouchEnd={() => onTouchActiveChange?.(false)} onTouchCancel={() => onTouchActiveChange?.(false)} style={[styles.shell, fill && styles.shellFill, Platform.OS === 'web' && styles.shellWeb, Platform.OS === 'web' && onSwipeUp ? styles.shellWebVertical : null]}>
     <Animated.View style={[styles.badge, styles.leftBadge, { opacity: leftOpacity }]} pointerEvents="none"><Text style={styles.leftText}>{leftLabel}</Text></Animated.View>
     <Animated.View style={[styles.badge, styles.rightBadge, { opacity: rightOpacity }]} pointerEvents="none"><Text style={styles.rightText}>{rightLabel}</Text></Animated.View>
     {onSwipeUp ? <Animated.View style={[styles.badge, styles.upBadge, { opacity: upOpacity, transform: [{ scale: upScale }] }]} pointerEvents="none"><Text style={styles.upText}>↑ {upLabel}</Text></Animated.View> : null}
