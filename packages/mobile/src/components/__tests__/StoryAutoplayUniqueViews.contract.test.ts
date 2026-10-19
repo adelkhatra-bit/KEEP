@@ -16,7 +16,7 @@ describe('Story player: same behavior on mobile and PC', () => {
     expect(embed).toContain('&end=30&autoplay=1');
     expect(embed).toContain('mediaPlaybackRequiresUserAction: false');
     expect(embed).toContain("allow: 'autoplay; encrypted-media; picture-in-picture'");
-    expect(deck).toContain('<StoryEmbeddedSourcePlayer sourceUrl={storyEmbeddedSource} compact={compactDeck} />');
+    expect(deck).toContain('<StoryEmbeddedSourcePlayer sourceUrl={storyEmbeddedSource} compact={compactDeck} onSwipe={handleEmbeddedSwipe} />');
     expect(deck).toContain('style={s.storyEmbeddedInCard}');
     expect(deck).toContain('!resolvedPreviewUrl && !previewResolving && sourcePlayer && !sourcePlayerOpen');
   });
