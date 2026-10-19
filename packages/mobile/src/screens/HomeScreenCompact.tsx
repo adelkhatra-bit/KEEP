@@ -205,6 +205,9 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [keepChoiceOpen, setKeepChoiceOpen] = useState(false);
   const [keepPlaylistId, setKeepPlaylistId] = useState<string | undefined>(undefined);
   const [keepBusy, setKeepBusy] = useState(false);
+  // Adel (19/10/2026) : « je mets le doigt pour remonter la musique, le tactile ne la prend pas ». Cause : sur iPhone le
+  // défilement natif du ScrollView parent gagnait le geste vertical avant le Swipe. Doigt sur la carte = défilement coupé.
+  const [deckTouching, setDeckTouching] = useState(false);
   const [keepEditId, setKeepEditId] = useState<string | null>(null);
   const [keepSnackbar, setKeepSnackbar] = useState<{ entryId: string; visibility: KeepVisibility } | null>(null);
   const snackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1274,6 +1277,7 @@ export default function HomeScreenCompact({ navigation }: any) {
         showsVerticalScrollIndicator={false}
         bounces={false}
         alwaysBounceVertical={false}
+        scrollEnabled={!deckTouching}
       >
         {/* Adel (02/09/2026) : "tu as désactivé le micro sur l'iPhone" --
             trouvé en audit : cette pastille ne reflétait jamais le vrai état
@@ -1369,6 +1373,7 @@ export default function HomeScreenCompact({ navigation }: any) {
           <SwipeDeck
             resetKey={current.id}
             enabled={Boolean(!keepBusy && (pending || canGoOlder))}
+            onTouchActiveChange={setDeckTouching}
             onSwipeLeft={pending ? passCurrentAndAdvance : undefined}
             onSwipeRight={pending ? openKeepChooser : undefined}
             onSwipeUp={canGoOlder ? goOlder : undefined}
