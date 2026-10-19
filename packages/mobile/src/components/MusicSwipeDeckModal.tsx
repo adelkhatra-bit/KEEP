@@ -7,7 +7,8 @@ import { reportAutoDiagnostic } from '../services/problemReportService';
 import { pushReportSurface } from '../services/reportSurface';
 import ChatDockHost from './ChatDockHost';
 import KeepVisibilityChoiceModal, { KeepSuccessModal } from './KeepVisibilityChoiceModal';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ActivityIndicator, Animated, Image, Linking, PanResponder, Platform, SafeAreaView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import type { CanonicalTrack } from '@keep/music';
@@ -1166,6 +1167,18 @@ export default function MusicSwipeDeckModal({
       void advance();
     },
   };
+  // Adel (20/10/2026, TestFlight) : « je dois mettre deux doigts et partir du bas pour que le swipe prenne ». Sur iPhone le
+  // geste JS (PanResponder) se faisait voler par les vues natives de la carte. Ce geste NATIF (iOS UIPanGestureRecognizer via
+  // react-native-gesture-handler, déjà présent dans le build) couvre tout l'écran : un doigt, n'importe où, vers le haut = suivant.
+  // Le délai anti-double (350 ms) de next() empêche un double saut si le geste JS se déclenche aussi.
+  const nativeSwipeUp = useMemo(() => Gesture.Pan()
+    .runOnJS(true)
+    .activeOffsetY(-12)
+    .failOffsetX([-40, 40])
+    .onEnd((event) => {
+      if (screenSwipeRef.current.locked) return;
+      if (event.translationY <= -36 || (event.translationY <= -12 && event.velocityY <= -350)) screenSwipeRef.current.next();
+    }), []);
   // Geste fait SUR le lecteur YouTube (iPhone) : la WebView le renvoie ici, même effet qu'un swipe sur la carte.
   const handleEmbeddedSwipe = (direction: 'UP' | 'LEFT' | 'RIGHT') => {
     if (controlsLocked) return;
@@ -1334,6 +1347,8 @@ export default function MusicSwipeDeckModal({
     : emptyTitle;
 
   return <KeepModal visible={visible} animationType="slide" onRequestClose={() => { void close(); }} presentationStyle="fullScreen">
+    <GestureHandlerRootView style={s.gestureRoot}>
+    <GestureDetector gesture={nativeSwipeUp}>
     <View style={[s.outer, desktopSwipeLayout && s.desktopOuter]} testID="story-viewport" {...screenSwipe.panHandlers}>
     <SafeAreaView style={[s.container, desktopSwipeLayout && s.desktopPlayer, desktopSwipeLayout && { height: Math.max(410, windowHeight - 32) }]} testID="story-player">
       <View style={[s.header, desktopSwipeLayout && compactDeck && s.desktopHeaderCompact]}>
@@ -1635,11 +1650,14 @@ export default function MusicSwipeDeckModal({
         : 'Le Swipe conserve tes décisions. Un morceau indisponible ne bloque pas la découverte.'}</Text>
     </View> : null}
     </View>
+    </GestureDetector>
   <ChatDockHost active={visible} />
+    </GestureHandlerRootView>
   </KeepModal>;
 }
 
 const s = StyleSheet.create({
+  gestureRoot:{flex:1},
   outer:{flex:1,minHeight:0,width:'100%',backgroundColor:'#090610',alignItems:'center'},
   desktopOuter:{flexDirection:'row',justifyContent:'center',alignItems:'center',paddingHorizontal:16,paddingVertical:12,gap:14,backgroundColor:'#0B0713'},
   // RN Web: `flex:1` + `flexGrow:0` without a fixed height collapses the
