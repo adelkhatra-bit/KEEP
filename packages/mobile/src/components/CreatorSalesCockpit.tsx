@@ -57,7 +57,6 @@ export default function CreatorSalesCockpit({ onMusicSales, onEventSales }: {
     <View style={s.shell} testID="desktop-seller-statistics">
       <View style={s.header}>
         <View style={{ flex: 1 }}>
-          <Text style={s.eyebrow}>ESPACE CRÉATEUR</Text>
           <Text style={s.title}>Mes ventes</Text>
         </View>
         {loading ? <ActivityIndicator color={colors.primaryLight} /> : null}
@@ -69,9 +68,9 @@ export default function CreatorSalesCockpit({ onMusicSales, onEventSales }: {
           <View style={s.statRow}>
             <View style={s.stat}><Text style={s.number}>{data.musicSales}</Text><Text style={s.label}>Collections vendues</Text></View>
             <View style={s.stat}><Text style={s.number}>{data.ticketSales}</Text><Text style={s.label}>Billets confirmés</Text></View>
-            <View style={s.stat}><Text style={s.number}>{data.pending}</Text><Text style={s.label}>À confirmer</Text></View>
             <View style={s.stat}><Text style={s.number}>{(data.euros30Days / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</Text><Text style={s.label}>Déclarés · 30 j</Text></View>
           </View>
+          {data.pending > 0 ? <Text style={s.pending}>{data.pending} vente{data.pending > 1 ? 's' : ''} à confirmer</Text> : null}
           <Text style={s.note}>Montants déclarés par les vendeurs, non vérifiés auprès des prestataires.{data.otherCurrencies30Days > 0 ? ' Ventes dans d’autres devises non converties.' : ''}</Text>
         </>
       )}
@@ -84,16 +83,16 @@ export default function CreatorSalesCockpit({ onMusicSales, onEventSales }: {
 }
 
 const s = StyleSheet.create({
-  shell: { width: '100%', marginTop: 16, padding: 16, borderRadius: 22, borderWidth: 1, borderColor: '#6D55B2', backgroundColor: 'rgba(23, 17, 46, 0.95)', gap: 12 },
+  shell: { width: '100%', marginTop: 12, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: '#6D55B2', backgroundColor: 'rgba(23, 17, 46, 0.95)', gap: 8 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  eyebrow: { color: colors.primaryLight, fontSize: 11, fontWeight: '900', letterSpacing: 1.3 },
-  title: { color: colors.textPrimary, fontSize: 20, fontWeight: '900', marginTop: 3 },
+  title: { color: colors.textPrimary, fontSize: 16, fontWeight: '900' },
+  pending: { color: colors.primaryLight, fontSize: 12, fontWeight: '800' },
   statRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  stat: { flex: 1, minWidth: 135, borderRadius: 14, padding: 12, borderWidth: 1, borderColor: '#403554', backgroundColor: '#221934' },
-  number: { color: colors.textPrimary, fontSize: 23, fontWeight: '900' },
-  label: { color: colors.textSecondary, fontSize: 11, marginTop: 5 },
+  stat: { flex: 1, minWidth: 120, borderRadius: 12, padding: 8, borderWidth: 1, borderColor: '#403554', backgroundColor: '#221934' },
+  number: { color: colors.textPrimary, fontSize: 18, fontWeight: '900' },
+  label: { color: colors.textSecondary, fontSize: 11, marginTop: 2 },
   note: { color: colors.textSecondary, fontSize: 11, lineHeight: 16 },
   actions: { flexDirection: 'row', gap: 8 },
-  button: { flex: 1, minHeight: 46, borderRadius: 14, borderWidth: 1, borderColor: colors.primary, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 8 },
+  button: { flex: 1, minHeight: 40, borderRadius: 12, borderWidth: 1, borderColor: colors.primary, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 8 },
   buttonText: { color: colors.textPrimary, fontSize: 12, fontWeight: '800' },
 });
