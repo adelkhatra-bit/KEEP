@@ -20,6 +20,7 @@ import { useUserStore } from '../store/useUserStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import { musicEngine } from '../services/musicEngine';
 import { searchTrackByText } from '../services/keepMusicCoreRecognition';
+import { isArtistOnlyQuery, searchArtistTracks, type ArtistTrackResult } from '../services/artistCatalogueSearch';
 import { getSharedMusicSource, supportedSharedMusicUrl } from '../services/sharedMusicSourceService';
 import SwipeDeck from '../components/SwipeDeck';
 import TrackListenControls from '../components/TrackListenControls';
@@ -441,6 +442,8 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [manualSearchQuery, setManualSearchQuery] = useState('');
   const [manualSearchBusy, setManualSearchBusy] = useState(false);
   const [manualSearchNotFound, setManualSearchNotFound] = useState(false);
+  // Recherche par artiste : liste de toutes ses musiques (préécoute gratuite par titre).
+  const [artistSearch, setArtistSearch] = useState<{ name: string; tracks: ArtistTrackResult[] } | null>(null);
   // Éphémère : aucune recherche par lien n'est ajoutée aux sessions ou playlists.
   const [manualSearchResult, setManualSearchResult] = useState<(TemporaryMusicResult & { track: CanonicalTrack }) | null>(null);
   const [manualResultSaved, setManualResultSaved] = useState(false);
@@ -457,6 +460,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   const closeManualSearchPreview = () => {
     searchGeneration.current += 1; // Ignore an in-flight result after closing.
     setManualSearchOpen(false);
+    setArtistSearch(null);
     setManualResultOpen(false);
     setManualKeepChoiceOpen(false);
     setManualKeepPlaylistId(undefined);
@@ -691,6 +695,22 @@ export default function HomeScreenCompact({ navigation }: any) {
     setManualSearchQuery(input);
     setManualSearchBusy(true);
     setManualSearchNotFound(false);
+    setArtistSearch(null);
+    if (isArtistOnlyQuery(input)) {
+      try {
+        const artist = await searchArtistTracks(input);
+        if (generation !== searchGeneration.current) return;
+        if (artist.tracks.length) {
+          setArtistSearch({ name: artist.artistName, tracks: artist.tracks });
+          setManualSearchBusy(false);
+          setManualSearchOpen(true);
+          return;
+        }
+      } catch {
+        // Catalogue artiste indisponible : on retombe sur la recherche texte classique.
+      }
+      if (generation !== searchGeneration.current) return;
+    }
     try {
       const found = await searchTrackByText(input);
       if (generation !== searchGeneration.current) return;
@@ -1061,7 +1081,7 @@ export default function HomeScreenCompact({ navigation }: any) {
         {manualResultOpen ? (
           <TemporaryMusicPreview visible={manualResultOpen} result={manualSearchResult} onClose={closeManualSearchPreview} onNext={nextManualSearch} onReplaceLink={(link) => { void runManualSearch(link); }} onKeep={requestManualKeep} keepChoiceOpen={manualKeepChoiceOpen} onChooseVisibility={(visibility) => { void confirmManualKeep(visibility); }} onCancelKeep={() => setManualKeepChoiceOpen(false)} keepCostFree={creditCostPerKeep} playlists={playlists.map((p) => ({ id: p.id, name: p.name }))} selectedPlaylistId={manualKeepPlaylistId} onSelectPlaylist={setManualKeepPlaylistId} keptVisibility={manualKeptVisibility} storyPublished={manualStoryPublished} onSeeSessions={viewSavedManualSessions} saved={manualResultSaved} saving={manualSaveBusy} />
         ) : (
-        <View style={s.modalOverlay}><View style={s.modalCard}>
+        <View style={s.manualSearchOverlay}><View style={s.modalCard}>
           <Text style={s.modalTitle}>♫ Trouver ta musique</Text>
           <Text style={s.modalBody}>Colle un lien YouTube, Spotify ou Deezer, ou saisis Artiste – Titre. Préécoute gratuite, puis GARDER seulement si tu le décides.</Text>
           <TextInput
@@ -1084,6 +1104,25 @@ export default function HomeScreenCompact({ navigation }: any) {
             <TouchableOpacity testID="music-advanced-tab-capture" onPress={() => { closeManualSearchPreview(); testTabCapture(); }} accessibilityRole="button" accessibilityLabel="Suivi audio continu de plusieurs morceaux avec autorisation navigateur" style={{ paddingVertical: 6 }}>
               <Text style={{ color: C.muted, fontSize: 11 }}>Suivre plusieurs morceaux sans lien ? Partager le son de l’onglet PC (autorisation du navigateur)</Text>
             </TouchableOpacity>
+          ) : null}
+          {artistSearch ? (
+            <View testID="home-artist-results" style={{ marginTop: 12 }}>
+              <Text style={{ color: C.text, fontSize: 13, fontWeight: '800', marginBottom: 6 }}>Toutes les musiques de {artistSearch.name} · {artistSearch.tracks.length}</Text>
+              <ScrollView style={{ maxHeight: 260 }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                {artistSearch.tracks.map((track) => (
+                  <TouchableOpacity key={track.deezerId} testID={`artist-track-${track.deezerId}`} accessibilityRole="button" accessibilityLabel={`Écouter ${track.title} de ${track.artist}`}
+                    onPress={() => { setArtistSearch(null); openTemporaryMusicPreview(track, `${track.artist} – ${track.title}`); }}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 52, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#2A2140' }}>
+                    {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={{ width: 40, height: 40, borderRadius: 7 }} /> : <View style={{ width: 40, height: 40, borderRadius: 7, backgroundColor: '#2A2140' }} />}
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text numberOfLines={1} style={{ color: C.text, fontSize: 13, fontWeight: '700' }}>{track.title}</Text>
+                      <Text numberOfLines={1} style={{ color: C.muted, fontSize: 11 }}>{track.album ?? track.artist}</Text>
+                    </View>
+                    <Text style={{ color: '#8BF5C5', fontSize: 12, fontWeight: '900' }}>▶</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
           ) : null}
           {manualSearchNotFound ? <Text style={s.manualSearchNotFound}>Aucun titre confirmé à partir de cette recherche. Essaie « Artiste – Titre », une autre vidéo YouTube ou la capture audio de l’onglet sur PC.</Text> : null}
           <View style={[s.modalActions, s.manualSearchActions]}>
@@ -1870,6 +1909,8 @@ const s = StyleSheet.create({
   secondary: { flex: 1, minHeight: 44, borderRadius: 11, borderWidth: 1, borderColor: C.purple, backgroundColor: C.purple, alignItems: 'center', justifyContent: 'center' },
   secondaryText: { color: C.text, fontSize: 12, fontWeight: '700' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,.72)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  // Fenêtre de recherche : collée en haut pour rester au-dessus du clavier (boutons ANNULER / ÉCOUTER toujours visibles).
+  manualSearchOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,.72)', alignItems: 'center', justifyContent: 'flex-start', paddingTop: 36, paddingHorizontal: 24 },
   modalCard: { width: '100%', maxWidth: 400, borderRadius: 20, backgroundColor: '#171020', borderWidth: 1.5, borderColor: '#A78BFA', padding: 18 },
   keepChoiceCard: { width: '100%', maxWidth: 380, borderRadius: 18, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, padding: 18 },
   modalTitle: { color: C.text, fontSize: 19, fontWeight: '900' },
