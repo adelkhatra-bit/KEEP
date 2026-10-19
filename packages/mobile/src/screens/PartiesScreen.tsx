@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
+import { useLayoutMode } from '../layout/layoutMode';
 // KEEP_PUBLIC_RUNTIME_PROBE_PARTIES: forces Pages to rebuild this exact screen source.
 import MotionActionButton from '../components/MotionActionButton';
 import { ActivityIndicator, Animated, Image, Linking, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -7,6 +8,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Alert } from '../utils/keepAlert';
 import { createCreatorEvent, loadMyRsvps, loadUpcomingEvents, loadMyEventInvitationIds, loadPendingEventInvitePreviews, setEventRsvp, CreatorEvent, EventAudienceMode, EventRsvpStatus, loadMyPendingEventReviews, submitEventReview, loadEventReviewSummary, PendingEventReview, EventReviewSummary, loadEventRsvpCounts, EventRsvpCounts, updateCreatorEvent, disableCreatorEvent, loadEventParticipants, EventParticipant, pickAndUploadEventImage, loadMyEventTicket, EventTicket, checkinEventTicketByCode, toggleEventCheckin, buildGoogleCalendarUrl, buildEventIcs, loadMyEventOrganizerContact, EVENT_TICKET_PRESET_PRICES_CENTS, setEventTicketPrice, requestEventTicketPurchase, EventTicketPurchaseRequest, markEventTicketPaid, loadMyEventTicketSales, EventTicketTransaction, loadEventPlaylist, EventTrack } from '../services/creatorEventService';
 import { shareEvent } from '../services/sharingService';
+import { publishEventStory } from '../services/eventStoryService';
+import { getMyPayoutMethods, normalizePayoutLinkInput, setMyPayoutLink } from '../services/payoutLinkService';
+import { eventNotFinished } from '../services/creatorEventService';
 import { getCommercialRules, getEventCreationAccess, getGrowthRewardStatus, QuotaAccess } from '../services/growthAccessService';
 import { useUserStore } from '../store/useUserStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
@@ -141,6 +145,14 @@ function LivePulseBadge() {
 }
 
 export default function PartiesScreen({ navigation, route }: any) {
+  const { isDesktop: desktopParties, width: partyViewportWidth, height: partyViewportHeight } = useLayoutMode();
+  const routeParamsRef = useRef(route?.params);
+  routeParamsRef.current = route?.params;
+  // Les panneaux latéraux encadrent le plateau desktop uniquement quand ils
+  // tiennent sans recouvrir les actions au centre.
+  // Les panneaux latéraux ne s'affichent que lorsque la zone centrale garde
+  // assez de largeur ; les fenêtres PC plus étroites utilisent toute la scène.
+  const desktopBattleWide = desktopParties && partyViewportWidth >= 1280 && partyViewportHeight >= 600;
   const user = useUserStore((s) => s.user);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
@@ -262,6 +274,7 @@ export default function PartiesScreen({ navigation, route }: any) {
   // deviennent deux onglets séparés au lieu d'un lanceur mélangé dans le
   // flux des événements ; Soirées reste l'onglet par défaut.
   const [partiesTab, setPartiesTab] = useState<'SOIREES' | 'BATTLE'>('SOIREES');
+  const skipNextBattleAutoResumeRef = useRef(false);
   // Un joueur qui possède encore un siège ACTIVE côté serveur ne doit jamais
   // avoir à chercher où est passé son Battle. Au montage et à chaque retour
   // sur l'onglet Soirées, on relit la vérité serveur puis on rouvre
@@ -271,12 +284,14 @@ export default function PartiesScreen({ navigation, route }: any) {
     if (!battleFeatureEnabled || !user?.id || isLocalGuest || isDemoMode) return undefined;
     let live = true;
     const resumeActiveArena = async () => {
+      if (routeParamsRef.current?.returnToSoireesRequestId) return;
+      if (skipNextBattleAutoResumeRef.current) return;
       const active = await loadMyActiveKeepBattleArena().catch(() => null);
       // Ne jamais forcer un ancien lobby WAITING par-dessus le SOLO. Le retour
       // automatique est réservé à un match réellement lancé. Un salon WAITING
       // reste accessible depuis l'onglet Battle mais ne prend pas le contrôle
       // de l'écran ni de la session Solo.
-      if (!live || !active?.id || active.status !== 'ACTIVE' || active.me?.status !== 'ACTIVE') return;
+      if (!live || skipNextBattleAutoResumeRef.current || routeParamsRef.current?.returnToSoireesRequestId || !active?.id || active.status !== 'ACTIVE' || active.me?.status !== 'ACTIVE') return;
       setPendingArenaId(active.id);
       setPartiesTab('BATTLE');
       setBattleOpen(true);
@@ -293,7 +308,7 @@ export default function PartiesScreen({ navigation, route }: any) {
       live = false;
       unsubscribe?.();
     };
-  }, [battleFeatureEnabled, isDemoMode, isLocalGuest, navigation, user?.id]);
+  }, [battleFeatureEnabled, isDemoMode, isLocalGuest, user?.id]);
   // Adel (30/09/2026) : le bouton Battle du haut ouvre directement le vrai
   // Battle. Le classement global reste disponible séparément, replié dans
   // Soirées, sans écran/lanceur intermédiaire.
@@ -473,6 +488,7 @@ export default function PartiesScreen({ navigation, route }: any) {
   const [createBusy, setCreateBusy] = useState(false);
   const [name, setName] = useState('');
   const [startsAt, setStartsAt] = useState('');
+  const [eventDurationHours, setEventDurationHours] = useState(6);
   // Adel (08/09/2026) : "mets un systeme de roulette pour la date et
   // l'heure ... je veux pouvoir selectionner une heure et 45 minutes, 2h14,
   // etc." -- startsAt reste la source de verite envoyee au serveur, mais
@@ -552,10 +568,24 @@ export default function PartiesScreen({ navigation, route }: any) {
   // Adel (17-18/09/2026) : "construis tout ce qui manque ... entrée
   // payante" -- null = gratuit, sinon un montant fixe de la liste.
   const [ticketPriceCents, setTicketPriceCents] = useState<number | null>(null);
+  const [eventPayoutLink, setEventPayoutLink] = useState('');
+  const [eventPayoutQrConfigured, setEventPayoutQrConfigured] = useState(false);
   // Adel (08/09/2026) : "un numero de telephone ... je souhaite montrer mon
   // numero de telephone ou pas" -- optionnel, masque par defaut.
   const [organizerPhone, setOrganizerPhone] = useState('');
   const [showOrganizerPhone, setShowOrganizerPhone] = useState(false);
+  // Load the existing PayPal.Me/QR setup directly inside event creation.
+  useEffect(() => {
+    if (!createOpen || !user?.id) return undefined;
+    let live = true;
+    void getMyPayoutMethods().then((methods) => {
+      if (live) {
+        setEventPayoutLink(methods.link);
+        setEventPayoutQrConfigured(Boolean(methods.qrUrl));
+      }
+    }).catch(() => {});
+    return () => { live = false; };
+  }, [createOpen, user?.id]);
   const [myTicket, setMyTicket] = useState<EventTicket | null>(null);
   const [ticketModalOpen, setTicketModalOpen] = useState(false);
   const [ticketLoading, setTicketLoading] = useState(false);
@@ -656,6 +686,23 @@ export default function PartiesScreen({ navigation, route }: any) {
 
   useEffect(() => { void reload(); }, [user?.id, isLocalGuest, isDemoMode]);
   useEffect(() => {
+    const requestId = route?.params?.returnToSoireesRequestId;
+    if (!requestId) return;
+    // L’onglet global Soirées doit ramener à son écran d’accueil, même si
+    // Battle/une arène était ouvert. La partie en ligne reste côté serveur ;
+    // elle pourra être reprise en revenant explicitement sur Battle.
+    skipNextBattleAutoResumeRef.current = true;
+    setPartiesTab('SOIREES');
+    setPartyHome(true);
+    setPartySection('EVENT');
+    setEventTab('LOBBY');
+    setEventViewMode('ALL');
+    setEventIndex(0);
+    setBattleOpen(false);
+    navigation.setParams?.({ returnToSoireesRequestId: undefined });
+  }, [navigation, route?.params?.returnToSoireesRequestId]);
+
+  useEffect(() => {
     const openBattle = Boolean(route?.params?.openBattle);
     const openRanking = Boolean(route?.params?.openBattleRanking);
     if (!openBattle && !openRanking) return;
@@ -680,6 +727,16 @@ export default function PartiesScreen({ navigation, route }: any) {
     navigation.setParams?.({ openCreateEvent: undefined });
     void openCreate();
   }, [navigation, route?.params?.openCreateEvent]);
+  useEffect(() => {
+    if (!route?.params?.openMyEvents) return;
+    setPartiesTab('SOIREES');
+    setPartyHome(false);
+    setEventViewMode('MY');
+    setEventIndex(0);
+    setPartySection('EVENT');
+    setEventTab('LOBBY');
+    navigation.setParams?.({ openMyEvents: undefined });
+  }, [navigation, route?.params?.openMyEvents]);
   const visibleEvents = useMemo(() => {
     if (eventViewMode === 'MY') return events.filter((event) => event.creatorId === user?.id);
     if (eventViewMode === 'INVITES') {
@@ -898,7 +955,7 @@ export default function PartiesScreen({ navigation, route }: any) {
 
   const resetEventForm = () => {
     setCreateOpen(false); setEditingEventId(null);
-    setName(''); setStartsAt(''); setVenueName(''); setVenueCoords(null); setVenueSuggestions([]);
+    setName(''); setStartsAt(''); setEventDurationHours(6); setVenueName(''); setVenueCoords(null); setVenueSuggestions([]);
     setDescription(''); setIncludeRsvpButtons(true); setAudienceMode('GENERAL');
     setEventImageUrls([]); setRequireQrCode(false); setTicketPriceCents(null);
     setOrganizerPhone(''); setShowOrganizerPhone(false);
@@ -917,6 +974,7 @@ export default function PartiesScreen({ navigation, route }: any) {
     // directement depuis la vraie date de l'evenement, sans dependre de
     // l'effet de la roulette pour la valeur initiale.
     setStartsAt(toLocalInputValue(eventDate));
+    setEventDurationHours(event.endsAt ? Math.max(1, Math.min(24, Math.ceil((Date.parse(event.endsAt) - eventDate.getTime()) / 3600000))) : 6);
     setVenueName(event.venueName || '');
     setVenueCoords(null);
     setCountryCode(event.countryCode || 'FR');
@@ -1051,18 +1109,37 @@ export default function PartiesScreen({ navigation, route }: any) {
     const iso = parseDate();
     if (name.trim().length < 3) return Alert.alert('Événement', 'Indique un nom pour l’événement.');
     if (!iso) return Alert.alert('Événement', 'Indique la date au format AAAA-MM-JJTHH:MM.');
+    if (ticketPriceCents !== null && !normalizePayoutLinkInput(eventPayoutLink) && !eventPayoutQrConfigured) {
+      Alert.alert('Paiement requis', 'Entre ton PayPal.Me ci-dessous avant de vendre des billets. Si tu as déjà un QR PayPal, vérifie sa configuration.');
+      return;
+    }
     setCreateBusy(true);
     try {
-      const payload = { name: name.trim(), description: description.trim(), venueName: venueName.trim(), startsAt: iso, countryCode: countryCode.trim().toUpperCase().slice(0,2), imageUrls: eventImageUrls, requireQrCode, audienceMode, organizerPhone: organizerPhone.trim() || undefined, showOrganizerPhone, lat: venueCoords?.lat, lng: venueCoords?.lng };
+      // The seller's own payout link is saved before event creation; Loki never holds funds.
+      if (ticketPriceCents !== null && eventPayoutLink.trim()) {
+        await setMyPayoutLink(eventPayoutLink);
+      }
+      const payload = { name: name.trim(), description: description.trim(), venueName: venueName.trim(), startsAt: iso, endsAt: new Date(Date.parse(iso) + eventDurationHours * 3600000).toISOString(), countryCode: countryCode.trim().toUpperCase().slice(0,2), imageUrls: eventImageUrls, requireQrCode, audienceMode, organizerPhone: organizerPhone.trim() || undefined, showOrganizerPhone, lat: venueCoords?.lat, lng: venueCoords?.lng };
       if (editingEventId) {
         await updateCreatorEvent(editingEventId, payload);
-        await setEventTicketPrice(editingEventId, ticketPriceCents).catch(() => {});
+        await setEventTicketPrice(editingEventId, ticketPriceCents);
         resetEventForm();
         await reload();
         Alert.alert('Événement modifié', 'Envoyé au Super Admin pour validation — il redevient visible dès l’approbation.');
       } else {
         const created = await createCreatorEvent({ ...payload, djArtistNames: user?.username ? [user.username] : [], includeRsvpButtons });
-        await setEventTicketPrice(created.id, ticketPriceCents).catch(() => {});
+        // A failed ticket-price call must never create a second copy when the
+        // organizer retries. Keep the newly created draft in edit mode.
+        try {
+          await setEventTicketPrice(created.id, ticketPriceCents);
+        } catch {
+          setEditingEventId(created.id);
+          setEventViewMode('MY');
+          setPartyHome(false);
+          void reload();
+          Alert.alert('Soirée enregistrée', 'Ta soirée existe déjà. La billetterie n’a pas été configurée. Réessaie ici sans recréer une soirée.');
+          return;
+        }
         resetEventForm();
         // La lecture serveur peut avoir un très court délai après l'Edge
         // Function. Injecter immédiatement la soirée créée évite l'état
@@ -1074,7 +1151,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           description: payload.description || null,
           venueName: payload.venueName || null,
           startsAt: payload.startsAt,
-          endsAt: null,
+          endsAt: payload.endsAt,
           countryCode: payload.countryCode || null,
           externalTicketUrl: null,
           djArtistNames: user?.username ? [user.username] : [],
@@ -1096,7 +1173,7 @@ export default function PartiesScreen({ navigation, route }: any) {
         setPartyHome(false);
         setEventIndex(0);
         void reload();
-        Alert.alert('Envoyé pour validation', 'Loki doit valider la photo et le texte. En attendant, seule une jaquette et un descriptif sans coordonnées peuvent apparaître aux personnes concernées ; aucune action n’est débloquée.');
+        Alert.alert('Envoyé pour validation', 'La photo et le texte passent au Super Admin. Après approbation, ta soirée à venir sera automatiquement en Story 24 h et dans Loki Pulse. Retrouve-la dans Mes soirées.');
       }
     } catch (e: any) {
       const code = String(e?.message || '');
@@ -1343,7 +1420,28 @@ export default function PartiesScreen({ navigation, route }: any) {
 
   if (battleOpen) {
     return <SafeAreaView style={styles.container}><PersonalThemeBackdrop />
-      <View style={styles.battleFullscreen}>
+      <View style={[styles.battleFullscreen, desktopParties && styles.desktopBattleFullscreen]} testID="desktop-battle-stage">
+        {desktopParties ? <LinearGradient testID="desktop-battle-atmosphere" pointerEvents="none" colors={['#201434','#352052','#201434']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFillObject} /> : null}
+        {desktopBattleWide ? <>
+          <View testID="desktop-battle-left" style={[styles.desktopBattleSide, styles.desktopBattleLeft]}>
+             <Text style={styles.desktopBattleKicker}>LOKI · ARENA</Text>
+             <Text style={styles.desktopBattleSideTitle}>Ton cockpit</Text>
+             <Text style={styles.desktopBattleSideCopy}>Les manches, réponses et commandes restent au centre.</Text>
+             <View style={styles.desktopBattleDivision} />
+             <Text style={styles.desktopBattleSideCopy}>Compte : @{user?.username || 'Loki'}</Text>
+             <Text style={styles.desktopBattleSideCopy}>Musique · Solo · En ligne</Text>
+           </View>
+          <View testID="desktop-battle-right" style={[styles.desktopBattleSide, styles.desktopBattleRight]}>
+             <Text style={styles.desktopBattleKicker}>TA COMMUNAUTÉ</Text>
+             <Text style={styles.desktopBattleSideTitle}>Classement</Text>
+             <Text style={styles.desktopBattleSideCopy}>Tes résultats et ceux des autres joueurs, sans quitter Battle.</Text>
+             <TouchableOpacity style={styles.desktopBattleLeaderboardButton}
+               accessibilityRole="button" accessibilityLabel="Voir le classement Battle sans quitter le jeu"
+               onPress={() => { setLeaderboardOpen(true); setBattleSummaryOpen(true); }}>
+               <Text style={styles.desktopBattleLeaderboardText}>VOIR LES SCORES ›</Text>
+             </TouchableOpacity>
+           </View>
+        </> : null}
         <KeepBattleArenaPanel
           enabled={Boolean(user && !isLocalGuest && !isDemoMode)}
           initialArenaId={pendingArenaId}
@@ -1427,12 +1525,12 @@ export default function PartiesScreen({ navigation, route }: any) {
   // Refonte Soirées (spec Adel 22/09/2026) : badge "EN COURS" affiché quand
   // l'événement est en train de se dérouler (début passé, fin pas encore
   // atteinte -- ou pas de fin renseignée).
-  const isEventLive = currentEvent
-    ? new Date(currentEvent.startsAt) <= new Date() && (!currentEvent.endsAt || new Date(currentEvent.endsAt) >= new Date())
-    : false;
+  // Une soirée sans date de fin dure six heures, jamais indéfiniment.
+  const isEventExpired = Boolean(currentEvent && !eventNotFinished(currentEvent));
+  const isEventLive = Boolean(currentEvent && !isEventExpired && Date.parse(currentEvent.startsAt) <= Date.now());
 
   return <SafeAreaView style={styles.container}><PersonalThemeBackdrop />
-    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={[styles.content, desktopParties && styles.desktopContent, desktopParties && { minHeight: Math.max(500, partyViewportHeight - 16) }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" testID="parties-content-scroll">
       <View style={styles.headerRow}>
         {/* Adel (08/09/2026) : "ça a rien à voir avec l'évènement ... il
             faut expliquer à quoi ça va servir ... ça peut être une soirée,
@@ -1466,7 +1564,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           { title: 'Attendre la validation', text: 'Le Super Admin vérifie la soirée. Tant qu’elle n’est pas approuvée, elle reste marquée En attente.' },
           { title: 'Retrouver tes soirées', text: 'Mes soirées regroupe les événements que tu as créés et ceux auxquels tu participes.' },
           { title: 'Répondre aux invitations', text: 'Tu peux accepter, répondre Peut-être ou refuser une invitation directement dans Loki Music.' },
-          { title: 'Prévenir ta communauté', text: 'Après approbation, Loki envoie les invitations à l’audience prévue, sans créer de doublons.' },
+          { title: 'Story et Loki Pulse', text: 'Après validation du Super Admin, la soirée à venir entre automatiquement en Story pour 24 h et dans Loki Pulse. Tu peux renouveler avec + Story 24 h dans Mes soirées.' },
         ]}
         footer={canCreate ? `Tu peux publier · ${eventAccess?.unlimited ? 'illimité' : `${eventAccess?.remaining ?? 0} restante(s) ce mois`} · ${followers} abonnés` : createLabel}
         onClose={() => setEventAccessInfoOpen(false)}
@@ -1475,19 +1573,19 @@ export default function PartiesScreen({ navigation, route }: any) {
       <View style={styles.partiesTabs} accessibilityLabel="Choisir Soirées ou Battle">
         <TouchableOpacity
           style={[styles.partiesTabBtn, partiesTab === 'SOIREES' && styles.partiesTabBtnOn]}
-          onPress={() => { setPartiesTab('SOIREES'); setPartyHome(true); setBattleOpen(false); }}
+          onPress={() => { setPartiesTab('SOIREES'); setPartyHome(true); setEventViewMode('ALL'); setEventIndex(0); setBattleOpen(false); }}
           accessibilityRole="button"
           accessibilityLabel="Ouvrir Soirées"
         >
           <Text style={[styles.partiesTabText, partiesTab === 'SOIREES' && styles.partiesTabTextOn]}>SOIRÉES</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.partiesTabBtn}
-          onPress={() => { setPendingArenaId(undefined); setBattleOpen(true); }}
+          style={[styles.partiesTabBtn, partiesTab === 'BATTLE' && styles.partiesTabBtnOn]}
+          onPress={() => { skipNextBattleAutoResumeRef.current = false; setPartiesTab('BATTLE'); setBattleOpen(true); }}
           accessibilityRole="button"
           accessibilityLabel="Ouvrir directement Battle"
         >
-          <Text style={styles.partiesTabText}>BATTLE</Text>
+          <Text style={[styles.partiesTabText, partiesTab === 'BATTLE' && styles.partiesTabTextOn]}>BATTLE</Text>
         </TouchableOpacity>
       </View>
       
@@ -1549,10 +1647,14 @@ export default function PartiesScreen({ navigation, route }: any) {
       )) : null}
 
       {partiesTab === 'SOIREES' ? <>
-        {partyHome ? <View style={styles.partyHome}>
-          <TouchableOpacity style={[styles.partyHomeChoice, styles.partyHomeChoicePrimary]} onPress={() => void openCreate()} accessibilityLabel="Créer une soirée"><View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>＋</Text></View><View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Créer</Text></View><Text style={styles.partyHomeArrow}>›</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.partyHomeChoice} onPress={() => { setEventViewMode('MY'); setEventIndex(0); setPartyHome(false); setPartySection('EVENT'); setEventTab('LOBBY'); }} accessibilityLabel="Voir mes soirées"><View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>▣</Text></View><View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Mes soirées</Text></View><Text style={styles.partyHomeArrow}>›</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.partyHomeChoice} onPress={() => { setEventViewMode('INVITES'); setEventIndex(0); setPartyHome(false); setPartySection('EVENT'); setEventTab('LOBBY'); }} accessibilityLabel="Voir mes invitations"><View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>✓</Text></View><View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Invitations</Text></View><Text style={styles.partyHomeArrow}>›</Text></TouchableOpacity>
+        {partyHome ? <View style={[styles.partyHome, desktopParties && styles.desktopPartyHome]} testID="parties-home-actions">
+          <TouchableOpacity style={[styles.partyHomeChoice, styles.partyHomeChoicePrimary, desktopParties && styles.desktopPartyHomeChoice]} onPress={() => void openCreate()} accessibilityRole="button" accessibilityLabel="Créer une soirée"><View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>＋</Text></View><View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Créer</Text></View><Text style={styles.partyHomeArrow}>›</Text></TouchableOpacity>
+          <TouchableOpacity style={[styles.partyHomeChoice, desktopParties && styles.desktopPartyHomeChoice]} onPress={() => { setEventViewMode('MY'); setEventIndex(0); setPartyHome(false); setPartySection('EVENT'); setEventTab('LOBBY'); }} accessibilityRole="button" accessibilityLabel="Voir mes soirées"><View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>▣</Text></View><View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Mes soirées</Text></View><Text style={styles.partyHomeArrow}>›</Text></TouchableOpacity>
+          <TouchableOpacity style={[styles.partyHomeChoice, desktopParties && styles.desktopPartyHomeChoice]} onPress={() => { setEventViewMode('INVITES'); setEventIndex(0); setPartyHome(false); setPartySection('EVENT'); setEventTab('LOBBY'); }} accessibilityRole="button" accessibilityLabel="Voir mes invitations"><View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>✓</Text></View><View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Invitations</Text></View><Text style={styles.partyHomeArrow}>›</Text></TouchableOpacity>
+          <View style={styles.eventStoryInfo} testID="event-story-how-it-works">
+            <Text style={styles.eventStoryInfoTitle}>STORY + LOKI PULSE · AUTOMATIQUE</Text>
+            <Text style={styles.eventStoryInfoText}>Après validation de la photo et du texte, ta soirée à venir apparaît en Story pendant 24 h et dans Loki Pulse. Pour la repartager : Mes soirées → ta soirée → + Story 24 h.</Text>
+          </View>
           {/* Adel (02/10/2026) : le Classement Battle n'a rien à faire dans
               Soirées ; il est dans l'écran Battle (bouton 🏆 CLASSEMENT). */}
         </View> : <>
@@ -1562,7 +1664,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           <Text style={styles.eventModeCount}>{visibleEvents.length} événement{visibleEvents.length > 1 ? 's' : ''}</Text>
         </View> : null}
           
-        {!eventAccess || !['CREATOR_PRO','VENUE_PRO'].includes(eventAccess.planCode) ? <TouchableOpacity style={styles.creatorHint} onPress={() => void openCreate()}><Text style={styles.creatorHintText}>🔒 À partir de {minEventFollowers} abonnés : Creator Pro 9,99 € · 2 événements/mois. Venue Pro 29,99 € · événements illimités.</Text></TouchableOpacity>
+        {!eventAccess || !['CREATOR_PRO','VENUE_PRO'].includes(eventAccess.planCode) ? <TouchableOpacity style={styles.creatorHint} onPress={() => void openCreate()}><Text style={styles.creatorHintText}>🔒 À partir de {minEventFollowers} abonnés : Creator Pro · 2 événements/mois. Venue Pro · événements illimités.</Text></TouchableOpacity>
           : !audienceReady ? <TouchableOpacity style={styles.creatorHint} onPress={() => void openCreate()}><Text style={styles.creatorHintText}>🔒 Audience événements : {followers}/{minEventFollowers} abonnés. La formule est prête, il reste à atteindre le seuil communautaire.</Text></TouchableOpacity>
             : eventAccess.planCode === 'CREATOR_PRO' ? <TouchableOpacity style={styles.creatorHint} onPress={() => !canCreate && navigation.navigate('Offers',{focusPlan:'VENUE_PRO',sourceFeature:'CREATE_EVENT'})}><Text style={styles.creatorHintText}>{canCreate ? `Creator Pro : ta création du mois est disponible · seuil ${minEventFollowers} abonnés atteint.` : 'Limite du mois atteinte · Venue Pro débloque les événements en illimité.'}</Text></TouchableOpacity>
               : <View style={styles.creatorHint}><Text style={styles.creatorHintText}>Venue Pro : événements illimités · seuil {minEventFollowers} abonnés atteint.</Text></View>}
@@ -1623,6 +1725,7 @@ export default function PartiesScreen({ navigation, route }: any) {
                     <View style={styles.badge}><Text style={styles.badgeText}>ÉVÉNEMENT</Text></View>
                     <View style={styles.audienceBadge}><Text style={styles.audienceBadgeText}>{currentEvent.audienceMode === 'ADULTS_18_PLUS' ? '18+' : currentEvent.audienceMode === 'FAMILY' ? 'FAMILLE' : 'TOUT PUBLIC'}</Text></View>
                     {isEventLive && currentEvent.moderationStatus === 'APPROVED' ? <LivePulseBadge /> : null}
+                    {isEventExpired ? <View style={styles.expiredBadge} testID="event-expired-badge"><Text style={styles.expiredBadgeText}>✕ TERMINÉE · DATE PASSÉE</Text></View> : null}
                     {/* Statut de modération visible au créateur :
                         PENDING = rouge clignotant, REJECTED = rouge fixe,
                         APPROVED = vert. Tant que l'événement n'est pas
@@ -1631,7 +1734,7 @@ export default function PartiesScreen({ navigation, route }: any) {
                     {user?.id === currentEvent.creatorId && currentEvent.moderationStatus === 'DRAFT' ? <View style={styles.draftBadge}><Text style={styles.draftBadgeText}>✎ BROUILLON</Text></View> : null}
                     {user?.id === currentEvent.creatorId && currentEvent.moderationStatus === 'PENDING' ? <PendingModerationBadge /> : null}
                     {user?.id === currentEvent.creatorId && currentEvent.moderationStatus === 'REJECTED' ? <View style={styles.rejectedBadge}><Text style={styles.rejectedBadgeText}>✕ REFUSÉE</Text></View> : null}
-                    {user?.id === currentEvent.creatorId && currentEvent.moderationStatus === 'APPROVED' ? <View style={styles.approvedBadge}><Text style={styles.approvedBadgeText}>✓ VALIDÉE</Text></View> : null}
+                    {user?.id === currentEvent.creatorId && currentEvent.moderationStatus === 'APPROVED' && !isEventExpired ? <View style={styles.approvedBadge}><Text style={styles.approvedBadgeText}>✓ VALIDÉE</Text></View> : null}
                   </View>
                 </LinearGradient>
               </View>
@@ -1640,11 +1743,14 @@ export default function PartiesScreen({ navigation, route }: any) {
                 {user?.id === currentEvent.creatorId && currentEvent.textNote ? <Text style={styles.moderationNote}>Texte : {currentEvent.textNote}</Text> : null}
                 <Text style={styles.eventName}>{currentEvent.name}</Text>
                 {isPendingPreview ? <View style={styles.pendingPreviewLock}><Text style={styles.pendingPreviewLockText}>Loki vérifie cette annonce. Aucune date, adresse, coordonnée, paiement ou réponse n’est disponible avant validation.</Text></View> : null}
-                {!isPendingPreview ? <Text style={styles.date}>{dateText}</Text> : null}
+                {!isPendingPreview ? <Text style={[styles.date, isEventExpired && styles.expiredDate]}>{dateText}</Text> : null}
                 {!isPendingPreview ? <Text style={styles.meta}>{[currentEvent.venueName,currentEvent.countryCode].filter(Boolean).join(' · ')}</Text> : null}
                 {!isPendingPreview && currentEvent.ticketPriceCents ? <Text style={styles.rsvpCountsText}>🎟 Entrée : {(currentEvent.ticketPriceCents / 100).toFixed(2)}€</Text> : null}
                 {!isPendingPreview && currentEventReviewSummary && currentEventReviewSummary.reviewCount > 0 ? <Text style={styles.reviewSummary}>⭐ {currentEventReviewSummary.averageRating.toFixed(1)} · {currentEventReviewSummary.reviewCount} avis</Text> : null}
                 {user?.id === currentEvent.creatorId && rsvpCounts && (rsvpCounts.going + rsvpCounts.maybe + rsvpCounts.notGoing) > 0 ? <Text style={styles.rsvpCountsText}>✓ {rsvpCounts.going} participent · {rsvpCounts.maybe} peut-être · {rsvpCounts.notGoing} ne viennent pas</Text> : null}
+                {!isPendingPreview && currentEvent.moderationStatus === 'APPROVED' && rsvpCounts ? (
+                  <Text style={styles.rsvpCountsText}>LOKI PULSE · {rsvpCounts.going * 5 + rsvpCounts.maybe} pts de participation</Text>
+                ) : null}
                 {user?.id === currentEvent.creatorId && ticketSales.filter((s) => s.status === 'PENDING').length > 0 ? (
                   <View style={{ marginTop: 10 }}>
                     <Text style={styles.rsvpToggleLabel}>💳 Billets à confirmer</Text>
@@ -1667,7 +1773,7 @@ export default function PartiesScreen({ navigation, route }: any) {
                     plus" ouvre la photo complète (jamais rognée) + le texte
                     intégral + YouTube, puis on répond juste après. */}
                 {currentEvent.description?<Text style={styles.description} numberOfLines={3}>{currentEvent.description}</Text>:null}
-                {!isPendingPreview && (currentEvent.description || currentEvent.imageUrls.length > 1) ? <TouchableOpacity style={styles.moreLink} onPress={() => setEventDetailOpen(true)}><Text style={styles.moreLinkText}>En savoir plus ›</Text></TouchableOpacity> : null}
+                {!isPendingPreview && (currentEvent.description || currentEvent.imageUrls.length > 1) ? <TouchableOpacity style={styles.moreLink} onPress={() => setEventDetailOpen(true)}><Text style={styles.moreLinkText}>Plus ›</Text></TouchableOpacity> : null}
                 {!isPendingPreview && currentEvent.organizerPhone ? <View style={styles.eventLinksRow}><TouchableOpacity style={styles.callOrganizerLink} onPress={()=>{void Linking.openURL(`tel:${currentEvent.organizerPhone}`);}}><View style={styles.callOrganizerIcon}><Text style={styles.callOrganizerIconText}>📞</Text></View><View><Text style={styles.callOrganizerLabel}>Appeler l’organisateur</Text><Text style={styles.callOrganizerNumber}>{currentEvent.organizerPhone}</Text></View></TouchableOpacity></View> : null}
                 {isPendingPreview
                   ? null
@@ -1702,6 +1808,15 @@ export default function PartiesScreen({ navigation, route }: any) {
               c'est verrouille cote serveur (event_locked_after_approval). */}
           {user?.id === currentEvent.creatorId ? <View style={styles.secondaryRow}>
             {currentEvent.moderationStatus !== 'APPROVED' ? <TouchableOpacity style={styles.secondary} onPress={()=>openEdit(currentEvent)}><Text style={styles.secondaryText}>✎ Modifier</Text></TouchableOpacity> : null}
+            {currentEvent.moderationStatus === 'APPROVED' && eventNotFinished(currentEvent) ? (
+              <TouchableOpacity style={styles.secondary} testID="event-publish-to-story" accessibilityRole="button"
+                accessibilityLabel="Publier cet événement dans ma Story pendant 24 heures"
+                onPress={() => { void publishEventStory(currentEvent.id)
+                  .then(() => Alert.alert('Story événement publiée', 'Ta soirée est visible 24 h dans les Stories, avec le score Loki Pulse et les réponses Je participe, Peut-être et Je passe.'))
+                  .catch(() => Alert.alert('Story', 'Publication impossible. Vérifie que la soirée est approuvée et non terminée.')); }}>
+                <Text style={styles.secondaryText}>+ Story 24 h</Text>
+              </TouchableOpacity>
+            ) : null}
             <TouchableOpacity style={styles.secondary} onPress={()=>void openParticipants(currentEvent)}><Text style={styles.secondaryText}>👥 Participants</Text></TouchableOpacity>
             <TouchableOpacity style={[styles.secondary,styles.secondaryDanger]} disabled={eventBusyAction==='delete'} onPress={()=>deleteEvent(currentEvent)}>{eventBusyAction==='delete'?<ActivityIndicator color={colors.pass}/>:<Text style={[styles.secondaryText,styles.secondaryDangerText]}>Supprimer</Text>}</TouchableOpacity>
           </View> : null}
@@ -1737,7 +1852,7 @@ export default function PartiesScreen({ navigation, route }: any) {
     </ScrollView>
 
     {renderRankingModals()}
-    <KeepModal visible={createOpen} transparent animationType="slide" onRequestClose={resetEventForm}><View style={styles.backdrop}><View style={styles.sheet}><View style={styles.modalHeader}><Text style={styles.modalTitle}>{editingEventId ? 'Modifier l’événement' : 'Créer un événement'}</Text><TouchableOpacity onPress={resetEventForm}><Text style={styles.close}>Fermer</Text></TouchableOpacity></View><ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+    <KeepModal visible={createOpen} transparent animationType="slide" onRequestClose={resetEventForm}><View style={[styles.backdrop, desktopParties && styles.desktopEventBackdrop]}><View style={[styles.sheet, desktopParties && styles.desktopEventSheet]}><View style={styles.modalHeader}><View style={{ flex: 1 }}><Text style={styles.modalTitle}>{editingEventId ? 'Modifier ma soirée' : 'Créer ma soirée'}</Text>{desktopParties ? <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}>Visuel · Date · Billets · Publier</Text> : null}</View><TouchableOpacity onPress={resetEventForm}><Text style={styles.close}>Fermer</Text></TouchableOpacity></View><ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Nom de l’événement" placeholderTextColor={colors.textMuted}/>
       {/* Adel (08/09/2026) : "le truc photo tu le remontes un peu plus
           haut" -- juste sous le nom, avant la date. "il puisse ajouter
@@ -1763,7 +1878,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           l'heure ... je veux pouvoir selectionner une heure et 45 minutes,
           2h14, etc." -- trois roulettes (date / heure / minute), aucune
           valeur n'est imposee au clic, tout se choisit en faisant defiler. */}
-      <Text style={styles.wheelSectionLabel}>Date et heure</Text>
+      <Text style={styles.wheelSectionLabel}>Date et heure de début</Text>
       <View style={styles.wheelRow}>
         <WheelPicker items={dateWheelItems.map((d) => d.label)} selectedIndex={dateIdx} onChange={setDateIdx} width={158} />
         <WheelPicker items={HOUR_WHEEL_ITEMS} selectedIndex={hourIdx} onChange={setHourIdx} width={52} />
@@ -1771,6 +1886,14 @@ export default function PartiesScreen({ navigation, route }: any) {
         <WheelPicker items={MINUTE_WHEEL_ITEMS} selectedIndex={minuteIdx} onChange={setMinuteIdx} width={52} />
       </View>
       {startsAt ? <Text style={styles.wheelSummary}>📅 {new Date(`${startsAt}:00`).toLocaleString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</Text> : null}
+      <Text style={styles.wheelSectionLabel}>Durée · l'événement disparaît du public à la fin</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginVertical: 8 }}>
+        {[2,4,6,8,12,24].map((hours) => (
+          <TouchableOpacity key={hours} style={[styles.eventPriceChip, eventDurationHours === hours && styles.eventPriceChipOn]} onPress={() => setEventDurationHours(hours)} accessibilityRole="radio" accessibilityState={{ selected: eventDurationHours === hours }}>
+            <Text style={[styles.eventPriceChipText, eventDurationHours === hours && styles.eventPriceChipTextOn]}>{hours} h</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
       {/* Adel (08/09/2026) : "un numero de telephone ... je souhaite montrer
           mon numero de telephone ou pas" -- optionnel, masque par defaut. */}
       <TextInput style={styles.input} value={organizerPhone} onChangeText={setOrganizerPhone} placeholder="Ton téléphone (optionnel)" placeholderTextColor={colors.textMuted} keyboardType="phone-pad"/>
@@ -1824,7 +1947,25 @@ export default function PartiesScreen({ navigation, route }: any) {
           </TouchableOpacity>
         ))}
       </View>
-      {ticketPriceCents !== null ? <Text style={styles.rsvpToggleHint}>L'acheteur paiera directement sur ton lien de paiement personnel (menu ☰ &gt; Type de profil &amp; outils créateur). Loki Music ne touche jamais cet argent.</Text> : null}
+      {ticketPriceCents !== null ? (
+        <View style={{ borderRadius: 16, borderWidth: 1, borderColor: colors.primaryLight, backgroundColor: 'rgba(124,92,252,.10)', padding: 12, gap: 8, marginBottom: 12 }} testID="event-ticket-seller-onboarding">
+          <Text style={{ color: colors.white, fontSize: 15, fontWeight: '900' }}>Vendre des billets</Text>
+          <Text style={{ color: colors.textPrimary, fontSize: 12, lineHeight: 19 }}>1. Fixe le prix · 2. Entre ton PayPal.Me · 3. Confirme le paiement reçu pour délivrer le billet.</Text>
+          <TextInput
+            style={styles.input}
+            value={eventPayoutLink}
+            onChangeText={setEventPayoutLink}
+            placeholder="Ton pseudo PayPal.Me ou lien https://"
+            placeholderTextColor={colors.textMuted}
+            accessibilityLabel="Compte PayPal.Me pour recevoir le prix de l'événement"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <Text style={{ color: colors.keep, fontSize: 11, fontWeight: '800' }}>
+            {eventPayoutQrConfigured ? '✓ QR PayPal déjà configuré' : 'Paiement direct à ton compte · aucun encaissement par Loki'}
+          </Text>
+        </View>
+      ) : null}
 
       {/* Adel (08/09/2026) : "les trucs à cocher tu les mets ensemble en
           dessous, à la fin ... que tu comprends l'idée" -- les trois
@@ -1968,8 +2109,25 @@ export default function PartiesScreen({ navigation, route }: any) {
 </SafeAreaView>;
 }
 
-const styles=StyleSheet.create({pendingTopBanner:{minHeight:44,borderRadius:14,borderWidth:1.5,borderColor:colors.danger,backgroundColor:'rgba(255,92,114,.12)',paddingHorizontal:12,marginBottom:10,alignItems:'center',justifyContent:'center'},pendingTopBannerText:{color:colors.danger,fontSize:10,fontWeight:'900',letterSpacing:.5,textAlign:'center'},pendingPreviewLock:{marginTop:10,borderRadius:12,borderWidth:1,borderColor:colors.danger,backgroundColor:'rgba(255,92,114,.08)',padding:10},pendingPreviewLockText:{color:colors.textMutedGrey,fontSize:10,lineHeight:15,fontWeight:'800'},eventModeHeader:{minHeight:48,borderRadius:15,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,paddingHorizontal:12,marginBottom:12,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},eventModeTitle:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:.8},eventModeCount:{color:colors.textMutedGrey,fontSize:10,fontWeight:'800'},partyHome:{gap:10,marginTop:6,marginBottom:12},partyHomeQuestion:{color:colors.textPrimary,fontSize:22,fontWeight:'900'},partyHomeHint:{color:colors.textMuted,fontSize:13,lineHeight:18,marginBottom:4},partyHomeChoicePrimary:{borderColor:colors.primary,backgroundColor:colors.primaryFaint},partyHomeAccess:{fontSize:16},partyHomeChoice:{minHeight:74,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:14,paddingVertical:11,flexDirection:'row',alignItems:'center',gap:12},partyHomeIcon:{width:44,height:44,borderRadius:14,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center'},partyHomeIconText:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},partyHomeCopy:{flex:1,minWidth:0},partyHomeTitle:{color:colors.textPrimary,fontSize:16,fontWeight:'900'},partyHomeMeta:{color:colors.textMuted,fontSize:12,lineHeight:17,marginTop:3},partyHomeArrow:{color:colors.textPrimary,fontSize:24,fontWeight:'800'},partyFocusBack:{alignSelf:'flex-start',minHeight:38,borderRadius:12,borderWidth:1,borderColor:colors.border,paddingHorizontal:12,alignItems:'center',justifyContent:'center',marginBottom:8},partyFocusBackText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},partyAccordion:{flexDirection:'row',gap:8,marginBottom:12},partyAccordionRow:{flex:1,minWidth:0,minHeight:66,paddingHorizontal:6,paddingVertical:8,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},partyAccordionRowOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},partyAccordionIcon:{width:29,height:29,borderRadius:9,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center',marginBottom:5},partyAccordionIconText:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},partyAccordionCopy:{width:'100%',minWidth:0,alignItems:'center'},partyAccordionTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'900',textAlign:'center'},partyAccordionHint:{display:'none'},partyAccordionChevron:{display:'none'},
-container:{flex:1,backgroundColor:colors.background},partiesTabs:{width:'100%',flexDirection:'row',gap:8,marginBottom:spacing.lg},partiesTabBtn:{flex:1,minHeight:44,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},partiesTabBtnOn:{backgroundColor:colors.primary,borderColor:colors.primary},partiesTabText:{color:colors.white,fontSize:12,fontWeight:'900'},partiesTabTextOn:{color:colors.white},leaderboardPanel:{marginBottom:spacing.lg,padding:12,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,gap:6},leaderboardHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},myRankingButton:{minHeight:44,paddingHorizontal:10,borderRadius:15,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},myRankingButtonText:{color:colors.white,fontSize:9,fontWeight:'900'},leaderboardTitle:{color:colors.keep,fontSize:12,fontWeight:'900',letterSpacing:.8,marginBottom:2},leaderboardHint:{color:colors.textMuted,fontSize:10,fontWeight:'700',marginBottom:2},leaderboardRow:{minHeight:38,flexDirection:'row',alignItems:'center',gap:9,paddingHorizontal:9,borderRadius:12,backgroundColor:colors.backgroundElevated},leaderboardTrophy:{width:22,textAlign:'center',fontSize:13,color:colors.white,fontWeight:'900'},leaderboardNameRow:{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',gap:6},leaderboardName:{flexShrink:1,color:colors.white,fontSize:13,fontWeight:'900'},leaderboardWins:{color:colors.keep,fontSize:11,fontWeight:'900'},leaderboardStats:{color:colors.primaryLight,fontSize:11,fontWeight:'800'},leaderboardSpecialty:{color:colors.keep,fontSize:10,fontWeight:'800',marginTop:1},leaderboardPresence:{color:colors.keep,fontSize:10,fontWeight:'800',marginTop:1},leaderboardChevron:{color:colors.textMuted,fontSize:16,fontWeight:'900',marginLeft:2},battleFullscreen:{flex:1,paddingHorizontal:8,paddingTop:2,paddingBottom:0},battleLauncher:{minHeight:72,marginTop:spacing.lg,marginBottom:spacing.md,paddingHorizontal:12,paddingVertical:10,borderRadius:17,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.keep,flexDirection:'row',alignItems:'center',gap:9},battleLauncherIcon:{width:42,height:42,borderRadius:21,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.warning,alignItems:'center',justifyContent:'center'},battleLauncherBolt:{fontSize:19},battleLauncherCopy:{flex:1,minWidth:0},battleLauncherKicker:{color:colors.warning,fontSize:12,fontWeight:'900',letterSpacing:1},battleLauncherKickerRow:{flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},battleLauncherFreeBadge:{minHeight:18,paddingHorizontal:7,borderRadius:9,backgroundColor:'rgba(45,225,194,0.12)',borderWidth:1,borderColor:colors.keep,alignItems:'center',justifyContent:'center'},battleLauncherFreeBadgeText:{color:colors.keep,fontSize:10,fontWeight:'900'},battleLauncherTitle:{color:colors.white,fontSize:16,fontWeight:'900',marginTop:1},battleLauncherMeta:{color:colors.white,fontSize:12,lineHeight:17,fontWeight:'700',marginTop:2},battleLauncherOpen:{color:colors.keep,fontSize:12,fontWeight:'900'},content:{paddingHorizontal:Platform.OS === 'web' ? spacing.xl : 12,paddingTop:Platform.OS === 'web' ? spacing.xl : 10,paddingBottom:spacing.xxxl,width:'100%',maxWidth:Platform.OS === 'web' ? 1180 : undefined,alignSelf:'center'},headerRow:{width:'100%',flexDirection:'row',alignItems:'center',gap:10,marginBottom:spacing.md},title:{...typography.h1,color:colors.white,fontSize:24,lineHeight:28},subtitle:{color:colors.white,fontSize:14,lineHeight:19,marginTop:3,fontWeight:'700'},createButton:{minHeight:44,paddingHorizontal:12,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary},createButtonLocked:{backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},createButtonText:{color:colors.white,fontSize:12,fontWeight:'900'},eventHelpButton:{width:34,height:34,borderRadius:17,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},eventHelpButtonText:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},helpBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,.76)',justifyContent:'center'},helpCard:{width:'100%',maxWidth:460,alignSelf:'center',backgroundColor:colors.backgroundCard,borderRadius:18,borderWidth:1,borderColor:colors.border,padding:16,gap:14},helpHead:{flexDirection:'row',alignItems:'flex-start',gap:10},helpTitle:{color:colors.textPrimary,fontSize:19,fontWeight:'900'},helpHint:{color:colors.textMuted,fontSize:10,lineHeight:15,marginTop:4},helpClose:{width:32,height:32,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},helpCloseText:{color:colors.textPrimary,fontSize:20,fontWeight:'900',lineHeight:22},helpSteps:{gap:9},helpStep:{minHeight:56,borderRadius:15,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,padding:10,flexDirection:'row',alignItems:'center',gap:10},helpNo:{width:28,height:28,borderRadius:14,backgroundColor:colors.primary,color:'#FFF',fontSize:12,fontWeight:'900',textAlign:'center',lineHeight:28},helpCopy:{flex:1,minWidth:0},helpStepTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},helpText:{color:colors.textMuted,fontSize:10,lineHeight:15,marginTop:2},helpStatus:{color:colors.primaryLight,fontSize:11,lineHeight:16,fontWeight:'900'},helpDone:{minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},helpDoneText:{color:'#FFF',fontSize:11,fontWeight:'900'},creatorHint:{padding:10,borderRadius:13,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,marginBottom:spacing.lg},creatorHintText:{color:colors.white,fontSize:12,lineHeight:17,textAlign:'center',fontWeight:'800'},error:{color:colors.danger,textAlign:'center',paddingVertical:18},empty:{backgroundColor:colors.backgroundElevated,borderRadius:18,padding:spacing.lg,borderWidth:1,borderColor:colors.border},emptyTitle:{color:colors.white,fontSize:15,fontWeight:'900',marginBottom:6},card:{borderRadius:26,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,overflow:'hidden'},cardHero:{height:180,backgroundColor:colors.background},cardHeroGradient:{flex:1},cardHeroImage:{...StyleSheet.absoluteFillObject},cardHeroOverlay:{...StyleSheet.absoluteFillObject,backgroundColor:'rgba(91,63,224,0.35)'},cardBody:{padding:20},badgeRow:{position:'absolute',left:12,bottom:10,right:12,flexDirection:'row',alignItems:'center',flexWrap:'wrap',gap:8},badge:{alignSelf:'flex-start',paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(124,92,252,.16)'},badgeText:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:1},pendingBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(255,92,114,.16)',borderWidth:1.5,borderColor:colors.danger},pendingBadgeText:{color:colors.danger,fontSize:10,fontWeight:'900',letterSpacing:.4},rejectedBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(255,92,114,.14)',borderWidth:1,borderColor:colors.danger},rejectedBadgeText:{color:colors.danger,fontSize:10,fontWeight:'900'},approvedBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(45,225,194,.14)',borderWidth:1,borderColor:colors.success},approvedBadgeText:{color:colors.success,fontSize:10,fontWeight:'900'},moderationNote:{color:colors.pass,fontSize:11,lineHeight:15,fontWeight:'700',marginTop:8},eventName:{color:colors.white,fontSize:24,lineHeight:30,fontWeight:'900',marginTop:10},date:{color:colors.textMutedGrey,fontSize:14,fontWeight:'900',marginTop:8},meta:{color:colors.textMutedGrey,fontSize:14,marginTop:5,fontWeight:'700'},dj:{color:colors.primaryLight,fontSize:12,fontWeight:'800',marginTop:5},description:{color:colors.white,fontSize:12,lineHeight:18,marginTop:14,fontWeight:'700'},reviewSummary:{color:colors.warning,fontSize:12,fontWeight:'900',marginTop:6},rsvpCountsText:{color:colors.primaryLight,fontSize:11,fontWeight:'800',marginTop:6},rsvpToggleRow:{flexDirection:'row',alignItems:'flex-start',gap:10,marginBottom:9,padding:10,borderRadius:14,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},rsvpToggleBox:{width:22,height:22,borderRadius:6,borderWidth:2,borderColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:1},rsvpToggleBoxOn:{backgroundColor:colors.primary},rsvpToggleCheck:{color:colors.white,fontSize:13,fontWeight:'900'},rsvpToggleLabel:{color:colors.white,fontSize:12,fontWeight:'800'},rsvpToggleHint:{color:colors.textMuted,fontSize:10,lineHeight:14,fontWeight:'700',marginTop:2},audienceTitle:{color:colors.white,fontSize:13,fontWeight:'900',marginTop:4},audienceHint:{color:colors.textMuted,fontSize:10,lineHeight:15,fontWeight:'700',marginTop:3,marginBottom:8},audienceChoices:{flexDirection:'row',gap:7,marginBottom:12},audienceChoice:{flex:1,minHeight:58,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',paddingHorizontal:6},audienceChoiceOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},audienceChoiceLabel:{color:colors.white,fontSize:12,fontWeight:'900'},audienceChoiceLabelOn:{color:colors.primaryLight},audienceChoiceHint:{color:colors.textMuted,fontSize:9,fontWeight:'700',textAlign:'center',marginTop:2},audienceBadge:{paddingHorizontal:8,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(255,255,255,.12)',borderWidth:1,borderColor:'rgba(255,255,255,.28)'},audienceBadgeText:{color:colors.white,fontSize:9,fontWeight:'900',letterSpacing:.5},eventPriceChip:{minHeight:36,paddingHorizontal:13,borderRadius:18,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},eventPriceChipOn:{backgroundColor:colors.backgroundCard,borderColor:colors.warning},eventPriceChipText:{color:colors.white,fontSize:12,fontWeight:'900'},eventPriceChipTextOn:{color:colors.warning},reviewPrompt:{marginBottom:spacing.md,padding:12,borderRadius:16,borderWidth:1,borderColor:colors.warning,backgroundColor:colors.backgroundCard},reviewPromptTitle:{color:colors.warning,fontSize:12,fontWeight:'900'},reviewPromptMeta:{color:colors.white,fontSize:11,fontWeight:'700',marginTop:3},reviewSheet:{width:'100%',maxWidth:420,alignSelf:'center',borderRadius:26,padding:18,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},reviewStars:{flexDirection:'row',justifyContent:'center',gap:8,marginVertical:14},reviewStar:{color:colors.warning,fontSize:34},moreLink:{marginTop:6},moreLinkText:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},detailImageScroll:{marginBottom:12},detailImage:{width:355,height:260,borderRadius:16,backgroundColor:colors.background,marginRight:8},detailDescription:{color:colors.white,fontSize:13,lineHeight:20,fontWeight:'700',marginTop:10},eventLinksRow:{flexDirection:'row',flexWrap:'wrap',gap:8,marginTop:10},photoGalleryRow:{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:4},photoGalleryThumbWrap:{width:84,height:84},photoGalleryThumb:{width:84,height:84,borderRadius:14,backgroundColor:colors.background},photoGalleryRemove:{position:'absolute',top:-6,right:-6,width:22,height:22,borderRadius:11,backgroundColor:colors.pass,alignItems:'center',justifyContent:'center'},photoGalleryRemoveText:{color:colors.white,fontSize:12,fontWeight:'900'},photoGalleryAdd:{width:84,height:84,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.background,alignItems:'center',justifyContent:'center'},photoGalleryAddText:{color:colors.primaryLight,fontSize:11,fontWeight:'800',textAlign:'center'},photoGalleryHint:{color:colors.textMuted,fontSize:10,fontWeight:'700',marginBottom:9},callOrganizerLink:{minHeight:52,paddingHorizontal:12,paddingVertical:7,borderRadius:16,backgroundColor:'rgba(45,225,194,0.10)',borderWidth:1,borderColor:colors.keep,flexDirection:'row',alignItems:'center',gap:9},callOrganizerIcon:{width:32,height:32,borderRadius:16,backgroundColor:'rgba(45,225,194,0.12)',alignItems:'center',justifyContent:'center'},callOrganizerIconText:{fontSize:15},callOrganizerLabel:{color:colors.keep,fontSize:10,fontWeight:'900',letterSpacing:.3},callOrganizerNumber:{color:colors.white,fontSize:13,fontWeight:'900',marginTop:1},currentAnswer:{alignSelf:'flex-start',marginTop:16,paddingHorizontal:10,paddingVertical:6,borderRadius:radius.pill,backgroundColor:colors.backgroundCard},currentAnswerText:{color:colors.white,fontSize:12,fontWeight:'900'},currentAnswerGoing:{backgroundColor:'rgba(45,225,194,0.12)',borderWidth:1,borderColor:colors.keep},currentAnswerTextGoing:{color:colors.keep},currentAnswerNotGoing:{backgroundColor:'rgba(255,92,114,0.12)',borderWidth:1,borderColor:colors.pass},currentAnswerTextNotGoing:{color:colors.pass},rsvpMainRow:{flexDirection:'row',gap:10,marginTop:16},rsvpButton:{flex:1,minHeight:48,borderRadius:24,alignItems:'center',justifyContent:'center',borderWidth:2,paddingHorizontal:8},rsvpButtonNo:{borderColor:colors.pass,backgroundColor:'rgba(255,92,114,0.10)'},rsvpButtonNoText:{color:colors.pass,fontSize:13,fontWeight:'900'},rsvpButtonYes:{borderColor:colors.keep,backgroundColor:colors.keep},rsvpButtonYesText:{color:colors.background,fontSize:13,fontWeight:'900'},rsvpMaybeRow:{alignItems:'center',marginTop:10},maybeAction:{minHeight:44,paddingHorizontal:18,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},maybeActionOn:{borderColor:colors.primaryLight,backgroundColor:colors.border},maybeText:{color:colors.white,fontSize:12,fontWeight:'900'},secondaryRow:{flexDirection:'row',gap:8,marginTop:12},secondary:{flex:1,minHeight:44,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},secondaryText:{color:colors.white,fontSize:12,fontWeight:'800'},secondaryDanger:{borderColor:colors.pass},secondaryDangerText:{color:colors.pass},participantRow:{flexDirection:'row',alignItems:'center',gap:8,minHeight:44,paddingHorizontal:4,borderBottomWidth:1,borderBottomColor:colors.backgroundCard},participantNameRow:{flexDirection:'row',alignItems:'center',gap:6},participantName:{color:colors.white,fontSize:13,fontWeight:'800',flexShrink:1},participantStatus:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},participantStatusGoing:{color:colors.keep},participantStatusNotGoing:{color:colors.pass},backdrop:{flex:1,backgroundColor:'rgba(0,0,0,.78)',justifyContent:'flex-end'},sheet:{maxHeight:'88%',backgroundColor:colors.backgroundElevated,borderTopLeftRadius:26,borderTopRightRadius:26,borderWidth:1,borderColor:colors.border,padding:18},modalHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:12},modalTitle:{color:colors.white,fontSize:18,fontWeight:'900'},close:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},input:{minHeight:48,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.background,color:colors.white,paddingHorizontal:12,marginBottom:9},venueInputRow:{flexDirection:'row',alignItems:'center',gap:8},venueInput:{flex:1},venueLocateButton:{width:48,height:48,borderRadius:14,marginBottom:9,backgroundColor:colors.background,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},venueLocateIcon:{fontSize:18},venueSuggestions:{marginTop:-4,marginBottom:9,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,overflow:'hidden'},venueSuggestionRow:{minHeight:44,paddingHorizontal:12,paddingVertical:8,borderBottomWidth:1,borderBottomColor:colors.backgroundCard},venueSuggestionPrimary:{color:colors.white,fontSize:12,fontWeight:'800'},venueSuggestionSecondary:{color:colors.textMuted,fontSize:10,fontWeight:'700',marginTop:1},venueSuggestionsLoading:{marginTop:-4,marginBottom:9},multiline:{minHeight:84,paddingTop:12,textAlignVertical:'top'},publish:{minHeight:50,borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:5},publishText:{color:colors.white,fontSize:12,fontWeight:'900'},publishSecondary:{minHeight:44,alignItems:'center',justifyContent:'center'},publishSecondaryText:{color:colors.white,fontSize:12,fontWeight:'800'},
+const styles=StyleSheet.create({
+desktopContent:{flexGrow:1,width:'100%',maxWidth:'100%',alignSelf:'stretch',paddingHorizontal:24,paddingTop:14,paddingBottom:24,backgroundColor:'rgba(32,20,52,.84)'},
+desktopPartyHome:{flexDirection:'row',flexWrap:'wrap',justifyContent:'center',alignItems:'stretch',flexGrow:1,paddingVertical:14,gap:14},
+desktopPartyHomeChoice:{flexGrow:1,flexBasis:208,minWidth:190,minHeight:174,flexDirection:'column',alignItems:'flex-start',justifyContent:'space-between',paddingHorizontal:22,paddingVertical:20},
+eventStoryInfo:{width:'100%',flexBasis:'100%',minHeight:72,paddingHorizontal:14,paddingVertical:11,borderRadius:14,borderWidth:1,borderColor:'rgba(167,139,250,.6)',backgroundColor:'rgba(35,23,63,.92)',justifyContent:'center',gap:4},
+eventStoryInfoTitle:{color:colors.primaryLight,fontWeight:'900',fontSize:12,letterSpacing:.4},
+eventStoryInfoText:{color:colors.textPrimary,fontWeight:'600',fontSize:12,lineHeight:18},
+desktopBattleFullscreen:{flex:1,width:'100%',minHeight:0,overflow:'hidden',borderRadius:0,borderWidth:0,margin:0,padding:0,backgroundColor:'#251736',alignItems:'center',justifyContent:'center'},
+desktopBattleSide:{position:'absolute',top:52,width:'16%',maxWidth:220,borderRadius:18,borderWidth:1,borderColor:'rgba(167,139,250,.35)',backgroundColor:'rgba(20,13,36,.82)',padding:12,gap:8},
+desktopBattleLeft:{left:14},
+desktopBattleRight:{right:14},
+desktopBattleKicker:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:1},
+desktopBattleSideTitle:{color:colors.white,fontSize:17,fontWeight:'900'},
+desktopBattleSideCopy:{color:colors.textPrimary,fontSize:12,lineHeight:19},
+desktopBattleDivision:{height:1,backgroundColor:'rgba(167,139,250,.35)',marginVertical:4},
+desktopBattleLeaderboardButton:{minHeight:46,marginTop:4,paddingHorizontal:10,borderRadius:14,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.08)',alignItems:'center',justifyContent:'center'},
+desktopBattleLeaderboardText:{color:colors.keep,fontSize:11,fontWeight:'900',letterSpacing:.2},
+pendingTopBanner:{minHeight:44,borderRadius:14,borderWidth:1.5,borderColor:colors.danger,backgroundColor:'rgba(255,92,114,.12)',paddingHorizontal:12,marginBottom:10,alignItems:'center',justifyContent:'center'},pendingTopBannerText:{color:colors.danger,fontSize:10,fontWeight:'900',letterSpacing:.5,textAlign:'center'},pendingPreviewLock:{marginTop:10,borderRadius:12,borderWidth:1,borderColor:colors.danger,backgroundColor:'rgba(255,92,114,.08)',padding:10},pendingPreviewLockText:{color:colors.textMutedGrey,fontSize:10,lineHeight:15,fontWeight:'800'},eventModeHeader:{minHeight:48,borderRadius:15,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,paddingHorizontal:12,marginBottom:12,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},eventModeTitle:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:.8},eventModeCount:{color:colors.textMutedGrey,fontSize:10,fontWeight:'800'},partyHome:{gap:10,marginTop:6,marginBottom:12},partyHomeQuestion:{color:colors.textPrimary,fontSize:22,fontWeight:'900'},partyHomeHint:{color:colors.textMuted,fontSize:13,lineHeight:18,marginBottom:4},partyHomeChoicePrimary:{borderColor:colors.primary,backgroundColor:colors.primaryFaint},partyHomeAccess:{fontSize:16},partyHomeChoice:{minHeight:74,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:14,paddingVertical:11,flexDirection:'row',alignItems:'center',gap:12},partyHomeIcon:{width:44,height:44,borderRadius:14,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center'},partyHomeIconText:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},partyHomeCopy:{flex:1,minWidth:0},partyHomeTitle:{color:colors.textPrimary,fontSize:16,fontWeight:'900'},partyHomeMeta:{color:colors.textMuted,fontSize:12,lineHeight:17,marginTop:3},partyHomeArrow:{color:colors.textPrimary,fontSize:24,fontWeight:'800'},partyFocusBack:{alignSelf:'flex-start',minHeight:38,borderRadius:12,borderWidth:1,borderColor:colors.border,paddingHorizontal:12,alignItems:'center',justifyContent:'center',marginBottom:8},partyFocusBackText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},partyAccordion:{flexDirection:'row',gap:8,marginBottom:12},partyAccordionRow:{flex:1,minWidth:0,minHeight:66,paddingHorizontal:6,paddingVertical:8,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},partyAccordionRowOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},partyAccordionIcon:{width:29,height:29,borderRadius:9,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center',marginBottom:5},partyAccordionIconText:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},partyAccordionCopy:{width:'100%',minWidth:0,alignItems:'center'},partyAccordionTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'900',textAlign:'center'},partyAccordionHint:{display:'none'},partyAccordionChevron:{display:'none'},
+container:{flex:1,backgroundColor:colors.background},partiesTabs:{width:'100%',flexDirection:'row',gap:8,marginBottom:spacing.lg},partiesTabBtn:{flex:1,minHeight:44,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},partiesTabBtnOn:{backgroundColor:colors.primary,borderColor:colors.primary},partiesTabText:{color:colors.white,fontSize:12,fontWeight:'900'},partiesTabTextOn:{color:colors.white},leaderboardPanel:{marginBottom:spacing.lg,padding:12,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,gap:6},leaderboardHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},myRankingButton:{minHeight:44,paddingHorizontal:10,borderRadius:15,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},myRankingButtonText:{color:colors.white,fontSize:9,fontWeight:'900'},leaderboardTitle:{color:colors.keep,fontSize:12,fontWeight:'900',letterSpacing:.8,marginBottom:2},leaderboardHint:{color:colors.textMuted,fontSize:10,fontWeight:'700',marginBottom:2},leaderboardRow:{minHeight:38,flexDirection:'row',alignItems:'center',gap:9,paddingHorizontal:9,borderRadius:12,backgroundColor:colors.backgroundElevated},leaderboardTrophy:{width:22,textAlign:'center',fontSize:13,color:colors.white,fontWeight:'900'},leaderboardNameRow:{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',gap:6},leaderboardName:{flexShrink:1,color:colors.white,fontSize:13,fontWeight:'900'},leaderboardWins:{color:colors.keep,fontSize:11,fontWeight:'900'},leaderboardStats:{color:colors.primaryLight,fontSize:11,fontWeight:'800'},leaderboardSpecialty:{color:colors.keep,fontSize:10,fontWeight:'800',marginTop:1},leaderboardPresence:{color:colors.keep,fontSize:10,fontWeight:'800',marginTop:1},leaderboardChevron:{color:colors.textMuted,fontSize:16,fontWeight:'900',marginLeft:2},battleFullscreen:{flex:1,paddingHorizontal:8,paddingTop:2,paddingBottom:0},battleLauncher:{minHeight:72,marginTop:spacing.lg,marginBottom:spacing.md,paddingHorizontal:12,paddingVertical:10,borderRadius:17,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.keep,flexDirection:'row',alignItems:'center',gap:9},battleLauncherIcon:{width:42,height:42,borderRadius:21,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.warning,alignItems:'center',justifyContent:'center'},battleLauncherBolt:{fontSize:19},battleLauncherCopy:{flex:1,minWidth:0},battleLauncherKicker:{color:colors.warning,fontSize:12,fontWeight:'900',letterSpacing:1},battleLauncherKickerRow:{flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},battleLauncherFreeBadge:{minHeight:18,paddingHorizontal:7,borderRadius:9,backgroundColor:'rgba(45,225,194,0.12)',borderWidth:1,borderColor:colors.keep,alignItems:'center',justifyContent:'center'},battleLauncherFreeBadgeText:{color:colors.keep,fontSize:10,fontWeight:'900'},battleLauncherTitle:{color:colors.white,fontSize:16,fontWeight:'900',marginTop:1},battleLauncherMeta:{color:colors.white,fontSize:12,lineHeight:17,fontWeight:'700',marginTop:2},battleLauncherOpen:{color:colors.keep,fontSize:12,fontWeight:'900'},content:{paddingHorizontal:Platform.OS === 'web' ? spacing.xl : 12,paddingTop:Platform.OS === 'web' ? spacing.xl : 10,paddingBottom:spacing.xxxl,width:'100%',maxWidth:Platform.OS === 'web' ? 1180 : undefined,alignSelf:'center'},headerRow:{width:'100%',flexDirection:'row',alignItems:'center',gap:10,marginBottom:spacing.md},title:{...typography.h1,color:colors.white,fontSize:24,lineHeight:28},subtitle:{color:colors.white,fontSize:14,lineHeight:19,marginTop:3,fontWeight:'700'},createButton:{minHeight:44,paddingHorizontal:12,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary},createButtonLocked:{backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},createButtonText:{color:colors.white,fontSize:12,fontWeight:'900'},eventHelpButton:{width:34,height:34,borderRadius:17,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},eventHelpButtonText:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},helpBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,.76)',justifyContent:'center'},helpCard:{width:'100%',maxWidth:460,alignSelf:'center',backgroundColor:colors.backgroundCard,borderRadius:18,borderWidth:1,borderColor:colors.border,padding:16,gap:14},helpHead:{flexDirection:'row',alignItems:'flex-start',gap:10},helpTitle:{color:colors.textPrimary,fontSize:19,fontWeight:'900'},helpHint:{color:colors.textMuted,fontSize:10,lineHeight:15,marginTop:4},helpClose:{width:32,height:32,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},helpCloseText:{color:colors.textPrimary,fontSize:20,fontWeight:'900',lineHeight:22},helpSteps:{gap:9},helpStep:{minHeight:56,borderRadius:15,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,padding:10,flexDirection:'row',alignItems:'center',gap:10},helpNo:{width:28,height:28,borderRadius:14,backgroundColor:colors.primary,color:'#FFF',fontSize:12,fontWeight:'900',textAlign:'center',lineHeight:28},helpCopy:{flex:1,minWidth:0},helpStepTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},helpText:{color:colors.textMuted,fontSize:10,lineHeight:15,marginTop:2},helpStatus:{color:colors.primaryLight,fontSize:11,lineHeight:16,fontWeight:'900'},helpDone:{minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},helpDoneText:{color:'#FFF',fontSize:11,fontWeight:'900'},creatorHint:{padding:10,borderRadius:13,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,marginBottom:spacing.lg},creatorHintText:{color:colors.white,fontSize:12,lineHeight:17,textAlign:'center',fontWeight:'800'},error:{color:colors.danger,textAlign:'center',paddingVertical:18},empty:{backgroundColor:colors.backgroundElevated,borderRadius:18,padding:spacing.lg,borderWidth:1,borderColor:colors.border},emptyTitle:{color:colors.white,fontSize:15,fontWeight:'900',marginBottom:6},card:{borderRadius:26,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,overflow:'hidden'},cardHero:{height:180,backgroundColor:colors.background},cardHeroGradient:{flex:1},cardHeroImage:{...StyleSheet.absoluteFillObject},cardHeroOverlay:{...StyleSheet.absoluteFillObject,backgroundColor:'rgba(91,63,224,0.35)'},cardBody:{padding:20},badgeRow:{position:'absolute',left:12,bottom:10,right:12,flexDirection:'row',alignItems:'center',flexWrap:'wrap',gap:8},badge:{alignSelf:'flex-start',paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(124,92,252,.16)'},badgeText:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:1},pendingBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(255,92,114,.16)',borderWidth:1.5,borderColor:colors.danger},pendingBadgeText:{color:colors.danger,fontSize:10,fontWeight:'900',letterSpacing:.4},rejectedBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(255,92,114,.14)',borderWidth:1,borderColor:colors.danger},rejectedBadgeText:{color:colors.danger,fontSize:10,fontWeight:'900'},expiredBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(255,92,114,.22)',borderWidth:1.5,borderColor:colors.danger},expiredBadgeText:{color:colors.danger,fontSize:11,fontWeight:'900'},expiredDate:{color:colors.danger},approvedBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(45,225,194,.14)',borderWidth:1,borderColor:colors.success},approvedBadgeText:{color:colors.success,fontSize:10,fontWeight:'900'},moderationNote:{color:colors.pass,fontSize:11,lineHeight:15,fontWeight:'700',marginTop:8},eventName:{color:colors.white,fontSize:24,lineHeight:30,fontWeight:'900',marginTop:10},date:{color:colors.textMutedGrey,fontSize:14,fontWeight:'900',marginTop:8},meta:{color:colors.textMutedGrey,fontSize:14,marginTop:5,fontWeight:'700'},dj:{color:colors.primaryLight,fontSize:12,fontWeight:'800',marginTop:5},description:{color:colors.white,fontSize:12,lineHeight:18,marginTop:14,fontWeight:'700'},reviewSummary:{color:colors.warning,fontSize:12,fontWeight:'900',marginTop:6},rsvpCountsText:{color:colors.primaryLight,fontSize:11,fontWeight:'800',marginTop:6},rsvpToggleRow:{flexDirection:'row',alignItems:'flex-start',gap:10,marginBottom:9,padding:10,borderRadius:14,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},rsvpToggleBox:{width:22,height:22,borderRadius:6,borderWidth:2,borderColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:1},rsvpToggleBoxOn:{backgroundColor:colors.primary},rsvpToggleCheck:{color:colors.white,fontSize:13,fontWeight:'900'},rsvpToggleLabel:{color:colors.white,fontSize:12,fontWeight:'800'},rsvpToggleHint:{color:colors.textMuted,fontSize:10,lineHeight:14,fontWeight:'700',marginTop:2},audienceTitle:{color:colors.white,fontSize:13,fontWeight:'900',marginTop:4},audienceHint:{color:colors.textMuted,fontSize:10,lineHeight:15,fontWeight:'700',marginTop:3,marginBottom:8},audienceChoices:{flexDirection:'row',gap:7,marginBottom:12},audienceChoice:{flex:1,minHeight:58,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',paddingHorizontal:6},audienceChoiceOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},audienceChoiceLabel:{color:colors.white,fontSize:12,fontWeight:'900'},audienceChoiceLabelOn:{color:colors.primaryLight},audienceChoiceHint:{color:colors.textMuted,fontSize:9,fontWeight:'700',textAlign:'center',marginTop:2},audienceBadge:{paddingHorizontal:8,paddingVertical:5,borderRadius:radius.pill,backgroundColor:'rgba(255,255,255,.12)',borderWidth:1,borderColor:'rgba(255,255,255,.28)'},audienceBadgeText:{color:colors.white,fontSize:9,fontWeight:'900',letterSpacing:.5},eventPriceChip:{minHeight:36,paddingHorizontal:13,borderRadius:18,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},eventPriceChipOn:{backgroundColor:colors.backgroundCard,borderColor:colors.warning},eventPriceChipText:{color:colors.white,fontSize:12,fontWeight:'900'},eventPriceChipTextOn:{color:colors.warning},reviewPrompt:{marginBottom:spacing.md,padding:12,borderRadius:16,borderWidth:1,borderColor:colors.warning,backgroundColor:colors.backgroundCard},reviewPromptTitle:{color:colors.warning,fontSize:12,fontWeight:'900'},reviewPromptMeta:{color:colors.white,fontSize:11,fontWeight:'700',marginTop:3},reviewSheet:{width:'100%',maxWidth:420,alignSelf:'center',borderRadius:26,padding:18,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},reviewStars:{flexDirection:'row',justifyContent:'center',gap:8,marginVertical:14},reviewStar:{color:colors.warning,fontSize:34},moreLink:{marginTop:6},moreLinkText:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},detailImageScroll:{marginBottom:12},detailImage:{width:355,height:260,borderRadius:16,backgroundColor:colors.background,marginRight:8},detailDescription:{color:colors.white,fontSize:13,lineHeight:20,fontWeight:'700',marginTop:10},eventLinksRow:{flexDirection:'row',flexWrap:'wrap',gap:8,marginTop:10},photoGalleryRow:{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:4},photoGalleryThumbWrap:{width:84,height:84},photoGalleryThumb:{width:84,height:84,borderRadius:14,backgroundColor:colors.background},photoGalleryRemove:{position:'absolute',top:-6,right:-6,width:22,height:22,borderRadius:11,backgroundColor:colors.pass,alignItems:'center',justifyContent:'center'},photoGalleryRemoveText:{color:colors.white,fontSize:12,fontWeight:'900'},photoGalleryAdd:{width:84,height:84,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.background,alignItems:'center',justifyContent:'center'},photoGalleryAddText:{color:colors.primaryLight,fontSize:11,fontWeight:'800',textAlign:'center'},photoGalleryHint:{color:colors.textMuted,fontSize:10,fontWeight:'700',marginBottom:9},callOrganizerLink:{minHeight:52,paddingHorizontal:12,paddingVertical:7,borderRadius:16,backgroundColor:'rgba(45,225,194,0.10)',borderWidth:1,borderColor:colors.keep,flexDirection:'row',alignItems:'center',gap:9},callOrganizerIcon:{width:32,height:32,borderRadius:16,backgroundColor:'rgba(45,225,194,0.12)',alignItems:'center',justifyContent:'center'},callOrganizerIconText:{fontSize:15},callOrganizerLabel:{color:colors.keep,fontSize:10,fontWeight:'900',letterSpacing:.3},callOrganizerNumber:{color:colors.white,fontSize:13,fontWeight:'900',marginTop:1},currentAnswer:{alignSelf:'flex-start',marginTop:16,paddingHorizontal:10,paddingVertical:6,borderRadius:radius.pill,backgroundColor:colors.backgroundCard},currentAnswerText:{color:colors.white,fontSize:12,fontWeight:'900'},currentAnswerGoing:{backgroundColor:'rgba(45,225,194,0.12)',borderWidth:1,borderColor:colors.keep},currentAnswerTextGoing:{color:colors.keep},currentAnswerNotGoing:{backgroundColor:'rgba(255,92,114,0.12)',borderWidth:1,borderColor:colors.pass},currentAnswerTextNotGoing:{color:colors.pass},rsvpMainRow:{flexDirection:'row',gap:10,marginTop:16},rsvpButton:{flex:1,minHeight:48,borderRadius:24,alignItems:'center',justifyContent:'center',borderWidth:2,paddingHorizontal:8},rsvpButtonNo:{borderColor:colors.pass,backgroundColor:'rgba(255,92,114,0.10)'},rsvpButtonNoText:{color:colors.pass,fontSize:13,fontWeight:'900'},rsvpButtonYes:{borderColor:colors.keep,backgroundColor:colors.keep},rsvpButtonYesText:{color:colors.background,fontSize:13,fontWeight:'900'},rsvpMaybeRow:{alignItems:'center',marginTop:10},maybeAction:{minHeight:44,paddingHorizontal:18,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},maybeActionOn:{borderColor:colors.primaryLight,backgroundColor:colors.border},maybeText:{color:colors.white,fontSize:12,fontWeight:'900'},secondaryRow:{flexDirection:'row',gap:8,marginTop:12},secondary:{flex:1,minHeight:44,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},secondaryText:{color:colors.white,fontSize:12,fontWeight:'800'},secondaryDanger:{borderColor:colors.pass},secondaryDangerText:{color:colors.pass},participantRow:{flexDirection:'row',alignItems:'center',gap:8,minHeight:44,paddingHorizontal:4,borderBottomWidth:1,borderBottomColor:colors.backgroundCard},participantNameRow:{flexDirection:'row',alignItems:'center',gap:6},participantName:{color:colors.white,fontSize:13,fontWeight:'800',flexShrink:1},participantStatus:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},participantStatusGoing:{color:colors.keep},participantStatusNotGoing:{color:colors.pass},backdrop:{flex:1,backgroundColor:'rgba(0,0,0,.78)',justifyContent:'flex-end'},desktopEventBackdrop:{justifyContent:'center',alignItems:'center',padding:20},sheet:{maxHeight:'88%',backgroundColor:colors.backgroundElevated,borderTopLeftRadius:26,borderTopRightRadius:26,borderWidth:1,borderColor:colors.border,padding:18},desktopEventSheet:{width:'100%',maxWidth:960,height:'90%',maxHeight:860,borderRadius:24,padding:24,borderColor:colors.primary},modalHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:12},modalTitle:{color:colors.white,fontSize:18,fontWeight:'900'},close:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},input:{minHeight:48,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.background,color:colors.white,paddingHorizontal:12,marginBottom:9},venueInputRow:{flexDirection:'row',alignItems:'center',gap:8},venueInput:{flex:1},venueLocateButton:{width:48,height:48,borderRadius:14,marginBottom:9,backgroundColor:colors.background,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},venueLocateIcon:{fontSize:18},venueSuggestions:{marginTop:-4,marginBottom:9,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,overflow:'hidden'},venueSuggestionRow:{minHeight:44,paddingHorizontal:12,paddingVertical:8,borderBottomWidth:1,borderBottomColor:colors.backgroundCard},venueSuggestionPrimary:{color:colors.white,fontSize:12,fontWeight:'800'},venueSuggestionSecondary:{color:colors.textMuted,fontSize:10,fontWeight:'700',marginTop:1},venueSuggestionsLoading:{marginTop:-4,marginBottom:9},multiline:{minHeight:84,paddingTop:12,textAlignVertical:'top'},publish:{minHeight:50,borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:5},publishText:{color:colors.white,fontSize:12,fontWeight:'900'},publishSecondary:{minHeight:44,alignItems:'center',justifyContent:'center'},publishSecondaryText:{color:colors.white,fontSize:12,fontWeight:'800'},
 statsBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,.78)',alignItems:'center',justifyContent:'center',padding:spacing.lg},statsCard:{width:'100%',maxWidth:400,borderRadius:26,padding:20,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},myRankingCard:{width:'100%',maxWidth:400,maxHeight:'82%',borderRadius:26,padding:20,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},creditHistoryRow:{minHeight:38,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10,paddingHorizontal:10,borderRadius:12,backgroundColor:colors.backgroundElevated,marginBottom:5},creditHistoryLabel:{flex:1,color:colors.white,fontSize:11,lineHeight:15,fontWeight:'800'},creditHistoryGain:{color:colors.keep,fontSize:12,fontWeight:'900'},creditHistoryLoss:{color:colors.pass,fontSize:12,fontWeight:'900'},creditHistoryNextCredit:{color:colors.primaryLight,fontSize:11,lineHeight:15,fontWeight:'700',marginBottom:8},statsClose:{position:'absolute',top:10,right:10,width:44,height:44,borderRadius:17,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',zIndex:2},statsCloseText:{color:colors.white,fontSize:20,lineHeight:22,fontWeight:'700'},statsUsernameRow:{flexDirection:'row',alignItems:'center',gap:8,marginBottom:14,paddingRight:40},statsUsername:{color:colors.white,fontSize:20,fontWeight:'900'},statsBigRow:{flexDirection:'row',gap:8},statsBigItem:{flex:1,alignItems:'center',paddingVertical:12,borderRadius:16,backgroundColor:colors.backgroundElevated},statsBigValue:{color:colors.keep,fontSize:22,fontWeight:'900'},statsBigLabel:{color:colors.primaryLight,fontSize:10,fontWeight:'800',marginTop:2,textAlign:'center'},statsSmallRow:{flexDirection:'row',gap:5,marginTop:6},statsSmallItem:{flex:1,alignItems:'center',paddingVertical:7,borderRadius:12,backgroundColor:colors.backgroundElevated},statsSmallValue:{color:colors.white,fontSize:11,fontWeight:'900'},statsSmallLabel:{color:colors.textMuted,fontSize:9,fontWeight:'800',marginTop:1,textAlign:'center'},statsAvg:{color:colors.white,fontSize:12,fontWeight:'700',textAlign:'center',marginTop:12},statsSectionTitle:{color:colors.keep,fontSize:11,fontWeight:'900',letterSpacing:.8,marginTop:20,marginBottom:8},statsThemeRow:{minHeight:42,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,paddingHorizontal:12,borderRadius:14,backgroundColor:colors.backgroundElevated,marginBottom:6},statsThemeLabel:{color:colors.white,fontSize:12,fontWeight:'900'},statsThemeValue:{color:colors.primaryLight,fontSize:11,fontWeight:'800'},statsThemeEmpty:{color:colors.primaryLight,fontSize:12,lineHeight:16,fontWeight:'700'},statsActionsRow:{flexDirection:'row',gap:8,marginTop:18},statsProfileButtonSmall:{flex:1,minHeight:48,borderRadius:24,backgroundColor:colors.primary,borderWidth:1.5,borderColor:colors.info,alignItems:'center',justifyContent:'center'},statsProfileButtonText:{color:colors.white,fontSize:11,fontWeight:'900'},
 incomingBanner:{marginBottom:spacing.md,padding:14,borderRadius:18,borderWidth:2,borderColor:colors.keep,backgroundColor:colors.backgroundElevated},incomingText:{color:colors.white,fontSize:13,lineHeight:18,fontWeight:'700'},incomingName:{color:colors.white,fontWeight:'900'},incomingActions:{flexDirection:'row',gap:10,marginTop:10},incomingNo:{flex:1,minHeight:44,borderRadius:22,borderWidth:2,borderColor:colors.textMuted,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},incomingNoText:{color:colors.white,fontSize:13,fontWeight:'900'},incomingYes:{flex:1,minHeight:44,borderRadius:22,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},incomingYesText:{color:colors.background,fontSize:13,fontWeight:'900'},incomingBusy:{opacity:.6},
 ticketButton:{minHeight:46,marginTop:10,borderRadius:23,backgroundColor:colors.backgroundElevated,borderWidth:1.5,borderColor:colors.warning,alignItems:'center',justifyContent:'center'},ticketButtonText:{color:colors.warning,fontSize:13,fontWeight:'900'},

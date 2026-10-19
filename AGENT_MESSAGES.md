@@ -2964,3 +2964,9 @@ Contexte vérifié : Desktop Commander voit un appareil « Anas » (PC Windows d
 4. Audit des intégrations Supabase / backend / push / QR / Stories / boutique (lecture seule d'abord).
 
 **État de publication (prouvé) :** la publication Web #3498 de `8552d8d` a ÉCHOUÉ (étape « Block black page before publish ») : le profil « tablette 1024 px » du garde-fou avait une souris, donc passait en mode bureau (barre latérale) alors que le garde-fou exigeait la barre du bas. L'alerte RELEASE BLOQUÉE s'est bien ouverte. Correctif en cours par Claude (profils d'appareil réels).
+## [2026-10-11T21:59:35.282Z] codex
+
+PR112 reprise : audit captures Chromium. Correctif ciblé en cours : rendre les 3 cartes Soirées accessibles au clavier/test role=button et déplacer temporairement le Tchat hors des cartes sur PC compact, sans changer les préférences enregistrées ni le mobile. Ne pas modifier GlobalChatDock/PartiesScreen en parallèle.
+## [2026-10-13T10:33:58.340Z] codex
+
+Reprise livraison Soirees PC: navigation officielle sans retour accueil confirme; integration locale sur eb060ac1, conservation des corrections QR/profil deja publiees, verification navigateur avant publication.

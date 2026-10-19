@@ -1232,10 +1232,10 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
               </View>
             )}
 
-            <TouchableOpacity style={s.manualNotice} onPress={() => setManualInfoOpen((value) => !value)} accessibilityRole="button" accessibilityState={{ expanded: manualInfoOpen }} accessibilityLabel="En savoir plus sur le fonctionnement des paiements Pépites">
+            <TouchableOpacity style={s.manualNotice} onPress={() => setManualInfoOpen((value) => !value)} accessibilityRole="button" accessibilityState={{ expanded: manualInfoOpen }} accessibilityLabel="Plus : paiements Pépites">
               <View style={s.manualNoticeHeader}>
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={s.manualNoticeTitle}>EN SAVOIR PLUS · PAIEMENTS PÉPITES</Text>
+                  <Text style={s.manualNoticeTitle}>PLUS</Text>
                   <Text style={s.manualNoticeSummary}>Les validations vendeur se font dans Activité / Notifications.</Text>
                 </View>
                 <Text style={s.manualNoticeChevron}>{manualInfoOpen ? '˄' : '˅'}</Text>

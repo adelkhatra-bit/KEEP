@@ -1,7 +1,9 @@
 import { groupTracksByStyle } from '../services/styleGroups';
+import { songDuplicateKey } from '../services/trackDuplicateKey';
 import React, { useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
+import { useLayoutMode } from '../layout/layoutMode';
 // KEEP_PUBLIC_RUNTIME_PROBE_PLAYLISTS: forces Pages to rebuild this exact screen source.
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Image, Linking, TextInput, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { Alert } from '../utils/keepAlert';
@@ -83,11 +85,8 @@ function saleCurrencyLabel(code: string): string {
 }
 
 function trackIdentity(track: CanonicalTrack) {
-  const isrc = track.isrc?.trim().toUpperCase();
-  if (isrc) return `isrc:${isrc}`;
-  const title = track.title.trim().toLowerCase().replace(/\s+/g, ' ');
-  const artist = track.artist.trim().toLowerCase().replace(/\s+/g, ' ');
-  return `meta:${title}|${artist}`;
+  // Même chanson = même clé, quel que soit l'ISRC (album / single / remaster) : plus de doublons, et SUPPRIMER retire toutes les copies.
+  return `song:${songDuplicateKey(track.title, track.artist)}`;
 }
 
 function sortGateLabel(access: QuotaAccess | null) {
@@ -140,6 +139,7 @@ const resolveSaleSaveError = (raw: string, followers?: number | null, threshold?
 
 export default function MyMusicScreen({ navigation, route }: any) {
   const { t } = useTranslation();
+  const { isDesktop: isDesktopLibrary } = useLayoutMode();
   const { playlists, isLoading, refresh } = usePlaylistStore();
   const user = useUserStore((s) => s.user);
   const userId = user?.id ?? '';
@@ -680,6 +680,13 @@ export default function MyMusicScreen({ navigation, route }: any) {
     () => displayPlaylists.filter((playlist) => isSmartAlbumUiId(playlist.id)),
     [displayPlaylists],
   );
+  // Adel (17/10/2026) : une suggestion auto qui porte le même style qu'un Style
+  // déjà affiché (ex. « R&B / SOUL » = « R&B/Soul ») apparaissait en double.
+  const uniqueAutomaticStylePlaylists = useMemo(() => {
+    const norm = (value: string) => String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '').split('').sort().join('');
+    const existing = new Set(stylePlaylists.map((playlist) => norm(playlist.name)));
+    return automaticStylePlaylists.filter((playlist) => !existing.has(norm(playlist.name)));
+  }, [automaticStylePlaylists, stylePlaylists]);
   const regularPlaylists = useMemo(
     () => displayPlaylists.filter((playlist) => !isSmartAlbumUiId(playlist.id)),
     [displayPlaylists],
@@ -801,7 +808,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
       setSortAccess(nextGate);
       setSortDone(true);
     } catch (e: any) {
-      Alert.alert('Vibes Loki Music', e?.message ?? 'Impossible de ranger automatiquement la bibliothèque pour le moment.');
+      Alert.alert('Styles Loki Music', e?.message ?? 'Impossible de ranger automatiquement la bibliothèque pour le moment.');
     } finally {
       setAnalyzing(false);
     }
@@ -847,7 +854,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
       setSmartAlbums((rows) => rows.map((row) => `keep-smart:${row.id}` === editing.id ? { ...row, name: preference.name, description: preference.description, isPublic: preference.isPublic } : row));
       setEditing(null);
     } catch (e: any) {
-      Alert.alert('Vibe Loki Music', e?.message ?? 'Impossible d’enregistrer les modifications.');
+      Alert.alert('Style Loki Music', e?.message ?? 'Impossible d’enregistrer les modifications.');
     } finally {
       setSavingEdit(false);
     }
@@ -1203,7 +1210,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
 
   const toggleTrackVisibility = async (track: CanonicalTrack, saleVisibilityConfirmed = false) => {
     const entry = localEntryForTrack(track);
-    if (!entry) return Alert.alert('Visibilité', 'Cette musique vient d’une Vibe ou d’un service connecté. Modifie la visibilité de sa collection.');
+    if (!entry) return Alert.alert('Visibilité', 'Cette musique vient d’un Style ou d’un service connecté. Modifie la visibilité de sa collection.');
     const key = trackIdentity(track);
     if (trackVisibilityBusy === key || trackDeleteBusy === key) return;
     const next = entry.visibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC';
@@ -1440,7 +1447,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
       <TouchableOpacity style={styles.playlistCard} onPress={() => void togglePlaylist(item)} accessibilityLabel={`Ouvrir ${item.name}`}>
         {item.coverUrl ? <Image source={{ uri: item.coverUrl }} style={styles.playlistCover as any} /> : <View style={[styles.playlistCover, styles.playlistCoverFallback]}><Text style={styles.playlistCoverText}>{isSmart ? '✦' : '♪'}</Text></View>}
         <View style={styles.playlistInfo}>
-          <View style={styles.playlistTitleRow}><Text style={styles.playlistName} numberOfLines={1}>{item.name}</Text>{isSmart ? <View style={styles.smartPill}><Text style={styles.smartPillText}>VIBE</Text></View> : null}</View>
+          <View style={styles.playlistTitleRow}><Text style={styles.playlistName} numberOfLines={1}>{item.name}</Text>{isSmart ? <View style={styles.smartPill}><Text style={styles.smartPillText}>STYLE</Text></View> : null}</View>
           <Text style={styles.songCount}>{actualCount} morceau{actualCount > 1 ? 'x' : ''}{visibility ? ` · ${visibility}` : ''}</Text>
         </View>
         {!isAllKeepView && !isGroupView ? <TouchableOpacity style={styles.miniEdit} onPress={() => openEdit(item)}><Text style={styles.miniEditText}>✎</Text></TouchableOpacity> : null}
@@ -1452,11 +1459,11 @@ export default function MyMusicScreen({ navigation, route }: any) {
           <TouchableOpacity style={styles.serviceMini} onPress={async () => {
             try {
               const exportTracks = tracks.length ? tracks : await loadTracks(item);
-              if (!exportTracks.length) return Alert.alert('Services musicaux', 'Cette Vibe ne contient encore aucun morceau.');
+              if (!exportTracks.length) return Alert.alert('Services musicaux', 'Ce Style ne contient encore aucun morceau.');
               await prepareKeylessMusicExport(item.name, exportTracks);
               navigation.navigate('MusicConnections');
             } catch (e: any) {
-              Alert.alert('Services musicaux', e?.message ?? 'Impossible de préparer cette Vibe.');
+              Alert.alert('Services musicaux', e?.message ?? 'Impossible de préparer ce Style.');
             }
           }}><Text style={styles.serviceMiniText}>♫ SERVICES</Text></TouchableOpacity>
           <TouchableOpacity style={styles.shareMini} onPress={() => sharePlaylist(item.id, item.name).catch(() => Alert.alert('Partager', 'Partage indisponible pour le moment.'))}><Text style={styles.shareMiniText}>↗ PARTAGER</Text></TouchableOpacity>
@@ -1465,8 +1472,10 @@ export default function MyMusicScreen({ navigation, route }: any) {
     </View>;
   };
 
-  return (
-    <SafeAreaView style={styles.container}><PersonalThemeBackdrop />
+  // Adel (17/10/2026) : sur les sous-pages Playlists, l'en-tête, les onglets et les
+  // commandes défilent AVEC la liste (plus de bandeau fixe) : la liste occupe tout
+  // l'espace entre le haut de l'écran et la barre de navigation, ordinateur et mobile.
+  const pageHeader = (
       <View style={styles.header}>
         <View style={styles.headerCopy}>
           <Text style={styles.title} numberOfLines={1}>Playlists</Text>
@@ -1480,66 +1489,19 @@ export default function MyMusicScreen({ navigation, route }: any) {
           <Text style={styles.headerHelpButtonText}>?</Text>
         </TouchableOpacity>
       </View>
-
-      {mobileSection === 'HOME' ? <View style={styles.focusHome}>
-        <TouchableOpacity style={styles.focusPrimary} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('TRACKS'); setActiveTab('MUSIQUES'); }}>
-          <View style={styles.focusPrimaryIcon}><Text style={styles.focusPrimaryIconText}>♫</Text></View>
-          <View style={styles.focusPrimaryCopy}>
-            <Text style={styles.focusPrimaryTitle}>Écouter mes morceaux · {localKeptEntries.length}</Text>
-            <Text style={styles.focusPrimaryHint}>Toute ta musique au même endroit</Text>
-          </View>
-          <Text style={styles.focusChoiceArrow}>›</Text>
-        </TouchableOpacity>
-
-        {purchaseLibrary.length ? (
-          <View style={styles.purchaseHome}>
-            <View style={styles.purchaseHomeHead}>
-              <Text style={styles.purchaseHomeTitle}>DERNIERS ACHATS</Text>
-              <Text style={styles.purchaseHomeCount}>{purchaseLibrary.length}</Text>
-            </View>
-            {purchaseLibrary.slice(0, 3).map((entry) => (
-              <TouchableOpacity key={entry.paymentId} style={styles.purchaseHomeRow} onPress={() => { void openPurchasedCollection(entry); }} accessibilityLabel={`Écouter mon achat ${entry.playlistName}`}>
-                <View style={styles.purchaseHomeIcon}><Text style={styles.purchaseHomeIconText}>✓</Text></View>
-                <View style={styles.purchaseHomeCopy}>
-                  <Text style={styles.purchaseHomeName} numberOfLines={1}>{entry.playlistName}</Text>
-                  <Text style={styles.purchaseHomeMeta} numberOfLines={1}>@{entry.sellerUsername} · {entry.trackCount} titre{entry.trackCount > 1 ? 's' : ''}</Text>
-                </View>
-                <Text style={styles.purchaseHomePlay}>▶</Text>
-              </TouchableOpacity>
-            ))}
-            <Text style={styles.purchaseHomeHint}>Tes achats restent aussi classés automatiquement dans tes Styles.</Text>
-          </View>
-        ) : null}
-
-        <View style={styles.focusActionStack}>
-          <TouchableOpacity style={styles.focusActionRow} onPress={() => setVisibilityIntroOpen(true)}>
-            <View style={styles.focusActionIcon}><Text style={styles.focusActionIconText}>✎</Text></View>
-            <View style={styles.focusActionCopy}><Text style={styles.focusActionTitle}>Choisir ce qui est visible</Text><Text style={styles.focusActionHint}>Comprendre avant de modifier</Text></View>
-            <Text style={styles.focusChoiceArrow}>›</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.focusActionRow} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('ORGANIZE'); setActiveTab('VIBES'); }}>
-            <View style={styles.focusActionIcon}><Text style={styles.focusActionIconText}>☷</Text></View>
-            <View style={styles.focusActionCopy}><Text style={styles.focusActionTitle}>Trier ma musique</Text><Text style={styles.focusActionHint}>Par style ou par artiste</Text></View>
-            <Text style={styles.focusChoiceArrow}>›</Text>
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity style={styles.focusServiceLink} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('ORGANIZE'); setActiveTab('SERVICES'); }} accessibilityLabel="Afficher les services musicaux ici">
-          <Text style={styles.focusServiceIcon}>＋</Text>
-          <View style={styles.focusServiceCopy}>
-            <Text style={styles.focusServiceTitle}>Connecter mes applis musique</Text>
-            <Text style={styles.focusServiceHint}>Spotify, Apple Music et autres</Text>
-          </View>
-          <Text style={styles.focusChoiceArrow}>›</Text>
-        </TouchableOpacity>
-
-      </View> : <View style={styles.focusBar}>
+  );
+  const sectionControls = mobileSection === 'HOME' ? null : (
+    <View style={styles.sectionControls}>
+      {/* Adel (17/10/2026) : sur les sous-pages, une seule barre compacte (retour + titre + onglets) au lieu de
+          3 bandeaux empilés : toute la hauteur va aux musiques. */}
+      <View style={styles.focusBar}>
         <TouchableOpacity style={styles.focusBack} onPress={() => { setMobileSection('HOME'); setWorkspaceTab('LIBRARY'); setManageMusicMode(false); }} accessibilityLabel="Revenir aux choix Mes musiques"><Text style={styles.focusBackText}>‹</Text></TouchableOpacity>
-        <View style={styles.focusBarCopy}><Text style={styles.focusBarTitle}>{saleSelectionMode ? (saleEditOfferTarget ? 'Modifier la collection' : 'Créer une collection') : mobileSection === 'EDIT' ? 'Choisir ce qui est visible' : mobileSection === 'ORGANIZE' ? 'Trier ma musique' : 'Mes morceaux'}</Text></View>
-      </View>}
-      {workspaceTab === 'LIBRARY' && mobileSection === 'ORGANIZE' ? <View style={styles.mobileAccordionBody}>{activeTab === 'SERVICES' ? <View style={styles.inlineServicesCard}><Text style={styles.inlineServicesTitle}>Services musicaux</Text><Text style={styles.inlineServicesText}>Connecte ou synchronise tes services depuis Mes musiques. La gestion détaillée reste intégrée à ce parcours.</Text><TouchableOpacity style={styles.inlineServicesAction} onPress={() => navigation.navigate('MusicConnections')}><Text style={styles.inlineServicesActionText}>GÉRER MES CONNEXIONS</Text></TouchableOpacity></View> : <View style={styles.tabs}>{LIBRARY_TABS.filter((tab) => tab.key !== 'MUSIQUES').map((tab) => (
-        <TouchableOpacity key={tab.key} style={styles.tab} onPress={() => setActiveTab(tab.key)}><Text style={[styles.tabText, activeTab === tab.key && styles.tabTextOn]}>{tab.label}</Text>{activeTab === tab.key ? <View style={styles.tabIndicator} /> : null}</TouchableOpacity>
-      ))}</View>}</View> : null}
+        <View style={styles.focusBarCopy}><Text style={styles.focusBarTitle}>{saleSelectionMode ? (saleEditOfferTarget ? 'Modifier la collection' : 'Créer une collection') : mobileSection === 'EDIT' ? 'Choisir ce qui est visible' : mobileSection === 'ORGANIZE' ? 'Trier ma musique' : `Toute ma musique · ${localKeptEntries.length}`}</Text></View>
+        {workspaceTab === 'LIBRARY' && mobileSection === 'ORGANIZE' && activeTab !== 'SERVICES' ? <View style={styles.focusBarTabs}>{LIBRARY_TABS.filter((tab) => tab.key !== 'MUSIQUES').map((tab) => (
+          <TouchableOpacity key={tab.key} style={[styles.focusBarTab, activeTab === tab.key && styles.focusBarTabOn]} onPress={() => setActiveTab(tab.key)} accessibilityRole="button" accessibilityState={{ selected: activeTab === tab.key }}><Text style={[styles.focusBarTabText, activeTab === tab.key && styles.focusBarTabTextOn]}>{tab.label}</Text></TouchableOpacity>
+        ))}</View> : null}
+      </View>
+      {workspaceTab === 'LIBRARY' && mobileSection === 'ORGANIZE' && activeTab === 'SERVICES' ? <View style={styles.mobileAccordionBody}>{ <View style={styles.inlineServicesCard}><Text style={styles.inlineServicesTitle}>Services musicaux</Text><Text style={styles.inlineServicesText}>Connecte ou synchronise tes services depuis Mes musiques. La gestion détaillée reste intégrée à ce parcours.</Text><TouchableOpacity style={styles.inlineServicesAction} onPress={() => navigation.navigate('MusicConnections')}><Text style={styles.inlineServicesActionText}>GÉRER MES CONNEXIONS</Text></TouchableOpacity></View>}</View> : null}
 
       {workspaceTab === 'LIBRARY' && mobileSection === 'EDIT' && activeTab === 'MUSIQUES' ? (
         <View style={[styles.manageGuide, manageMusicMode && styles.manageGuideActive]}>
@@ -1570,8 +1532,8 @@ export default function MyMusicScreen({ navigation, route }: any) {
 
       {workspaceTab === 'LIBRARY' && mobileSection === 'ORGANIZE' && activeTab === 'VIBES' ? <View style={styles.organizeAction}>
         <View style={styles.organizeActionCopy}>
-          <Text style={styles.vibeBarTitle}>{sortGateLabel(sortAccess)}</Text>
-          <Text style={styles.vibeBarHint}>{sortDone ? `Classement à jour · ${localKeptTracks.length} morceaux · ${stylePlaylists.length} style${stylePlaylists.length > 1 ? 's' : ''}.` : sortAccess?.unlimited ? 'Loki Music classe automatiquement tes morceaux par style.' : sortAccess?.allowed ? 'Analyse tes morceaux et mets les styles à jour.' : 'Cette fonction nécessite Creator Pro ou un essai débloqué.'}</Text>
+          <Text style={styles.vibeBarTitle} numberOfLines={1}>{sortGateLabel(sortAccess)}</Text>
+          <Text style={styles.vibeBarHint} numberOfLines={1}>{sortDone ? `Classement à jour · ${localKeptTracks.length} morceaux · ${stylePlaylists.length} style${stylePlaylists.length > 1 ? 's' : ''}.` : sortAccess?.unlimited ? 'Loki Music classe automatiquement tes morceaux par style.' : sortAccess?.allowed ? 'Analyse tes morceaux et mets les styles à jour.' : 'Cette fonction nécessite Creator Pro ou un essai débloqué.'}</Text>
         </View>
         <TouchableOpacity style={[styles.organizeActionButton, sortDone && styles.organizeActionButtonDone, sortAccess && !sortAccess.allowed && !sortAccess.unlimited && styles.vibeBarLocked]} onPress={() => void runOrganizeAnalysis()} disabled={analyzing} accessibilityRole="button" accessibilityLabel="Mettre à jour le classement musical">
           {analyzing ? <ActivityIndicator color={colors.white} size="small" /> : <Text style={styles.organizeActionButtonText}>{sortDone ? '✓ TERMINÉ' : sortAccess?.allowed || sortAccess?.unlimited ? 'METTRE À JOUR' : 'DÉBLOQUER'}</Text>}
@@ -1593,14 +1555,14 @@ export default function MyMusicScreen({ navigation, route }: any) {
       </View> : null}
 
       {workspaceTab === 'LIBRARY' && mobileSection === 'TRACKS' && activeTab === 'MUSIQUES' && localKeptEntries.length && !saleSelectionMode ? <View style={styles.originSummary}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.originFilters}>
+        <View style={styles.originFilters}>
           {([
             ['ALL', 'TOUT'],
             ['PRIVATE', 'PRIVÉ'],
-            ['LISTEN', 'DÉCOUVERTE'],
+            ['LISTEN', 'DÉCOUV.'],
             ['SESSION', 'SESSION'],
-            ['USERS', '🔒 REPRISE'],
-            ['IDENTIFIED', 'IDENTIFIÉ'],
+            ['USERS', 'REPRISE'],
+            ['IDENTIFIED', 'IDENTIF.'],
             ['PULSE', 'LOKI'],
           ] as const).map(([key, label]) => (
             <TouchableOpacity
@@ -1611,10 +1573,10 @@ export default function MyMusicScreen({ navigation, route }: any) {
               accessibilityState={{ selected: originFilter === key }}
               accessibilityLabel={label}
             >
-              <Text style={[styles.originFilterText, originFilter === key && styles.originFilterTextOn]}>{label}</Text>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={[styles.originFilterText, originFilter === key && styles.originFilterTextOn]}>{label}</Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </View>
       </View> : null}
 
       {workspaceTab === 'LIBRARY' && mobileSection === 'ORGANIZE' && activeTab === 'VIBES' && analysis ? <TouchableOpacity style={styles.analysisSummary} onPress={() => setAnalysisExpanded((value) => !value)}>
@@ -1645,6 +1607,66 @@ export default function MyMusicScreen({ navigation, route }: any) {
         ) : null}
         <Text style={styles.analysisHelp}>Loki Music crée les Styles automatiquement sans supprimer tes morceaux. Tu peux les renommer et les rendre publiques ou privées.</Text>
       </View> : null}
+    </View>
+  );
+
+  return (
+    <SafeAreaView style={styles.container}><PersonalThemeBackdrop />
+      {mobileSection === 'HOME' ? pageHeader : null}
+
+      {mobileSection === 'HOME' ? <View style={[styles.focusHome, isDesktopLibrary && styles.focusHomeDesktop]}>
+        <TouchableOpacity style={styles.focusPrimary} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('TRACKS'); setActiveTab('MUSIQUES'); }}>
+          <View style={styles.focusPrimaryIcon}><Text style={styles.focusPrimaryIconText}>♫</Text></View>
+          <View style={styles.focusPrimaryCopy}>
+            <Text style={styles.focusPrimaryTitle}>Toute ma musique · {localKeptEntries.length}</Text>
+            <Text style={styles.focusPrimaryHint}>Écouter et retrouver mes titres</Text>
+          </View>
+          <Text style={styles.focusChoiceArrow}>›</Text>
+        </TouchableOpacity>
+
+        {purchaseLibrary.length ? (
+          <View style={styles.purchaseHome}>
+            <View style={styles.purchaseHomeHead}>
+              <Text style={styles.purchaseHomeTitle}>DERNIERS ACHATS</Text>
+              <Text style={styles.purchaseHomeCount}>{purchaseLibrary.length}</Text>
+            </View>
+            {purchaseLibrary.slice(0, 3).map((entry) => (
+              <TouchableOpacity key={entry.paymentId} style={styles.purchaseHomeRow} onPress={() => { void openPurchasedCollection(entry); }} accessibilityLabel={`Écouter mon achat ${entry.playlistName}`}>
+                <View style={styles.purchaseHomeIcon}><Text style={styles.purchaseHomeIconText}>✓</Text></View>
+                <View style={styles.purchaseHomeCopy}>
+                  <Text style={styles.purchaseHomeName} numberOfLines={1}>{entry.playlistName}</Text>
+                  <Text style={styles.purchaseHomeMeta} numberOfLines={1}>@{entry.sellerUsername} · {entry.trackCount} titre{entry.trackCount > 1 ? 's' : ''}</Text>
+                </View>
+                <Text style={styles.purchaseHomePlay}>▶</Text>
+              </TouchableOpacity>
+            ))}
+            <Text style={styles.purchaseHomeHint}>Tes achats restent aussi classés automatiquement dans tes Styles.</Text>
+          </View>
+        ) : null}
+
+        <View style={[styles.focusActionStack, isDesktopLibrary && styles.focusActionStackDesktop]}>
+          <TouchableOpacity style={[styles.focusActionRow, isDesktopLibrary && styles.focusActionRowDesktop]} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('EDIT'); setActiveTab('MUSIQUES'); setManageMusicMode(true); }} accessibilityLabel="Gérer directement la visibilité de mes morceaux">
+            <View style={styles.focusActionIcon}><Text style={styles.focusActionIconText}>✎</Text></View>
+            <View style={styles.focusActionCopy}><Text style={styles.focusActionTitle}>Visibilité</Text><Text style={styles.focusActionHint}>Public ou privé</Text></View>
+            <Text style={styles.focusChoiceArrow}>›</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.focusActionRow, isDesktopLibrary && styles.focusActionRowDesktop]} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('ORGANIZE'); setActiveTab('VIBES'); }}>
+            <View style={styles.focusActionIcon}><Text style={styles.focusActionIconText}>☷</Text></View>
+            <View style={styles.focusActionCopy}><Text style={styles.focusActionTitle}>Trier mes titres</Text><Text style={styles.focusActionHint}>Styles et artistes</Text></View>
+            <Text style={styles.focusChoiceArrow}>›</Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity style={styles.focusServiceLink} onPress={() => navigation.navigate('MusicConnections')} accessibilityLabel="Gérer directement mes connexions musicales">
+          <Text style={styles.focusServiceIcon}>＋</Text>
+          <View style={styles.focusServiceCopy}>
+            <Text style={styles.focusServiceTitle}>Mes services musicaux</Text>
+            <Text style={styles.focusServiceHint}>Connecter ou synchroniser</Text>
+          </View>
+          <Text style={styles.focusChoiceArrow}>›</Text>
+        </TouchableOpacity>
+
+      </View> : null}
 
       {mobileSection === 'HOME' ? null : activeTab === 'MUSIQUES' ? (
         <FlatList
@@ -1663,7 +1685,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
           keyExtractor={(item) => `own:${trackIdentity(item)}`}
           refreshing={isLoading}
           onRefresh={() => { void refreshLibrary(); }}
-          ListHeaderComponent={saleSelectionMode ? (
+          ListHeaderComponent={<>{sectionControls}{saleSelectionMode ? (
             <View style={styles.saleWizardIntro}>
               <View style={styles.saleWizardTopRow}><Text style={styles.saleWizardStep}>ÉTAPE 1 SUR 4</Text><Text style={styles.saleWizardCount}>{selectedSaleTrackIds.size} sélectionné{selectedSaleTrackIds.size > 1 ? 's' : ''}</Text></View>
               <Text style={styles.saleWizardTitle}>Choisis les musiques</Text>
@@ -1677,7 +1699,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
                 {regularPlaylists.map((playlist) => <View key={`manual:${playlist.id}`}>{renderPlaylist({ item: playlist })}</View>)}
               </View>
             ) : null}
-            {localKeptEntries.length ? <View style={[styles.originSection, originFilter === 'USERS' ? styles.originSectionSocial : styles.originSectionOwn]}>
+            {localKeptEntries.length && !['ALL'].includes(originFilter) ? <View style={[styles.originSection, originFilter === 'USERS' ? styles.originSectionSocial : styles.originSectionOwn]}>
               <View style={styles.originSectionHeader}>
                 <View style={styles.originSectionTitleRow}>
                   <Text style={styles.originSectionIcon}>{originFilter === 'USERS' ? '👥' : '🎧'}</Text>
@@ -1714,7 +1736,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
                 </Text>
               </View>
             </View> : null}
-          </>}
+          </>}</>}
           ListFooterComponent={!saleSelectionMode && originFilter === 'ALL' && socialRepriseEntries.length ? <View style={[styles.originSection, styles.originSectionSocial]}>
             <TouchableOpacity
               style={styles.originSectionHeader}
@@ -1741,20 +1763,20 @@ export default function MyMusicScreen({ navigation, route }: any) {
           contentContainerStyle={styles.list}
           refreshing={isLoading}
           onRefresh={() => { void refreshLibrary(); }}
-          ListHeaderComponent={activeTab === 'VIBES' ? (
+          ListHeaderComponent={<>{sectionControls}{activeTab === 'VIBES' ? (
             <View style={styles.styleCountHeader}>
               <Text style={styles.styleCountTitle}>MES STYLES · {stylePlaylists.length}</Text>
-              <Text style={styles.styleCountHint}>{localKeptTracks.length} morceaux analysés · même source Supabase que ton profil. Tous les styles détectés sont listés ci-dessous, sans limite à 3.</Text>
+              <Text style={styles.styleCountHint} numberOfLines={1}>{localKeptTracks.length} morceaux · tous tes styles</Text>
+            </View>
+          ) : null}</>}
+          ListFooterComponent={activeTab === 'VIBES' && uniqueAutomaticStylePlaylists.length ? (
+            <View style={styles.autoStylesSection}>
+              <Text style={styles.autoStylesTitle}>SUGGESTIONS AUTO · {uniqueAutomaticStylePlaylists.length}</Text>
+              <Text style={styles.autoStylesHint}>Ces suggestions ne sont PAS comptées dans tes {stylePlaylists.length} Styles musicaux affichés sur ton profil.</Text>
+              {uniqueAutomaticStylePlaylists.map((playlist) => <View key={`auto:${playlist.id}`}>{renderPlaylist({ item: playlist })}</View>)}
             </View>
           ) : null}
-          ListFooterComponent={activeTab === 'VIBES' && automaticStylePlaylists.length ? (
-            <View style={styles.autoVibesSection}>
-              <Text style={styles.autoVibesTitle}>SUGGESTIONS AUTO · {automaticStylePlaylists.length}</Text>
-              <Text style={styles.autoVibesHint}>Ces suggestions ne sont PAS comptées dans tes {stylePlaylists.length} Styles musicaux affichés sur ton profil.</Text>
-              {automaticStylePlaylists.map((playlist) => <View key={`auto:${playlist.id}`}>{renderPlaylist({ item: playlist })}</View>)}
-            </View>
-          ) : null}
-          ListEmptyComponent={<View style={styles.emptyCard}><Text style={styles.emptyTitle}>{activeTab === 'ARTISTES' ? 'Tes artistes apparaîtront ici.' : 'Aucune musique gardée'}</Text><Text style={styles.emptyText}>Garde quelques morceaux : Loki Music construira ensuite ton univers et, selon ta formule, tes Vibes automatiques.</Text><TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('Main', { screen: 'Listen' })}><Text style={styles.emptyButtonText}>ÉCOUTER</Text></TouchableOpacity></View>}
+          ListEmptyComponent={<View style={styles.emptyCard}><Text style={styles.emptyTitle}>{activeTab === 'ARTISTES' ? 'Tes artistes apparaîtront ici.' : 'Aucune musique gardée'}</Text><Text style={styles.emptyText}>Garde quelques morceaux : Loki Music construira ensuite ton univers et, selon ta formule, tes Styles automatiques.</Text><TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('Main', { screen: 'Listen' })}><Text style={styles.emptyButtonText}>ÉCOUTER</Text></TouchableOpacity></View>}
         />
       )}
 
@@ -1836,7 +1858,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
 
       <KeepModal visible={!!editing} transparent animationType="fade" onRequestClose={() => setEditing(null)}>
         <View style={styles.modalBackdrop}><ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled"><View style={styles.editCard}>
-          <Text style={styles.editTitle}>{editing && isSmartAlbumUiId(editing.id) ? 'Renommer ma Vibe' : 'Modifier la collection'}</Text>
+          <Text style={styles.editTitle}>{editing && isSmartAlbumUiId(editing.id) ? 'Renommer mon Style' : 'Modifier la collection'}</Text>
           <Text style={styles.editHint}>Le nom et la visibilité restent entièrement sous ton contrôle.</Text>
           <TextInput style={styles.input} value={editName} onChangeText={setEditName} placeholder="Nom" placeholderTextColor={colors.textMuted} />
           <TextInput style={[styles.input, styles.multiline]} value={editDescription} onChangeText={setEditDescription} placeholder="Description" placeholderTextColor={colors.textMuted} multiline />
@@ -2052,11 +2074,12 @@ const styles = StyleSheet.create({
   playlistHelpCopy:{flex:1,minWidth:0},
   playlistHelpTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},
   playlistHelpText:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:2},
-  focusHome:{marginHorizontal:14,marginTop:12,gap:12},
+  focusHome:{marginHorizontal:14,marginTop:9,gap:7},
+  focusHomeDesktop:{width:'100%',maxWidth:1000,alignSelf:'center'},
   focusHomeTitle:{color:colors.textPrimary,fontSize:22,fontWeight:'900'},
   focusHomeHint:{color:colors.textMuted,fontSize:13,lineHeight:19,marginBottom:2},
-  focusPrimary:{minHeight:80,paddingHorizontal:15,paddingVertical:13,borderRadius:20,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center',gap:13},
-  focusPrimaryIcon:{width:46,height:46,borderRadius:15,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},
+  focusPrimary:{minHeight:60,paddingHorizontal:12,paddingVertical:9,borderRadius:20,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center',gap:13},
+  focusPrimaryIcon:{width:36,height:36,borderRadius:12,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},
   focusPrimaryIconText:{color:colors.primaryLight,fontSize:21,fontWeight:'900'},
   focusPrimaryCopy:{flex:1,minWidth:0},focusPrimaryTitle:{color:colors.textPrimary,fontSize:16,fontWeight:'900'},focusPrimaryHint:{color:colors.textMuted,fontSize:12,lineHeight:17,marginTop:4},
   purchaseHome:{borderRadius:18,borderWidth:1,borderColor:'rgba(45,225,194,.36)',backgroundColor:'rgba(45,225,194,.06)',padding:10,gap:7},
@@ -2068,12 +2091,14 @@ const styles = StyleSheet.create({
   purchaseHomeIconText:{color:colors.success,fontSize:14,fontWeight:'900'},
   purchaseHomeCopy:{flex:1,minWidth:0},purchaseHomeName:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},purchaseHomeMeta:{color:colors.textMuted,fontSize:11,fontWeight:'700',marginTop:2},
   purchaseHomePlay:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},purchaseHomeHint:{color:colors.textMuted,fontSize:11,lineHeight:16,paddingHorizontal:3},
-  focusActionStack:{gap:10},
-  focusActionRow:{minHeight:70,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:14,paddingVertical:11,flexDirection:'row',alignItems:'center',gap:12},
-  focusActionIcon:{width:40,height:40,borderRadius:13,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},
+  focusActionStack:{gap:7},
+  focusActionStackDesktop:{flexDirection:'row',alignItems:'stretch'},
+  focusActionRowDesktop:{flex:1,minWidth:0},
+  focusActionRow:{minHeight:54,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:12,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:9},
+  focusActionIcon:{width:32,height:32,borderRadius:10,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},
   focusActionIconText:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},
   focusActionCopy:{flex:1,minWidth:0},focusActionTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'900'},focusActionHint:{color:colors.textMuted,fontSize:12,lineHeight:17,marginTop:3},
-  focusServiceLink:{minHeight:62,paddingHorizontal:14,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,flexDirection:'row',alignItems:'center',gap:11},
+  focusServiceLink:{minHeight:50,paddingHorizontal:12,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,flexDirection:'row',alignItems:'center',gap:11},
   focusServiceIcon:{width:30,textAlign:'center',color:colors.primaryLight,fontSize:20,fontWeight:'900'},focusServiceCopy:{flex:1,minWidth:0},focusServiceTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'900'},focusServiceHint:{color:colors.textMuted,fontSize:12,lineHeight:17,marginTop:2},
   focusLearnMore:{marginTop:4,paddingHorizontal:4,color:colors.textSecondary,fontSize:12,lineHeight:18},
   focusLearnMoreButton:{alignSelf:'center',minHeight:36,justifyContent:'center',paddingHorizontal:16,marginTop:2},focusLearnMoreButtonText:{color:colors.primaryLight,fontSize:12,fontWeight:'800'},
@@ -2089,6 +2114,7 @@ const styles = StyleSheet.create({
   purchaseTrackRow:{minHeight:58,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,padding:7,flexDirection:'row',alignItems:'center',gap:9},
   purchaseTrackCover:{width:42,height:42,borderRadius:10,backgroundColor:colors.backgroundCard},purchaseTrackCoverFallback:{alignItems:'center',justifyContent:'center'},purchaseTrackCoverText:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},
   purchaseTrackCopy:{flex:1,minWidth:0},purchaseTrackTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},purchaseTrackArtist:{color:colors.textMuted,fontSize:10,fontWeight:'700',marginTop:2},
+  focusBarTabs:{flexDirection:'row',gap:6,flexShrink:0},focusBarTab:{minHeight:36,paddingHorizontal:14,borderRadius:18,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},focusBarTabOn:{backgroundColor:colors.primary,borderColor:colors.primary},focusBarTabText:{color:colors.textMuted,fontSize:12,fontWeight:'800'},focusBarTabTextOn:{color:'#FFFFFF'},
   focusBar:{marginHorizontal:12,marginTop:9,marginBottom:5,minHeight:54,borderRadius:15,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center',paddingHorizontal:8,gap:9},
   focusBack:{width:38,height:38,borderRadius:12,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center'},focusBackText:{color:colors.primaryLight,fontSize:30,fontWeight:'700',lineHeight:32},focusBarCopy:{flex:1},focusBarTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},focusBarHint:{color:colors.textMuted,fontSize:9,marginTop:1},
   mobileAccordion:{marginHorizontal:12,marginTop:8,gap:7},
@@ -2102,13 +2128,13 @@ const styles = StyleSheet.create({
   mobileAccordionChevron:{color:colors.textPrimary,fontSize:18,fontWeight:'900'},
   mobileAccordionBody:{borderWidth:1,borderColor:colors.primary,borderRadius:15,overflow:'hidden',backgroundColor:colors.backgroundCard},
   tabs:{marginTop:10,paddingHorizontal:10,flexDirection:'row',borderBottomWidth:1,borderBottomColor:colors.border},tab:{flex:1,minHeight:44,alignItems:'center',justifyContent:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:12,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},tabIndicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},
-  organizeAction:{marginHorizontal:0,marginBottom:10,borderWidth:1,borderColor:colors.primary,borderRadius:16,backgroundColor:colors.backgroundCard,padding:13,gap:11},organizeActionCopy:{gap:4},organizeActionButton:{minHeight:44,borderRadius:13,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',paddingHorizontal:16},organizeActionButtonDone:{backgroundColor:'#1F9D6B'},organizeActionButtonText:{color:colors.white,fontSize:12,fontWeight:'900',letterSpacing:.4},vibeBar:{marginHorizontal:14,marginTop:8,minHeight:44,borderRadius:14,borderWidth:1,borderColor:colors.primary,backgroundColor:'#171020',paddingHorizontal:12,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:8},vibeBarLocked:{borderColor:'#493369'},vibeBarCopy:{flex:1},vibeBarTitle:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},vibeBarHint:{color:'#FFFFFF',fontSize:11,lineHeight:15,marginTop:2,fontWeight:'700'},vibeArrow:{fontSize:16},
+  organizeAction:{marginHorizontal:12,marginTop:6,marginBottom:4,borderWidth:1,borderColor:colors.border,borderRadius:12,backgroundColor:colors.backgroundCard,paddingVertical:7,paddingHorizontal:10,gap:10,flexDirection:'row',alignItems:'center'},organizeActionCopy:{flex:1,minWidth:0,gap:1},organizeActionButton:{minHeight:36,borderRadius:13,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',paddingHorizontal:16},organizeActionButtonDone:{backgroundColor:'#1F9D6B'},organizeActionButtonText:{color:colors.white,fontSize:12,fontWeight:'900',letterSpacing:.4},vibeBar:{marginHorizontal:14,marginTop:8,minHeight:44,borderRadius:14,borderWidth:1,borderColor:colors.primary,backgroundColor:'#171020',paddingHorizontal:12,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:8},vibeBarLocked:{borderColor:'#493369'},vibeBarCopy:{flex:1},vibeBarTitle:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},vibeBarHint:{color:'#FFFFFF',fontSize:11,lineHeight:15,marginTop:2,fontWeight:'700'},vibeArrow:{fontSize:16},
   styleCountHeader:{marginBottom:10,padding:12,borderRadius:18,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.primary},
   styleCountTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900',letterSpacing:.5},
   styleCountHint:{color:colors.textMutedGrey,fontSize:11,lineHeight:16,marginTop:3},
-  autoVibesSection:{marginTop:14,paddingTop:12,borderTopWidth:1,borderTopColor:colors.border},
-  autoVibesTitle:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:.7,marginBottom:2},
-  autoVibesHint:{color:colors.textMutedGrey,fontSize:11,lineHeight:16,marginBottom:8},
+  autoStylesSection:{marginTop:14,paddingTop:12,borderTopWidth:1,borderTopColor:colors.border},
+  autoStylesTitle:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:.7,marginBottom:2},
+  autoStylesHint:{color:colors.textMutedGrey,fontSize:11,lineHeight:16,marginBottom:8},
   manageGuide:{marginHorizontal:12,marginTop:7,paddingHorizontal:10,paddingVertical:7,borderRadius:14,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary,flexDirection:'row',alignItems:'center',gap:10},
   manageGuideActive:{borderColor:colors.keep,backgroundColor:colors.successFaint},
   manageHelpBox:{marginHorizontal:12,marginTop:6,paddingHorizontal:12,paddingVertical:10,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard},
@@ -2125,7 +2151,7 @@ const styles = StyleSheet.create({
   manageGuideText:{color:colors.textMutedGrey,fontSize:11,lineHeight:16,marginTop:2},
   libraryStrip:{marginHorizontal:14,marginTop:5,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,minHeight:50,flexDirection:'row',alignItems:'center',paddingHorizontal:8,gap:5},stat:{minWidth:46,alignItems:'center',justifyContent:'center',paddingHorizontal:3},statValue:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},statLabel:{color:colors.textMuted,fontSize:7,fontWeight:'900',marginTop:1},statLabelPublic:{color:'#68F2B1'},statLabelPrivate:{color:'#FF758F'},visibilityTools:{flex:1,flexDirection:'row',justifyContent:'flex-end',gap:5},visibilityMini:{minHeight:34,paddingHorizontal:7,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},visibilityMiniPublic:{backgroundColor:'#123D2C',borderColor:'#38D990'},visibilityMiniPrivate:{backgroundColor:'#4A171B',borderColor:'#F0525D'},visibilityMiniText:{color:'#FFFFFF',fontSize:7.5,fontWeight:'900'},
   originSummary:{marginHorizontal:14,marginTop:5,alignItems:'center'},originSummaryText:{color:colors.textMuted,fontSize:11,fontWeight:'800'},originOwnCount:{color:colors.keep},originSocialCount:{color:colors.primaryLight},originTotalCount:{color:colors.textPrimary},
-  originFilters:{width:'100%',flexDirection:'row',gap:6},originFilterButton:{flex:1,minHeight:36,paddingHorizontal:5,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},originFilterButtonOn:{borderColor:colors.primaryLight,backgroundColor:colors.backgroundCard},originFilterText:{color:colors.textMuted,fontSize:8,fontWeight:'900',textAlign:'center'},originFilterTextOn:{color:colors.textPrimary},
+  originFilters:{width:'100%',flexDirection:'row',flexWrap:'nowrap',gap:4,alignItems:'stretch'},originFilterButton:{flex:1,minWidth:0,minHeight:34,paddingHorizontal:3,borderRadius:10,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},originFilterButtonOn:{borderColor:colors.primaryLight,backgroundColor:colors.backgroundCard},originFilterText:{color:colors.textMuted,fontSize:10,fontWeight:'800',textAlign:'center'},originFilterTextOn:{color:colors.textPrimary},
   originSection:{borderRadius:18,borderWidth:1,overflow:'hidden',marginBottom:10},originSectionOwn:{borderColor:colors.keep,backgroundColor:colors.successFaint},originSectionSocial:{borderColor:colors.primary,backgroundColor:colors.primaryFaint,marginTop:10},originSectionHeader:{minHeight:52,paddingHorizontal:14,paddingVertical:10,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},originSectionTitleRow:{flexDirection:'row',alignItems:'center',gap:7,flex:1,minWidth:0},originSectionIcon:{fontSize:15},originSectionTitle:{fontSize:14,fontWeight:'900',flexShrink:1},originSectionTitleOwn:{color:colors.keep},originSectionTitleSocial:{color:colors.primaryLight},originSectionRight:{flexDirection:'row',alignItems:'center',gap:7},originSectionCount:{fontSize:10,fontWeight:'900'},originSectionCountOwn:{color:colors.keep},originSectionCountSocial:{color:colors.primaryLight},originSectionChevron:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},originSectionBody:{paddingHorizontal:8,paddingBottom:8,gap:6},
 
   analysisSummary:{marginHorizontal:14,marginTop:6,marginBottom:10,minHeight:44,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:10,flexDirection:'row',alignItems:'center',gap:8},analysisSummaryText:{flex:1,color:colors.textPrimary,fontSize:10,lineHeight:14,fontWeight:'800'},analysisChevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},analysisCard:{marginHorizontal:14,marginTop:4,backgroundColor:colors.backgroundElevated,borderRadius:12,padding:10,gap:4},analysisLine:{color:colors.textSecondary,fontSize:11},genreToggle:{flexDirection:'row',alignItems:'center',gap:6},genreLine:{flex:1,color:colors.primaryLight,fontSize:10,lineHeight:15},genreChevron:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},genreChips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:2},genreChip:{paddingHorizontal:9,paddingVertical:5,borderRadius:999,backgroundColor:'#2A203A',borderWidth:1,borderColor:'#7652AF'},genreChipText:{color:'#C9B3FF',fontSize:9,fontWeight:'800'},analysisHelp:{color:colors.textMuted,fontSize:9,lineHeight:14},
@@ -2142,7 +2168,7 @@ const styles = StyleSheet.create({
   selectionToolbarHint:{color:colors.textMutedGrey,fontSize:11,fontWeight:'700',marginTop:2},
   stickySelectionActions:{flexDirection:'row',alignItems:'stretch',gap:8},
   playlistFoldersIntro:{marginBottom:14},playlistFoldersTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900',letterSpacing:.6},playlistFoldersHint:{color:colors.textMuted,fontSize:12,lineHeight:17,marginTop:4,marginBottom:8},
-  list:{paddingHorizontal:12,paddingVertical:8,flexGrow:1},playlistBlock:{backgroundColor:colors.backgroundCard,borderRadius:13,marginVertical:5,overflow:'hidden',borderWidth:1,borderColor:colors.border},smartBlock:{borderColor:'#493369'},playlistCard:{flexDirection:'row',minHeight:70,alignItems:'center'},playlistCover:{width:70,height:70,backgroundColor:colors.backgroundElevated},playlistCoverFallback:{alignItems:'center',justifyContent:'center'},playlistCoverText:{color:colors.primaryLight,fontSize:22,fontWeight:'900'},playlistInfo:{flex:1,paddingHorizontal:10},playlistTitleRow:{flexDirection:'row',alignItems:'center',gap:6},playlistName:{flexShrink:1,fontSize:14,fontWeight:'800',color:colors.textPrimary},smartPill:{paddingHorizontal:6,paddingVertical:3,borderRadius:999,backgroundColor:'#2A203A',borderWidth:1,borderColor:'#7652AF'},smartPillText:{color:'#C9B3FF',fontSize:7,fontWeight:'900'},songCount:{fontSize:9,color:colors.keep,marginTop:4,fontWeight:'700'},chevron:{color:colors.primaryLight,fontSize:18,paddingHorizontal:8},miniEdit:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:colors.border},miniEditText:{color:colors.textSecondary,fontSize:13,fontWeight:'900'},
+  list:{paddingHorizontal:12,paddingVertical:8,flexGrow:1},sectionControls:{marginHorizontal:-12,marginTop:-8,marginBottom:6},playlistBlock:{backgroundColor:colors.backgroundCard,borderRadius:13,marginVertical:3,overflow:'hidden',borderWidth:1,borderColor:colors.border},smartBlock:{borderColor:'#493369'},playlistCard:{flexDirection:'row',minHeight:54,alignItems:'center'},playlistCover:{width:54,height:54,backgroundColor:colors.backgroundElevated},playlistCoverFallback:{alignItems:'center',justifyContent:'center'},playlistCoverText:{color:colors.primaryLight,fontSize:22,fontWeight:'900'},playlistInfo:{flex:1,paddingHorizontal:10},playlistTitleRow:{flexDirection:'row',alignItems:'center',gap:6},playlistName:{flexShrink:1,fontSize:14,fontWeight:'800',color:colors.textPrimary},smartPill:{paddingHorizontal:6,paddingVertical:3,borderRadius:999,backgroundColor:'#2A203A',borderWidth:1,borderColor:'#7652AF'},smartPillText:{color:'#C9B3FF',fontSize:7,fontWeight:'900'},songCount:{fontSize:11,color:colors.keep,marginTop:2,fontWeight:'700'},chevron:{color:colors.primaryLight,fontSize:18,paddingHorizontal:8},miniEdit:{width:38,height:38,borderRadius:19,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:colors.border},miniEditText:{color:colors.textSecondary,fontSize:13,fontWeight:'900'},
   tracksPanel:{borderTopWidth:1,borderTopColor:colors.border,padding:8,gap:6,backgroundColor:colors.backgroundElevated},
   // Adel (21/09/2026) : hauteur fixe (56, plus compacte que les cartes de
   // profil car cette liste est déjà nichée dans un panneau déplié) --

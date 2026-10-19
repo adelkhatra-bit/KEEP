@@ -49,21 +49,17 @@ Action avant production : configurer au minimum un moteur de reconnaissance serv
 
 ### 2. Brevo / e-mails KEEP
 
-La logique existe : vérification e-mail par code, fonction admin de diagnostic, webhook Brevo avec token personnalisé et journal `email_delivery_events`.
+**Contrôle live du 15 octobre 2026 — pipeline d'envoi et suivi validés, parcours d'authentification à tester séparément.**
 
-État secrets actuel :
+- L'API Brevo répond avec succès et les secrets d'intégration nécessaires sont configurés (aucune valeur secrète n'est consignée ici).
+- Le webhook transactionnel Brevo **ID 2617146** pointe vers `keep-brevo-webhook`, avec authentification Bearer et 13 événements suivis.
+- Deux e-mails techniques ont été envoyés à l'adresse expéditeur configurée via `email_queue`. Le second a été accepté par le worker (`processed: 1, failed: 0, blocked: 0`) et Brevo a renvoyé les événements `request` et `delivered`, enregistrés dans `email_delivery_events`.
+- Le cron `keep-email-retry-every-5-minutes` est actif et réglé sur `*/5 * * * *`, conformément à la migration source. Une exécution après correction est réussie.
+- La file ne contient aucun e-mail en attente. Neuf anciens e-mails de récupération sont en échec depuis le 3 octobre : leurs liens ont expiré. **Ne pas les rejouer** ; l'utilisateur doit demander un nouveau lien de récupération.
 
-- `BREVO_API_KEY` : absent.
-- `BREVO_SENDER_EMAIL` : absent.
-- `BREVO_SENDER_NAME` : absent.
-- `BREVO_WEBHOOK_TOKEN` : absent.
-- Événements de délivrabilité enregistrés : 0.
+**À compléter avant de certifier tous les parcours e-mail :** tester la confirmation d'adresse et la récupération de mot de passe avec un compte QA dédié, vérifier le rendu des liens et le retour dans l'application, et confirmer le statut de bout en bout dans les événements Brevo. Le test ci-dessus valide le transport et le suivi de délivrabilité, pas tous les modèles ni tous les parcours d'authentification.
 
-Conséquence : aucun envoi ou test de délivrabilité Brevo réel ne peut être déclaré validé.
-
-Action avant production : créer/valider l'identité expéditeur dans Brevo, renseigner les quatre valeurs, enregistrer le webhook, envoyer un e-mail de test réel, puis vérifier SENT/DELIVERED dans Supabase.
-
-La création d'une nouvelle boîte e-mail ou d'un domaine de messagerie n'est pas une opération réalisable depuis le dépôt GitHub ou Supabase ; elle doit être provisionnée chez le fournisseur de domaine/messagerie, puis l'adresse doit être validée chez Brevo.
+La création d'une nouvelle boîte ou d'un domaine reste à effectuer chez le fournisseur de messagerie si une nouvelle identité expéditeur est nécessaire ; elle n'est pas créée par le dépôt GitHub ou Supabase.
 
 ### 3. Abonnements / achats intégrés Apple
 

@@ -14,7 +14,7 @@ if (process.env.GITHUB_REPOSITORY && process.env.GITHUB_REPOSITORY !== expectedR
 }
 // Une branche d'agent (Copilot, Claude) est une branche de revue, jamais une source de publication.
 // Elle doit contenir la référence produit récupérée avant toute validation.
-const agentBranchPrefixes = ['copilot/', 'claude/', 'fix/', 'feat/', 'design/'];
+const agentBranchPrefixes = ['copilot/', 'claude/', 'fix/', 'feat/', 'design/', 'release/', 'docs/'];
 let verifiedAgentBranch = '';
 let verifiedAgentPullRef = '';
 // CI sur pull_request : GITHUB_REF_NAME vaut « <n>/merge » (jamais le nom de la branche).

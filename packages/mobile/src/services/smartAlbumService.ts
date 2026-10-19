@@ -147,7 +147,7 @@ export async function loadOwnSmartAlbums(): Promise<SmartAlbumRecord[]> {
     const rows = (playlists ?? []).map((row: any) => ({
       id: String(row.id),
       smartKey: String(row.provider_playlist_id ?? '').replace(/^smart:/, ''),
-      name: String(row.name ?? 'Vibe Loki Music'),
+      name: String(row.name ?? 'Style Loki Music'),
       description: String(row.description ?? ''),
       isPublic: Boolean(row.is_public),
       trackCount: counts.get(String(row.id)) ?? 0,
@@ -191,7 +191,7 @@ export async function loadPublicSmartAlbums(profileId: string): Promise<SmartAlb
   return (playlists ?? []).map((row: any) => ({
     id: String(row.id),
     smartKey: String(row.provider_playlist_id ?? '').replace(/^smart:/, ''),
-    name: String(row.name ?? 'Vibe Loki Music'),
+    name: String(row.name ?? 'Style Loki Music'),
     description: String(row.description ?? ''),
     isPublic: true,
     trackCount: counts.get(String(row.id)) ?? 0,
@@ -405,7 +405,7 @@ export async function refreshOwnSmartAlbums(): Promise<SmartAlbumRecord[]> {
 export async function renameOwnSmartAlbum(id: string, name: string): Promise<void> {
   if (!supabase) throw new Error(`${APP_NAME} n’est pas connecté au serveur.`);
   const userId = await currentUserId();
-  if (!userId) throw new Error('Connecte-toi pour renommer cette Vibe.');
+  if (!userId) throw new Error('Connecte-toi pour renommer ce Style.');
   const next = name.trim();
   if (next.length < 2) throw new Error('Le nom doit contenir au moins 2 caractères.');
   const { error } = await supabase.from('playlists').update({ name: next, updated_at: new Date().toISOString() })
@@ -416,7 +416,7 @@ export async function renameOwnSmartAlbum(id: string, name: string): Promise<voi
 export async function setOwnSmartAlbumPublic(id: string, isPublic: boolean): Promise<void> {
   if (!supabase) throw new Error(`${APP_NAME} n’est pas connecté au serveur.`);
   const userId = await currentUserId();
-  if (!userId) throw new Error('Connecte-toi pour modifier cette Vibe.');
+  if (!userId) throw new Error('Connecte-toi pour modifier ce Style.');
   const { error } = await supabase.from('playlists').update({ is_public: isPublic, updated_at: new Date().toISOString() })
     .eq('id', smartAlbumDatabaseId(id)).eq('owner_id', userId).eq('provider', 'KEEP_SMART').eq('is_smart', true);
   if (error) throw error;

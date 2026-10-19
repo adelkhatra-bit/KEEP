@@ -157,7 +157,9 @@ async function freeCatalog(title: string, artist: string) {
     const wantedArtist = normalizeText(artist);
     return rows.find((row: any) => normalizeText(row?.trackName) === wantedTitle && normalizeText(row?.artistName) === wantedArtist)
       ?? rows.find((row: any) => normalizeText(row?.trackName).includes(wantedTitle) && normalizeText(row?.artistName).includes(wantedArtist))
-      ?? rows[0];
+      // Adel (17/10/2026) : « il donne des musiques au hasard ». Le 1er résultat iTunes quelconque fournissait la
+      // jaquette, l'extrait et le lien d'un AUTRE morceau. Sans correspondance titre + artiste : aucun enrichissement.
+      ?? null;
   } catch {
     return null;
   }
@@ -178,7 +180,7 @@ async function freeDeezer(title: string, artist: string) {
     const wantedArtist = normalizeText(artist);
     return rows.find((row: any) => normalizeText(row?.title) === wantedTitle && normalizeText(row?.artist?.name) === wantedArtist)
       ?? rows.find((row: any) => normalizeText(row?.title).includes(wantedTitle) && normalizeText(row?.artist?.name).includes(wantedArtist))
-      ?? rows[0];
+      ?? null; // jamais un autre morceau Deezer au hasard
   } catch {
     return null;
   }

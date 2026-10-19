@@ -26,6 +26,24 @@ function validSnapshot(value: unknown): value is KeepSession {
       typeof item?.track?.artist === 'string');
 }
 
+/**
+ * A remote snapshot can arrive while a freshly copied link is being added
+ * locally (especially during first login/hydration). Never erase a track that
+ * exists only in the local snapshot. Remote status still wins for shared IDs,
+ * and tombstoned sessions remain authoritative.
+ */
+export function mergeSessionWithUnsentTracks(remote: KeepSession, local?: KeepSession): KeepSession {
+  if (!local) return remote;
+  const known = new Set(remote.tracks.map((entry) => entry.id));
+  const localOnly = local.tracks.filter((entry) => !known.has(entry.id));
+  if (!localOnly.length) return remote;
+  return {
+    ...remote,
+    tracks: [...remote.tracks, ...localOnly].sort((a, b) =>
+      new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime()),
+  };
+}
+
 function serial(session: KeepSession): string {
   // Le verrou de crédits dépend de l'appareil/solde courant, pas du morceau.
   return JSON.stringify({
@@ -58,8 +76,11 @@ export function startCrossDeviceSessionSync(userId: string): () => void {
     const state = useUserStore.getState();
     return !stopped && state.user?.id === userId && !state.isLocalGuest && !state.isDemoMode;
   };
+  // Adel (17/10/2026) : « 9 prêts à trier sur PC, 23 sur iPhone ». Les sessions enregistrées avant l'ajout du
+  // champ ownerUserId n'étaient JAMAIS envoyées. Un changement de compte vide l'historique local (clearSessions),
+  // donc une session sans propriétaire sur cet appareil appartient au compte connecté : on l'adopte.
   const owned = (s: KeepSession) =>
-    s.ownerUserId === userId && !isCloudProfileRecoverySession(s);
+    (s.ownerUserId ?? userId) === userId && !isCloudProfileRecoverySession(s);
 
   const verifiedSession = async () => {
     if (!sameIdentity()) return false;
@@ -117,7 +138,7 @@ export function startCrossDeviceSessionSync(userId: string): () => void {
         if (!sameIdentity()) return;
         if (tombstones.has(id)) continue;
         const { data, error } = await client.rpc('keep_sync_device_session', {
-          p_session_id: id, p_snapshot: JSON.parse(serial(session)), p_deleted: false,
+          p_session_id: id, p_snapshot: JSON.parse(serial({ ...session, ownerUserId: userId })), p_deleted: false,
         });
         if (error) break;
         if (pending.get(id) === session) pending.delete(id);
@@ -152,7 +173,7 @@ export function startCrossDeviceSessionSync(userId: string): () => void {
             dismissed.add(row.session_id);
             changed = true;
           }
-          if (byId.get(row.session_id)?.ownerUserId === userId) {
+          if ((byId.get(row.session_id)?.ownerUserId ?? userId) === userId && byId.has(row.session_id)) {
             byId.delete(row.session_id);
             changed = true;
           }
@@ -165,14 +186,18 @@ export function startCrossDeviceSessionSync(userId: string): () => void {
         if (pending.has(row.session_id) || tombstones.has(row.session_id)) continue;
         if (seenRemote.get(row.session_id) === stamp) continue;
         if (!validSnapshot(row.snapshot) || row.snapshot.id !== row.session_id) continue;
-        const incoming: KeepSession = { ...row.snapshot, ownerUserId: userId };
+        const remote: KeepSession = { ...row.snapshot, ownerUserId: userId };
         const existing = byId.get(row.session_id);
+        const incoming = mergeSessionWithUnsentTracks(remote, existing);
         if (!existing || serial(existing) !== serial(incoming)) {
           byId.set(row.session_id, incoming);
           changed = true;
         }
         seenLocal.set(row.session_id, serial(incoming));
         seenRemote.set(row.session_id, stamp);
+        // The cloud may be one version behind a link just added on this PC.
+        // Queue the merged snapshot instead of letting the next pull erase it.
+        if (serial(incoming) !== serial(remote)) pending.set(row.session_id, incoming);
       }
 
       applying = true;

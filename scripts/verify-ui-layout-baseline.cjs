@@ -70,7 +70,11 @@ must(/idleLearnMorePanel: \{ position: 'absolute'[^\n]*zIndex: 20/.test(home), '
 // Loki Pulse quittent l'accueil (elles restent sur le profil) et les stories sont sur le profil.
 must(!home.includes('homePulseWrap') && !home.includes('home-loki-pulse-track-bubbles'), 'Loki Pulse bubbles must not come back on the Listen home');
 must(!home.includes('MusicStoryRail') && !home.includes('ProfileStoryBar'), 'Stories live on the profile, not on the Listen home');
-must(home.includes('<View style={[s.main, s.idle, s.idleFit]}>'), 'Listen home must not scroll: fixed View, content fits the screen');
+// Le rendu iPhone reste une View fixe ; seul le bureau peut ajouter son
+// modificateur responsive, sans introduire de ScrollView ni masquer le CTA.
+must(/<View style=\{\[s\.main, s\.idle, s\.idleFit(?:, desktopHome && s\.desktopIdleFit)?\]\}/.test(home), 'Listen home must not scroll: fixed View, content fits the screen');
+must(!home.includes('<ScrollView style={[s.main, s.idle'), 'Listen must not use a scrolling home');
+
 must(home.includes('const size = Math.max(96, Math.min(196, Math.round((height - 460) * 0.4)));'), 'Listen orb must scale with the screen height (responsive, no swipe)');
 must(home.includes("idleSubtitle: { color: colors.white"), 'Listen primary subtitle must use high-contrast text on dark background');
 must(home.includes("idleLearnMoreBody: { color: colors.white"), 'Expanded Listen help must use high-contrast text on dark background');

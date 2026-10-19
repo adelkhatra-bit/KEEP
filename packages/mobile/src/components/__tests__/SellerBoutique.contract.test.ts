@@ -48,10 +48,13 @@ describe('seller boutique', () => {
   });
 
   it('shows the Boutique musicale with a featured Pépite and a full searchable store', () => {
-    expect(boutique).toContain("ownerMode ? 'MA BOUTIQUE MUSICALE · MES PÉPITES' : 'BOUTIQUE MUSICALE · SES PÉPITES'");
-    expect(boutique).toContain('★ PÉPITE À LA UNE');
-    expect(boutique).toContain('▶ ÉCOUTER LES APERÇUS');
+    expect(boutique).toContain("ownerMode ? 'Ma boutique' : `Boutique de @${sellerName}`");
+    expect(boutique).toContain('DÉBLOQUER');
+    expect(boutique).toContain('▶ ÉCOUTER');
     expect(boutique).toContain('Tout voir · {visibleOffers.length} ›');
+    expect(boutique).toContain('Pour publier ou modifier une collection, appuie sur Vendre dans ton profil.');
+    expect(boutique).toContain("'PAYER'");
+    expect(boutique).not.toContain('TOUCHE POUR ÉCOUTER · TITRES PROTÉGÉS');
     expect(boutique).not.toContain('<Image');
     expect(boutique).not.toContain('useNativeDriver: true');
   });

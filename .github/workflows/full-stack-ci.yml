@@ -55,8 +55,20 @@ jobs:
         run: node scripts/verify-admin-integrations-single-source.cjs
       - name: Verify direct Supabase push architecture
         run: node scripts/verify-push-direct-supabase.cjs
-      - name: Install
-        run: npm ci
+      - name: Install (recover once from transient npm cache collision)
+        shell: bash
+        run: |
+          set -euo pipefail
+          install_log="${RUNNER_TEMP}/keep-npm-ci.log"
+          if npm ci 2>&1 | tee "$install_log"; then
+            exit 0
+          fi
+          if ! grep -Eq 'npm error code EEXIST|EEXIST: file already exists' "$install_log"; then
+            echo '::error::npm ci failed for a reason other than cache EEXIST; refusing to bypass it'
+            exit 1
+          fi
+          echo '::warning::Transient npm cache EEXIST; retrying npm ci once with an isolated cache'
+          npm ci --cache "${RUNNER_TEMP}/keep-npm-cache-retry" --prefer-online
       - name: Typecheck all workspaces
         run: npm run type-check
       - name: Unit tests

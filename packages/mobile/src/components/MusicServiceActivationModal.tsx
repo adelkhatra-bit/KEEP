@@ -52,7 +52,7 @@ export default function MusicServiceActivationModal({
             <Text style={s.infoTitle}>Comment ça va fonctionner</Text>
             <Step n="1" text={`Loki Music réserve 1 emplacement de ta formule ${planLabel}.`} />
             <Step n="2" text="Ce choix est sauvegardé dans ton compte Loki Music et reste présent après fermeture ou changement d’appareil." />
-            <Step n="3" text={supportsAccountSync ? `Tu autorises ensuite ${name} avec sa page officielle. Loki Music pourra importer uniquement les métadonnées autorisées de tes favoris/playlists et synchroniser tes Vibes vers tes playlists.` : `Quand tu envoies un morceau ou une Vibe vers ${name}, Loki Music prépare la musique puis ouvre le service choisi.`} />
+            <Step n="3" text={supportsAccountSync ? `Tu autorises ensuite ${name} avec sa page officielle. Loki Music pourra importer uniquement les métadonnées autorisées de tes favoris/playlists et synchroniser tes Styles vers tes playlists.` : `Quand tu envoies un morceau ou un Style vers ${name}, Loki Music prépare la musique puis ouvre le service choisi.`} />
           </View>
 
           <View style={s.safeBox}>

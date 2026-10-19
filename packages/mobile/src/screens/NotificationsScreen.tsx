@@ -16,6 +16,7 @@ import {
   markNotificationRead,
   saveNotificationPreferences,
   subscribeToNotifications,
+  subscribeToNotificationChanges,
 } from '../services/notificationService';
 import { spacing, radius, typography } from '../theme/spacing';
 import { colors } from '../theme/colors';
@@ -301,10 +302,17 @@ export default function NotificationsScreen({ navigation, route }: any) {
       setItems((current) => dedupeNotifications([notification, ...current.filter((item) => item.id !== notification.id)]));
     });
 
+    // Les lectures ou suppressions depuis un autre appareil actualisent le centre.
+    const unsubscribeChanges = subscribeToNotificationChanges(user.id, () => {
+      void loadNotifications(user.id)
+        .then((rows) => { if (!cancelled) setItems(rows); })
+        .catch(() => {});
+    });
     return () => {
       cancelled = true;
       unsubscribeFocus?.();
       unsubscribeRealtime();
+      unsubscribeChanges();
     };
   }, [navigation, user?.id]);
 
@@ -1155,8 +1163,8 @@ export default function NotificationsScreen({ navigation, route }: any) {
                     <Text style={styles.cardTitle}>{isNewKeepNotification(item) ? maskedNewKeepCopy(item).title : item.title}</Text>
                     <Text style={styles.cardBody} numberOfLines={expandedNotificationIds.has(item.id) ? undefined : 2}>{notificationBody}</Text>
                     {String(notificationBody || '').length > 78 ? (
-                      <TouchableOpacity onPress={() => toggleNotificationExpanded(item.id)} accessibilityRole="button" accessibilityLabel={expandedNotificationIds.has(item.id) ? 'Réduire la notification' : 'En savoir plus sur la notification'}>
-                        <Text style={styles.cardMoreLink}>{expandedNotificationIds.has(item.id) ? 'Réduire ‹' : 'En savoir plus ›'}</Text>
+                      <TouchableOpacity onPress={() => toggleNotificationExpanded(item.id)} accessibilityRole="button" accessibilityLabel={expandedNotificationIds.has(item.id) ? 'Réduire la notification' : 'Plus : notification'}>
+                        <Text style={styles.cardMoreLink}>{expandedNotificationIds.has(item.id) ? 'Moins ‹' : 'Plus ›'}</Text>
                       </TouchableOpacity>
                     ) : null}
                   </View>
@@ -1169,7 +1177,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
                   </View>
                 ) : null}
                 {isBattleInvite(item) ? <View style={styles.battleTheme}><Text style={styles.battleThemeLabel}>STYLE DU MATCH</Text><Text style={styles.battleThemeValue}>{battleTheme(item)}</Text></View> : null}
-                {(item.type === 'EVENT_INVITE' || item.type === 'EVENT_REMINDER') && eventIdOf(item) ? <TouchableOpacity onPress={() => void openEventDetail(item)}><Text style={styles.cardMoreLink}>En savoir plus ›</Text></TouchableOpacity> : null}
+                {(item.type === 'EVENT_INVITE' || item.type === 'EVENT_REMINDER') && eventIdOf(item) ? <TouchableOpacity onPress={() => void openEventDetail(item)}><Text style={styles.cardMoreLink}>Plus ›</Text></TouchableOpacity> : null}
                 <View style={styles.cardBottomRow}>
                   <Text style={styles.cardDate}>{new Date(item.createdAt).toLocaleString('fr-FR')}</Text>
                   {profileUsername ? <Text style={styles.cardProfileLink}>Actions avec @{profileUsername} ›</Text> : null}

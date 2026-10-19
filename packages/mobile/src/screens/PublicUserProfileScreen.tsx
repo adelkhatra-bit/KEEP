@@ -879,7 +879,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     try {
       const rows = await loader();
       if (!rows.length) {
-        Alert.alert('Vibe Loki Music', 'Cette sélection ne contient pas encore de morceau accessible.');
+        Alert.alert('Style Loki Music', 'Cette sélection ne contient pas encore de morceau accessible.');
         return;
       }
       setFolderSwipeTracks(rows);
@@ -887,7 +887,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       setBrowseFilter(null);
       setSwipeOpen(true);
     } catch {
-      Alert.alert('Vibe Loki Music', 'Impossible d’ouvrir cette sélection pour le moment.');
+      Alert.alert('Style Loki Music', 'Impossible d’ouvrir cette sélection pour le moment.');
     } finally {
       setFolderLoadingId(null);
     }
@@ -1098,6 +1098,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     if (!offers.length) return;
     const generation = ++salePreviewSequenceRef.current;
     unlockWebAudioForGesture();
+    setInlineListenNotice('Chargement des aperçus…');
     try {
       const samples = profile?.id ? await loadPlaylistSaleProfilePreviewSampler(profile.id) : [];
       const sampleByOffer = new Map(samples.map((sample) => [sample.offerId, sample]));
@@ -1111,12 +1112,15 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       }
 
       await stopAntiShazamPreview().catch(() => {});
+      let startedCount = 0;
 
       const playAt = async (index: number): Promise<void> => {
         if (generation !== salePreviewSequenceRef.current) return;
         const item = queue[index];
         if (!item) {
-          setInlineListenNotice(`Fin des aperçus · ${queue.length} Pépite${queue.length > 1 ? 's' : ''} écoutée${queue.length > 1 ? 's' : ''}`);
+          setInlineListenNotice(startedCount > 0
+            ? `Fin des aperçus · ${startedCount} Pépite${startedCount > 1 ? 's' : ''} écoutée${startedCount > 1 ? 's' : ''}`
+            : 'Extraits indisponibles pour le moment. Réessaie plus tard.');
           return;
         }
         const key = `visitor-sale-sequence:${profile?.id ?? username ?? 'profile'}:${generation}:${index}`;
@@ -1130,6 +1134,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
               if (generation === salePreviewSequenceRef.current) void playAt(index + 1);
             },
           );
+          startedCount += 1;
         } catch {
           if (generation === salePreviewSequenceRef.current) void playAt(index + 1);
         }
@@ -2014,6 +2019,16 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           <TouchableOpacity style={styles.marketplaceReopenBar} onPress={reopenMarketBanner} accessibilityLabel="Afficher les collections et nouveautés de ce profil">
             <Text style={styles.marketplaceReopenIcon}>✦</Text>
             <View style={styles.marketplaceReopenCopy}><Text style={styles.marketplaceReopenTitle}>{marketBannerHasNew ? 'NOUVELLE PÉPITE' : 'BOUTIQUE MUSICALE'}</Text><Text style={styles.marketplaceReopenMeta}>{profileBoutiqueOffers.length} collection{profileBoutiqueOffers.length > 1 ? 's' : ''} · {visiblePublicVibes.length} vibe{visiblePublicVibes.length > 1 ? 's' : ''}</Text></View>
+            <Text style={styles.marketplaceReopenArrow}>›</Text>
+          </TouchableOpacity>
+        ) : isOwner ? (
+          // Adel 18/10/2026 : un utilisateur sans boutique ne voyait RIEN. Il voit maintenant une invitation claire (FREE ou €, jamais de PayPal affiché sur iPhone).
+          <TouchableOpacity style={styles.marketplaceReopenBar} onPress={() => navigation.navigate('PlaylistSale')} accessibilityRole="button" accessibilityLabel="Ouvrir ma boutique musicale">
+            <Text style={styles.marketplaceReopenIcon}>✦</Text>
+            <View style={styles.marketplaceReopenCopy}>
+              <Text style={styles.marketplaceReopenTitle}>OUVRE TA BOUTIQUE MUSICALE</Text>
+              <Text style={styles.marketplaceReopenMeta}>Choisis tes morceaux, fixe un prix en FREE : tes fans les débloquent en un geste.</Text>
+            </View>
             <Text style={styles.marketplaceReopenArrow}>›</Text>
           </TouchableOpacity>
         ) : null}

@@ -19,6 +19,8 @@ import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import { CreatorEvent, EventRsvpCounts, EventRsvpStatus, loadEventRsvpCounts, loadMyRsvps, loadUpcomingEvents, setEventRsvp } from '../services/creatorEventService';
 import StandardBackButton from '../components/StandardBackButton';
 import KeepModal from '../components/KeepModal';
+import { useLayoutMode } from '../layout/layoutMode';
+import { loadEventStories, type EventStoryCard } from '../services/eventStoryService';
 
 const DISCOVERY_RADII = [5, 10, 25, 50, 100, 250, 500, 1000, 5000, 20000];
 const FREE_LOCAL_DISCOVERY_LIMIT = 3;
@@ -67,6 +69,7 @@ function overlapScore(a: string[], b: string[]): number {
 
 export default function DiscoverScreen({ navigation, route }: any) {
   const { t } = useTranslation();
+  const { isDesktop: isDesktopDiscover } = useLayoutMode();
   const user = useUserStore((s) => s.user);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
@@ -82,6 +85,7 @@ export default function DiscoverScreen({ navigation, route }: any) {
   const [currentProfileSnapshot, setCurrentProfileSnapshot] = useState<PublicProfileSnapshot | null>(null);
   const [discoverMode, setDiscoverMode] = useState<'PEOPLE' | 'EVENTS'>('PEOPLE');
   const [upcomingEvents, setUpcomingEvents] = useState<CreatorEvent[]>([]);
+  const [pulseEvents, setPulseEvents] = useState<EventStoryCard[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [eventsFeatureEnabled, setEventsFeatureEnabled] = useState(true);
   const [returnToParties, setReturnToParties] = useState(false);
@@ -135,6 +139,33 @@ export default function DiscoverScreen({ navigation, route }: any) {
       .finally(() => { if (live) setEventsLoading(false); });
     return () => { live = false; };
   }, [eventsFeatureEnabled, user?.id]);
+  useEffect(() => {
+    if (!eventsFeatureEnabled || isDemoMode || !user?.id) {
+      setPulseEvents([]);
+      return undefined;
+    }
+    let active = true;
+    const refresh = () => {
+      void loadEventStories(12)
+        .then((rows) => { if (active) setPulseEvents(rows.filter((event) => event.creatorId !== user.id)); })
+        .catch(() => { if (active) setPulseEvents([]); });
+    };
+    refresh();
+    const unsubscribe = navigation.addListener?.('focus', refresh);
+    return () => { active = false; unsubscribe?.(); };
+  }, [eventsFeatureEnabled, isDemoMode, user?.id, navigation]);
+  const pulseEventIds = useMemo(() => new Set(pulseEvents.map((event) => event.eventId)), [pulseEvents]);
+  // Adel 18/10/2026 : « À VENIR » affiché sur un événement déjà passé. Un événement terminé n'est plus proposé.
+  const regularEvents = useMemo(() => {
+    const now = Date.now();
+    const isEnded = (event: CreatorEvent) => {
+      const start = new Date(event.startsAt).getTime();
+      const end = event.endsAt ? new Date(event.endsAt).getTime() : start + 12 * 3600 * 1000;
+      return Number.isFinite(end) && end < now;
+    };
+    return upcomingEvents.filter((event) => !pulseEventIds.has(event.id) && !isEnded(event));
+  }, [upcomingEvents, pulseEventIds]);
+
   const [searchPosition, setSearchPosition] = useState<SearchPosition | null>(null);
   const [searchBusy, setSearchBusy] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -634,7 +665,36 @@ export default function DiscoverScreen({ navigation, route }: any) {
         {discoverMode === 'EVENTS' ? (
           <View style={styles.eventsDiscovery}>
             <View style={styles.eventsDiscoveryHeader}><View style={{flex:1}}><Text style={styles.sectionTitle}>Événements à découvrir</Text><Text style={styles.mutedHint}>Soirées publiques validées, à venir sur Loki Music.</Text></View><Text style={styles.eventsCount}>{upcomingEvents.length}</Text></View>
-            {eventsLoading ? <ActivityIndicator color={colors.primaryLight} style={styles.eventsLoader} /> : upcomingEvents.length ? upcomingEvents.map((event) => {
+            {pulseEvents.length ? (
+              <View style={{ marginBottom: 18, borderRadius: 20, padding: 12, borderWidth: 1, borderColor: colors.primaryLight, backgroundColor: 'rgba(124,92,252,0.12)', gap: 10 }} testID="discover-event-loki-pulse">
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <Text style={{ color: colors.primaryLight, fontSize: 13, fontWeight: '900' }}>LOKI PULSE · SOIRÉES</Text>
+                  <Text style={{ color: colors.textSecondary, fontSize: 11 }}>Activité réelle</Text>
+                </View>
+                {pulseEvents.map((event) => {
+                  const regularEvent = upcomingEvents.find((row) => row.id === event.eventId);
+                  return (
+                    <TouchableOpacity key={event.eventId} style={[styles.eventDiscoveryCard, { borderColor: colors.primaryLight }]}
+                      onPress={() => {
+                        if (regularEvent) void openEventInline(regularEvent);
+                        else navigation.navigate('Parties', { openEventId: event.eventId });
+                      }}
+                      accessibilityRole="button" accessibilityLabel={`Découvrir la soirée ${event.name} et voir ses participations`}>
+                      {event.imageUrl
+                        ? <Image source={{ uri: event.imageUrl }} style={styles.eventDiscoveryCover} />
+                        : <View style={[styles.eventDiscoveryCover, styles.eventDiscoveryFallback]}><Text style={styles.eventDiscoveryFallbackText}>♬</Text></View>}
+                      <View style={styles.eventDiscoveryCopy}>
+                        <Text style={styles.eventDiscoveryTitle} numberOfLines={1}>{event.name}</Text>
+                        <Text style={styles.eventDiscoveryMeta} numberOfLines={1}>@{event.username} · {new Date(event.startsAt).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</Text>
+                        <Text style={styles.eventDiscoveryArtists} numberOfLines={1}>{event.goingCount} participent · {event.maybeCount} peut-être · {event.pulseScore} Pulse</Text>
+                      </View>
+                      <Text style={styles.eventDiscoveryArrow}>›</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ) : null}
+            {eventsLoading ? <ActivityIndicator color={colors.primaryLight} style={styles.eventsLoader} /> : regularEvents.length ? regularEvents.map((event) => {
               const startsAt = new Date(event.startsAt);
               const live = startsAt.getTime() <= Date.now() && (!event.endsAt || new Date(event.endsAt).getTime() >= Date.now());
               return (
@@ -650,14 +710,14 @@ export default function DiscoverScreen({ navigation, route }: any) {
                   <Text style={styles.eventDiscoveryArrow}>›</Text>
                 </TouchableOpacity>
               );
-            }) : <View style={styles.emptyCard}><Text style={styles.mutedHint}>Aucun événement public validé à venir pour le moment.</Text></View>}
+            }) : pulseEvents.length ? null : <View style={styles.emptyCard}><Text style={styles.mutedHint}>Aucun événement public validé à venir pour le moment.</Text></View>}
           </View>
         ) : <>
         <View style={styles.discoveryHeader}>
           <View style={{ flex: 1 }}><Text style={styles.sectionTitle}>Profils autour de moi</Text><Text style={styles.mutedHint}>Découvre des personnes par proximité et affinités musicales.</Text></View>
           {currentProfile && !discoveryUnlocked && !accessLoading ? <TouchableOpacity style={styles.lockBadge} onPress={openPremium}><Text style={styles.lockText}>🔒 Premium</Text></TouchableOpacity> : currentProfile && freeRemaining !== null ? <TouchableOpacity style={styles.trialBadge} onPress={openPremium} accessibilityRole="button" accessibilityLabel="Voir Premium pour plus de découvertes"><Text style={styles.trialText}>FREE · {freeRemaining} RESTANT{freeRemaining === 1 ? '' : 'S'}</Text></TouchableOpacity> : null}
         </View>
-        <View style={styles.usernameSearch}>
+        <View style={[styles.usernameSearch, isDesktopDiscover && styles.usernameSearchDesktop]}>
           <Text style={styles.usernameSearchIcon}>⌕</Text>
           <TextInput value={profileQuery} onChangeText={(value) => { setProfileQuery(value); setProfileIndex(0); setDiscoveryAccess(null); setCurrentProfileSnapshot(null); }} placeholder="Rechercher un pseudo Loki Music" placeholderTextColor={colors.textMutedGrey} autoCapitalize="none" autoCorrect={false} style={styles.usernameSearchInput} accessibilityLabel="Rechercher un contact Loki Music par pseudo" />
           {profileQuery ? <MotionActionButton
@@ -670,7 +730,7 @@ export default function DiscoverScreen({ navigation, route }: any) {
             ×
           </MotionActionButton> : null}
         </View>
-        <View style={styles.searchPanel}>
+        <View style={[styles.searchPanel, isDesktopDiscover && styles.searchPanelDesktop]}>
           <View style={styles.radiusHeader}><Text style={styles.radiusLabel}>1 · DISTANCE</Text><View style={styles.radiusValue}><Text style={styles.radiusValueText}>{radiusKm >= 20000 ? 'MONDE' : `${radiusKm} KM`}</Text></View></View>
           <View style={styles.radiusTrack}><View style={[styles.radiusFill, { width: `${(DISCOVERY_RADII.indexOf(radiusKm as any) / (DISCOVERY_RADII.length - 1)) * 100}%` }]} /></View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.radiusChoices}>
@@ -691,7 +751,7 @@ export default function DiscoverScreen({ navigation, route }: any) {
           <Text style={styles.searchHint}>{hasSearched && searchPosition ? `${filteredProfiles.length} profil${filteredProfiles.length > 1 ? 's' : ''} dans ce rayon` : `${filteredProfiles.length} profil${filteredProfiles.length > 1 ? 's' : ''} disponible${filteredProfiles.length > 1 ? 's' : ''} · le GPS affine ensuite la proximité`}</Text>
         </View>
         {loadingProfiles || (currentProfile && accessLoading) ? <ActivityIndicator color={colors.primaryLight} /> : !discoveryUnlocked && currentProfile ? (
-          <TouchableOpacity style={styles.lockCard} onPress={openPremium}><Text style={styles.lockIcon}>🔒</Text><Text style={styles.lockTitle}>Tes découvertes Free sont utilisées</Text><Text style={styles.lockBody}>Le compte Free découvre 3 profils. Premium 2,99 €/mois passe Découvertes en illimité. Tu peux aussi gagner des profils supplémentaires en partageant Loki Music et en faisant grandir tes abonnés.</Text><Text style={styles.lockCta}>VOIR PREMIUM 2,99 €</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.lockCard} onPress={openPremium}><Text style={styles.lockIcon}>🔒</Text><Text style={styles.lockTitle}>Tes découvertes Free sont utilisées</Text><Text style={styles.lockBody}>Le compte Free découvre 3 profils. Premium passe Découvertes en illimité. Tu peux aussi gagner des profils supplémentaires en partageant Loki Music et en faisant grandir tes abonnés.</Text><Text style={styles.lockCta}>VOIR PREMIUM</Text></TouchableOpacity>
         ) : !currentProfile ? (
           <View style={styles.emptyCard}><Text style={styles.mutedHint}>{profileQuery ? `Aucun profil ne correspond à ${profileQuery.replace(/^@/, '')}.` : hasSearched ? 'Aucun profil public dans ce rayon. Élargis la jauge puis relance la recherche.' : 'Aucun profil n’est affiché par défaut. Choisis une distance puis appuie sur RECHERCHER.'}</Text></View>
         ) : (
@@ -882,10 +942,10 @@ const styles = StyleSheet.create({
   eventRsvpSaved:{color:colors.keep,fontSize:10,fontWeight:'800',textAlign:'center',marginTop:10},
   eventModalClose:{minHeight:44,borderRadius:14,alignItems:'center',justifyContent:'center',marginTop:14,borderWidth:1,borderColor:colors.border},
   eventModalCloseText:{color:colors.textMuted,fontSize:10,fontWeight:'900',letterSpacing:.7},
-  discoveryHeader:{flexDirection:'row',alignItems:'center',gap:7,marginBottom:5},usernameSearch:{minHeight:50,flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:12,marginBottom:7,borderRadius:16,backgroundColor:colors.backgroundCard,borderWidth:1.5,borderColor:'#665B73'},usernameSearchIcon:{color:colors.primaryLight,fontSize:20,fontWeight:'800'},usernameSearchInput:{flex:1,minHeight:46,color:colors.white,fontSize:15,fontWeight:'600'},usernameClear:{width:36,height:36,borderRadius:18,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard},usernameClearText:{color:colors.white,fontSize:22,lineHeight:24,fontWeight:'700'},
+  discoveryHeader:{flexDirection:'row',alignItems:'center',gap:7,marginBottom:5},usernameSearch:{minHeight:50,flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:12,marginBottom:7,borderRadius:16,backgroundColor:colors.backgroundCard,borderWidth:1.5,borderColor:'#665B73'},usernameSearchDesktop:{width:'100%',maxWidth:640,alignSelf:'center'},usernameSearchIcon:{color:colors.primaryLight,fontSize:20,fontWeight:'800'},usernameSearchInput:{flex:1,minHeight:46,color:colors.white,fontSize:15,fontWeight:'600'},usernameClear:{width:36,height:36,borderRadius:18,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard},usernameClearText:{color:colors.white,fontSize:22,lineHeight:24,fontWeight:'700'},
   sectionTitle:{color:colors.white,fontSize:16,fontWeight:'900'},mutedHint:{color:colors.textMuted,fontSize:12,lineHeight:17},
   lockBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:10,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},lockText:{color:colors.white,fontSize:10,fontWeight:'900'},trialBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:10,backgroundColor:'rgba(45,225,194,0.12)',borderWidth:1,borderColor:colors.keepPressed},trialText:{color:colors.keep,fontSize:9,fontWeight:'900'},
-  searchPanel:{padding:10,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,marginBottom:8},radiusHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:5},radiusLabel:{color:colors.textMuted,fontSize:9,fontWeight:'900'},radiusValue:{minWidth:54,paddingHorizontal:8,paddingVertical:4,borderRadius:10,backgroundColor:colors.backgroundCard,alignItems:'center'},radiusValueText:{color:colors.white,fontSize:9,fontWeight:'900'},radiusTrack:{height:3,borderRadius:3,backgroundColor:colors.border,overflow:'hidden'},radiusFill:{height:3,borderRadius:3,backgroundColor:colors.primary},radiusChoices:{flexDirection:'row',alignItems:'center',gap:5,marginTop:6,marginBottom:5,paddingRight:8},radiusChoice:{minWidth:48,minHeight:44,paddingHorizontal:7,borderRadius:8,alignItems:'center',justifyContent:'center'},radiusChoiceOn:{backgroundColor:colors.primary},radiusChoiceText:{color:colors.white,fontSize:12,fontWeight:'800'},radiusChoiceTextOn:{color:colors.white},searchButton:{minHeight:48,borderRadius:14,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:2},searchButtonText:{color:colors.white,fontSize:14,fontWeight:'900',letterSpacing:.4},searchHint:{color:colors.textMuted,fontSize:8,marginTop:5,textAlign:'center'},
+  searchPanel:{padding:10,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,marginBottom:8},searchPanelDesktop:{width:'100%',maxWidth:860,alignSelf:'center'},radiusHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:5},radiusLabel:{color:colors.textMuted,fontSize:9,fontWeight:'900'},radiusValue:{minWidth:54,paddingHorizontal:8,paddingVertical:4,borderRadius:10,backgroundColor:colors.backgroundCard,alignItems:'center'},radiusValueText:{color:colors.white,fontSize:9,fontWeight:'900'},radiusTrack:{height:3,borderRadius:3,backgroundColor:colors.border,overflow:'hidden'},radiusFill:{height:3,borderRadius:3,backgroundColor:colors.primary},radiusChoices:{flexDirection:'row',alignItems:'center',gap:5,marginTop:6,marginBottom:5,paddingRight:8},radiusChoice:{minWidth:48,minHeight:44,paddingHorizontal:7,borderRadius:8,alignItems:'center',justifyContent:'center'},radiusChoiceOn:{backgroundColor:colors.primary},radiusChoiceText:{color:colors.white,fontSize:12,fontWeight:'800'},radiusChoiceTextOn:{color:colors.white},searchButton:{minHeight:48,borderRadius:14,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:2},searchButtonText:{color:colors.white,fontSize:14,fontWeight:'900',letterSpacing:.4},searchHint:{color:colors.textMuted,fontSize:8,marginTop:5,textAlign:'center'},
   profileHeaderNav:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:10,marginBottom:4},profileHeaderCenter:{flex:1,alignItems:'center',justifyContent:'center'},deckCountHeader:{color:colors.textMuted,fontSize:10,fontWeight:'900',marginTop:2},deckNav:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:12,marginTop:8,marginBottom:4},deckArrow:{width:48,height:48,borderRadius:24,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary,borderWidth:2,borderColor:colors.primaryLight,shadowColor:colors.primaryLight,shadowOpacity:.6,shadowRadius:8,shadowOffset:{width:0,height:0},elevation:6},deckArrowText:{color:colors.white,fontSize:32,lineHeight:34,fontWeight:'900'},deckCount:{minWidth:54,textAlign:'center',color:colors.white,fontSize:12,fontWeight:'900'},
     lockCard:{padding:16,borderRadius:20,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center'},lockIcon:{fontSize:26,marginBottom:8},lockTitle:{color:colors.white,fontSize:16,fontWeight:'900',textAlign:'center'},lockBody:{color:colors.textMuted,fontSize:12,lineHeight:17,textAlign:'center',marginTop:6},lockCta:{color:colors.primaryLight,fontSize:12,fontWeight:'900',marginTop:12},
   emptyCard:{padding:18,borderRadius:18,backgroundColor:colors.background,borderWidth:1,borderColor:colors.border},

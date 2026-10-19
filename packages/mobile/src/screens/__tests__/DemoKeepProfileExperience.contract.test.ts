@@ -42,7 +42,7 @@ describe('Demo keep confirmation + visited profile premium design', () => {
   });
 
   it('resolves an inline audio preview even when discovery search links exist', () => {
-    expect(listen).toContain('if (track.previewUrl || embedUrl) return;');
+    expect(listen).toContain('if (track.previewUrl || sourceOnlyVideo) return;');
     expect(listen).not.toContain('if (track.previewUrl || embedUrl || externalPlayUrl) return;');
     expect(listen).toContain('resolveTrackPreviewUrl(track)');
   });
@@ -55,7 +55,7 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     // 02/10/2026 : boutique vendeur validée par Adel (SellerBoutique : Drop du moment 3 max + étagère + boutique).
     expect(profile).toContain('<SellerBoutique');
     expect(boutique).toContain('accessibilityLabel="Collections à débloquer"');
-    expect(boutique).toContain('TOUCHE POUR ÉCOUTER · TITRES PROTÉGÉS');
+    expect(boutique).toContain('▶ ÉCOUTER');
     expect(profile).not.toContain("mode={unlocked ? 'UNLOCKED' : 'LOCKED'}");
     expect(styleCard).toContain('<ImageBackground');
     expect(styleCard).toContain('const PUBLIC_GRADIENTS');
@@ -79,10 +79,10 @@ describe('Demo keep confirmation + visited profile premium design', () => {
 
   it('makes a seller and their Drops unmistakable without adding a bulky shop header', () => {
     expect(profile).toContain('offers={profileBoutiqueOffers}');
-    expect(boutique).toContain('★ PÉPITE À LA UNE');
-    expect(boutique).toContain("ownerMode ? 'MA BOUTIQUE MUSICALE · MES PÉPITES' : 'BOUTIQUE MUSICALE · SES PÉPITES'");
+    expect(boutique).toContain('DÉBLOQUER');
+    expect(boutique).toContain("ownerMode ? 'Ma boutique' : `Boutique de @${sellerName}`");
     expect(boutique).toContain('Tout voir · {visibleOffers.length} ›');
-    expect(boutique).toContain('TOUCHE POUR ÉCOUTER · TITRES PROTÉGÉS');
+    expect(boutique).toContain('▶ ÉCOUTER');
     expect(profile).not.toContain('BOUTIQUE MUSICALE ACTIVE');
   });
 
@@ -138,8 +138,9 @@ describe('Demo keep confirmation + visited profile premium design', () => {
   it('identifies the listened profile and first discoverer inside Swipe for the whole playback session', () => {
     expect(swipe).toContain('sourceUsername?: string;');
     expect(swipe).toContain('sourceProfileId?: string;');
-    expect(swipe).toContain("Découvert par @{currentSourceUsername.replace(/^@/, '')}");
-    expect(swipe).toContain('◎ DÉCOUVERT PAR @{currentSourceUsername.replace(/^@/, \'\')} · VOIR / SUIVRE');
+    expect(swipe).toContain('testID="deck-source-profile-inline"');
+    expect(swipe).toContain('sourceProfileInlineAction');
+    expect(swipe).not.toContain('sourceProfileButtonText');
     expect(profile).toContain('sourceUsername={profile.username}');
     expect(profile).toContain('sourceAvatarUrl={profile.avatar}');
     expect(profile).toContain('sourceProfileId={profile.id}');
@@ -187,7 +188,7 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(fs.readFileSync(path.join(__dirname, '../../services/styleGroups.ts'), 'utf8')).toContain('for (const track of tracks)');
     expect(myMusic).toContain("if (playlist.id.startsWith(STYLE_ID_PREFIX))");
     expect(myMusic).toContain('MES STYLES · {stylePlaylists.length}');
-    expect(myMusic).toContain('SUGGESTIONS AUTO · {automaticStylePlaylists.length}');
+    expect(myMusic).toContain('SUGGESTIONS AUTO · {uniqueAutomaticStylePlaylists.length}');
     expect(myMusic).toContain('ne sont PAS comptées dans tes {stylePlaylists.length} Styles');
     expect(myMusic).not.toContain('for (const track of allKnownTracks)');
     expect(ownerProfile).toContain("{genreFolders.length} style{genreFolders.length > 1 ? 's' : ''}");
@@ -197,7 +198,7 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(swipe).toContain("setPrefilterRemovedCount(0)");
     expect(swipe).toContain(": (loop ? shuffle(inputTracks) : inputTracks);");
     expect(swipe).not.toContain("preparedTracksRef.current = result.tracks");
-    expect(swipe).toContain("rightLabel={currentAlreadyKept ? 'DÉJÀ' : 'GARDER'}");
+    expect(swipe).toContain("rightLabel={ownStoryView ? 'DÉJÀ EN STORY' : currentAlreadyKept ? 'DÉJÀ' : 'GARDER'}");
   });
 
   it('waits for the Swipe deck to be ready before starting audio, preventing the first-preview cut', () => {
@@ -224,5 +225,19 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(profile).toContain('const visible = maskedIds.length ? normalized.filter((t) => !maskedIds.includes(t.trackId)) : normalized;');
     expect(profile).toContain('setTracks(visible);');
     expect(profile).toContain('const swipeTracks = useMemo<CanonicalTrack[]>(() => tracks.map((track) => ({');
+  });
+});
+
+describe('Playlists full-height layout (Adel 17/10/2026)', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const screen = fs.readFileSync(path.join(__dirname, '..', 'MyMusicScreen.tsx'), 'utf8');
+  it('scrolls the header, tabs and controls with the list instead of pinning them', () => {
+    expect(screen).toContain('ListHeaderComponent={<>{sectionControls}{saleSelectionMode ?');
+    expect(screen).toContain("ListHeaderComponent={<>{sectionControls}{activeTab === 'VIBES' ?");
+    expect(screen).toContain("{mobileSection === 'HOME' ? pageHeader : null}");
+  });
+  it('never repeats an existing Style inside the auto suggestions', () => {
+    expect(screen).toContain('!existing.has(norm(playlist.name))');
   });
 });

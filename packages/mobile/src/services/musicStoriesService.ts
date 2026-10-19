@@ -4,6 +4,7 @@ import { supabase } from './supabaseClient';
 import { loadMyOfferedTrackIds, loadPlaylistSaleProfilePreviewSampler } from './playlistSaleService';
 import { startStoryWatch } from './storyWatchService';
 import { restoreStoryViewers, serializeStoryViewers, STORY_VIEWERS_CACHE_KEY } from './storyViewersCache';
+import { normalizeStoryViewerPlayback } from './storyViewerDetail';
 
 /**
  * Stories musicales Loki (Adel, 05/10/2026).
@@ -613,9 +614,9 @@ export async function loadMyStoryViewers(): Promise<StoryViewer[]> {
     listened: Boolean(row.listened),
     watching: Boolean(row.watching),
     leftAt: row.left_at ? String(row.left_at) : null,
-    chapters: (Array.isArray(row.chapters) ? row.chapters : []).map((c: any) => ({ index: Number(c?.i) || 0, seconds: Number(c?.s) || 0 })).sort((a: any, b: any) => a.index - b.index),
-    trackViews: (Array.isArray(row.track_views) ? row.track_views : []).filter((c: any) => c?.t).map((c: any) => ({ trackId: String(c.t), seconds: Number(c?.s) || 0 })),
-    lastTrackId: row.last_track_id ? String(row.last_track_id) : null,
+    // La v4 de production renvoie chapters[{i,s,t}] sans track_views/last_track_id.
+    // Normaliser les deux signatures avant de rendre le détail sur mobile ET ordinateur.
+    ...normalizeStoryViewerPlayback(row),
   })).filter((row) => row.viewerId && row.username);
   if (ownerId) { try { await AsyncStorage.setItem(STORY_VIEWERS_CACHE_KEY, serializeStoryViewers(ownerId, viewers, Date.now())); } catch { /* copie facultative */ } }
   return viewers;

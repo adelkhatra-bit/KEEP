@@ -84,10 +84,10 @@ const FRIENDLY_LABELS: Record<string, string> = {
   growth_followers_tier4_threshold: 'Abonnés · palier 4',
   growth_followers_tier5_threshold: 'Abonnés · palier Audience Pro',
   growth_followers_reward_25_discovery: 'Bonus Découvertes · abonnés palier 1',
-  growth_followers_reward_100_sort: 'Essais Vibes · abonnés palier 2',
+  growth_followers_reward_100_sort: 'Essais Styles · abonnés palier 2',
   growth_followers_reward_250_credits: 'Bonus crédits · abonnés palier 3',
   growth_followers_reward_500_discovery: 'Bonus Découvertes · abonnés palier 4',
-  growth_followers_reward_500_sort: 'Essais Vibes · abonnés palier 4',
+  growth_followers_reward_500_sort: 'Essais Styles · abonnés palier 4',
   growth_followers_reward_1000_credits: 'Bonus crédits · Audience Pro',
   // Adel (04/09/2026) : "je sais pas comment t'as calculé ton coût pour le
   // lien d'affiliation ... il faut que je puisse l'avoir dans les
@@ -101,13 +101,21 @@ const FRIENDLY_LABELS: Record<string, string> = {
   referral_bonus_10: 'Bonus Free au 10ᵉ filleul inscrit ce mois',
   referral_monthly_free_cap: 'Plafond de Free gagnés par parrainage / mois',
   music_services_limit_free: 'Services musicaux · FREE',
-  music_services_limit_premium: 'Services musicaux · Premium 2,99 €',
-  music_services_limit_creator: 'Services musicaux · Creator Pro 9,99 €',
-  music_services_limit_venue: 'Services musicaux · Venue Pro 29,99 €',
+  music_services_limit_premium: 'Services musicaux · Premium',
+  music_services_limit_creator: 'Services musicaux · Creator Pro',
+  music_services_limit_venue: 'Services musicaux · Venue Pro',
   free_monthly_bonus_free: 'Free offerts / mois · formule Free',
-  free_monthly_bonus_premium: 'Free offerts / mois · Premium 2,99 €',
-  free_monthly_bonus_creator_pro: 'Free offerts / mois · Creator Pro 9,99 €',
-  free_monthly_bonus_venue_pro: 'Free offerts / mois · Venue Pro 29,99 €',
+  free_monthly_bonus_premium: 'Free offerts / mois · Premium',
+  free_monthly_bonus_creator_pro: 'Free offerts / mois · Creator Pro',
+  free_monthly_bonus_venue_pro: 'Free offerts / mois · Venue Pro',
+  listen_quota_period_FREE: 'Écouter FREE · recharge (DAY/WEEK/MONTH/NEVER)',
+  listen_quota_limit_FREE: 'Écouter FREE · identifications incluses par période',
+  listen_quota_period_PREMIUM: 'Écouter PREMIUM · recharge (DAY/WEEK/MONTH/NEVER)',
+  listen_quota_limit_PREMIUM: 'Écouter PREMIUM · identifications incluses par période',
+  listen_quota_period_CREATOR_PRO: 'Écouter CREATOR_PRO · recharge (DAY/WEEK/MONTH/NEVER)',
+  listen_quota_limit_CREATOR_PRO: 'Écouter CREATOR_PRO · identifications incluses par période',
+  listen_quota_period_VENUE_PRO: 'Écouter VENUE_PRO · recharge (DAY/WEEK/MONTH/NEVER)',
+  listen_quota_limit_VENUE_PRO: 'Écouter VENUE_PRO · identifications incluses par période',
   free_cost_per_keep: 'Prix en Free d’un morceau gardé (FREE/Premium)',
   web_share_free_cost: 'Prix en Free annoncé d’un partage de 24 h sur ordinateur (0 = gratuit)',
   desktop_boutique_columns: 'Boutique PC · colonnes standard (2 à 4)',
@@ -126,7 +134,7 @@ const FRIENDLY_LABELS: Record<string, string> = {
   session_empty_title: 'Écouter · titre au repos',
   session_empty_subtitle: 'Écouter · texte au repos',
   session_silence_timeout_minutes: 'Silence avant proposition d’arrêt (min)',
-  smart_album_config: 'Configuration Loki Music Vibes automatique',
+  smart_album_config: 'Configuration Loki Music Styles automatique',
   legal_publisher_name: 'Nom de l’éditeur (mentions légales/CGU)',
   legal_publisher_contact: 'Contact de l’éditeur (mentions légales)',
 };
@@ -142,22 +150,22 @@ function groupFor(key: string): GroupKey {
   if (key.startsWith('growth_') || key.startsWith('referral_')) return 'GROWTH';
   if (key.startsWith('music_services_')) return 'SERVICES';
   if (key.startsWith('guest_') || key.startsWith('signup_') || key.startsWith('free_monthly_bonus_') || key.startsWith('free_cost_') || key.startsWith('battle_') || key.includes('download') || key.includes('discovery_profile') || key.includes('sort_trial')) return 'PLANS';
-  if (key.startsWith('session_') || key.startsWith('auth_') || key.startsWith('demo_')) return 'LISTEN';
+  if (key.startsWith('listen_quota_') || key.startsWith('session_') || key.startsWith('auth_') || key.startsWith('demo_')) return 'LISTEN';
   if (key.startsWith('smart_album')) return 'VIBES';
   return 'OTHER';
 }
 
 const GROUPS: Array<{ key: GroupKey; title: string; subtitle: string }> = [
   { key: 'DESKTOP', title: 'Apparence ordinateur', subtitle: 'Réglages réels du bureau Loki Music. Les colonnes de boutique s’adaptent à la fenêtre PC ; la version mobile et les cinq onglets restent inchangés.' },
-  { key: 'GAINS', title: 'Gagner', subtitle: 'Tout ce qui fait GAGNER des FREE aux utilisateurs. Le bonus d’inscription et les FREE mensuels des abonnés se règlent dans Formules. Partager son profil ne donne pas de FREE : les paliers de partage donnent des Découvertes et des essais Vibes (Croissance).' },
+  { key: 'GAINS', title: 'Gagner', subtitle: 'Tout ce qui fait GAGNER des FREE aux utilisateurs. Le bonus d’inscription et les FREE mensuels des abonnés se règlent dans Formules. Partager son profil ne donne pas de FREE : les paliers de partage donnent des Découvertes et des essais Styles (Croissance).' },
   { key: 'SPEND', title: 'Dépenser', subtitle: 'Tout ce qui fait DÉPENSER des FREE.' },
   { key: 'BATTLE', title: 'Battle', subtitle: 'Mises, parties SOLO et packs. Le gain SOLO parfait (3 / 6 / 8 / 12 FREE selon le nombre de manches) est encore fixé dans le serveur : il deviendra réglable ici avec ton « OK base ».' },
   { key: 'LEGAL', title: 'Légal', subtitle: 'Nom et contact affichés dans les mentions légales, CGU et politique de confidentialité publiques -- un seul changement ici met à jour toutes les pages automatiquement, sans republier l’app.' },
   { key: 'GROWTH', title: 'Croissance', subtitle: 'Transforme partages, abonnés ET parrainage (lien d’affiliation / QR code, "Inviter un ami") en bonus Free, sans modifier l’application. Les règles serveur (keep_referral_rules) utilisent ces mêmes valeurs.' },
   { key: 'PLANS', title: 'Crédits', subtitle: 'Réglages transversaux. Écoutes invité, bonus d’inscription, FREE mensuels, prix et limites par formule : page Formules.' },
   { key: 'SERVICES', title: 'Services', subtitle: 'Nombre maximum de services qu’un compte peut choisir. Un service confirmé reste attaché au compte ; augmente une limite ici sans republier l’application.' },
-  { key: 'LISTEN', title: 'Écouter', subtitle: 'Textes et comportement à distance de l’écran Écouter.' },
-  { key: 'VIBES', title: 'Vibes', subtitle: 'Configuration du rangement musical intelligent.' },
+  { key: 'LISTEN', title: 'Écouter · quotas', subtitle: 'Par formule : nombre de morceaux inclus et recharge JOUR / SEMAINE / MOIS / JAMAIS. JAMAIS = crédit permanent, sans remise à zéro. Au-delà, l’utilisateur accepte de payer en FREE pour chaque titre effectivement reconnu.' },
+  { key: 'VIBES', title: 'Styles', subtitle: 'Configuration du rangement musical intelligent.' },
   { key: 'OTHER', title: 'Avancé', subtitle: 'Autres réglages distants.' },
 ];
 
@@ -197,6 +205,12 @@ export default function RemoteConfig() {
         try { value = JSON.parse(raw); }
         catch { throw new Error('Valeur JSON invalide.'); }
       }
+      if (row.key.startsWith('listen_quota_period_') && !['DAY','WEEK','MONTH','NEVER'].includes(String(value))) {
+        throw new Error('Choisis JOUR, SEMAINE, MOIS ou JAMAIS.');
+      }
+      if (row.key.startsWith('listen_quota_limit_') && (!Number.isInteger(value) || Number(value) < 1 || Number(value) > 10000)) {
+        throw new Error('Choisis de 1 à 10 000 identifications par période.');
+      }
       if (row.key === 'desktop_boutique_columns' || row.key === 'desktop_boutique_columns_wide') {
         if (typeof value !== 'number' || !Number.isInteger(value) || value < 2 || value > 4) {
           throw new Error('Choisis un nombre entier de colonnes entre 2 et 4.');
@@ -211,7 +225,7 @@ export default function RemoteConfig() {
   };
 
   return <AdminLayout>
-    <div className="page-title">Réglages <Hint title="Réglages" text={<>Pilote les cadeaux Free, la croissance communautaire, les services musicaux, Écouter et Loki Music Vibes directement depuis Supabase.</>}/></div>
+    <div className="page-title">Réglages <Hint title="Réglages" text={<>Pilote les cadeaux Free, la croissance communautaire, les services musicaux, Écouter et Loki Music Styles directement depuis Supabase.</>}/></div>
 
     {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
     {!error && !loading && <div className="demo-banner"><span className="real-pill">● Réel <Hint title="Mode réel" text="Chaque changement est audité et appliqué sans republier l’application."/></span></div>}
@@ -228,7 +242,15 @@ export default function RemoteConfig() {
             const numeric = typeof row.value === 'number';
             return <div key={row.key} style={{ background: '#110d19', border: '1px solid #302742', borderRadius: 14, padding: 14 }}>
               <div style={{ fontWeight: 900, marginBottom: 8, display: 'flex', alignItems: 'center' }}>{ECONOMY[row.key]?.label ?? FRIENDLY_LABELS[row.key] ?? row.key.replace(/_/g, ' ')}{ECONOMY[row.key] && <Hint title={ECONOMY[row.key].label} text={ECONOMY[row.key].help}/>}</div>
-              {numeric ? <PresetPicker label={ECONOMY[row.key]?.label ?? FRIENDLY_LABELS[row.key] ?? row.key} value={Number(draftFor(row)) || 0} presets={PRESETS.limit} onChange={(v) => setDrafts((d) => ({ ...d, [row.key]: String(v ?? 0) }))} width={160} impact={(v) => `${ECONOMY[row.key]?.label ?? FRIENDLY_LABELS[row.key] ?? row.key} passera à ${v ?? 0} pour tous les utilisateurs, sans mise à jour de l’app. ${ECONOMY[row.key]?.help ?? row.description ?? ''}`} /> : longText ? <textarea value={draftFor(row)} onChange={(e) => setDrafts((d) => ({ ...d, [row.key]: e.target.value }))} rows={3} style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '9px 10px', fontSize: 13 }} /> : <input type={numeric ? 'number' : 'text'} value={draftFor(row)} onChange={(e) => setDrafts((d) => ({ ...d, [row.key]: e.target.value }))} style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '9px 10px', fontSize: 13 }} />}
+              {row.key.startsWith('listen_quota_period_') ? (
+                <select aria-label={FRIENDLY_LABELS[row.key] ?? row.key} value={draftFor(row)} onChange={(e) => setDrafts((d) => ({ ...d, [row.key]: e.target.value }))}
+                  style={{ width: '100%', background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 13 }}>
+                  <option value="DAY">Chaque jour</option>
+                  <option value="WEEK">Chaque semaine</option>
+                  <option value="MONTH">Chaque mois</option>
+                  <option value="NEVER">Jamais · uniquement crédit / FREE</option>
+                </select>
+              ) : numeric ? <PresetPicker label={ECONOMY[row.key]?.label ?? FRIENDLY_LABELS[row.key] ?? row.key} value={Number(draftFor(row)) || 0} presets={PRESETS.limit} onChange={(v) => setDrafts((d) => ({ ...d, [row.key]: String(v ?? 0) }))} width={160} impact={(v) => `${ECONOMY[row.key]?.label ?? FRIENDLY_LABELS[row.key] ?? row.key} passera à ${v ?? 0} pour tous les utilisateurs, sans mise à jour de l’app. ${ECONOMY[row.key]?.help ?? row.description ?? ''}`} /> : longText ? <textarea value={draftFor(row)} onChange={(e) => setDrafts((d) => ({ ...d, [row.key]: e.target.value }))} rows={3} style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '9px 10px', fontSize: 13 }} /> : <input type={numeric ? 'number' : 'text'} value={draftFor(row)} onChange={(e) => setDrafts((d) => ({ ...d, [row.key]: e.target.value }))} style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '9px 10px', fontSize: 13 }} />}
               {!ECONOMY[row.key] && row.description && <Hint text={<>{row.description}</>}/>}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
                 <button onClick={() => void save(row)} disabled={savingKey === row.key} style={{ background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 7, padding: '7px 14px', fontWeight: 800, cursor: savingKey === row.key ? 'wait' : 'pointer' }}>{savingKey === row.key ? '…' : 'Enregistrer'}</button>

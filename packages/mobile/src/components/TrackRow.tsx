@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { Alert } from '../utils/keepAlert';
+import { pinStoryTrack, notifyOwnStoryChanged } from '../services/musicStoriesService';
+import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useTranslation } from 'react-i18next';
 import { ProviderPlaylist } from '@keep/music';
 import { KeepVisibility, SessionTrackEntry } from '../types';
@@ -38,6 +41,8 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
   const [keepSubmitting, setKeepSubmitting] = useState(false);
   const [keepCost, setKeepCost] = useState(3);
   const [keepSuccessOpen, setKeepSuccessOpen] = useState(false);
+  const [keepStoryPublished, setKeepStoryPublished] = useState(false);
+  const [storyBusy, setStoryBusy] = useState(false);
   const [keepSuccessVisibility, setKeepSuccessVisibility] = useState<KeepVisibility>('PRIVATE');
 
   const destinationOptions = useMemo(() => playlists ?? [], [playlists]);
@@ -63,11 +68,45 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
     setKeepSubmitting(true);
     try {
       await Promise.resolve(onKeep(entry.id, selectedPlaylistId, nextVisibility));
-      setKeepSuccessVisibility(nextVisibility);
+      // A FREE refusal is handled by the session store without throwing.
+      // Do not show "GARDER réussi" if the track is still pending.
+      const savedEntry = useSessionHistoryStore.getState().sessions
+        .flatMap((session) => session.tracks)
+        .find((candidate) => candidate.id === entry.id);
+      if (!savedEntry || savedEntry.status !== 'kept') {
+        if (savedEntry?.creditLocked) onUnlock?.();
+        else Alert.alert('Morceau non gardé', 'Vérifie tes FREE ou ta connexion puis réessaie.');
+        return;
+      }
+      // Public KEEP is already included in the 24 h Story via
+      // loadProfileStory() reading keep_decisions. A second story pin would
+      // create duplicate server work and possibly duplicate cards.
+      const publicConfirmed = savedEntry.status === 'kept' && savedEntry.visibility === 'PUBLIC';
+      if (publicConfirmed) notifyOwnStoryChanged();
+      setKeepStoryPublished(publicConfirmed);
+      setKeepSuccessVisibility(savedEntry.visibility ?? nextVisibility);
       setKeepPromptOpen(false);
       setKeepSuccessOpen(true);
     } finally {
       setKeepSubmitting(false);
+    }
+  };
+
+  const publishStory = async () => {
+    // A Story is always an explicit action. The FREE keep decision must have
+    // succeeded and been made Public beforehand, never from a mere preview.
+    if (status !== 'kept' || visibility !== 'PUBLIC' || storyBusy) return;
+    setStoryBusy(true);
+    try {
+      await pinStoryTrack(track.id, {
+        title: track.title, artist: track.artist, album: track.album,
+        artworkUrl: track.artworkUrl, previewUrl: track.previewUrl, isrc: track.isrc,
+      });
+      Alert.alert('Story publiée', 'Ce morceau est visible dans ta Story musicale pendant 24 h.');
+    } catch (error: any) {
+      Alert.alert('Story non publiée', error?.message || 'Cette musique ne peut pas être mise en Story pour le moment.');
+    } finally {
+      setStoryBusy(false);
     }
   };
 
@@ -81,6 +120,7 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
   return (
     <>
       <View style={[styles.row, entry.creditLocked && styles.rowLocked]}>
+        <View style={styles.rowTop}>
         {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.artwork} /> : <View style={[styles.artwork, styles.artworkPlaceholder]}><Text style={styles.artworkGlyph}>♪</Text></View>}
         <View style={styles.info}>
           <Text style={styles.title} numberOfLines={1}>{track.title}</Text>
@@ -88,7 +128,13 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
           {track.album && <Text style={styles.album} numberOfLines={1}>{track.album}</Text>}
           {importedFromLabel ? <View style={styles.importedPill}><Text style={styles.importedPillText}>{importedFromLabel}</Text></View> : null}
           {availableLabel ? <Text style={styles.platforms} numberOfLines={1}>{availableLabel}</Text> : null}
-          <TrackListenControls track={track} previewKey={`session:${entry.id}`} />
+          {status === 'kept' && visibility === 'PUBLIC' ? (
+            <TouchableOpacity testID={`session-story-${entry.id}`} onPress={() => { void publishStory(); }} disabled={storyBusy} accessibilityRole="button" accessibilityLabel="Publier cette musique gardée dans ma Story" style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start', marginTop: 3 }}>
+              <Text style={{ color: colors.keep, fontSize: 12, fontWeight: '800' }}>
+                {storyBusy ? 'Publication…' : '+ METTRE EN STORY · 24 H'}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
           {entry.creditLocked ? <Text style={styles.lockedText}>🔒 En attente · l’écoute reste disponible</Text> : null}
         </View>
 
@@ -111,6 +157,10 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
             {status === 'pending' && <Text style={styles.pendingText}>•</Text>}
           </View>
         )}
+        </View>
+        <View testID={`session-preview-slot-${entry.id}`} style={styles.previewSlot}>
+          <TrackListenControls track={track} previewKey={`session:${entry.id}`} compactSession />
+        </View>
       </View>
 
       <KeepVisibilityChoiceModal
@@ -132,6 +182,7 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
         trackLabel={`${track.title} · ${track.artist}`}
         costFree={keepCost}
         visibility={keepSuccessVisibility}
+        storyPublished={keepStoryPublished}
         onContinue={() => setKeepSuccessOpen(false)}
       />
     </>
@@ -139,26 +190,28 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: spacing.sm, gap: spacing.md },
+  row: { flexDirection: 'column', paddingVertical: 12, paddingHorizontal: 12, marginBottom: 10, gap: 8, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(167,139,250,.50)', backgroundColor: '#151225' },
+  rowTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, minWidth: 0 },
+  previewSlot: { alignSelf: 'stretch', minWidth: 0, paddingTop: 3, borderTopWidth: 1, borderTopColor: 'rgba(167,139,250,.18)' },
   rowLocked: { backgroundColor: 'rgba(139,92,246,.06)', borderRadius: radius.md, paddingHorizontal: 6 },
   artwork: { width: 52, height: 52, borderRadius: radius.sm, backgroundColor: colors.backgroundCard },
   artworkPlaceholder: { alignItems: 'center', justifyContent: 'center' },
   artworkGlyph: { color: colors.textMuted, fontSize: 20 },
-  info: { flex: 1, minWidth: 0 },
-  title: { ...typography.bodyBold, color: colors.textPrimary },
-  artist: { fontSize: 13, color: colors.textSecondary, marginTop: 1 },
+  info: { flex: 1, minWidth: 0, paddingBottom: 2 },
+  title: { ...typography.bodyBold, color: '#FFFFFF', fontSize: 14, lineHeight: 19 },
+  artist: { fontSize: 12, color: '#DBD0F3', marginTop: 3 },
   album: { fontSize: 11, color: colors.textMuted, marginTop: 1, fontStyle: 'italic' },
   platforms: { fontSize: 10, color: colors.primaryLight, marginTop: 3, fontWeight: '700' },
   importedPill: { alignSelf: 'flex-start', minHeight: 20, paddingHorizontal: 8, borderRadius: radius.pill, backgroundColor: 'rgba(139,92,246,.14)', borderWidth: 1, borderColor: colors.primaryLight, marginTop: 3, justifyContent: 'center' },
   importedPillText: { color: colors.primaryLight, fontSize: 9, fontWeight: '900' },
   lockedText: { color: colors.primaryLight, fontSize: 9, fontWeight: '800', marginTop: 6 },
-  actions: { flexDirection: 'row', gap: spacing.sm, paddingTop: 8 },
-  passBtn: { width: 34, height: 34, borderRadius: radius.pill, backgroundColor: colors.pass, alignItems: 'center', justifyContent: 'center' },
-  passBtnText: { color: colors.white, fontWeight: '700', fontSize: 15 },
-  keepBtn: { width: 34, height: 34, borderRadius: radius.pill, backgroundColor: colors.keep, alignItems: 'center', justifyContent: 'center' },
+  actions: { flexDirection: 'column', gap: 8, paddingTop: 2 },
+  passBtn: { width: 44, height: 44, borderRadius: 13, borderWidth: 1.5, borderColor: '#FF5F83', backgroundColor: 'rgba(255,95,131,.12)', alignItems: 'center', justifyContent: 'center' },
+  passBtnText: { color: '#FF5F83', fontWeight: '900', fontSize: 18 },
+  keepBtn: { width: 44, height: 44, borderRadius: 13, borderWidth: 1.5, borderColor: '#68F2B1', backgroundColor: '#68F2B1', alignItems: 'center', justifyContent: 'center' },
   keepBtnText: { color: colors.black, fontWeight: '900', fontSize: 17 },
   unlockBtn: { backgroundColor: '#2B2038', borderWidth: 1, borderColor: colors.primaryLight },
-  restoreBtn: { paddingHorizontal: 12, height: 34, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  restoreBtn: { paddingHorizontal: 12, minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
   restoreBtnText: { color: colors.primaryLight, fontWeight: '800', fontSize: 11 },
   unlockBtnText: { color: colors.primaryLight, fontSize: 13 },
   statusBadge: { minWidth: 76, alignItems: 'flex-end', gap: 5, paddingTop: 8 },

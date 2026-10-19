@@ -10,6 +10,7 @@ import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { useSessionStore } from '../store/useSessionStore';
 import { resolveTrackExternalDestination } from '../services/trackExternalLinkService';
 import KeepModal from './KeepModal';
+import { resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
 
 interface Props {
   track: CanonicalTrack;
@@ -23,6 +24,8 @@ interface Props {
   onPreviewFinished?: () => void;
   /** Lecture automatique uniquement dans une vue focalisée (ex. Écouter/Loki Pulse). */
   autoPlay?: boolean;
+  /** Sessions: two clear, touch-sized preview actions instead of 5 tiny controls. */
+  compactSession?: boolean;
 }
 
 /**
@@ -30,9 +33,14 @@ interface Props {
  * « vient d'être détecté » (HomeScreenCompact) et les lignes d'historique
  * (TrackRow). Chaque bouton représente une vraie DURÉE, jamais un offset.
  */
-export default function TrackListenControls({ track, previewKey, onPreviewFinished, autoPlay = false }: Props) {
+export default function TrackListenControls({ track, previewKey, onPreviewFinished, autoPlay = false, compactSession = false }: Props) {
   const [previewBusy, setPreviewBusy] = useState(false);
+  const [previewPlaying, setPreviewPlaying] = useState(false);
   const [embeddedPlayerOpen, setEmbeddedPlayerOpen] = useState(false);
+  const pausedByEmbeddedPlayer = useRef(false);
+  // Only the component that paused the microphone may resume it.
+  // Tab-audio monitoring already keeps the microphone paused on purpose.
+  const pausedMicForPreview = useRef(false);
   // BUG RÉEL (Adel, 01/09/2026 : "j'écoute la musique elle ne part pas, elle
   // se met indisponible") : ce composant affichait "Audio indisponible" dès
   // que le fournisseur de reconnaissance ne renvoyait aucun previewUrl/lien
@@ -44,21 +52,44 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
 
   const externalDestination = resolveTrackExternalDestination(track);
   const externalPlayUrl = externalDestination?.url;
-  // Lecteur officiel intégré (widget Spotify/Deezer, ou IFrame Player API
-  // YouTube) : reste dans Loki au lieu d'ouvrir la plateforme dans un nouvel
-  // onglet. Web uniquement pour l'instant -- une iframe n'a pas d'équivalent
-  // React Native direct sans dépendance WebView côté natif. Priorité Spotify
-  // (widget le plus universellement disponible), Deezer puis YouTube en repli
-  // -- YouTube seulement quand ACRCloud a confirmé un vrai id vidéo (vid),
-  // jamais une simple recherche.
-  const embedUrl = track.providerIds?.spotify
-    ? `https://open.spotify.com/embed/track/${encodeURIComponent(track.providerIds.spotify)}`
-    : track.providerIds?.deezer
-      ? `https://widget.deezer.com/widget/dark/track/${encodeURIComponent(track.providerIds.deezer)}`
-      : track.providerIds?.youtubeMusic
-        ? `https://www.youtube.com/embed/${encodeURIComponent(track.providerIds.youtubeMusic)}`
-        : undefined;
-  const embedProviderLabel = track.providerIds?.spotify ? 'Spotify' : track.providerIds?.deezer ? 'Deezer' : 'YouTube';
+  // A user-shared link keeps its REAL source inside Loki. Never embed a
+  // generic YouTube search URL (which could play another person's music).
+  const embedded = [
+    track.externalUrls?.source,
+    track.externalUrls?.spotify,
+    track.externalUrls?.deezer,
+    track.externalUrls?.youtube,
+    track.providerIds?.spotify ? `https://open.spotify.com/track/${track.providerIds.spotify}` : undefined,
+    track.providerIds?.deezer ? `https://www.deezer.com/track/${track.providerIds.deezer}` : undefined,
+    track.providerIds?.youtubeMusic ? `https://www.youtube.com/watch?v=${track.providerIds.youtubeMusic}` : undefined,
+  ].map((url) => resolveEmbeddedMusicPlayer(url)).find(Boolean) ?? null;
+  const embedUrl = embedded?.url;
+  const embedProviderLabel = embedded?.provider === 'SPOTIFY' ? 'Spotify'
+    : embedded?.provider === 'DEEZER' ? 'Deezer' : 'YouTube';
+  // YouTube source-only discoveries are exact provider videos, not equivalent
+  // Apple catalogue recordings. Playing a guessed iTunes result here could
+  // produce a DIFFERENT song than the user's shared video.
+  const sourceOnlyVideo = embedded?.provider === 'YOUTUBE'
+    && Boolean(track.externalUrls?.source)
+    && !track.previewUrl
+    && !track.isrc
+    && !track.providerIds?.appleMusic
+    && !track.providerIds?.deezer
+    && !track.providerIds?.spotify;
+  const NativeWebView = Platform.OS === 'web' ? null : require('react-native-webview').WebView;
+
+  const closeEmbeddedPlayer = () => {
+    setEmbeddedPlayerOpen(false);
+    if (pausedByEmbeddedPlayer.current) {
+      pausedByEmbeddedPlayer.current = false;
+      // Unmount the iframe/WebView first: the microphone must never capture
+      // the last frames of the video and identify itself.
+      setTimeout(() => {
+        const current = useSessionStore.getState();
+        if (current.isActive && current.micPaused) current.resumeListening();
+      }, 300);
+    }
+  };
 
   useEffect(() => {
     setResolvedPreviewUrl(track.previewUrl ?? null);
@@ -66,15 +97,16 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
     // jouable dans Loki Music. C'était le bug du mode démo : TrackResolver
     // fournit toujours ces liens de découverte, ce qui empêchait auparavant
     // le repli iTunes de chercher un vrai previewUrl.
-    if (track.previewUrl || embedUrl) return;
+    if (track.previewUrl || sourceOnlyVideo) return;
     let live = true;
     setResolvingPreview(true);
     resolveTrackPreviewUrl(track)
       .then((url) => { if (live) setResolvedPreviewUrl(url); })
+      .catch(() => { if (live) setResolvedPreviewUrl(null); })
       .finally(() => { if (live) setResolvingPreview(false); });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [track.title, track.artist, track.previewUrl, embedUrl]);
+  }, [track.title, track.artist, track.previewUrl, embedUrl, sourceOnlyVideo]);
 
   useEffect(() => () => {
     // PASSER / changement de carte : couper instantanément l'ancien extrait.
@@ -98,7 +130,10 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
       // Vue focalisée seulement : pause temporaire du micro d'écoute, puis
       // reprise automatique quand l'extrait se termine.
       const session = useSessionStore.getState();
-      if (session.isActive && !session.micPaused) session.pauseListening();
+      if (session.isActive && !session.micPaused) {
+        pausedMicForPreview.current = true;
+        session.pauseListening();
+      }
 
       for (let attempt = 0; attempt < 3 && live; attempt += 1) {
         try {
@@ -122,7 +157,7 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
       // En autoplay natif on ne montre jamais un popup qui volerait le tap
       // utilisateur. Les boutons manuels restent disponibles en repli.
       const latest = useSessionStore.getState();
-      if (latest.isActive && latest.micPaused) {
+      if (pausedMicForPreview.current && latest.isActive && latest.micPaused) {
         Alert.alert('Reprendre la détection musicale ?', 'La lecture de cet extrait a échoué. Le micro reste en pause.', [
           { text: 'Rester en pause', style: 'cancel' },
           { text: 'Reprendre', onPress: () => useSessionStore.getState().resumeListening() },
@@ -149,14 +184,13 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
   // naturelle ou stop manuel, `onStateChange` étant appelé avec false dans
   // les deux cas.
   const resumeListeningOnStop = (isPlaying: boolean) => {
-    if (isPlaying) return;
+    setPreviewPlaying(isPlaying);
+    if (isPlaying || !pausedMicForPreview.current) return;
+    pausedMicForPreview.current = false;
     const session = useSessionStore.getState();
-    if (session.micPaused) {
-      Alert.alert('Reprendre la détection musicale ?', 'Le micro est en pause après cet extrait.', [
-        { text: 'Rester en pause', style: 'cancel' },
-        { text: 'Reprendre', onPress: () => useSessionStore.getState().resumeListening() },
-      ]);
-    }
+    // Never prompt to restart a microphone that was already paused because
+    // the user is following another PC tab. Resume only our own mic pause.
+    if (session.isActive && session.micPaused) session.resumeListening();
   };
 
   const playSnippetNow = async (durationMillis: number) => {
@@ -165,28 +199,59 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
     try {
       await playTrackPreviewSegment(previewKey, resolvedPreviewUrl, 0, durationMillis, resumeListeningOnStop, onPreviewFinished, true);
     } catch {
-      Alert.alert('Extrait indisponible', 'Impossible de lire cet extrait pour le moment.');
+      // Old CDN preview URLs expire. Refresh the SAME title and artist before
+      // giving up; never redirect to a different or guessed song.
+      try {
+        const fresh = await resolveTrackPreviewUrl(track, { forceRefresh: true });
+        if (!fresh) throw new Error('NO_FRESH_PREVIEW');
+        setResolvedPreviewUrl(fresh);
+        await stopTrackPreview(previewKey);
+        await playTrackPreviewSegment(previewKey, fresh, 0, durationMillis, resumeListeningOnStop, onPreviewFinished, true);
+      } catch {
+        resumeListeningOnStop(false);
+        Alert.alert('Préécoute indisponible', 'Cet extrait ne répond pas. Essaie la source officielle ou passe au morceau suivant.');
+      }
     } finally {
       setPreviewBusy(false);
     }
   };
 
   const playSnippet = (durationMillis: number) => {
-    if (!resolvedPreviewUrl || previewBusy) return;
+    if (previewBusy) return;
+    if (previewPlaying) {
+      stopTrackPreviewFast(previewKey);
+      resumeListeningOnStop(false);
+      return;
+    }
+    if (!resolvedPreviewUrl) return;
     unlockWebAudioForGesture();
     const session = useSessionStore.getState();
-    if (session.isActive) session.pauseListening();
+    if (session.isActive && !session.micPaused) {
+      pausedMicForPreview.current = true;
+      session.pauseListening();
+    }
     void playSnippetNow(durationMillis);
   };
 
   const openExternalNow = () => {
-    if (Platform.OS === 'web' && embedUrl) { setEmbeddedPlayerOpen(true); return; }
+    if (embedUrl) {
+      const current = useSessionStore.getState();
+      if (current.isActive && !current.micPaused) {
+        pausedByEmbeddedPlayer.current = true;
+        current.pauseListening();
+      }
+      setEmbeddedPlayerOpen(true);
+      return;
+    }
     if (!externalPlayUrl) return;
     void Linking.openURL(externalPlayUrl).catch(() => Alert.alert('Lecture indisponible', 'Impossible d’ouvrir ce morceau pour le moment.'));
   };
 
   const openExternal = () => {
     if (!embedUrl && !externalPlayUrl) return;
+    // Exact playable source: stay in Loki instead of stopping the session or
+    // redirecting to YouTube. Only external fallbacks retain confirmation.
+    if (embedUrl) { openExternalNow(); return; }
     if (useSessionStore.getState().isActive) {
       Alert.alert(
         'Écoute Loki Music en cours',
@@ -208,34 +273,49 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
 
   return (
     <>
-      <View style={styles.previewRow}>
-        {resolvedPreviewUrl ? <>
+      <View style={[styles.previewRow, compactSession && styles.previewRowSession]}>
+        {resolvedPreviewUrl ? compactSession ? <>
+          <TouchableOpacity testID="session-preview-play-20" style={[styles.previewPill, styles.previewPillPrimary]} onPress={() => playSnippet(20000)} disabled={previewBusy} accessibilityRole="button" accessibilityLabel="Préécouter ce morceau pendant vingt secondes"><Text style={[styles.previewText, styles.previewTextPrimary]} numberOfLines={1}>{previewBusy ? 'CHARGEMENT…' : previewPlaying ? '■ ARRÊTER' : '▶ PRÉÉCOUTER · 20s'}</Text></TouchableOpacity>
+          <TouchableOpacity testID="session-preview-play-30" style={[styles.previewPill, styles.previewPillSecondary]} onPress={() => playSnippet(30000)} disabled={previewBusy} accessibilityRole="button" accessibilityLabel="Préécouter trente secondes"><Text style={styles.previewText} numberOfLines={1}>{previewPlaying ? '■' : '▶ 30s'}</Text></TouchableOpacity>
+        </> : <>
           <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(10000)} disabled={previewBusy} accessibilityLabel="Écouter 10 secondes"><Text style={styles.previewText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{previewBusy ? '…' : '▶ 10s'}</Text></TouchableOpacity>
           <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(20000)} disabled={previewBusy} accessibilityLabel="Écouter 20 secondes"><Text style={styles.previewText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>▶ 20s</Text></TouchableOpacity>
           <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(25000)} disabled={previewBusy} accessibilityLabel="Écouter 25 secondes"><Text style={styles.previewText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>▶ 25s</Text></TouchableOpacity>
           <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(30000)} disabled={previewBusy} accessibilityLabel="Écouter 30 secondes"><Text style={styles.previewText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>▶ 30s</Text></TouchableOpacity>
         </> : null}
-        {(embedUrl || externalPlayUrl) ? <TouchableOpacity style={styles.youtubePill} onPress={openExternal}><Text style={styles.youtubeText}>{embedUrl ? '▶ Écouter ici' : externalDestination?.exact ? '↗ Écouter sur la plateforme' : '↗ Ouvrir la recherche'}</Text></TouchableOpacity> : null}
+        {(embedUrl || externalPlayUrl) ? <TouchableOpacity style={[styles.youtubePill, compactSession && styles.youtubePillSession]} onPress={openExternal} accessibilityRole="button" accessibilityLabel={embedUrl ? 'Préécouter avec le lecteur intégré' : 'Ouvrir le morceau sur sa plateforme'}><Text style={styles.youtubeText}>{embedUrl ? '▶ ÉCOUTER LA SOURCE' : externalDestination?.exact ? '↗ ÉCOUTER SUR LA PLATEFORME' : '↗ RECHERCHER'}</Text></TouchableOpacity> : null}
       </View>
 
-      {Platform.OS === 'web' && embedUrl ? (
-        <KeepModal visible={embeddedPlayerOpen} transparent animationType="fade" onRequestClose={() => setEmbeddedPlayerOpen(false)}>
+      {embedUrl ? (
+        <KeepModal visible={embeddedPlayerOpen} transparent animationType="fade" onRequestClose={closeEmbeddedPlayer}>
           <View style={styles.embedOverlay}>
             <View style={styles.embedCard}>
               <View style={styles.embedHead}>
                 <Text style={styles.embedTitle} numberOfLines={1}>{track.title} · {track.artist}</Text>
-                <TouchableOpacity onPress={() => setEmbeddedPlayerOpen(false)} hitSlop={8} accessibilityLabel="Fermer le lecteur"><Text style={styles.embedClose}>✕</Text></TouchableOpacity>
+                <TouchableOpacity onPress={closeEmbeddedPlayer} hitSlop={8} accessibilityLabel="Fermer le lecteur"><Text style={styles.embedClose}>✕</Text></TouchableOpacity>
               </View>
-              {embeddedPlayerOpen
-                ? React.createElement('iframe', {
-                    src: embedUrl,
-                    width: '100%',
-                    height: 152,
-                    frameBorder: 0,
-                    allow: 'autoplay; encrypted-media; clipboard-write',
-                    style: { border: 0, borderRadius: 12 },
-                  })
-                : null}
+              {embeddedPlayerOpen ? (
+                Platform.OS === 'web'
+                  ? React.createElement('iframe' as any, {
+                      src: embedUrl,
+                      title: `Préécoute ${track.title} dans Loki Music`,
+                      width: '100%', height: embedded?.provider === 'YOUTUBE' ? 230 : 160,
+                      style: { border: 0, borderRadius: 12 },
+                      allow: 'autoplay; encrypted-media; picture-in-picture; fullscreen',
+                      allowFullScreen: true,
+                    })
+                  : NativeWebView ? (
+                    <NativeWebView
+                      source={{ uri: embedUrl, ...(embedded?.provider === 'YOUTUBE' ? { headers: { Referer: 'https://com.adelkhatra.keep' } } : {}) }}
+                      style={{ height: embedded?.provider === 'YOUTUBE' ? 230 : 160 }}
+                      javaScriptEnabled domStorageEnabled allowsInlineMediaPlayback
+                      allowsFullscreenVideo mediaPlaybackRequiresUserAction
+                      setSupportMultipleWindows={false}
+                      onShouldStartLoadWithRequest={(request: { url: string; isTopFrame?: boolean }) =>
+                        request.isTopFrame === false || request.url.startsWith(embedUrl.split('?')[0])}
+                    />
+                  ) : null
+              ) : null}
               <Text style={styles.embedHint}>Lecteur officiel {embedProviderLabel} intégré -- reste sur Loki Music.</Text>
             </View>
           </View>
@@ -247,12 +327,17 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
 
 const styles = StyleSheet.create({
   // Les 4 durées (10 / 20 / 25 / 30 s) tiennent toujours sur UNE ligne, de même taille, alignées (Adel, 06/10/2026) : plus de pastille seule à la ligne.
-  previewRow: { flexDirection: 'row', flexWrap: 'nowrap', gap: 6, marginTop: 6, alignSelf: 'stretch' },
+  previewRow: { flexDirection: 'row', flexWrap: 'nowrap', gap: 6, marginTop: 8, alignSelf: 'stretch' },
+  previewRowSession: { flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  previewPillPrimary: { flexBasis: '62%', minHeight: 44, borderColor: '#68F2B1', backgroundColor: 'rgba(104,242,177,.12)', borderWidth: 1.5, borderRadius: 12 },
+  previewPillSecondary: { flexBasis: '30%', minHeight: 44, borderColor: '#A78BFA', backgroundColor: '#181326', borderRadius: 12 },
+  previewTextPrimary: { color: '#68F2B1', fontSize: 11 },
+  youtubePillSession: { flexBasis: '100%', minHeight: 44, borderRadius: 12, borderColor: '#A78BFA', backgroundColor: '#211936' },
   previewPill: { flex: 1, minHeight: minTouchTarget, minWidth: 0, paddingHorizontal: 2, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard, alignItems: 'center', justifyContent: 'center' },
   previewText: { color: colors.textSecondary, fontSize: 12, fontWeight: '800', textAlign: 'center' },
   youtubePill: { minHeight: minTouchTarget, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: '#211018', borderWidth: 1, borderColor: '#7A2035', alignItems: 'center', justifyContent: 'center' },
-  youtubeText: { color: '#FF6B86', fontSize: 9, fontWeight: '900' },
-  audioUnavailable: { color: colors.textMuted, fontSize: 9, marginTop: 5 },
+  youtubeText: { color: '#DCCFFF', fontSize: 11, fontWeight: '900' },
+  audioUnavailable: { color: '#F5CE87', fontSize: 11, marginTop: 8 },
   embedOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,.78)', alignItems: 'center', justifyContent: 'center', padding: 22 },
   embedCard: { width: '100%', maxWidth: 380, borderRadius: 18, backgroundColor: '#151020', borderWidth: 1, borderColor: '#493369', padding: 14 },
   embedHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 10 },

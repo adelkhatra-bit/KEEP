@@ -3,10 +3,24 @@ import type { RecognitionResult } from '@keep/music';
 import { getSupabaseAccessToken } from './supabaseClient';
 import type { SharedMusicSource } from './sharedMusicSourceService';
 
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+import { PUBLIC_SUPABASE_URL } from '../config/supabasePublic';
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || PUBLIC_SUPABASE_URL;
+import { PUBLIC_SUPABASE_ANON_KEY } from '../config/supabasePublic';
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || PUBLIC_SUPABASE_ANON_KEY;
 const DEVICE_KEY = '@keep/music-device-id-v1';
+// Le serveur valide les liens directs de plateformes musicales dès 0.58.
+// N'abaisser le seuil QUE pour une source explicitement partagée sur une
+// plateforme musicale : conserver 0.68 pour les réseaux sociaux et empreintes.
 const MIN_CONFIDENCE = 0.68;
+const DIRECT_MUSIC_MIN_CONFIDENCE = 0.58;
+const DIRECT_MUSIC_HOSTS = ['spotify.com', 'deezer.com', 'music.apple.com', 'soundcloud.com', 'listen.tidal.com', 'tidal.com'];
+function requiredConfidenceForSharedLink(value: string): number {
+  try {
+    const hostname = new URL(value).hostname.toLowerCase().replace(/^www\./, '');
+    if (DIRECT_MUSIC_HOSTS.some((host) => hostname === host || hostname.endsWith('.' + host))) return DIRECT_MUSIC_MIN_CONFIDENCE;
+  } catch { /* un lien invalide reste au seuil social strict */ }
+  return MIN_CONFIDENCE;
+}
 
 function configured(value: string | undefined): value is string {
   return Boolean(value && value !== 'undefined' && !value.startsWith('your_'));
@@ -31,7 +45,7 @@ async function getDeviceId() {
 export async function resolveKeylessSocialMusic(source: SharedMusicSource): Promise<RecognitionResult | null> {
   if (!configured(SUPABASE_URL) || !configured(SUPABASE_ANON_KEY)) return null;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 12000);
+  const timeout = setTimeout(() => controller.abort(), 30000);
   try {
     const [accessToken, deviceId] = await Promise.all([getSupabaseAccessToken(), getDeviceId()]);
     const response = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/keep-music-keyless-source`, {
@@ -54,7 +68,7 @@ export async function resolveKeylessSocialMusic(source: SharedMusicSource): Prom
     const payload = await response.json().catch(() => null);
     const recognition = payload?.recognition as RecognitionResult | null | undefined;
     if (!recognition?.title || !recognition?.artist) return null;
-    if (!Number.isFinite(recognition.confidence) || recognition.confidence < MIN_CONFIDENCE) return null;
+    if (!Number.isFinite(recognition.confidence) || recognition.confidence < requiredConfidenceForSharedLink(source.url)) return null;
     return recognition;
   } catch {
     // Le partage social reste une aide : il ne doit jamais interrompre le micro

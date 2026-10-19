@@ -42,7 +42,7 @@ describe('mise à jour jamais pendant une partie', () => {
     const banner: string = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'AppUpdateBanner.tsx'), 'utf8');
     expect(banner.match(/runWhenNoGameInProgress\(/g)?.length).toBe(2);
     // Chaque rechargement est à l'intérieur d'un rappel du garde.
-    expect(banner).toMatch(/runWhenNoGameInProgress\(\(\) => \{\s+if \(webReloadingRef\.current\) return;\s+webReloadingRef\.current = true;\s+reloadToLatest\(\);/);
+    expect(banner).toMatch(/runWhenNoGameInProgress\(\(\) => \{\s+queuedForGame = false;\s+if \(webReloadingRef\.current \|\| !isSafe\(\)\) return;\s+webReloadingRef\.current = true;\s+reloadToLatest\(\);/);
     expect(banner).toMatch(/runWhenNoGameInProgress\(\(\) => \{\s+if \(!active\) return;\s+Updates\.reloadAsync\(\)/);
   });
 });
