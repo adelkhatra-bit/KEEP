@@ -65,6 +65,13 @@ jobs:
       - name: Lancer le robot de parcours
         run: node packages/mobile/e2e/journeys/run-journeys.cjs packages/mobile/dist-journeys
 
+      # ERR-SUPABASE-EGRESS-IMAGES-20261021 : mesure des octets d'images par
+      # parcours (avant/après optimisation) + poids réellement envoyé quand on
+      # change sa photo depuis le PC. 100 % faux Supabase : 0 trafic production.
+      - name: Mesurer le trafic images par parcours
+        if: always()
+        run: node packages/mobile/e2e/journeys/image-egress-robot.cjs packages/mobile/dist-journeys
+
       - name: Ajouter le rapport au résumé de l'exécution
         if: always()
         run: |
@@ -73,12 +80,17 @@ jobs:
           else
             echo "Le robot de parcours n'a produit aucun rapport (étape précédente en échec)." >> "$GITHUB_STEP_SUMMARY"
           fi
+          if [ -f artifacts/image-egress/RAPPORT.md ]; then
+            cat artifacts/image-egress/RAPPORT.md >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Conserver le rapport et les captures
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: keep-journeys-${{ github.run_id }}
-          path: artifacts/journeys
+          path: |
+            artifacts/journeys
+            artifacts/image-egress
           if-no-files-found: ignore
           retention-days: 7
