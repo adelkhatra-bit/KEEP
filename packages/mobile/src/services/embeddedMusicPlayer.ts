@@ -50,6 +50,41 @@ export function resolveEmbeddedMusicPlayer(raw: string | null | undefined): Embe
 export const LOKI_PUBLIC_ORIGIN = 'https://adelkhatra-bit.github.io';
 export const LOKI_PUBLIC_BASE_URL = 'https://adelkhatra-bit.github.io/KEEP/';
 
+// Adel (20/10/2026) : « quand je swipe avec le doigt vers le haut, le tactile ne la prend pas ». Cause : sur iPhone, le lecteur
+// YouTube (WebView native) avale le doigt ; le Swipe de Loki ne reçoit jamais le geste. Cette couche transparente posée sur le
+// lecteur lit le geste DANS la page : glisser ↑ / ← / → est renvoyé à Loki (message loki-swipe), un simple appui lance ou met en pause.
+const SWIPE_LAYER_HTML = `<div id="loki-swipe-layer" style="position:fixed;inset:0;z-index:10;background:transparent;touch-action:none"></div>
+<script>
+(function () {
+  var layer = document.getElementById('loki-swipe-layer');
+  var sx = 0, sy = 0, active = false;
+  function send(direction) {
+    try { if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'loki-swipe', direction: direction })); } catch (_) {}
+  }
+  layer.addEventListener('touchstart', function (e) { var t = e.touches[0]; sx = t.clientX; sy = t.clientY; active = true; }, { passive: true });
+  layer.addEventListener('touchmove', function (e) { e.preventDefault(); }, { passive: false });
+  layer.addEventListener('touchend', function (e) {
+    if (!active) return; active = false;
+    var t = e.changedTouches[0]; var dx = t.clientX - sx; var dy = t.clientY - sy;
+    if (dy <= -24 && Math.abs(dy) > Math.abs(dx)) return send('UP');
+    if (Math.abs(dx) >= 60 && Math.abs(dx) > Math.abs(dy) * 1.15) return send(dx > 0 ? 'RIGHT' : 'LEFT');
+    if (Math.abs(dx) < 10 && Math.abs(dy) < 10) {
+      try {
+        var p = window.lokiPlayer;
+        if (p && p.getPlayerState && p.getPlayerState() === 1) p.pauseVideo();
+        else if (p && p.playVideo) { if (p.unMute) p.unMute(); p.playVideo(); }
+      } catch (_) {}
+    }
+  }, { passive: true });
+}());
+</script>`;
+
+/** Ajoute la couche de geste au document du lecteur (iPhone/Android). Sans effet si le document est absent. */
+export function withSwipeLayer<T extends { html: string; baseUrl: string } | null>(document: T, enabled = true): T {
+  if (!document || !enabled) return document;
+  return { ...document, html: document.html.replace('</body>', `${SWIPE_LAYER_HTML}\n</body>`) } as T;
+}
+
 export function buildNativeYouTubeEmbedDocument(
   player: EmbeddedMusicPlayer,
   options: { autoplay?: boolean; startSeconds?: number; endSeconds?: number } = {},
@@ -97,7 +132,7 @@ export function buildNativeYouTubeEmbedDocument(
           if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) window.ReactNativeWebView.postMessage(message);
         } catch (_) {}
       }};
-      new YT.Player('loki-youtube-player', settings);
+      window.lokiPlayer = new YT.Player('loki-youtube-player', settings);
     } catch (_) {}
   };
 }());

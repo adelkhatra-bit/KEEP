@@ -29,6 +29,18 @@
         "image": "sdk-54",
         "buildConfiguration": "Release"
       }
+    },
+    "simulator": {
+      "extends": "production",
+      "channel": "production",
+      "distribution": "internal",
+      "autoIncrement": false,
+      "ios": {
+        "simulator": true,
+        "resourceClass": "m-medium",
+        "image": "sdk-54",
+        "buildConfiguration": "Release"
+      }
     }
   },
   "submit": {

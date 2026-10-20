@@ -7,8 +7,9 @@ import { reportAutoDiagnostic } from '../services/problemReportService';
 import { pushReportSurface } from '../services/reportSurface';
 import ChatDockHost from './ChatDockHost';
 import KeepVisibilityChoiceModal, { KeepSuccessModal } from './KeepVisibilityChoiceModal';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Image, Linking, Platform, SafeAreaView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import { ActivityIndicator, Animated, Image, Linking, PanResponder, Platform, SafeAreaView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import type { CanonicalTrack } from '@keep/music';
 import SwipeDeck from './SwipeDeck';
@@ -22,7 +23,7 @@ import { isTrackPreviewActive, playTrackPreviewFromGesture, preloadTrackPreview,
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { isWebAudioGestureRequired } from '../services/webAudioError';
 import StoryEmbeddedSourcePlayer from './StoryEmbeddedSourcePlayer';
-import { buildNativeYouTubeEmbedDocument, resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
+import { buildNativeYouTubeEmbedDocument, resolveEmbeddedMusicPlayer, withSwipeLayer } from '../services/embeddedMusicPlayer';
 import { resolveTrackExternalDestination } from '../services/trackExternalLinkService';
 import { checkOwnKeepLibrary } from '../services/connectedMusicLibrary';
 import GlowRing from './GlowRing';
@@ -301,7 +302,7 @@ export default function MusicSwipeDeckModal({
     ? resolveEmbeddedMusicPlayer(current.externalUrls?.source || current.externalUrls?.youtube || null)
     : null;
   const nativeSourcePlayerDocument = sourcePlayer?.provider === 'YOUTUBE'
-    ? buildNativeYouTubeEmbedDocument(sourcePlayer, { autoplay: true, startSeconds: 0, endSeconds: 30 })
+    ? withSwipeLayer(buildNativeYouTubeEmbedDocument(sourcePlayer, { autoplay: true, startSeconds: 0, endSeconds: 30 }))
     : null;
 
   const canAddToStory = storyAddContext;
@@ -1151,6 +1152,58 @@ export default function MusicSwipeDeckModal({
 
   const controlsLocked = processing || preparingDeck || keepPromptOpen || !!keepSuccess || previewInfoOpen || alreadyKeepInfoOpen;
 
+  // Style TikTok (Adel 18/10/2026 : « je n'arrive pas à remonter pour changer ») : un coup de doigt vers le haut
+  // N'IMPORTE OÙ sur l'écran (en-tête, bas de la fenêtre, zone hors carte) passe au morceau suivant.
+  // Phase « bulle » : si la carte (SwipeDeck) a déjà pris le geste, ce responder n'intervient pas.
+  const lastNextAtRef = useRef(0);
+  const screenSwipeRef = useRef<{ locked: boolean; next: () => void }>({ locked: true, next: () => {} });
+  screenSwipeRef.current = {
+    locked: controlsLocked,
+    // Anti double-déclenchement par délai court (et non par actionInFlight, qui pouvait rester bloqué et ignorer le geste).
+    next: () => {
+      const now = Date.now();
+      if (now - lastNextAtRef.current < 350) return;
+      lastNextAtRef.current = now;
+      void advance();
+    },
+  };
+  // Adel (20/10/2026, TestFlight) : « je dois mettre deux doigts et partir du bas pour que le swipe prenne ». Sur iPhone le
+  // geste JS (PanResponder) se faisait voler par les vues natives de la carte. Ce geste NATIF (iOS UIPanGestureRecognizer via
+  // react-native-gesture-handler, déjà présent dans le build) couvre tout l'écran : un doigt, n'importe où, vers le haut = suivant.
+  // Le délai anti-double (350 ms) de next() empêche un double saut si le geste JS se déclenche aussi.
+  const nativeSwipeUp = useMemo(() => Gesture.Pan()
+    .runOnJS(true)
+    .activeOffsetY(-12)
+    .failOffsetX([-40, 40])
+    .onEnd((event) => {
+      if (screenSwipeRef.current.locked) return;
+      if (event.translationY <= -36 || (event.translationY <= -12 && event.velocityY <= -350)) screenSwipeRef.current.next();
+    }), []);
+  // Geste fait SUR le lecteur YouTube (iPhone) : la WebView le renvoie ici, même effet qu'un swipe sur la carte.
+  const handleEmbeddedSwipe = (direction: 'UP' | 'LEFT' | 'RIGHT') => {
+    if (controlsLocked) return;
+    if (direction === 'UP') screenSwipeRef.current.next();
+    else if (direction === 'LEFT') void pass();
+    else void requestKeep();
+  };
+  const screenSwipe = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => false,
+    // Réactif : le geste est pris dès 3 px vers le haut, et le morceau change PENDANT le glissement (48 px), sans attendre le relâchement.
+    // Phase CAPTURE : le geste vers le haut est pris AVANT tout enfant (carte, pochette, titre, lecteur, boutons) :
+    // il marche donc sur TOUT l'écran, doigt posé n'importe où, sans devoir viser un endroit précis.
+    onMoveShouldSetPanResponderCapture: (_, g) => !screenSwipeRef.current.locked && g.dy < -3 && Math.abs(g.dy) > Math.abs(g.dx) * 0.8,
+    onMoveShouldSetPanResponder: (_, g) => !screenSwipeRef.current.locked && g.dy < -3 && Math.abs(g.dy) > Math.abs(g.dx) * 0.8,
+    onShouldBlockNativeResponder: () => true,
+    onPanResponderTerminationRequest: () => false,
+    onPanResponderMove: (_, g) => {
+      if (!screenSwipeRef.current.locked && g.dy <= -48 && Math.abs(g.dy) > Math.abs(g.dx)) screenSwipeRef.current.next();
+    },
+    onPanResponderRelease: (_, g) => {
+      if (screenSwipeRef.current.locked) return;
+      if (g.dy <= -24 || (g.dy <= -10 && g.vy <= -0.2)) screenSwipeRef.current.next();
+    },
+  })).current;
+
   // PC : les flèches font le même geste que le Swipe (← passer, → garder, ↑ suivant). Indispensable quand le lecteur
   // YouTube/Spotify du fournisseur occupe la carte : son iframe avale la souris et ne laisse aucun geste au Swipe.
   const keyActionsRef = useRef<{ pass: () => void; keep: () => void; next: () => void; locked: boolean; ready: boolean }>({ pass: () => {}, keep: () => {}, next: () => {}, locked: true, ready: false });
@@ -1294,7 +1347,9 @@ export default function MusicSwipeDeckModal({
     : emptyTitle;
 
   return <KeepModal visible={visible} animationType="slide" onRequestClose={() => { void close(); }} presentationStyle="fullScreen">
-    <View style={[s.outer, desktopSwipeLayout && s.desktopOuter]} testID="story-viewport">
+    <GestureHandlerRootView style={s.gestureRoot}>
+    <GestureDetector gesture={nativeSwipeUp}>
+    <View style={[s.outer, desktopSwipeLayout && s.desktopOuter]} testID="story-viewport" {...screenSwipe.panHandlers}>
     <SafeAreaView style={[s.container, desktopSwipeLayout && s.desktopPlayer, desktopSwipeLayout && { height: Math.max(410, windowHeight - 32) }]} testID="story-player">
       <View style={[s.header, desktopSwipeLayout && compactDeck && s.desktopHeaderCompact]}>
         <View style={s.headerText}>
@@ -1366,11 +1421,7 @@ export default function MusicSwipeDeckModal({
               enabled={!controlsLocked}
               onSwipeLeft={() => { void pass(); }}
               onSwipeRight={() => { void requestKeep(); }}
-              onSwipeUp={() => {
-                if (controlsLocked || actionInFlight.current) return;
-                actionInFlight.current = true;
-                void advance().finally(() => { actionInFlight.current = false; });
-              }}
+              onSwipeUp={() => { if (!controlsLocked) screenSwipeRef.current.next(); }}
               leftLabel="PASSER"
               rightLabel={ownStoryView ? 'DÉJÀ EN STORY' : currentAlreadyKept ? 'DÉJÀ' : 'GARDER'}
               upLabel="SUIVANT"
@@ -1381,7 +1432,7 @@ export default function MusicSwipeDeckModal({
                 <View testID="swipe-artwork-stage" style={s.artworkStage}>
                 {ownerMasked ? <View style={[s.cover,s.coverFallback]}><MysteryArtwork caption="Titre masqué · aperçu de tes abonnés" /></View> : current.artworkUrl ? <Image source={{ uri: current.artworkUrl }} style={s.cover as any} resizeMode="contain" /> : <View style={[s.cover,s.coverFallback]}>{isSaleStoryTrack(current) ? <MysteryArtwork caption={priceBadge ? '' : 'Titre masqué · garde pour révéler'} /> : <Text style={s.coverK}>K</Text>}</View>}
                 {/* Adel 05/10/2026 : « il faut que ce soit très lisible, que les utilisateurs ne se fassent pas tromper » -- PAYANT (PayPal) ou GRATUIT, toujours dit en clair sur la carte. */}
-                {storyEmbeddedSource ? <View style={s.storyEmbeddedInCard} testID="story-official-inline-area"><StoryEmbeddedSourcePlayer sourceUrl={storyEmbeddedSource} compact={compactDeck} /></View> : null}
+                {storyEmbeddedSource ? <View style={s.storyEmbeddedInCard} testID="story-official-inline-area"><StoryEmbeddedSourcePlayer sourceUrl={storyEmbeddedSource} compact={compactDeck} onSwipe={handleEmbeddedSwipe} /></View> : null}
                 {Boolean(trackAddedAt) && !resolvedPreviewUrl && !previewResolving && sourcePlayer ? <Text testID="story-no-provider-ads" style={s.cleanStoryNotice}>Lecture sans publicité intégrée · extrait indisponible</Text> : null}
                 {sourcePlayerOpen && !resolvedPreviewUrl && sourcePlayer ? (
                   <View testID="swipe-exact-source-player" style={s.sourcePlayerOverlay} pointerEvents="box-none">
@@ -1418,9 +1469,13 @@ export default function MusicSwipeDeckModal({
                             try {
                               const message = JSON.parse(String(event?.nativeEvent?.data || '{}'));
                               if (message?.type === 'youtube-error') setSourcePlayerFailed(true);
+                              if (message?.type === 'loki-swipe') handleEmbeddedSwipe(message.direction);
                             } catch {}
                           },
                           javaScriptEnabled: true,
+                          scrollEnabled: false,
+                          bounces: false,
+                          overScrollMode: 'never',
                           style: { flex: 1, width: '100%' },
                         })}
                     </View>
@@ -1434,9 +1489,7 @@ export default function MusicSwipeDeckModal({
                   <View style={s.autoRow}>
                     <View style={[s.dot,resolvedPreviewUrl ? s.dotOn : s.dotOff]} />
                     <Text style={s.autoText} numberOfLines={2}>{previewLabel}</Text>
-                    <TouchableOpacity testID="swipe-next-without-gesture" accessibilityRole="button" accessibilityLabel="Morceau suivant" style={s.nextInlineButton} disabled={controlsLocked} onPress={() => { void advance(); }}>
-                      <Text style={s.nextInlineText}>↑ SUIVANT</Text>
-                    </TouchableOpacity>
+                    {/* Adel (17/10/2026) : plus de bouton SUIVANT sur la carte -- on swipe vers le haut (flèche ↑ au clavier sur PC). */}
                   </View>
                   {!resolvedPreviewUrl && !previewResolving && sourcePlayer && !sourcePlayerOpen ? (
                     <TouchableOpacity testID="story-open-source-player" style={s.manualPlayButton} accessibilityRole="button" accessibilityLabel="Écouter la vidéo originale dans Loki Music" onPress={() => { stopTrackPreviewFast(); setSourcePlayerOpen(true); }}>
@@ -1597,11 +1650,14 @@ export default function MusicSwipeDeckModal({
         : 'Le Swipe conserve tes décisions. Un morceau indisponible ne bloque pas la découverte.'}</Text>
     </View> : null}
     </View>
+    </GestureDetector>
   <ChatDockHost active={visible} />
+    </GestureHandlerRootView>
   </KeepModal>;
 }
 
 const s = StyleSheet.create({
+  gestureRoot:{flex:1},
   outer:{flex:1,minHeight:0,width:'100%',backgroundColor:'#090610',alignItems:'center'},
   desktopOuter:{flexDirection:'row',justifyContent:'center',alignItems:'center',paddingHorizontal:16,paddingVertical:12,gap:14,backgroundColor:'#0B0713'},
   // RN Web: `flex:1` + `flexGrow:0` without a fixed height collapses the
@@ -1639,13 +1695,15 @@ const s = StyleSheet.create({
   artworkStage:{flex:1,minHeight:90,width:'100%',overflow:'hidden',position:'relative',alignItems:'center',justifyContent:'center',backgroundColor:'#090610'},
   // Gouttières latérales (SWIPE_GUTTER) : l'iframe/WebView du fournisseur avale tous les gestes ; sans marge, le Swipe était mort sur
   // chaque titre importé via YouTube. Un doigt posé sur une gouttière (ou sur le titre) passe au Swipe ; l'overlay est « box-none ».
-  sourcePlayerOverlay:{position:'absolute',top:0,left:0,right:0,bottom:0,zIndex:15,backgroundColor:'#100B18',paddingVertical:8,paddingHorizontal:44,justifyContent:'flex-start'},
+  sourcePlayerOverlay:{position:'absolute',top:'34%',left:0,right:0,bottom:0,zIndex:15,backgroundColor:'rgba(16,11,24,.94)',paddingVertical:8,paddingHorizontal:44,justifyContent:'flex-start'},
   sourcePlayerFrame:{flex:1,minHeight:0,width:'100%'},
   sourcePlayerToolbar:{flexDirection:'row',gap:6,paddingBottom:6},sourcePlayerError:{color:'#F5CE87',fontSize:11,lineHeight:15,paddingTop:5,textAlign:'center'},
   sourcePlayerClose:{flex:1,minHeight:40,alignItems:'center',justifyContent:'center',backgroundColor:'#32224A',borderWidth:1,borderColor:'#7E5AB8',borderRadius:10,paddingHorizontal:3},
   sourcePlayerCloseText:{color:'#FFFFFF',fontWeight:'800',fontSize:12},
   cover:{...StyleSheet.absoluteFillObject,width:'100%',height:'100%'},coverFallback:{alignItems:'center',justifyContent:'center',backgroundColor:'#241936'},coverK:{color:colors.primaryLight,fontSize:72,fontWeight:'900',letterSpacing:6},
-  storyEmbeddedInCard:{flex:1,minHeight:0,width:'100%',paddingHorizontal:6,paddingTop:38,justifyContent:'center'},
+  // Adel (17/10/2026) : la jaquette reste visible en haut et le lecteur officiel n'occupe que le bas, avec des gouttières
+  // latérales : le doigt posé sur la jaquette ou sur les bords swipe du premier coup (la WebView avale les gestes).
+  storyEmbeddedInCard:{position:'absolute',left:0,right:0,bottom:0,height:'56%',paddingHorizontal:44,paddingBottom:6,justifyContent:'flex-end'},
   cleanStoryNotice:{color:'#E1D6F4',fontSize:12,lineHeight:17,textAlign:'center',paddingTop:18,paddingHorizontal:14},
   gradientStoryEmbed:{paddingHorizontal:14,paddingTop:8,paddingBottom:10,backgroundColor:'rgba(9,6,16,.86)'},
   embeddedTrackTitle:{fontSize:19,lineHeight:23},

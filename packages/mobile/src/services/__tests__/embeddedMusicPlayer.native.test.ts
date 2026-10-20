@@ -24,3 +24,18 @@ describe('native provider embeds', () => {
     expect(buildNativeYouTubeEmbedDocument({ provider: 'YOUTUBE', url: 'https://attacker.example/embed/dQw4w9WgXcQ', label: 'bad' })).toBeNull();
   });
 });
+
+describe('couche de geste sur le lecteur YouTube iPhone (Adel 20/10/2026)', () => {
+  it('ajoute la couche qui renvoie le swipe à Loki, sans toucher au document de base', () => {
+    const { buildNativeYouTubeEmbedDocument, resolveEmbeddedMusicPlayer, withSwipeLayer } = require('../embeddedMusicPlayer');
+    const player = resolveEmbeddedMusicPlayer('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+    const base = buildNativeYouTubeEmbedDocument(player, { autoplay: true, startSeconds: 0, endSeconds: 30 });
+    expect(base.html).not.toContain('loki-swipe-layer');
+    const layered = withSwipeLayer(base);
+    expect(layered.html).toContain('loki-swipe-layer');
+    expect(layered.html).toContain("type: 'loki-swipe'");
+    expect(layered.html.indexOf('loki-swipe-layer')).toBeLessThan(layered.html.indexOf('</body>'));
+    expect(withSwipeLayer(base, false)).toBe(base);
+    expect(withSwipeLayer(null)).toBeNull();
+  });
+});

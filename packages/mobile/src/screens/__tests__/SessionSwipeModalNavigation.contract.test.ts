@@ -21,7 +21,9 @@ describe('Session Swipe navigation and popup visibility (390×844 / PC)', () => 
   it('prevents the transparent sessions stack from covering the Swipe modal', () => {
     expect(sessions).toContain("navigation.replace('SessionRecap', { sessionId: item.id, openSwipe: true })");
     expect(recap).toContain('const isFocused = useIsFocused();');
-    expect(recap).toContain('InteractionManager.runAfterInteractions(');
+    // Jamais runAfterInteractions : les animations en boucle de l'app le bloquent pour toujours (le Swipe ne s'ouvrait pas).
+    expect(recap).not.toContain('runAfterInteractions');
+    expect(recap).toContain('const timer = setTimeout(() => {');
     expect(recap).toContain('if (!isFocused || !route.params?.openSwipe');
   });
 

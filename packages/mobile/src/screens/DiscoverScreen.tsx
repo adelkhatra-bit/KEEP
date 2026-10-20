@@ -155,7 +155,16 @@ export default function DiscoverScreen({ navigation, route }: any) {
     return () => { active = false; unsubscribe?.(); };
   }, [eventsFeatureEnabled, isDemoMode, user?.id, navigation]);
   const pulseEventIds = useMemo(() => new Set(pulseEvents.map((event) => event.eventId)), [pulseEvents]);
-  const regularEvents = useMemo(() => upcomingEvents.filter((event) => !pulseEventIds.has(event.id)), [upcomingEvents, pulseEventIds]);
+  // Adel 18/10/2026 : « À VENIR » affiché sur un événement déjà passé. Un événement terminé n'est plus proposé.
+  const regularEvents = useMemo(() => {
+    const now = Date.now();
+    const isEnded = (event: CreatorEvent) => {
+      const start = new Date(event.startsAt).getTime();
+      const end = event.endsAt ? new Date(event.endsAt).getTime() : start + 12 * 3600 * 1000;
+      return Number.isFinite(end) && end < now;
+    };
+    return upcomingEvents.filter((event) => !pulseEventIds.has(event.id) && !isEnded(event));
+  }, [upcomingEvents, pulseEventIds]);
 
   const [searchPosition, setSearchPosition] = useState<SearchPosition | null>(null);
   const [searchBusy, setSearchBusy] = useState(false);

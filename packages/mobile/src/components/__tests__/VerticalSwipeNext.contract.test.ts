@@ -11,7 +11,7 @@ describe('TikTok-style upward swipe contract', () => {
 
   it('supports a real native upward gesture with a lower vertical threshold', () => {
     expect(deck).toContain("export type SwipeDirection = 'LEFT' | 'RIGHT' | 'UP';");
-    expect(deck).toContain('const VERTICAL_SWIPE_THRESHOLD = 52;');
+    expect(deck).toContain('const VERTICAL_SWIPE_THRESHOLD = 28;');
     expect(deck).toContain('onMoveShouldSetPanResponderCapture');
     expect(deck).toContain("return commitSwipe('UP')");
   });
@@ -103,5 +103,13 @@ describe('fenêtre « Déjà dans ta collection » : bouton mettre en story au-d
     expect(deck).toContain("'deck-info-add-story'");
     expect(deck.indexOf("renderStoryAdd('popup')")).toBeLessThan(deck.indexOf('<Text style={s.ownerPreviewOkText}>COMPRIS</Text>'));
     expect(deck.match(/renderStoryAdd\('popup'\)/g)?.length).toBe(2);
+  });
+});
+
+describe('swipe haut style TikTok partout sur l\'écran', () => {
+  const modal = require('fs').readFileSync(require('path').join(__dirname, '../MusicSwipeDeckModal.tsx'), 'utf8');
+  it('un responder sur toute la fenêtre passe au suivant', () => {
+    expect(modal).toContain('screenSwipe.panHandlers');
+    expect(modal).toContain('onMoveShouldSetPanResponderCapture: (_, g) => !screenSwipeRef.current.locked');
   });
 });

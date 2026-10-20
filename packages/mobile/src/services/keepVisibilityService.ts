@@ -9,6 +9,7 @@ import {
 import { musicEngine } from './musicEngine';
 import { supabase } from './supabaseClient';
 import { APP_NAME } from '../config/brand';
+import { songDuplicateKey } from './trackDuplicateKey';
 
 function normalize(value: string | undefined): string {
   return (value || '')
@@ -30,10 +31,9 @@ function sameCanonicalTrack(a: CanonicalTrack, b: CanonicalTrack): boolean {
 
   const aIsrc = String(a.isrc || '').trim().toUpperCase();
   const bIsrc = String(b.isrc || '').trim().toUpperCase();
-  if (aIsrc && bIsrc) return aIsrc === bIsrc;
+  if (aIsrc && bIsrc && aIsrc === bIsrc) return true;
 
-  return normalize(a.title) === normalize(b.title)
-    && normalize(a.artist) === normalize(b.artist);
+  return songDuplicateKey(a.title, a.artist) === songDuplicateKey(b.title, b.artist);
 }
 
 function sameTrack(track: CanonicalTrack, keep: PersistedKeepDecision): boolean {
@@ -43,15 +43,11 @@ function sameTrack(track: CanonicalTrack, keep: PersistedKeepDecision): boolean 
 
   const localIsrc = String(track.isrc || '').trim().toUpperCase();
   const remoteIsrc = String(keep.track.isrc || '').trim().toUpperCase();
-  if (localIsrc && remoteIsrc) return localIsrc === remoteIsrc;
+  if (localIsrc && remoteIsrc && localIsrc === remoteIsrc) return true;
 
-  // Deux UUID différents désignent deux pistes canoniques différentes. En
-  // revanche un ID fournisseur local (Spotify/Apple/etc.) peut légitimement
-  // différer de l'UUID Supabase : dans ce cas titre + artiste servent de repli.
-  if (localId && remoteId && isUuid(localId) && isUuid(remoteId)) return false;
-
-  return normalize(track.title) === normalize(keep.track.title)
-    && normalize(track.artist) === normalize(keep.track.artist);
+  // Adel 18/10/2026 : une même chanson porte plusieurs ISRC/UUID (album, single, remaster). Titre + artiste
+  // identiques = même chanson : sinon la copie « jumelle » restait sur le profil après SUPPRIMER.
+  return songDuplicateKey(track.title, track.artist) === songDuplicateKey(keep.track.title, keep.track.artist);
 }
 
 function newestFirst(a: PersistedKeepDecision, b: PersistedKeepDecision): number {

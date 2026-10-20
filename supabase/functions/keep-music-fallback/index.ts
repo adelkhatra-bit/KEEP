@@ -192,7 +192,7 @@ async function resolveCatalogEnrichment(title: string, artist: string, deezerTra
   );
   const best = exactItunes
     ?? rows.find((row: any) => normalizeText(row?.trackName).includes(wantedTitle) && normalizeText(row?.artistName).includes(wantedArtist))
-    ?? rows[0];
+    ?? null; // Adel 17/10/2026 : jamais un autre morceau au hasard
   const exactDeezer = Boolean(
     deezerTrack
     && normalizeText(deezerTrack?.title) === wantedTitle

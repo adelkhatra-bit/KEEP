@@ -2021,6 +2021,16 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             <View style={styles.marketplaceReopenCopy}><Text style={styles.marketplaceReopenTitle}>{marketBannerHasNew ? 'NOUVELLE PÉPITE' : 'BOUTIQUE MUSICALE'}</Text><Text style={styles.marketplaceReopenMeta}>{profileBoutiqueOffers.length} collection{profileBoutiqueOffers.length > 1 ? 's' : ''} · {visiblePublicVibes.length} vibe{visiblePublicVibes.length > 1 ? 's' : ''}</Text></View>
             <Text style={styles.marketplaceReopenArrow}>›</Text>
           </TouchableOpacity>
+        ) : isOwner ? (
+          // Adel 18/10/2026 : un utilisateur sans boutique ne voyait RIEN. Il voit maintenant une invitation claire (FREE ou €, jamais de PayPal affiché sur iPhone).
+          <TouchableOpacity style={styles.marketplaceReopenBar} onPress={() => navigation.navigate('PlaylistSale')} accessibilityRole="button" accessibilityLabel="Ouvrir ma boutique musicale">
+            <Text style={styles.marketplaceReopenIcon}>✦</Text>
+            <View style={styles.marketplaceReopenCopy}>
+              <Text style={styles.marketplaceReopenTitle}>OUVRE TA BOUTIQUE MUSICALE</Text>
+              <Text style={styles.marketplaceReopenMeta}>Choisis tes morceaux, fixe un prix en FREE : tes fans les débloquent en un geste.</Text>
+            </View>
+            <Text style={styles.marketplaceReopenArrow}>›</Text>
+          </TouchableOpacity>
         ) : null}
 
         {/* Les recommandations multi-vendeurs restent uniquement sur le propre profil du viewer. Un profil visité n'affiche jamais la Pépite d'un autre vendeur à la place de sa boutique. */}

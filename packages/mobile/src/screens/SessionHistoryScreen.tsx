@@ -2,6 +2,7 @@ import { PHONE_MAX_WIDTH } from '../layout/layoutMode';
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList, Pressable, useWindowDimensions } from 'react-native';
 import { Alert } from '../utils/keepAlert';
+import { stopTrackPreviewFast } from '../services/audioPreviewService';
 import { useTranslation } from 'react-i18next';
 import { isCloudProfileRecoverySession, useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useSessionStore } from '../store/useSessionStore';
@@ -46,6 +47,8 @@ export default function SessionHistoryScreen({ navigation }: any) {
   const isListening = useSessionStore((s) => s.isActive);
   const activeSessionId = useSessionStore((s) => s.sessionId);
   const [helpOpen, setHelpOpen] = useState(false);
+  // Aucune musique ne doit démarrer ni continuer derrière la feuille « Mes Sessions ».
+  useEffect(() => { stopTrackPreviewFast(); }, []);
   const realActiveSessionId = isListening ? activeSessionId : null;
   const hasOrphanedLiveSession = visibleSessions.some((session) => session.endedAt == null && session.id !== realActiveSessionId);
 
@@ -87,7 +90,7 @@ export default function SessionHistoryScreen({ navigation }: any) {
 
     return (
       <View style={[styles.card, pendingCount > 0 && styles.cardNeedsSorting]}>
-        <TouchableOpacity style={styles.cardMain} onPress={() => !isLive && navigation.replace('SessionRecap', { sessionId: item.id })} disabled={isLive}>
+        <TouchableOpacity style={styles.cardMain} onPress={() => !isLive && navigation.replace('SessionRecap', { sessionId: item.id, openSwipe: pendingCount > 0 })} disabled={isLive}>
           <View style={styles.cardTop}>
             <Text style={styles.cardTitle} numberOfLines={1}>{autoTitle(item)}</Text>
             <Text style={styles.cardTime}>{time}</Text>

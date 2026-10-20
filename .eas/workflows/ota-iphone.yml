@@ -1,0 +1,1 @@
+{"name":"OTA iPhone","jobs":{"update":{"type":"update","params":{"branch":"production","platform":"ios","message":"correctifs micro, synchro, playlists, swipe"}}}}

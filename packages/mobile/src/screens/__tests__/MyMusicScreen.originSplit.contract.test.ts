@@ -19,10 +19,10 @@ describe('MyMusicScreen — séparation écoute / utilisateurs', () => {
     expect(screen).toContain("🔒 Reprises d'autres utilisateurs");
     expect(screen).toContain("useState<'ALL' | 'PRIVATE' | 'LISTEN' | 'SESSION' | 'USERS' | 'IDENTIFIED' | 'PULSE'>('ALL')");
     expect(screen).toContain("['ALL', 'TOUT']");
-    expect(screen).toContain("['LISTEN', 'DÉCOUVERTE']");
+    expect(screen).toContain("['LISTEN', 'DÉCOUV.']");
     expect(screen).toContain("['SESSION', 'SESSION']");
-    expect(screen).toContain("['USERS', '🔒 REPRISE']");
-    expect(screen).toContain("['IDENTIFIED', 'IDENTIFIÉ']");
+    expect(screen).toContain("['USERS', 'REPRISE']");
+    expect(screen).toContain("['IDENTIFIED', 'IDENTIF.']");
     expect(screen).toContain("['PULSE', 'LOKI']");
     expect(screen).not.toContain("TOUT · ${localKeptEntries.length}");
     expect(screen).not.toContain("DÉCOUVERTES · ${ownDiscoveryEntries.length}");

@@ -34,7 +34,7 @@ describe('Single native playback + fast handoff contract', () => {
 
   it('blocks duplicate PASSER/swipe-up transitions synchronously', () => {
     expect(swipe).toContain('if (!current || processing || actionInFlight.current) return;');
-    expect(swipe).toContain('if (controlsLocked || actionInFlight.current) return;');
+    expect(swipe).toContain('if (now - lastNextAtRef.current < 350) return;');
   });
 
   it('resolves the next Swipe preview while the current track starts', () => {
