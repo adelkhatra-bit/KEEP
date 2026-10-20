@@ -17,10 +17,10 @@ describe('Swipe iPhone: gesture arbitration, clear next action and real audio st
     expect(deck).toContain("return commitSwipe('UP')");
   });
 
-  it('exposes one visible next action while keeping swipe optional', () => {
-    expect(modal.match(/testID="swipe-next-without-gesture"/g)).toHaveLength(1);
-    expect(modal).not.toContain('testID="desktop-story-next-track"');
-    expect(modal).toContain('hint={undefined}');
+  it('keeps the card free of a Next button (Adel 17/10/2026, #214): swipe up on iPhone, aside button on PC', () => {
+    expect(modal).not.toContain('testID="swipe-next-without-gesture"');
+    expect(modal).toContain('testID="desktop-story-next-track"');
+    expect(modal).toMatch(/hint=\{swipeHint\}\s+fill/);
     expect(modal).toContain('upLabel="SUIVANT"');
     expect(modal).toContain('>PASSER</Text>');
     expect(modal).toContain('>ARRÊTER</Text>');

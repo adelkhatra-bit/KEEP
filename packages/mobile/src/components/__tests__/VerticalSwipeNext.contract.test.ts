@@ -22,7 +22,8 @@ describe('TikTok-style upward swipe contract', () => {
     expect(modal).toContain('.activeOffsetY(-12)');
     expect(modal).toContain('.failOffsetX([-8, 8])');
     expect(deck).toContain('const wantsHorizontal =');
-    expect(deck).toContain('Math.abs(gesture.dx) > SWIPE_THRESHOLD');
+    expect(deck).toContain("if (gesture.dx >= SWIPE_THRESHOLD) return commitSwipe('RIGHT')");
+    expect(deck).toContain("if (gesture.dx <= -SWIPE_THRESHOLD) return commitSwipe('LEFT')");
     expect(deck).toContain("return commitSwipe('LEFT')");
     expect(deck).toContain("return commitSwipe('RIGHT')");
   });
@@ -31,9 +32,9 @@ describe('TikTok-style upward swipe contract', () => {
     expect(modal).toContain('onSwipeUp={() => {');
     expect(modal).toContain('void advance().finally');
     expect(modal).toContain('upLabel="SUIVANT"');
-    expect(modal).toContain('testID="swipe-next-without-gesture"');
-    expect(modal).not.toContain('testID="desktop-story-next-track"');
-    expect(modal).toContain('hint={undefined}');
+    expect(modal).toContain('↑ suivant · ← passer');
+    // Adel 17/10/2026 (#214) : pas de bouton SUIVANT sur la carte, on swipe vers le haut.
+    expect(modal).not.toContain('testID="swipe-next-without-gesture"');
   });
 
   it('maps swipe up to next detected track in Listen too', () => {
@@ -74,7 +75,7 @@ describe('swipe iPhone : PanResponder créé une seule fois + carte qui s\'adapt
     expect(modal).toContain("card:{flex:1,minHeight:0,maxHeight:720,");
     expect(modal).toContain('desktopSwipeLayout && s.desktopStoryCard');
     expect(modal).not.toContain("card:{height:500,maxHeight:'70%'");
-    expect(modal).toContain('hint={undefined}');
+    expect(modal).toMatch(/hint=\{swipeHint\}\s+fill/);
   });
 });
 
