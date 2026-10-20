@@ -1,5 +1,4 @@
 import type { MusicRecognitionProvider, RecognitionResult } from '@keep/music';
-import { recognizeSharedSourceKeyless } from './keylessSharedSourceRecognition';
 import { recognizeWithNativeShazam } from './nativeShazamRecognition';
 import { learnRecognitionInBackground, noteSuccessfulRecognitionForPaidSuppression, recognizeWithKeepMemoryFast } from './keepMusicCoreRecognition';
 
@@ -43,13 +42,12 @@ export class NativeFirstRecognitionProvider implements MusicRecognitionProvider 
   constructor(private readonly fallback: MemoryAwareProvider) {}
 
   async recognize(audioSample: ArrayBuffer | Blob): Promise<RecognitionResult | null> {
-    // ShazamKit, collective KEEP memory and an explicit shared source are all
-    // free fast paths. Start them together; the first trustworthy match wins.
-    // Paid/server providers start only if every fast path returned no match.
+    // ShazamKit et la mémoire collective KEEP reconnaissent l'échantillon du micro.
+    // Un ancien lien YouTube partagé est une autre source et ne doit jamais
+    // gagner la course contre l'empreinte audio live.
     const fast = await firstRecognition([
       recognizeWithNativeShazam(audioSample),
       recognizeWithKeepMemoryFast(audioSample),
-      recognizeSharedSourceKeyless(),
     ]);
     if (fast) {
       noteSuccessfulRecognitionForPaidSuppression(fast);
@@ -60,6 +58,8 @@ export class NativeFirstRecognitionProvider implements MusicRecognitionProvider 
       return fast;
     }
 
+    // La reconnaissance live reste liée à audioSample ; la reconnaissance
+    // d'une URL fournie explicitement appartient au parcours de partage.
     return this.fallback.recognizeAfterMemory
       ? this.fallback.recognizeAfterMemory(audioSample)
       : this.fallback.recognize(audioSample);
