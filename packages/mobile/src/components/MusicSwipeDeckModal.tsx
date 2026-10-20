@@ -189,6 +189,9 @@ export default function MusicSwipeDeckModal({
   const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState<string | null>(null);
   const [previewResolving, setPreviewResolving] = useState(false);
   const [previewStarting, setPreviewStarting] = useState(false);
+  // iPhone (ERR-SWIPE-MODAL-NOT-PRESENTED-20261020) : une fenêtre plein écran ouverte pendant une autre transition peut ne
+  // jamais s'afficher. La musique démarrait quand même et l'écran restait bloqué. L'audio n'attend plus que onShow.
+  const [modalShown, setModalShown] = useState(Platform.OS !== 'ios');
   const [sourcePlayerOpen, setSourcePlayerOpen] = useState(false);
   const [sourcePlayerFailed, setSourcePlayerFailed] = useState(false);
   const [sourcePlayerAttempt, setSourcePlayerAttempt] = useState(0);
@@ -282,6 +285,16 @@ export default function MusicSwipeDeckModal({
   }, [visible, current?.id]);
   const [justAdded, setJustAdded] = useState<Set<string>>(new Set());
   const [offeredIds, setOfferedIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!visible) { setModalShown(Platform.OS !== 'ios'); return undefined; }
+    if (modalShown) return undefined;
+    // Filet iOS : si la fenêtre ne s'est pas affichée en 2,5 s, on la referme proprement (son coupé, écran débloqué).
+    const notShown = setTimeout(() => {
+      reportAutoDiagnostic('SWIPE_MODAL_NOT_PRESENTED', `tracks=${deckTracks.length}`);
+      void close();
+    }, 2500);
+    return () => clearTimeout(notShown);
+  }, [visible, modalShown]);
   useEffect(() => {
     let live = true;
     if (!visible) return undefined;
@@ -656,6 +669,8 @@ export default function MusicSwipeDeckModal({
       void stopTrackPreview();
       return () => { alive = false; };
     }
+    // Jamais de son derrière une fenêtre invisible (iPhone) : l'extrait démarre après onShow.
+    if (!modalShown) return () => { alive = false; };
 
     // Source-only user discoveries are exact YouTube videos, often without an
     // ISRC. Never guess a different song from an unrelated catalogue result.
@@ -858,7 +873,7 @@ export default function MusicSwipeDeckModal({
       // interrompre l'écoute d'un autre compte en plein extrait.
       if (playbackKey && (!visible || current?.id !== deckTracks[index]?.id)) void stopTrackPreview(playbackKey);
     };
-  }, [visible, preparingDeck, current?.id, current?.previewUrl, current?.externalUrls?.source, current?.externalUrls?.youtube, index]);
+  }, [visible, preparingDeck, current?.id, current?.previewUrl, current?.externalUrls?.source, current?.externalUrls?.youtube, index, modalShown]);
 
   const manualPlay = async () => {
     if (!current || !resolvedPreviewUrl) return;
@@ -1382,7 +1397,7 @@ export default function MusicSwipeDeckModal({
       : 'Tu as terminé toutes les nouvelles musiques de ce profil.'
     : emptyTitle;
 
-  return <KeepModal visible={visible} animationType="slide" onRequestClose={() => { void close(); }} presentationStyle="fullScreen">
+  return <KeepModal visible={visible} animationType="slide" onShow={() => setModalShown(true)} onRequestClose={() => { void close(); }} presentationStyle="fullScreen">
     <GestureHandlerRootView style={s.gestureRoot}>
     <GestureDetector gesture={nativeSwipeUp}>
     <View style={[s.outer, desktopSwipeLayout && s.desktopOuter]} testID="story-viewport" {...screenSwipe.panHandlers}>
