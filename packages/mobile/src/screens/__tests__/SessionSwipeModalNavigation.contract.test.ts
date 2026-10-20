@@ -27,6 +27,12 @@ describe('Session Swipe navigation and popup visibility (390×844 / PC)', () => 
     expect(recap).toContain('if (!isFocused || !route.params?.openSwipe');
   });
 
+  it('never lets the background Listen screen keep its silence modal above Session/Swipe', () => {
+    expect(home).toContain('visible={showEndPrompt && screenFocused}');
+    expect(home).toContain('onRequestClose={dismissEndPrompt}');
+    expect(home).toContain("navigation.addListener('blur'");
+  });
+
   it('centers session windows without touching App, Navigation, five tabs or adding a Web HTML', () => {
     expect(sessions).toContain("alignItems: 'center', justifyContent: 'center'");
     expect(sessions).toContain('width: Math.min(560, width - 32)');
