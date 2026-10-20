@@ -4,7 +4,6 @@
 
 # ERROR LEDGER — mémoire anti-régression Loki Music
 
-
 - **ERR-STORY-V4-TRACK-DETAIL-20261012 · FIXED_UNVERIFIED** | Le détail du spectateur de MA story affiche parfois « Rien vu » ou n'indique pas où il s'est arrêté malgré un compteur de vues. Diagnostic SQL en lecture seule : la RPC `keep_my_story_viewers_v4(p_track_id,p_published_at)` en production renvoie `chapters` et `playback_progress`, mais ni `track_views` ni `last_track_id` que le client attendait. Cause : contrat client/serveur désynchronisé après migration v4. Correction isolée : reconstituer les identifiants réels `t`, secondes `s` et dernier chapitre `i` depuis `chapters`, puis afficher détail et cœurs `track_likes` via la même UI React Native PC/iOS ; ne pas transformer une erreur réseau en « Aucune vue » et proposer réessai. Tests de normalisation et contrat UI ajoutés. Limites : les anciennes sessions sans `t` ne permettent pas de reconstituer précisément le morceau ; aucun historique inventé. CI, navigateur et TestFlight non vérifiés ; aucun SQL de production modifié.
 
 
