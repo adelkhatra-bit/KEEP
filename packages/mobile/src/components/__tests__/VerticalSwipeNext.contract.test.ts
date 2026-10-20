@@ -16,6 +16,17 @@ describe('TikTok-style upward swipe contract', () => {
     expect(deck).toContain("return commitSwipe('UP')");
   });
 
+  it('releases horizontal gestures quickly so the nested SwipeDeck can PASSER/GARDER on iPhone', () => {
+    // The outer native recognizer is only for vertical-next. It must fail early
+    // on horizontal movement, before iOS cancels the nested PanResponder.
+    expect(modal).toContain('.activeOffsetY(-12)');
+    expect(modal).toContain('.failOffsetX([-8, 8])');
+    expect(deck).toContain('const wantsHorizontal =');
+    expect(deck).toContain('Math.abs(gesture.dx) > SWIPE_THRESHOLD');
+    expect(deck).toContain("return commitSwipe('LEFT')");
+    expect(deck).toContain("return commitSwipe('RIGHT')");
+  });
+
   it('maps swipe up to next track in the shared music swipe surface', () => {
     expect(modal).toContain('onSwipeUp={() => {');
     expect(modal).toContain('void advance().finally');
