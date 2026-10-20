@@ -4,8 +4,8 @@ on:
   schedule:
     # Le traitement réel est assuré toutes les 5 min par pg_cron dans Supabase.
     # GitHub ne duplique plus le secret worker ni le traitement : un contrôle
-    # quotidien suffit pour détecter une fonction absente ou rendue publique.
-    - cron: "17 6 * * *"
+    # hebdomadaire (lundi) suffit pour détecter une fonction absente ou rendue publique.
+    - cron: "17 6 * * 1"
   workflow_dispatch:
 
 jobs:
