@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { prepareStorageImage, storageImageRule, storageImageUploadOptions, versionedPublicUrl } from './storageImageUpload';
 
 /**
  * Lien de paiement personnel (Adel, 16-17/09/2026) — "l'idéal c'est que
@@ -118,7 +119,7 @@ export async function pickAndUploadPayoutQr(profileId: string): Promise<string |
     mediaTypes: ['images'],
     allowsEditing: true,
     aspect: [1, 1],
-    quality: 0.9,
+    quality: storageImageRule('payoutQr').pickerQuality,
   });
   if (result.canceled || !result.assets?.[0]?.uri) return null;
   const asset = result.assets[0];
@@ -130,19 +131,15 @@ export async function pickAndUploadPayoutQr(profileId: string): Promise<string |
 
   const response = await fetch(asset.uri);
   const blob = await response.blob();
-  const mime = asset.mimeType || blob.type || 'image/png';
-  const extension = mime.includes('jpeg') || mime.includes('jpg') ? 'jpg' : mime.includes('webp') ? 'webp' : 'png';
-  const path = `${profileId}/payout-qr.${extension}`;
+  // QR : PNG net réduit à 1600 px sur PC/web, limite de poids explicite.
+  const prepared = await prepareStorageImage(blob, 'payoutQr', asset.mimeType || blob.type || 'image/png');
+  const path = `${profileId}/payout-qr.${prepared.extension}`;
 
-  const { error: uploadError } = await supabase.storage.from('avatars').upload(path, blob, {
-    upsert: true,
-    contentType: mime,
-    cacheControl: '3600',
-  });
+  const { error: uploadError } = await supabase.storage.from('avatars').upload(path, prepared.blob, storageImageUploadOptions(prepared));
   if (uploadError) throw uploadError;
 
   const { data } = supabase.storage.from('avatars').getPublicUrl(path);
-  const publicUrl = `${data.publicUrl}?v=${Date.now()}`;
+  const publicUrl = versionedPublicUrl(data.publicUrl);
   return setMyPayoutQrUrl(publicUrl);
 }
 

@@ -2,6 +2,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { supabase } from './supabaseClient';
 import { APP_NAME } from '../config/brand';
 import type { ProfileCertificationTier } from './publicProfileStateService';
+import { prepareStorageImage, storageImageRule, storageImageUploadOptions, versionedPublicUrl } from './storageImageUpload';
 
 export type EventAudienceMode = 'GENERAL' | 'ADULTS_18_PLUS' | 'FAMILY';
 
@@ -562,7 +563,7 @@ async function pickEventImageAsset() {
     mediaTypes: ['images'],
     allowsEditing: true,
     aspect: [16, 9],
-    quality: 0.85,
+    quality: storageImageRule('event').pickerQuality,
   });
   if (result.canceled || !result.assets?.[0]?.uri) return null;
   return result.assets[0];
@@ -575,19 +576,15 @@ export async function pickAndUploadEventImage(creatorId: string): Promise<string
 
   const response = await fetch(asset.uri);
   const blob = await response.blob();
-  const mime = asset.mimeType || blob.type || 'image/jpeg';
-  const extension = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
-  const path = `${creatorId}/${Date.now()}.${extension}`;
+  // Limite explicite + réduction à 1600 px avant envoi (storageImageUpload.ts).
+  const prepared = await prepareStorageImage(blob, 'event', asset.mimeType || blob.type || 'image/jpeg');
+  const path = `${creatorId}/${Date.now()}.${prepared.extension}`;
 
-  const { error } = await supabase.storage.from('event-images').upload(path, blob, {
-    upsert: true,
-    contentType: mime,
-    cacheControl: '3600',
-  });
+  const { error } = await supabase.storage.from('event-images').upload(path, prepared.blob, storageImageUploadOptions(prepared));
   if (error) throw error;
 
   const { data } = supabase.storage.from('event-images').getPublicUrl(path);
-  return `${data.publicUrl}?v=${Date.now()}`;
+  return versionedPublicUrl(data.publicUrl);
 }
 
 export async function broadcastEventToFollowers(eventId: string, message?: string, includeRsvpButtons = true): Promise<number> {

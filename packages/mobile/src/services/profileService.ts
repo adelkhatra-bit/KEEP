@@ -1,6 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { KeepAuthSession } from './authService';
 import { SocialLink, User } from '../types';
+import { prepareStorageImage, storageImageUploadOptions, versionedPublicUrl } from './storageImageUpload';
 
 export interface SaveProfileOptions {
   /**
@@ -197,19 +198,15 @@ async function persistLocalAvatar(client: SupabaseClient, profileId: string, ava
     throw new Error('Impossible de lire la photo locale avant sa sauvegarde.');
   }
   const blob = await response.blob();
-  const mime = blob.type || 'image/jpeg';
-  const extension = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
-  const path = `${profileId}/avatar.${extension}`;
+  // Même préparation que avatarService.ts (source unique storageImageUpload.ts).
+  const prepared = await prepareStorageImage(blob, 'avatar', blob.type || 'image/jpeg');
+  const path = `${profileId}/avatar.${prepared.extension}`;
 
-  const { error } = await client.storage.from('avatars').upload(path, blob, {
-    upsert: true,
-    contentType: mime,
-    cacheControl: '3600',
-  });
+  const { error } = await client.storage.from('avatars').upload(path, prepared.blob, storageImageUploadOptions(prepared));
   if (error) throw error;
 
   const { data } = client.storage.from('avatars').getPublicUrl(path);
-  return `${data.publicUrl}?v=${Date.now()}`;
+  return versionedPublicUrl(data.publicUrl);
 }
 
 export function createProfileService(client: SupabaseClient) {

@@ -1,5 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from './supabaseClient';
+import { prepareStorageImage, storageImageRule, storageImageUploadOptions, versionedPublicUrl } from './storageImageUpload';
 
 async function pickAvatarAsset() {
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -9,7 +10,8 @@ async function pickAvatarAsset() {
     mediaTypes: ['images'],
     allowsEditing: true,
     aspect: [1, 1],
-    quality: 0.82,
+    // Qualité du sélecteur natif : la photo est affichée en 40-120 px (voir storageImageUpload.ts).
+    quality: storageImageRule('avatar').pickerQuality,
   });
   if (result.canceled || !result.assets?.[0]?.uri) return null;
   return result.assets[0];
@@ -30,17 +32,14 @@ export async function pickAndUploadAvatar(profileId: string): Promise<string | n
 
   const response = await fetch(asset.uri);
   const blob = await response.blob();
-  const mime = asset.mimeType || blob.type || 'image/jpeg';
-  const extension = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
-  const path = `${profileId}/avatar.${extension}`;
+  // Réduction avant envoi (PC/web) + limite de poids explicite : une photo de
+  // profil ne doit plus peser plusieurs Mo pour un affichage de 40-120 px.
+  const prepared = await prepareStorageImage(blob, 'avatar', asset.mimeType || blob.type || 'image/jpeg');
+  const path = `${profileId}/avatar.${prepared.extension}`;
 
-  const { error } = await supabase.storage.from('avatars').upload(path, blob, {
-    upsert: true,
-    contentType: mime,
-    cacheControl: '3600',
-  });
+  const { error } = await supabase.storage.from('avatars').upload(path, prepared.blob, storageImageUploadOptions(prepared));
   if (error) throw error;
 
   const { data } = supabase.storage.from('avatars').getPublicUrl(path);
-  return `${data.publicUrl}?v=${Date.now()}`;
+  return versionedPublicUrl(data.publicUrl);
 }
