@@ -706,7 +706,7 @@ export async function toggleTrackPreview(
         } catch { stalled = true; }
         if (!stalled || requestEpoch !== playbackRequestEpoch || activeSound !== createdSound || activeKey !== key) return;
         stopTrackPreviewFast(key);
-        onEnded?.();
+        onStateChange(false);
       })();
     }, 6500);
   });
