@@ -22,7 +22,8 @@ describe('TikTok-style upward swipe contract', () => {
     expect(modal).toContain('.activeOffsetY(-12)');
     expect(modal).toContain('.failOffsetX([-8, 8])');
     expect(deck).toContain('const wantsHorizontal =');
-    expect(deck).toContain('Math.abs(gesture.dx) > SWIPE_THRESHOLD');
+    expect(deck).toContain("if (gesture.dx >= SWIPE_THRESHOLD) return commitSwipe('RIGHT')");
+    expect(deck).toContain("if (gesture.dx <= -SWIPE_THRESHOLD) return commitSwipe('LEFT')");
     expect(deck).toContain("return commitSwipe('LEFT')");
     expect(deck).toContain("return commitSwipe('RIGHT')");
   });
@@ -32,6 +33,8 @@ describe('TikTok-style upward swipe contract', () => {
     expect(modal).toContain('void advance().finally');
     expect(modal).toContain('upLabel="SUIVANT"');
     expect(modal).toContain('↑ suivant · ← passer');
+    // Adel 17/10/2026 (#214) : pas de bouton SUIVANT sur la carte, on swipe vers le haut.
+    expect(modal).not.toContain('testID="swipe-next-without-gesture"');
   });
 
   it('maps swipe up to next detected track in Listen too', () => {
@@ -121,6 +124,9 @@ describe('swipe haut style TikTok partout sur l\'écran', () => {
   const modal = require('fs').readFileSync(require('path').join(__dirname, '../MusicSwipeDeckModal.tsx'), 'utf8');
   it('un responder sur toute la fenêtre passe au suivant', () => {
     expect(modal).toContain('screenSwipe.panHandlers');
-    expect(modal).toContain('onMoveShouldSetPanResponderCapture: (_, g) => !screenSwipeRef.current.locked');
+    expect(modal).not.toContain('onMoveShouldSetPanResponderCapture: (_, g) => !screenSwipeRef.current.locked');
+    expect(modal).toContain('onMoveShouldSetPanResponder: (_, g) => !screenSwipeRef.current.locked && g.dy < -14');
+    expect(modal).toContain('onShouldBlockNativeResponder: () => false');
+    expect(modal).toContain('onPanResponderTerminationRequest: () => true');
   });
 });

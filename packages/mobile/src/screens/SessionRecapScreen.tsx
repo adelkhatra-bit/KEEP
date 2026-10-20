@@ -143,7 +143,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   };
 
   useEffect(() => {
-    if (!isFocused || !route.params?.openSwipe || !pendingSwipeTracks.length || swipeOpen) return;
+    if (!isFocused || !route.params?.openSwipe || !session?.tracks.length || swipeOpen) return;
     // iOS : ne pas monter une deuxième Modal ni lancer l'audio tant que le changement de route n'est pas achevé.
     // Adel (20/10/2026) : « je suis obligé de descendre tout en bas pour swiper ». Cause : l'attente « après les interactions » attendait la fin
     // de TOUTES les animations, or les halos/pulsations de l'app tournent en boucle : le Swipe ne s'ouvrait jamais et l'on restait
@@ -153,7 +153,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
       navigation?.setParams?.({ openSwipe: false });
     }, 450);
     return () => clearTimeout(timer);
-  }, [isFocused, route.params?.openSwipe, pendingSwipeTracks.length, swipeOpen]);
+  }, [isFocused, route.params?.openSwipe, session?.tracks.length, swipeOpen]);
 
   if (!session) {
     return (
