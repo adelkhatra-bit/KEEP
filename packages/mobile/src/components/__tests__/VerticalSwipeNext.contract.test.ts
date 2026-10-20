@@ -117,10 +117,16 @@ describe('fenêtre « Déjà dans ta collection » : bouton mettre en story au-d
   });
 });
 
-describe('swipe haut style TikTok partout sur l\'écran', () => {
+describe('arbitrage tactile iOS : le parent ne vole pas les taps', () => {
   const modal = require('fs').readFileSync(require('path').join(__dirname, '../MusicSwipeDeckModal.tsx'), 'utf8');
-  it('un responder sur toute la fenêtre passe au suivant', () => {
+  it('keeps the global next-track gesture without capture-phase interception', () => {
     expect(modal).toContain('screenSwipe.panHandlers');
-    expect(modal).toContain('onMoveShouldSetPanResponderCapture: (_, g) => !screenSwipeRef.current.locked');
+    expect(modal).toContain('onMoveShouldSetPanResponder: (_, g) => !screenSwipeRef.current.locked');
+    expect(modal).toContain('g.dy < -14');
+    expect(modal).toContain('onShouldBlockNativeResponder: () => false');
+    expect(modal).toContain('onPanResponderTerminationRequest: () => true');
+    expect(modal).not.toContain('onMoveShouldSetPanResponderCapture: (_, g) => !screenSwipeRef.current.locked');
+    expect(modal).toContain('.activeOffsetY(-12)');
+    expect(modal).toContain('testID="story-viewport"');
   });
 });
