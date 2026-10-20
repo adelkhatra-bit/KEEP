@@ -14,12 +14,13 @@ describe('Swipe iPhone : pas de son derrière une fenêtre invisible', () => {
     expect(modal).toContain('current?.externalUrls?.youtube, index, modalShown]);');
   });
 
-  it('représente une fenêtre non affichée (2 essais) puis la referme avec un diagnostic', () => {
+  it('confie le filet iOS à un seul gardien, arrêté à la fermeture', () => {
+    expect(modal).toContain("import { createPresentationWatchdog } from './modalPresentationWatchdog';");
     expect(modal).toContain('visible={visible && !hiddenForRetry}');
-    expect(modal).toContain("reportAutoDiagnostic('SWIPE_MODAL_RETRY'");
-    expect(modal).toContain('if (presentAttempt < 2) {');
-    expect(modal).toContain("reportAutoDiagnostic('SWIPE_MODAL_NOT_PRESENTED'");
-    expect(modal).toContain("reportAutoDiagnostic('SWIPE_MODAL_SHOWN_AFTER_RETRY'");
-    expect(modal).toContain('}, 1200);');
+    expect(modal).toContain("if (Platform.OS === 'ios') presentationWatchdog.start();");
+    expect(modal).toContain('return () => presentationWatchdog.stop();');
+    expect(modal).toContain('onShow={() => { presentationWatchdog.shown(); setModalShown(true); }}');
+    expect(modal).toContain('presentationWatchdog.stop();\n    setKeepPromptOpen(false);');
+    expect(modal).toContain('closeRef.current = close;');
   });
 });
