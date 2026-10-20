@@ -33,6 +33,15 @@ Chaque ligne doit contenir : fichier/règle corrigé, scénario reproduit, test 
 > Complète `STATE.md` (ce qui est fait). **Règle de travail : plan écrit → validation d'Adel → code.** Une étape à la fois. Aucune IA ne touche `main`, ni au design validé sans accord. Chaque étape finit par : tests + 7 gardes + preuve mobile 390 / ordinateur 1440 + ligne dans `STATE.md`. Audit **ciblé** (seulement le module touché).
 > Statuts : ✅ fait · 🟡 partiel · ⛔ pas fait · ❓ cause non établie. Tout ce qui n'est pas vérifié sur iPhone est marqué « non vérifié iPhone ».
 
+## Chantier trafic Supabase — 21/10/2026 (demande d'Adel, branche `fix/supabase-egress-images-20261021`)
+Ordre, une étape = un GO écrit d'Adel :
+1. FAIT sur branche (local) : images réduites avant envoi + limite de poids + cache 30 j versionné ; robots Playwright de production sans téléchargement d'images Storage ; robot de mesure. Voir ERR-SUPABASE-EGRESS-IMAGES-20261021.
+2. « GO photos » : remplacer EN PLACE (même chemin, même lien) les objets publics lourds par leurs versions optimisées préparées localement (16 Mo → 1,1 Mo), cache 30 j. Sauvegarde locale des originaux conservée ; aucune suppression.
+3. PR vers reconcile → CI (quand GitHub Actions sera débloqué) → fusion → OTA (seulement après GO).
+4. Prochain binaire (GO build) : `expo-image-manipulator` pour réduire aussi les photos sur iPhone/Android avant envoi.
+5. Option serveur (GO) : limite de taille des buckets `avatars` / `event-images` (5 Mo) et types autorisés.
+6. Phase 2 mesurée : appels API répétés au chargement (≈ 100 appels à l'ouverture du profil, `keep_decisions` ×7) — Egress PostgREST 7,26 Go.
+
 ## Audit transversal du 12/10/2026 — fusion ≠ publication ≠ affichage
 
 **Sources revérifiées le 12/10** : GitHub branche `reconcile/claude-main-20260825`, historique PR, workflow `web-preview-pages.yml`, `docs/RELEASE_REGISTER.json`, migrations Supabase réelles `rrhqsqzcplvmwxizqnla`, conversations de demandes récentes. Une PR ouverte, un commit fusionné, un workflow vert, une version servie et un iPhone mis à jour sont **cinq étapes différentes**.
