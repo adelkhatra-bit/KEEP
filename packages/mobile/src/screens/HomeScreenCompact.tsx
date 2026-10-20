@@ -1514,7 +1514,9 @@ export default function HomeScreenCompact({ navigation }: any) {
 
       {manualSearchModal}
 
-      <KeepModal visible={showEndPrompt} transparent animationType="fade">
+      {/* Une alerte de silence appartient uniquement à l'écran Écouter. Si Home perd le focus,
+          sa Modal ne doit jamais rester au-dessus de SessionRecap/Swipe et intercepter les taps iOS. */}
+      <KeepModal visible={showEndPrompt && screenFocused} transparent animationType="fade" onRequestClose={dismissEndPrompt}>
         <View style={s.modalOverlay}><View style={s.modalCard}>
           <Text style={s.modalTitle}>{t('session.endPromptTitle')}</Text>
           <Text style={s.modalBody}>Je n’entends plus de musique. Tu écoutes toujours ? Sans réponse, l’écoute s’arrête automatiquement et Loki Music revient à l’accueil dans {silencePromptSeconds} s.</Text>
