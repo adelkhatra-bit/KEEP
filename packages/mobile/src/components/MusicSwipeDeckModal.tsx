@@ -687,6 +687,12 @@ export default function MusicSwipeDeckModal({
                 if (waited > 2500) reportAutoDiagnostic('SWIPE_SLOW', `${Math.round(waited / 100) / 10}s host=${String(previewUrl ?? '').replace(/^https?:\/\//, '').split('/')[0] || 'none'}`);
               }
               if (playing) { setPreviewStarting(false); recordSwipeListenOnce(current.id, currentSourceProfileId); }
+              else if (alive && playbackGeneration.current === generation) {
+                // The native watchdog stopped a stalled buffer. Expose retry instead
+                // of leaving a silent, apparently-playing card with no way forward.
+                setPreviewStarting(false);
+                setAutoplayBlocked(true);
+              }
             },
             () => {
               if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
@@ -733,6 +739,12 @@ export default function MusicSwipeDeckModal({
               refreshedUrl,
               (playing) => {
                 if (playing) { setPreviewStarting(false); recordSwipeListenOnce(current.id, currentSourceProfileId); }
+              else if (alive && playbackGeneration.current === generation) {
+                // The native watchdog stopped a stalled buffer. Expose retry instead
+                // of leaving a silent, apparently-playing card with no way forward.
+                setPreviewStarting(false);
+                setAutoplayBlocked(true);
+              }
               },
               () => {
                 if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
@@ -768,6 +780,12 @@ export default function MusicSwipeDeckModal({
                     retryUrl,
                     (playing) => {
                       if (playing) { setPreviewStarting(false); recordSwipeListenOnce(current.id, currentSourceProfileId); }
+              else if (alive && playbackGeneration.current === generation) {
+                // The native watchdog stopped a stalled buffer. Expose retry instead
+                // of leaving a silent, apparently-playing card with no way forward.
+                setPreviewStarting(false);
+                setAutoplayBlocked(true);
+              }
                     },
                     () => {
                       if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
@@ -830,6 +848,10 @@ export default function MusicSwipeDeckModal({
         resolvedPreviewUrl,
         (playing) => {
           if (playing) { setPreviewStarting(false); recordSwipeListenOnce(current.id, currentSourceProfileId); }
+          else {
+            setPreviewStarting(false);
+            setAutoplayBlocked(true);
+          }
         },
         () => {
           setPreviewEnded(true);
@@ -860,6 +882,10 @@ export default function MusicSwipeDeckModal({
           refreshedUrl,
           (playing) => {
             if (playing) { setPreviewStarting(false); recordSwipeListenOnce(current.id, currentSourceProfileId); }
+          else {
+            setPreviewStarting(false);
+            setAutoplayBlocked(true);
+          }
           },
           () => {
             setPreviewEnded(true);
