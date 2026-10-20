@@ -192,6 +192,10 @@ export default function MusicSwipeDeckModal({
   // iPhone (ERR-SWIPE-MODAL-NOT-PRESENTED-20261020) : une fenêtre plein écran ouverte pendant une autre transition peut ne
   // jamais s'afficher. La musique démarrait quand même et l'écran restait bloqué. L'audio n'attend plus que onShow.
   const [modalShown, setModalShown] = useState(Platform.OS !== 'ios');
+  // Journal iPhone du 20/10 (20:48, build 445 + OTA 3bbe0cf) : la fenêtre n'a jamais été affichée après
+  // Mes Sessions (fenêtre transparente) → Session. On la retire puis on la représente (2 essais) avant d'abandonner.
+  const [presentAttempt, setPresentAttempt] = useState(0);
+  const [hiddenForRetry, setHiddenForRetry] = useState(false);
   const [sourcePlayerOpen, setSourcePlayerOpen] = useState(false);
   const [sourcePlayerFailed, setSourcePlayerFailed] = useState(false);
   const [sourcePlayerAttempt, setSourcePlayerAttempt] = useState(0);
@@ -286,15 +290,23 @@ export default function MusicSwipeDeckModal({
   const [justAdded, setJustAdded] = useState<Set<string>>(new Set());
   const [offeredIds, setOfferedIds] = useState<Set<string>>(new Set());
   useEffect(() => {
-    if (!visible) { setModalShown(Platform.OS !== 'ios'); return undefined; }
-    if (modalShown) return undefined;
-    // Filet iOS : si la fenêtre ne s'est pas affichée en 2,5 s, on la referme proprement (son coupé, écran débloqué).
+    if (!visible) { setModalShown(Platform.OS !== 'ios'); setPresentAttempt(0); setHiddenForRetry(false); return undefined; }
+    if (modalShown || hiddenForRetry) return undefined;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    // Filet iOS : fenêtre non affichée -> on la représente jusqu'à 2 fois, puis on la referme proprement
+    // (son coupé, écran débloqué) avec un diagnostic.
     const notShown = setTimeout(() => {
-      reportAutoDiagnostic('SWIPE_MODAL_NOT_PRESENTED', `tracks=${deckTracks.length}`);
+      if (presentAttempt < 2) {
+        reportAutoDiagnostic('SWIPE_MODAL_RETRY', `attempt=${presentAttempt + 1}`);
+        setHiddenForRetry(true);
+        retryTimer = setTimeout(() => { setPresentAttempt((n) => n + 1); setHiddenForRetry(false); }, 400);
+        return;
+      }
+      reportAutoDiagnostic('SWIPE_MODAL_NOT_PRESENTED', `attempts=${presentAttempt + 1}`);
       void close();
-    }, 2500);
-    return () => clearTimeout(notShown);
-  }, [visible, modalShown]);
+    }, 1200);
+    return () => { clearTimeout(notShown); if (retryTimer) clearTimeout(retryTimer); };
+  }, [visible, modalShown, presentAttempt, hiddenForRetry]);
   useEffect(() => {
     let live = true;
     if (!visible) return undefined;
@@ -1205,6 +1217,9 @@ export default function MusicSwipeDeckModal({
   // N'IMPORTE OÙ sur l'écran (en-tête, bas de la fenêtre, zone hors carte) passe au morceau suivant.
   // Phase « bulle » : si la carte (SwipeDeck) a déjà pris le geste, ce responder n'intervient pas.
   const lastNextAtRef = useRef(0);
+  // Un geste = un seul morceau (robot du 20/10 : un glissement faisait sauter 2 morceaux, le 2e déclenchement
+  // arrivant ~400 ms après le 1er, fin d'animation de la carte). Verrou levé au prochain doigt posé, ou après 900 ms.
+  const gestureConsumedRef = useRef(false);
   const screenSwipeRef = useRef<{ locked: boolean; next: () => void }>({ locked: true, next: () => {} });
   screenSwipeRef.current = {
     locked: controlsLocked,
@@ -1212,7 +1227,9 @@ export default function MusicSwipeDeckModal({
     next: () => {
       const now = Date.now();
       if (now - lastNextAtRef.current < 350) return;
+      if (gestureConsumedRef.current && now - lastNextAtRef.current < 900) return;
       lastNextAtRef.current = now;
+      gestureConsumedRef.current = true;
       void advance();
     },
   };
@@ -1397,10 +1414,10 @@ export default function MusicSwipeDeckModal({
       : 'Tu as terminé toutes les nouvelles musiques de ce profil.'
     : emptyTitle;
 
-  return <KeepModal visible={visible} animationType="slide" onShow={() => setModalShown(true)} onRequestClose={() => { void close(); }} presentationStyle="fullScreen">
+  return <KeepModal visible={visible && !hiddenForRetry} animationType="slide" onShow={() => { if (presentAttempt > 0) reportAutoDiagnostic('SWIPE_MODAL_SHOWN_AFTER_RETRY', `attempt=${presentAttempt}`); setModalShown(true); }} onRequestClose={() => { void close(); }} presentationStyle="fullScreen">
     <GestureHandlerRootView style={s.gestureRoot}>
     <GestureDetector gesture={nativeSwipeUp}>
-    <View style={[s.outer, desktopSwipeLayout && s.desktopOuter]} testID="story-viewport" {...screenSwipe.panHandlers}>
+    <View style={[s.outer, desktopSwipeLayout && s.desktopOuter]} testID="story-viewport" {...screenSwipe.panHandlers} onStartShouldSetResponderCapture={(e) => { gestureConsumedRef.current = false; return screenSwipe.panHandlers.onStartShouldSetResponderCapture?.(e) ?? false; }}>
     <SafeAreaView style={[s.container, desktopSwipeLayout && s.desktopPlayer, desktopSwipeLayout && { height: Math.max(410, windowHeight - 32) }]} testID="story-player">
       <View style={[s.header, desktopSwipeLayout && compactDeck && s.desktopHeaderCompact]}>
         <View style={s.headerText}>
