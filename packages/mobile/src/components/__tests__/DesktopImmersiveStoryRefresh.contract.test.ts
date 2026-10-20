@@ -22,7 +22,7 @@ describe('desktop immersive Story/Swipe layout and reliable rehydration', () => 
     expect(deck).toContain('ownerMasked || isSaleStoryTrack(current)');
     expect(deck).toContain('desktopProgressFill');
     expect(deck).toContain('Math.min(index + 1, deckTracks.length)');
-    expect(deck).toContain('testID="desktop-story-next-track"');
+    expect(deck).not.toContain('testID="desktop-story-next-track"');
     expect(deck).toContain('void advance();');
   });
 
