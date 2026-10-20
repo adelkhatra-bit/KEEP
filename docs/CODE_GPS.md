@@ -43,6 +43,7 @@ Toute IA / tout développeur doit lire, dans cet ordre :
 | Reconnaissance | `services/musicEngine.ts`, `nativeFirstRecognitionProvider.ts`, `micCapture.ts` | Pipeline micro/reconnaissance | Secrets providers jamais dans le client |
 | Localisation | `services/locationService.ts` | GPS → ville/pays | Préremplir puis laisser modifier |
 | Profil backend mobile | `services/profileService.ts`, `avatarService.ts` | Profil et avatar Storage | Pas d'état uniquement local |
+| Images publiques Storage | `services/storageImageUpload.ts` (+ robots : `scripts/robot-storage-guard.cjs`) | Réduction avant envoi, limite de poids, cache long versionné (avatars, soirées, QR PayPal) | Toute image publique envoyée vers Storage passe par ce module ; aucun robot de production ne télécharge les images Storage |
 | Feature flags | `services/featureFlagService.ts` | Fonctions activables | Super Admin reste la source de vérité |
 | Stores | `packages/mobile/src/store/` | État client | Ne pas y recopier une source durable serveur |
 | Composants communs | `packages/mobile/src/components/` | UI réutilisable | Chercher ici avant de créer un composant |
