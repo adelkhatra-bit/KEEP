@@ -44,12 +44,25 @@ export function mergeSessionWithUnsentTracks(remote: KeepSession, local?: KeepSe
   };
 }
 
+// Postgres jsonb réordonne les clés : sans tri, une session identique paraissait « modifiée » à chaque lecture,
+// était réécrite, et chaque écriture déclenchait une nouvelle lecture sur tous les appareils (ERR-SESSION-SYNC-STORM-20261020).
+function canonical(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (!value || typeof value !== 'object') return value;
+  const out: Record<string, unknown> = {};
+  for (const key of Object.keys(value as Record<string, unknown>).sort()) {
+    const item = (value as Record<string, unknown>)[key];
+    if (item !== undefined) out[key] = canonical(item);
+  }
+  return out;
+}
+
 function serial(session: KeepSession): string {
   // Le verrou de crédits dépend de l'appareil/solde courant, pas du morceau.
-  return JSON.stringify({
+  return JSON.stringify(canonical({
     ...session,
     tracks: session.tracks.map(({ creditLocked: _creditLocked, ...entry }) => entry),
-  });
+  }));
 }
 
 /**
@@ -66,6 +79,7 @@ export function startCrossDeviceSessionSync(userId: string): () => void {
   let writing = false;
   let applying = false;
   let flushTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastOwnWriteAt = 0;
   let realtimePullTimer: ReturnType<typeof setTimeout> | null = null;
   const pending = new Map<string, KeepSession>();
   const tombstones = new Set<string>();
@@ -128,6 +142,7 @@ export function startCrossDeviceSessionSync(userId: string): () => void {
     try {
       for (const id of [...tombstones]) {
         if (!sameIdentity()) return;
+        lastOwnWriteAt = Date.now();
         const { data, error } = await client.rpc('keep_sync_device_session', {
           p_session_id: id, p_snapshot: {}, p_deleted: true,
         });
@@ -137,6 +152,7 @@ export function startCrossDeviceSessionSync(userId: string): () => void {
       for (const [id, session] of [...pending.entries()]) {
         if (!sameIdentity()) return;
         if (tombstones.has(id)) continue;
+        lastOwnWriteAt = Date.now();
         const { data, error } = await client.rpc('keep_sync_device_session', {
           p_session_id: id, p_snapshot: JSON.parse(serial({ ...session, ownerUserId: userId })), p_deleted: false,
         });
@@ -146,7 +162,7 @@ export function startCrossDeviceSessionSync(userId: string): () => void {
       }
     } catch {
       // En cas de panne, la file reste disponible pour le prochain cycle.
-    } finally { writing = false; }
+    } finally { writing = false; lastOwnWriteAt = Date.now(); }
   }
 
   async function pull() {
@@ -161,6 +177,9 @@ export function startCrossDeviceSessionSync(userId: string): () => void {
       if (error || !sameIdentity()) return;
       const rows = (data ?? []) as CloudRow[];
       const remoteIds = new Set(rows.map((r) => r.session_id));
+      // Une session déjà supprimée dans le cloud ne doit pas être re-supprimée à chaque démarrage :
+      // chaque réécriture changeait updated_at et relançait la synchro sur tous les appareils.
+      const remoteDeleted = new Set(rows.filter((r) => r.deleted_at).map((r) => r.session_id));
       const current = useSessionHistoryStore.getState();
       const byId = new Map(current.sessions.map((s) => [s.id, s]));
       const dismissed = new Set(current.dismissedSessionIds);
@@ -218,7 +237,7 @@ export function startCrossDeviceSessionSync(userId: string): () => void {
         }
         const localIds = new Set(useSessionHistoryStore.getState().sessions.map((s) => s.id));
         for (const id of current.dismissedSessionIds) {
-          if (remoteIds.has(id) && !localIds.has(id)) tombstones.add(id);
+          if (remoteIds.has(id) && !remoteDeleted.has(id) && !localIds.has(id)) tombstones.add(id);
         }
       }
       scan();
@@ -237,6 +256,8 @@ export function startCrossDeviceSessionSync(userId: string): () => void {
       event: '*', schema: 'public', table: 'keep_device_sessions', filter: 'user_id=eq.' + userId,
     }, () => {
       if (!sameIdentity() || realtimePullTimer) return;
+      // Écho de nos propres écritures : inutile de tout relire (le relevé toutes les 12 s reste le filet).
+      if (writing || Date.now() - lastOwnWriteAt < 2500) return;
       realtimePullTimer = setTimeout(() => {
         realtimePullTimer = null;
         void pull().then(flush);
