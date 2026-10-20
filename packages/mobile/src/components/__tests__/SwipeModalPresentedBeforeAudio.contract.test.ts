@@ -9,14 +9,17 @@ const modal = fs.readFileSync(path.resolve(__dirname, '..', 'MusicSwipeDeckModal
 describe('Swipe iPhone : pas de son derrière une fenêtre invisible', () => {
   it('attend onShow avant de lancer un extrait sur iOS', () => {
     expect(modal).toContain("const [modalShown, setModalShown] = useState(Platform.OS !== 'ios');");
-    expect(modal).toContain('onShow={() => setModalShown(true)}');
+    expect(modal).toContain('setModalShown(true); }}');
     expect(modal).toContain('if (!modalShown) return () => { alive = false; };');
     expect(modal).toContain('current?.externalUrls?.youtube, index, modalShown]);');
   });
 
-  it('referme une fenêtre jamais affichée et laisse une trace', () => {
+  it('représente une fenêtre non affichée (2 essais) puis la referme avec un diagnostic', () => {
+    expect(modal).toContain('visible={visible && !hiddenForRetry}');
+    expect(modal).toContain("reportAutoDiagnostic('SWIPE_MODAL_RETRY'");
+    expect(modal).toContain('if (presentAttempt < 2) {');
     expect(modal).toContain("reportAutoDiagnostic('SWIPE_MODAL_NOT_PRESENTED'");
-    expect(modal).toContain('}, 2500);');
-    expect(modal).toContain("if (!visible) { setModalShown(Platform.OS !== 'ios'); return undefined; }");
+    expect(modal).toContain("reportAutoDiagnostic('SWIPE_MODAL_SHOWN_AFTER_RETRY'");
+    expect(modal).toContain('}, 1200);');
   });
 });
