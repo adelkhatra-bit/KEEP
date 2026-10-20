@@ -599,10 +599,14 @@ export default function MusicSwipeDeckModal({
     // a silent card. Only keep the card when there is a legitimate provider
     // player to offer (or when this is the last card in a finite deck).
     const scheduleEmbeddedStoryNext = () => {
-      // Les lecteurs intégrés n'exposent pas toujours un événement de fin fiable.
-      // Une durée estimée ne prouve pas que le morceau a été entendu :
-      // le passage au suivant reste toujours explicite.
-      return;
+      // Provider iframe end events cannot be trusted across iPhone/Chrome.
+      // Source-only music still advances in a Swipe without manual dragging.
+      if (!(index + 1 < deckTracks.length || loop)) return;
+      if (endAdvanceTimer.current) clearTimeout(endAdvanceTimer.current);
+      endAdvanceTimer.current = setTimeout(() => {
+        endAdvanceTimer.current = null;
+        if (alive && playbackGeneration.current === generation && !actionInFlight.current) advanceIndex();
+      }, 30000);
     };
     const skipUnavailablePreview = (reason: string) => {
       if (!alive || playbackGeneration.current !== generation || !current) return;
@@ -610,9 +614,16 @@ export default function MusicSwipeDeckModal({
       const source = current.externalUrls?.source || current.externalUrls?.youtube || null;
       if (trackAddedAt && preferCleanStoryPlayer) {
         reportAutoDiagnostic('STORY_PREVIEW_NO_AD_FREE_AUDIO', String(current.id).slice(0, 36));
+        // Titre importé via YouTube/Spotify : la source officielle existe, le spectateur peut
+        // la lancer lui-même (▶ ÉCOUTER DANS LOKI). On ne fait donc pas défiler la Story tout seul.
         if (sourcePlayer) return;
-        // A missing clean preview is not proof that this track was heard.
-        setPreviewEnded(true);
+        if (index + 1 < deckTracks.length || loop) {
+          if (endAdvanceTimer.current) clearTimeout(endAdvanceTimer.current);
+          endAdvanceTimer.current = setTimeout(() => {
+            endAdvanceTimer.current = null;
+            if (alive && playbackGeneration.current === generation && !actionInFlight.current) advanceIndex();
+          }, 2400);
+        }
         return;
       }
       if (!isSaleStoryTrack(current) && resolveEmbeddedMusicPlayer(source)) {
@@ -627,7 +638,16 @@ export default function MusicSwipeDeckModal({
         }
       }
       reportAutoDiagnostic('SWIPE_PREVIEW_UNAVAILABLE', `${reason} id=${String(current.id).slice(0, 36)}`);
-      setPreviewEnded(true);
+      if (index + 1 < deckTracks.length || loop) {
+        if (endAdvanceTimer.current) clearTimeout(endAdvanceTimer.current);
+        endAdvanceTimer.current = setTimeout(() => {
+          endAdvanceTimer.current = null;
+          if (alive && playbackGeneration.current === generation && !actionInFlight.current) advanceIndex();
+        }, 450);
+      } else {
+        // Dernière carte d'un deck fini : proposer RÉÉCOUTER au lieu d'une carte muette.
+        setPreviewEnded(true);
+      }
     };
 
     if (!visible || preparingDeck || !current) {
@@ -676,7 +696,8 @@ export default function MusicSwipeDeckModal({
         try {
           // Un double passage d'effet (StrictMode/re-render) ne doit jamais
           // transformer l'autoplay en "toggle off" sur la carte courante.
-          if (isTrackPreviewActive(playbackKey)) { setPreviewStarting(false); return; }
+          if (isTrackPreviewActive(playbackKey)) setPreviewStarting(false);
+          if (isTrackPreviewActive(playbackKey)) return;
           await toggleTrackPreview(
             playbackKey,
             previewUrl,
@@ -1144,7 +1165,7 @@ export default function MusicSwipeDeckModal({
     : previewStarting
       ? 'Chargement audio…'
     : !resolvedPreviewUrl
-      ? (trackAddedAt && !sourcePlayer ? 'Extrait indisponible · réessayer ou passer' : sourcePlayer ? 'Source vidéo officielle · lecture selon autorisation' : 'Extrait indisponible')
+      ? (trackAddedAt && !sourcePlayer ? 'Extrait indisponible · Story suivante' : sourcePlayer ? 'Source vidéo officielle · lecture selon autorisation' : 'Extrait indisponible')
       : autoplayBlocked
         ? 'Appuie ci-dessous pour écouter'
         : previewEnded
@@ -1159,6 +1180,10 @@ export default function MusicSwipeDeckModal({
   const desktopStoryLayout = desktopSwipeLayout && Boolean(trackAddedAt);
   // Fenêtre PC réduite : la Story doit conserver les actions accessibles.
   const compactDeck = windowHeight < 640 || (desktopSwipeLayout && windowHeight < 760);
+  const swipeHint = currentAlreadyKept && !previewOnly
+    ? '↑ suivant · ← passer'
+    : `↑ suivant · ← passer · → garder${keepDebitAmount && keepDebitAmount > 0 ? ` · ${keepDebitAmount} FREE` : ''}`;
+
   const controlsLocked = processing || preparingDeck || keepPromptOpen || !!keepSuccess || previewInfoOpen || alreadyKeepInfoOpen;
 
   // Style TikTok (Adel 18/10/2026 : « je n'arrive pas à remonter pour changer ») : un coup de doigt vers le haut
@@ -1436,7 +1461,7 @@ export default function MusicSwipeDeckModal({
               leftLabel="PASSER"
               rightLabel={ownStoryView ? 'DÉJÀ EN STORY' : currentAlreadyKept ? 'DÉJÀ' : 'GARDER'}
               upLabel="SUIVANT"
-              hint={undefined}
+              hint={swipeHint}
               fill
             >
               <View style={[s.card, desktopSwipeLayout && s.desktopStoryCard, compactDeck && s.cardCompact]} testID="swipe-neon-depth-card">
@@ -1502,9 +1527,7 @@ export default function MusicSwipeDeckModal({
                       ? <ActivityIndicator testID="swipe-audio-loading" size="small" color="#68F2B1" accessibilityLabel="Chargement de la musique" />
                       : <View style={[s.dot, resolvedPreviewUrl ? s.dotOn : s.dotOff]} />}
                     <Text style={s.autoText} numberOfLines={2}>{previewLabel}</Text>
-                    <TouchableOpacity testID="swipe-next-without-gesture" accessibilityRole="button" accessibilityLabel="Morceau suivant" style={s.nextInlineButton} disabled={controlsLocked} onPress={() => { void advance(); }}>
-                      <Text style={s.nextInlineText}>↑ SUIVANT</Text>
-                    </TouchableOpacity>
+                    {/* Adel (17/10/2026) : plus de bouton SUIVANT sur la carte -- on swipe vers le haut (flèche ↑ au clavier sur PC). */}
                   </View>
                   {!resolvedPreviewUrl && !previewResolving && sourcePlayer && !sourcePlayerOpen ? (
                     <TouchableOpacity testID="story-open-source-player" style={s.manualPlayButton} accessibilityRole="button" accessibilityLabel="Écouter la vidéo originale dans Loki Music" onPress={() => { stopTrackPreviewFast(); setSourcePlayerOpen(true); }}>
@@ -1649,9 +1672,14 @@ export default function MusicSwipeDeckModal({
       <View style={s.desktopProgressTrack} accessibilityLabel={deckTracks.length ? `Morceau ${Math.min(index + 1, deckTracks.length)} sur ${deckTracks.length}` : 'Aucun morceau'}>
         <View style={[s.desktopProgressFill, { width: `${deckTracks.length ? Math.min(100, Math.max(0, (index + 1) / deckTracks.length * 100)) : 0}%` }]} />
       </View>
+      {current && !controlsLocked ? <TouchableOpacity testID="desktop-story-next-track" onPress={() => { void advance(); }}
+        accessibilityRole="button" accessibilityLabel="Écouter le morceau suivant" style={s.desktopNextButton}>
+        <Text style={s.desktopNextText}>↑ MORCEAU SUIVANT</Text>
+      </TouchableOpacity> : null}
       <Text style={s.desktopAsideSection}>À TOI DE CHOISIR</Text>
       <View style={s.desktopTips}>
         <Text style={s.desktopAsideHint}>← PASSER   ·   GARDER →</Text>
+        <Text style={s.desktopAsideHint}>↑ Le morceau suivant</Text>
         <Text style={s.desktopAsideHint}>▶ Préécoute sans quitter Loki</Text>
       </View>
       <View style={s.desktopAsideDivider} />
