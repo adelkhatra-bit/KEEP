@@ -127,6 +127,24 @@ export async function checkOwnKeepLibrary(track: CanonicalTrack): Promise<Librar
     const direct = await latestOwnKeep(profileId, [directTrackId]);
     if (direct?.exists) return direct;
     if (direct === null) return null;
+
+    // A Story re-share can refer to a DIFFERENT catalogue UUID for the
+    // very same title/artist. The authenticated RPC asks the authoritative
+    // server about every already-kept equivalent before enabling GARDER.
+    // It returns only THIS account's keep; no other user's private music.
+    const { data: canonical, error: canonicalError } = await supabase.rpc('keep_check_own_track', {
+      p_track_id: directTrackId,
+    });
+    if (!canonicalError) {
+      if (canonical?.exists) return keepMatchFromDecision({
+        id: canonical.decisionId,
+        track_id: canonical.trackId,
+        visibility: canonical.visibility,
+      });
+    } else if (canonicalError.code !== 'PGRST202' && canonicalError.code !== '42883') {
+      // A transient verification failure must never be treated as "not owned".
+      return null;
+    }
   }
 
   const candidates = new Map<string, any>();

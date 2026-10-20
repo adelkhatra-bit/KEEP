@@ -26,6 +26,7 @@ import StoryEmbeddedSourcePlayer from './StoryEmbeddedSourcePlayer';
 import { buildNativeYouTubeEmbedDocument, resolveEmbeddedMusicPlayer, withSwipeLayer } from '../services/embeddedMusicPlayer';
 import { resolveTrackExternalDestination } from '../services/trackExternalLinkService';
 import { checkOwnKeepLibrary } from '../services/connectedMusicLibrary';
+import { uniqueSwipeTracks } from '../services/swipeTrackUniqueness';
 import GlowRing from './GlowRing';
 import TrackLikeButton, { ReactionStatPills } from './TrackLikeButton';
 import { useRobotMessageStore } from '../store/useRobotMessageStore';
@@ -522,7 +523,7 @@ export default function MusicSwipeDeckModal({
     setPrefilterVerified(false);
 
     const prepare = async () => {
-      const inputTracks = [...tracksRef.current];
+      const inputTracks = uniqueSwipeTracks([...tracksRef.current]);
 
       // Règle produit 24/09/2026 : un morceau déjà présent chez l'auditeur
       // reste écoutable. On ne retire donc PLUS rien de la file sociale.
@@ -563,7 +564,9 @@ export default function MusicSwipeDeckModal({
     void checkOwnKeepLibrary(current)
       .then((result) => {
         if (!alive) return;
-        setAlreadyKeptState(result?.exists ? 'yes' : 'no');
+        // Null = remote anti-duplicate check unavailable. Do not display a
+        // misleading GARDER button before ownership can be checked.
+        setAlreadyKeptState(result === null ? 'checking' : result.exists ? 'yes' : 'no');
       })
       .catch(() => {
         if (alive) setAlreadyKeptState('no');
@@ -958,6 +961,9 @@ export default function MusicSwipeDeckModal({
       const result = outcome.value;
       if (result === false && !isSaleStoryTrack(keptTrack)) reportAutoDiagnostic('KEEP_NOT_CONFIRMED', visibility);
       if (result !== false) {
+        // A different catalogue ID may have been deduplicated server-side.
+        // Refresh immediately so this same Story is no longer offered as new.
+        setAlreadyKeptState('yes');
         // GARDER en Public = nouvelle musique dans ma story : le cercle de ma photo doit s'allumer tout de suite.
         if (visibility === 'PUBLIC') {
           // A confirmed PUBLIC keep is already in the personal 24h story
@@ -1018,12 +1024,18 @@ export default function MusicSwipeDeckModal({
     // Si l'utilisateur touche GARDER avant la fin du contrôle asynchrone,
     // on refait une vérification synchrone du scénario critique. Un doublon ne
     // peut donc jamais atteindre le choix Public/Privé ni onKeep().
-    if (alreadyKeptState === 'checking' && !requiresAccount) {
+    // Always recheck on the real user tap: a track may have been kept or
+    // re-shared from another device after the card initially rendered.
+    if (!requiresAccount) {
       setProcessing(true);
       actionInFlight.current = true;
       try {
         const result = await checkOwnKeepLibrary(current).catch(() => null);
-        if (result?.exists) {
+        if (result === null) {
+          Alert.alert('Vérification indisponible', 'Impossible de vérifier ta collection. Aucun FREE débité. Réessaie quand la connexion revient.');
+          return;
+        }
+        if (result.exists) {
           setAlreadyKeptState('yes');
           setProcessing(false);
           showAlreadyKept();
@@ -1529,9 +1541,9 @@ export default function MusicSwipeDeckModal({
                 style={[s.decisionButton, s.keepButton, currentAlreadyKept && s.keepButtonAlready]}
                 onPress={() => { void requestKeep(); }}
                 disabled={controlsLocked || ownStoryView}
-                accessibilityLabel={ownStoryView ? 'Musique déjà dans ta Story' : currentAlreadyKept ? 'Déjà dans ta collection' : 'Garder cette musique'}
+                accessibilityLabel={ownStoryView ? 'Musique déjà dans ta Story' : alreadyKeptState === 'checking' ? 'Vérification de ta collection' : currentAlreadyKept ? 'Déjà dans ta collection' : 'Garder cette musique'}
               >
-                {processing ? <ActivityIndicator color={currentAlreadyKept ? '#B9B0C3' : colors.black} size="small" /> : <Text style={[s.keepButtonText, currentAlreadyKept && s.keepButtonTextAlready]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{ownStoryView ? '✓ EN STORY' : currentAlreadyKept ? '✓ DÉJÀ' : '♡ GARDER'}</Text>}
+                {processing ? <ActivityIndicator color={currentAlreadyKept ? '#B9B0C3' : colors.black} size="small" /> : <Text style={[s.keepButtonText, currentAlreadyKept && s.keepButtonTextAlready]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{ownStoryView ? '✓ EN STORY' : alreadyKeptState === 'checking' ? '◌ VÉRIFICATION' : currentAlreadyKept ? '✓ DÉJÀ' : '♡ GARDER'}</Text>}
               </TouchableOpacity>
             </View>
           </View>
