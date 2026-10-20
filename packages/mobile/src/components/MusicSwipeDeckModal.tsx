@@ -1174,7 +1174,10 @@ export default function MusicSwipeDeckModal({
   const nativeSwipeUp = useMemo(() => Gesture.Pan()
     .runOnJS(true)
     .activeOffsetY(-12)
-    .failOffsetX([-40, 40])
+    // Laisser le geste horizontal au SwipeDeck imbriqué : si le recognizer natif
+    // attend 40 px avant d'échouer, iOS peut déjà avoir annulé le PanResponder enfant.
+    // Un déplacement latéral franc fait donc échouer immédiatement le recognizer vertical.
+    .failOffsetX([-8, 8])
     .onEnd((event) => {
       if (screenSwipeRef.current.locked) return;
       if (event.translationY <= -36 || (event.translationY <= -12 && event.velocityY <= -350)) screenSwipeRef.current.next();
