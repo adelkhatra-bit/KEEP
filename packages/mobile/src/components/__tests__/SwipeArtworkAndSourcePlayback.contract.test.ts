@@ -25,9 +25,9 @@ describe('shared iPhone / desktop Swipe: album art, metadata and exact source pl
     const source = deck.indexOf('testID="deck-source-profile-inline"');
     expect(source).toBeGreaterThan(0);
     expect(source).toBeLessThan(meta);
-    expect(deck).not.toContain('testID="swipe-next-without-gesture"');
+    expect(deck).toContain('testID="swipe-next-without-gesture"');
     expect(deck).toContain("storyEmbeddedInCard:{position:'absolute',left:0,right:0,bottom:0,height:'56%',paddingHorizontal:44");
-    expect(deck).toContain('testID="desktop-story-next-track"');
+    expect(deck).not.toContain('testID="desktop-story-next-track"');
     expect(deck).toContain('desktopSwipeLayout && s.desktopStoryCard');
     expect(deck).toContain('testID="loki-desktop-story-aside"');
     expect(deck).toContain('accessibilityLabel="Passer cette musique"');
