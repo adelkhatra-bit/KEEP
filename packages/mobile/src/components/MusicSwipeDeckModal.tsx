@@ -1188,13 +1188,13 @@ export default function MusicSwipeDeckModal({
   };
   const screenSwipe = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => false,
-    // Réactif : le geste est pris dès 3 px vers le haut, et le morceau change PENDANT le glissement (48 px), sans attendre le relâchement.
-    // Phase CAPTURE : le geste vers le haut est pris AVANT tout enfant (carte, pochette, titre, lecteur, boutons) :
-    // il marche donc sur TOUT l'écran, doigt posé n'importe où, sans devoir viser un endroit précis.
-    onMoveShouldSetPanResponderCapture: (_, g) => !screenSwipeRef.current.locked && g.dy < -3 && Math.abs(g.dy) > Math.abs(g.dx) * 0.8,
-    onMoveShouldSetPanResponder: (_, g) => !screenSwipeRef.current.locked && g.dy < -3 && Math.abs(g.dy) > Math.abs(g.dx) * 0.8,
-    onShouldBlockNativeResponder: () => true,
-    onPanResponderTerminationRequest: () => false,
+    // IMPORTANT iOS: ne jamais capturer en phase parent. Les boutons, le lecteur natif
+    // et le PanResponder de la carte doivent pouvoir traiter leurs propres interactions.
+    // Le geste global n'est réclamé qu'après une intention verticale nette et si aucun
+    // enfant ne l'a pris. Le Gesture.Pan natif reste le chemin principal sur iPhone.
+    onMoveShouldSetPanResponder: (_, g) => !screenSwipeRef.current.locked && g.dy < -14 && Math.abs(g.dy) > Math.abs(g.dx) * 1.2,
+    onShouldBlockNativeResponder: () => false,
+    onPanResponderTerminationRequest: () => true,
     onPanResponderMove: (_, g) => {
       if (!screenSwipeRef.current.locked && g.dy <= -48 && Math.abs(g.dy) > Math.abs(g.dx)) screenSwipeRef.current.next();
     },
