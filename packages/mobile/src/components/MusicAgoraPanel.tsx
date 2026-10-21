@@ -66,6 +66,7 @@ import { useGlobalChatStore } from '../store/useGlobalChatStore';
 import { markNotificationRead } from '../services/notificationService';
 import KeepModal from './KeepModal';
 import { setVisibleInterval } from '../utils/visibleInterval';
+import { countSyncDiagnostic } from '../utils/syncDiagnostics';
 
 const PAGE_SIZE = 24;
 const LOKI_REACTION_TOKEN = '[[LOKI_REACTION]]';
@@ -143,6 +144,8 @@ export default function MusicAgoraPanel({
   const [rooms, setRooms] = useState<MusicAgoraRoom[]>([]);
   const [roomSlug, setRoomSlug] = useState('');
   const [messages, setMessages] = useState<MusicAgoraMessage[]>([]);
+  // Dernier message connu du fil ouvert (mesure temps réel / filet de secours, chiffres seulement).
+  const lastThreadMaxIdRef = useRef<{ key: string; maxId: number }>({ key: '', maxId: 0 });
   const [conversations, setConversations] = useState<MusicAgoraConversation[]>([]);
   const [groups, setGroups] = useState<MusicAgoraGroup[]>([]);
   const [activeGroup, setActiveGroup] = useState<MusicAgoraGroup | null>(null);
@@ -814,6 +817,7 @@ export default function MusicAgoraPanel({
       // Un retour réseau d'un ancien fil ne doit jamais remplacer le fil que
       // l'utilisateur vient d'ouvrir entre-temps.
       if (activeThreadKeyRef.current !== requestThreadKey) return;
+      lastThreadMaxIdRef.current = { key: requestThreadKey, maxId: rows.reduce((max, row) => Math.max(max, Number(row.id) || 0), 0) };
       setMessages(rows);
       setHasMore(rows.length === PAGE_SIZE);
       if (chatMode === 'MESSAGES') void refreshInbox();
@@ -853,6 +857,7 @@ export default function MusicAgoraPanel({
     }
     if (enabled && homeEnabled && !activeGroup?.id) void setMusicAgoraRoomSubscription(roomSlug, true, notificationsEnabled).catch(() => {});
     const onLiveMessage = () => {
+      countSyncDiagnostic('chatRealtimeEvent');
       const shouldFollow = !browsingHistoryRef.current;
       if (shouldFollow) {
         browsingHistoryRef.current = false;
@@ -885,7 +890,12 @@ export default function MusicAgoraPanel({
     // la réponse arrive quand même sans fermer/réouvrir l'écran.
     const stopLiveSafetyTimer = setVisibleInterval(() => {
       if (chatMode === 'MESSAGES' && (replyTarget?.profileId || activeGroup?.id)) {
+        // Mesure : le filet de secours trouve-t-il un message que le temps réel n'avait pas livré ?
+        const before = lastThreadMaxIdRef.current;
         void refresh(roomSlug, true).then(() => {
+          countSyncDiagnostic('chatSafetyRefresh');
+          const after = lastThreadMaxIdRef.current;
+          if (after.key === before.key && after.maxId > before.maxId) countSyncDiagnostic('chatSafetyRefreshFoundNew');
           if (!browsingHistoryRef.current) followChatBottom(false);
         });
       }
