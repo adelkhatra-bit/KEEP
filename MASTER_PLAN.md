@@ -35,8 +35,9 @@ Chaque ligne doit contenir : fichier/règle corrigé, scénario reproduit, test 
 
 ## Chantier appels API Supabase — 21/10/2026 (branche `fix/supabase-api-calls-20261021`, non livrée)
 1. FAIT sur branche (local) : `setVisibleInterval` sur les minuteurs réseau, Super Admin 5 min + onglet caché, genres envoyés une fois. Voir ERR-SUPABASE-API-POLLING-20261021.
-2. À valider par Adel : filet du tchat ouvert 2,5 s → 10 s (≈ 108 → 27 appels/min tchat ouvert ; le temps réel reste la voie normale).
-3. À valider : synchro des sessions 12 s → 60 s quand le temps réel est connecté (300 → 60 appels/h app ouverte).
+2. Décision d'Adel (21/10) : filet du tchat ouvert GARDÉ à 2,5 s tant que la mesure n'est pas faite.
+3. Décision d'Adel (21/10) : synchro des sessions GARDÉE à 12 s tant que la mesure n'est pas faite.
+3 bis. Mesure préparée (`utils/syncDiagnostics.ts`) : part des appels de secours qui apportent réellement une nouveauté ; lisible seulement après une OTA autorisée, puis proposition chiffrée.
 4. À étudier : rechargement des stories déclenché par TOUT changement de `story_pins` (temps réel sur toute la table) → filtrer par profils suivis.
 5. PR → CI → GO fusion → GO OTA, puis mesure de production avant/après (même méthode que pour les images).
 
