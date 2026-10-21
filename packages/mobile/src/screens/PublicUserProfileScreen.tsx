@@ -60,6 +60,7 @@ import CreatorToolsPanel from '../components/CreatorToolsPanel';
 import HelpLegalPanel from '../components/HelpLegalPanel';
 import NotificationSidePanel from '../components/NotificationSidePanel';
 import KeepModal from '../components/KeepModal';
+import { setVisibleInterval } from '../utils/visibleInterval';
 
 type PublicKeepTrack = {
   id: string;
@@ -347,8 +348,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     let live = true;
     const refreshPresence = () => loadProfilePresence(profile.id).then((value) => { if (live) setProfilePresence(value); }).catch(() => {});
     void refreshPresence();
-    const timer = setInterval(refreshPresence, 60000);
-    return () => { live = false; clearInterval(timer); };
+    const stopTimer = setVisibleInterval(() => { void refreshPresence(); }, 60000);
+    return () => { live = false; stopTimer(); };
   }, [profile?.id]);
 
   useEffect(() => {

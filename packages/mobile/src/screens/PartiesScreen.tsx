@@ -35,6 +35,7 @@ import StandardBackButton from '../components/StandardBackButton';
 import ContextHelpSheet from '../components/ContextHelpSheet';
 import PayoutCheckoutSheet from '../components/PayoutCheckoutSheet';
 import KeepModal from '../components/KeepModal';
+import { setVisibleInterval } from '../utils/visibleInterval';
 
 const RSVP_LABEL: Record<EventRsvpStatus, string> = {
   GOING: '✓ Je participe', MAYBE: 'Peut-être', NOT_GOING: 'Je ne participe pas',
@@ -359,8 +360,8 @@ export default function PartiesScreen({ navigation, route }: any) {
     poll();
     // Realtime global signale immédiatement l'événement ; ce polling local
     // ne sert qu'à resynchroniser le bandeau fixe de Soirées.
-    const id = setInterval(poll, 8000);
-    return () => { live = false; clearInterval(id); };
+    const stopPoll = setVisibleInterval(poll, 8000);
+    return () => { live = false; stopPoll(); };
   }, [battleFeatureEnabled, battleOpen, user, isLocalGuest, isDemoMode]);
   const commitIncomingBattleDecision = (challenge: KeepBattleIncomingChallenge, accept: boolean) => {
     setIncomingResponding(challenge.id);
@@ -407,8 +408,8 @@ export default function PartiesScreen({ navigation, route }: any) {
     poll();
     // Realtime global signale immédiatement l'événement ; ce polling local
     // ne sert qu'à resynchroniser le bandeau fixe de Soirées.
-    const id = setInterval(poll, 8000);
-    return () => { live = false; clearInterval(id); };
+    const stopPoll = setVisibleInterval(poll, 8000);
+    return () => { live = false; stopPoll(); };
   }, [battleFeatureEnabled, battleOpen, user, isLocalGuest, isDemoMode]);
   const commitPendingRematchLB = (item: KeepBattlePendingRematch, accept: boolean) => {
     if (rematchResponding) return;
