@@ -5,6 +5,9 @@ import { supabase } from '../lib/supabaseClient';
 import { APP_NAME } from '../lib/brand';
 import AdminRobot from './AdminRobot';
 
+/** Filet de sécurité des alertes Super Admin (le temps réel reste la source principale). */
+export const ADMIN_ALERTS_FALLBACK_MS = 5 * 60 * 1000;
+
 type AdminRole = 'SUPER_ADMIN' | 'ADMIN' | 'SUPPORT' | 'FINANCE' | 'MARKETING' | 'MODERATOR' | 'TECH';
 
 type NavItem = { href: string; label: string; roles?: AdminRole[] };
@@ -112,8 +115,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'integration_runtime_status' }, () => void refresh())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => void refresh())
       .subscribe();
-    const interval = setInterval(() => void refresh(), 60000);
-    return () => { active = false; clearInterval(interval); void client.removeChannel(channel); };
+    // ERR-SUPABASE-API-POLLING-20261021 : 3 compteurs × 1 440 appels / 24 h
+    // depuis un onglet laissé ouvert. Le temps réel ci-dessus prévient déjà
+    // de chaque changement ; ce filet de sécurité passe à 5 min, ne tourne
+    // pas quand l'onglet est caché, et rattrape une fois au retour.
+    const isHidden = () => typeof document !== 'undefined' && document.visibilityState === 'hidden';
+    let skipped = false;
+    const interval = setInterval(() => {
+      if (isHidden()) { skipped = true; return; }
+      void refresh();
+    }, ADMIN_ALERTS_FALLBACK_MS);
+    const onVisibility = () => {
+      if (!isHidden() && skipped) { skipped = false; void refresh(); }
+    };
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      active = false;
+      clearInterval(interval);
+      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisibility);
+      void client.removeChannel(channel);
+    };
   }, []);
 
   const totalAlerts = pendingSupport + integrationIssues + pendingModeration;
