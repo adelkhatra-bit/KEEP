@@ -7,7 +7,8 @@ describe('Connected desktop sessions', () => {
   it('refreshes on app resume and every 30 seconds', () => {
     expect(source).toContain('AppState.addEventListener');
     expect(source).toContain('30000');
-    expect(source).toContain('clearInterval(interval)');
+    expect(source).toContain('setVisibleInterval(() => { void refresh(); }, 30000, { catchUp: false })');
+    expect(source).toContain('stopInterval();');
   });
   it('shows online/offline and a 24-hour countdown', () => {
     expect(source).toContain('En ligne');

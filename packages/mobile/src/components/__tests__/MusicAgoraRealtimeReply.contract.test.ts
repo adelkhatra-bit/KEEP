@@ -16,9 +16,9 @@ describe('Loki chat realtime + quoted replies', () => {
   });
 
   it('keeps a lightweight live safety refresh while a direct/group thread is open', () => {
-    expect(panel).toContain('const liveSafetyTimer = setInterval(() => {');
+    expect(panel).toContain('const stopLiveSafetyTimer = setVisibleInterval(() => {');
     expect(panel).toContain("if (chatMode === 'MESSAGES' && (replyTarget?.profileId || activeGroup?.id))");
-    expect(panel).toContain('}, 2500);');
+    expect(panel).toContain('}, 2500, { catchUp: false });');
   });
 
   it('posts and reads persisted reply metadata', () => {
