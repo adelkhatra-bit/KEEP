@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient';
 import { navigationRef } from '../navigation/navigationRef';
 import { currentReportSurface, describeReportLocation } from './reportSurface';
 import { composeReportUpdateLine, isAbusiveReport, readCrumbs, type ReportUpdate } from './reportLoop';
+import { syncDiagnosticsSnapshot } from '../utils/syncDiagnostics';
 
 /**
  * Signalement d'un problème depuis l'app (Adel, 05/10/2026) : secouer le téléphone ou « Signaler un problème » dans les réglages.
@@ -31,7 +32,10 @@ function buildReportContext(kind: string): Record<string, unknown> {
   let online: boolean | null = null;
   try { online = typeof navigator !== 'undefined' && 'onLine' in navigator ? Boolean((navigator as any).onLine) : null; } catch { online = null; }
   const surface = currentReportSurface();
-  return { kind, route: currentScreenName(), surface: surface ? { label: surface.label, track_id: surface.trackId ?? null, track_title: surface.trackTitle ?? null, track_artist: surface.trackArtist ?? null, index: surface.index ?? null, ...(surface.extra ?? {}) } : null, route_param_keys: currentRouteParamKeys(), crumbs, online, locale: (() => { try { return Intl.DateTimeFormat().resolvedOptions().locale; } catch { return null; } })() };
+  // Compteurs temps réel / secours (chiffres seulement, aucun contenu) : voir utils/syncDiagnostics.ts.
+  let sync: Record<string, unknown> | null = null;
+  try { sync = syncDiagnosticsSnapshot(); } catch { sync = null; }
+  return { kind, sync, route: currentScreenName(), surface: surface ? { label: surface.label, track_id: surface.trackId ?? null, track_title: surface.trackTitle ?? null, track_artist: surface.trackArtist ?? null, index: surface.index ?? null, ...(surface.extra ?? {}) } : null, route_param_keys: currentRouteParamKeys(), crumbs, online, locale: (() => { try { return Intl.DateTimeFormat().resolvedOptions().locale; } catch { return null; } })() };
 }
 
 export async function submitProblemReport(message: string, who: ReportContext, kind: 'SHAKE' | 'MANUAL' | 'AUTO' = 'MANUAL'): Promise<void> {

@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient';
 import { isCloudProfileRecoverySession, useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useUserStore } from '../store/useUserStore';
 import { setVisibleInterval } from '../utils/visibleInterval';
+import { countSyncDiagnostic } from '../utils/syncDiagnostics';
 
 type CloudRow = {
   session_id: string;
@@ -237,17 +238,29 @@ export function startCrossDeviceSessionSync(userId: string): () => void {
     .on('postgres_changes', {
       event: '*', schema: 'public', table: 'keep_device_sessions', filter: 'user_id=eq.' + userId,
     }, () => {
+      countSyncDiagnostic('sessionRealtimeEvent');
       if (!sameIdentity() || realtimePullTimer) return;
       realtimePullTimer = setTimeout(() => {
         realtimePullTimer = null;
-        void pull().then(flush);
+        const before = useSessionHistoryStore.getState().sessions;
+        void pull().then(() => {
+          countSyncDiagnostic('sessionRealtimePull');
+          if (useSessionHistoryStore.getState().sessions !== before) countSyncDiagnostic('sessionRealtimePullChanged');
+        }).then(flush);
       }, REALTIME_DEBOUNCE_MS);
     }).subscribe();
 
   const unsubscribe = useSessionHistoryStore.subscribe(scan);
   // Filet de sécurité seulement app/onglet au premier plan (ERR-SUPABASE-API-POLLING-20261021) ;
   // au retour, un rattrapage immédiat resynchronise.
-  const stopTimer = setVisibleInterval(() => { void pull().then(flush); }, PULL_EVERY_MS);
+  const stopTimer = setVisibleInterval(() => {
+    // Mesure : ce passage de secours apporte-t-il une nouveauté que le temps réel n'avait pas livrée ?
+    const before = useSessionHistoryStore.getState().sessions;
+    void pull().then(() => {
+      countSyncDiagnostic('sessionTimerPull');
+      if (useSessionHistoryStore.getState().sessions !== before) countSyncDiagnostic('sessionTimerPullChanged');
+    }).then(flush);
+  }, PULL_EVERY_MS);
   void pull();
   return () => {
     stopped = true;
