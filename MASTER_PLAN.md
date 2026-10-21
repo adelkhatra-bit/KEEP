@@ -38,7 +38,7 @@ Ordre, une étape = un GO écrit d'Adel :
 1. FAIT sur branche (local) : images réduites avant envoi + limite de poids + cache 30 j versionné ; robots Playwright de production sans téléchargement d'images Storage ; robot de mesure. Voir ERR-SUPABASE-EGRESS-IMAGES-20261021.
 2. « GO photos » : remplacer EN PLACE (même chemin, même lien) les objets publics lourds par leurs versions optimisées préparées localement (16 Mo → 1,1 Mo), cache 30 j. Sauvegarde locale des originaux conservée ; aucune suppression.
 3. PR vers reconcile → CI (quand GitHub Actions sera débloqué) → fusion → OTA (seulement après GO).
-4. Prochain binaire (GO build) : `expo-image-manipulator` pour réduire aussi les photos sur iPhone/Android avant envoi.
+4. PRÉPARÉ sur branche (21/10, sans build) : `expo-image-manipulator` réduit aussi les photos sur iPhone/Android avant envoi dès qu'un binaire le contient ; actif seulement après un GO build d'Adel, repli automatique sur le binaire actuel.
 5. Option serveur (GO) : limite de taille des buckets `avatars` / `event-images` (5 Mo) et types autorisés.
 6. Phase 2 mesurée : appels API répétés au chargement (≈ 100 appels à l'ouverture du profil, `keep_decisions` ×7) — Egress PostgREST 7,26 Go.
 
