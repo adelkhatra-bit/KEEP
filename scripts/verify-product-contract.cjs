@@ -263,7 +263,7 @@ must(packageJson.scripts?.['integration:postflight']?.includes('verify-product-c
   must(!/signInWithPassword\([^;]*?\)\s*as any,\s*[0-9_]+\s*,?\s*\)/.test(authSource), 'CONNEXION: échéance en dur sur signInWithPassword -- utiliser CLIENT_PASSWORD_LOGIN_DEADLINE_MS');
   must(!/signInWithPassword\([^;]*?\),\s*[0-9_]+\s*,\s*"auth_signin_timeout"/.test(edgeSource), 'CONNEXION: échéance en dur dans keep-username-auth -- utiliser EDGE_SIGN_IN_DEADLINE_MS');
 
-  // Sondages : tout setInterval < minNetworkPollIntervalMs doit être déclaré avec sa raison.
+  // Sondages : tout setInterval / setVisibleInterval < minNetworkPollIntervalMs doit être déclaré avec sa raison.
   const minPoll = authRule.minNetworkPollIntervalMs;
   must(Number.isFinite(minPoll) && minPoll >= 5000, 'CONNEXION: minNetworkPollIntervalMs manquant');
   const allow = Array.isArray(authRule.fastIntervalAllowlist) ? authRule.fastIntervalAllowlist : [];
@@ -275,7 +275,9 @@ must(packageJson.scripts?.['integration:postflight']?.includes('verify-product-c
   for (const file of walk(path.join(root, 'packages/mobile/src'))) {
     const rel = path.relative(root, file).split(path.sep).join('/');
     const source = fs.readFileSync(file, 'utf8');
-    const re = /setInterval\(([\s\S]{0,400}?),\s*([0-9_]+)\s*\)/g;
+    // setVisibleInterval (utils/visibleInterval.ts) reste contrôlé : un sondage rapide
+    // n'est pas autorisé parce qu'il s'arrête en arrière-plan.
+    const re = /set(?:Visible)?Interval\(([\s\S]{0,400}?),\s*([0-9_]+)\s*(?:,\s*\{[^{}]*\})?\s*\)/g;
     let m;
     while ((m = re.exec(source))) {
       const ms = Number(m[2].replace(/_/g, ''));
