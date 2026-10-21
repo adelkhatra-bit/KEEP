@@ -12,8 +12,8 @@
 // Règles :
 // - une image est réduite AVANT l'envoi (PC/web : canvas, côté navigateur) ;
 // - sur iPhone/Android, le sélecteur photo recadre et compresse ; la réduction
-//   en pixels native demandera `expo-image-manipulator` dans un futur binaire
-//   (décision Adel, aucun build sans GO) ;
+//   en pixels passe par `expo-image-manipulator` dès qu'un binaire le contient
+//   (prochain build, GO d'Adel) — sur un binaire plus ancien, repli automatique ;
 // - une limite de poids explicite protège chaque type d'image ;
 // - l'URL publique est versionnée (?v=…) à chaque envoi : on peut donc
 //   demander un cache long sans risque d'afficher une ancienne photo.
@@ -213,6 +213,122 @@ async function resizeOnWeb(blob: Blob, sourceMime: string, rule: StorageImageRul
   } finally {
     decoded.close();
   }
+}
+
+// ─── iPhone / Android : réduction native (expo-image-manipulator) ───────────
+// Le module natif n'existe que dans les binaires construits APRÈS son ajout
+// (prochain build, GO d'Adel). Sur un binaire plus ancien (ex. 445), il est
+// absent : on le détecte sans jamais importer le module (son import échouerait)
+// et on garde le comportement actuel (photo du sélecteur + limite de poids).
+
+type NativeManipulatorModule = {
+  ImageManipulator: { manipulate(source: unknown): NativeManipulatorContext };
+  SaveFormat: { JPEG: string; PNG: string };
+};
+type NativeManipulatorContext = {
+  resize(size: { width?: number | null; height?: number | null }): NativeManipulatorContext;
+  renderAsync(): Promise<NativeImageRef>;
+};
+type NativeImageRef = {
+  width: number;
+  height: number;
+  saveAsync(options?: { compress?: number; format?: string }): Promise<{ uri: string; width: number; height: number }>;
+};
+
+export function nativeImageManipulator(): NativeManipulatorModule | null {
+  if (typeof document !== 'undefined') return null; // PC/web : le canvas suffit
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { requireOptionalNativeModule } = require('expo');
+    if (!requireOptionalNativeModule?.('ExpoImageManipulator')) return null;
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    return require('expo-image-manipulator') as NativeManipulatorModule;
+  } catch {
+    return null;
+  }
+}
+
+export type PickedImageAsset = {
+  uri: string;
+  mimeType?: string | null;
+  width?: number | null;
+  height?: number | null;
+};
+
+async function readBlob(uri: string): Promise<Blob> {
+  const response = await fetch(uri);
+  return response.blob();
+}
+
+async function resizeOnNative(asset: PickedImageAsset, sourceMime: string, kind: StorageImageKind, manipulator: NativeManipulatorModule): Promise<PreparedStorageImage | null> {
+  const rule = storageImageRule(kind);
+  let width = Number(asset.width) || 0;
+  let height = Number(asset.height) || 0;
+  let source: unknown = asset.uri;
+  if (!width || !height) {
+    // Dimensions inconnues (avatar local) : un premier rendu donne la taille réelle.
+    const probe = await manipulator.ImageManipulator.manipulate(asset.uri).renderAsync();
+    width = probe.width;
+    height = probe.height;
+    source = probe;
+  }
+  const target = fitWithin(width, height, rule.maxSide);
+  // Image déjà assez petite : on garde exactement la photo du sélecteur
+  // (comportement actuel), sans réencodage inutile qui pourrait l'alourdir.
+  if (!target.scaled) return null;
+  const context = manipulator.ImageManipulator.manipulate(source);
+  context.resize(width >= height ? { width: target.width } : { height: target.height });
+  // Une source PNG reste PNG (transparence d'un logo préservée) ; les photos passent en JPEG.
+  const keepPng = rule.prefer === 'png' || /png/i.test(sourceMime);
+  const rendered = await context.renderAsync();
+  const saved = await rendered.saveAsync({
+    compress: keepPng ? 1 : rule.quality,
+    format: keepPng ? manipulator.SaveFormat.PNG : manipulator.SaveFormat.JPEG,
+  });
+  const blob = await readBlob(saved.uri);
+  if (!blob.size) return null;
+  const mime = keepPng ? 'image/png' : 'image/jpeg';
+  return {
+    blob,
+    mime,
+    extension: extensionForMime(mime),
+    originalBytes: 0, // inconnu sans relire l'original (évité volontairement : mémoire du téléphone)
+    finalBytes: blob.size,
+    optimized: true,
+    width: saved.width,
+    height: saved.height,
+  };
+}
+
+/**
+ * Point d'entrée des sélecteurs photo (avatar, soirée, QR) :
+ * - PC/web : réduction canvas (prepareStorageImage) ;
+ * - iPhone/Android avec module natif : réduction en pixels avant envoi ;
+ * - iPhone/Android sans module (binaire ancien) : photo du sélecteur + limite.
+ * `readSource` permet à l'appelant de garder sa propre vérification de lecture
+ * (ex. profileService.persistLocalAvatar).
+ */
+export async function prepareStorageImageFromAsset(
+  asset: PickedImageAsset,
+  kind: StorageImageKind,
+  readSource: (uri: string) => Promise<Blob> = readBlob,
+): Promise<PreparedStorageImage> {
+  const manipulator = nativeImageManipulator();
+  const sourceMime = String(asset.mimeType || '');
+  if (manipulator) {
+    try {
+      const resized = await resizeOnNative(asset, sourceMime || 'image/jpeg', kind, manipulator);
+      if (resized) {
+        assertStorageImageSize(resized.finalBytes, kind);
+        return resized;
+      }
+    } catch (error) {
+      if (error instanceof Error && /trop lourde/.test(error.message)) throw error;
+      // Échec de la réduction native : on retombe sur le chemin actuel, sans bloquer l'envoi.
+    }
+  }
+  const blob = await readSource(asset.uri);
+  return prepareStorageImage(blob, kind, sourceMime || blob.type || null);
 }
 
 /**

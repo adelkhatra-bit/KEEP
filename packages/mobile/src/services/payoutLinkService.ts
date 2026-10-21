@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient';
-import { prepareStorageImage, storageImageRule, storageImageUploadOptions, versionedPublicUrl } from './storageImageUpload';
+import { prepareStorageImageFromAsset, storageImageRule, storageImageUploadOptions, versionedPublicUrl } from './storageImageUpload';
 
 /**
  * Lien de paiement personnel (Adel, 16-17/09/2026) — "l'idéal c'est que
@@ -129,10 +129,8 @@ export async function pickAndUploadPayoutQr(profileId: string): Promise<string |
     throw new Error('Compte requis pour enregistrer un QR de paiement.');
   }
 
-  const response = await fetch(asset.uri);
-  const blob = await response.blob();
-  // QR : PNG net réduit à 1600 px sur PC/web, limite de poids explicite.
-  const prepared = await prepareStorageImage(blob, 'payoutQr', asset.mimeType || blob.type || 'image/png');
+  // QR : PNG net (sans perte) réduit à 1600 px, PC comme téléphone, limite de poids explicite.
+  const prepared = await prepareStorageImageFromAsset(asset, 'payoutQr');
   const path = `${profileId}/payout-qr.${prepared.extension}`;
 
   const { error: uploadError } = await supabase.storage.from('avatars').upload(path, prepared.blob, storageImageUploadOptions(prepared));

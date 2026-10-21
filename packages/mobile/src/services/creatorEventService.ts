@@ -2,7 +2,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { supabase } from './supabaseClient';
 import { APP_NAME } from '../config/brand';
 import type { ProfileCertificationTier } from './publicProfileStateService';
-import { prepareStorageImage, storageImageRule, storageImageUploadOptions, versionedPublicUrl } from './storageImageUpload';
+import { prepareStorageImageFromAsset, storageImageRule, storageImageUploadOptions, versionedPublicUrl } from './storageImageUpload';
 
 export type EventAudienceMode = 'GENERAL' | 'ADULTS_18_PLUS' | 'FAMILY';
 
@@ -574,10 +574,8 @@ export async function pickAndUploadEventImage(creatorId: string): Promise<string
   const asset = await pickEventImageAsset();
   if (!asset) return null;
 
-  const response = await fetch(asset.uri);
-  const blob = await response.blob();
-  // Limite explicite + réduction à 1600 px avant envoi (storageImageUpload.ts).
-  const prepared = await prepareStorageImage(blob, 'event', asset.mimeType || blob.type || 'image/jpeg');
+  // Limite explicite + réduction à 1600 px avant envoi, PC comme téléphone (storageImageUpload.ts).
+  const prepared = await prepareStorageImageFromAsset(asset, 'event');
   const path = `${creatorId}/${Date.now()}.${prepared.extension}`;
 
   const { error } = await supabase.storage.from('event-images').upload(path, prepared.blob, storageImageUploadOptions(prepared));

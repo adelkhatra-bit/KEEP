@@ -1,6 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from './supabaseClient';
-import { prepareStorageImage, storageImageRule, storageImageUploadOptions, versionedPublicUrl } from './storageImageUpload';
+import { prepareStorageImageFromAsset, storageImageRule, storageImageUploadOptions, versionedPublicUrl } from './storageImageUpload';
 
 async function pickAvatarAsset() {
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -30,11 +30,11 @@ export async function pickAndUploadAvatar(profileId: string): Promise<string | n
   const { data: authState, error: authError } = await supabase.auth.getUser();
   if (authError || !authState.user || authState.user.id !== profileId) return asset.uri;
 
-  const response = await fetch(asset.uri);
-  const blob = await response.blob();
-  // Réduction avant envoi (PC/web) + limite de poids explicite : une photo de
-  // profil ne doit plus peser plusieurs Mo pour un affichage de 40-120 px.
-  const prepared = await prepareStorageImage(blob, 'avatar', asset.mimeType || blob.type || 'image/jpeg');
+  // Réduction à 512 px avant envoi (PC/web : canvas ; iPhone/Android :
+  // expo-image-manipulator si le binaire le contient) + limite de poids
+  // explicite : une photo de profil ne doit plus peser plusieurs Mo pour un
+  // affichage de 40-120 px.
+  const prepared = await prepareStorageImageFromAsset(asset, 'avatar');
   const path = `${profileId}/avatar.${prepared.extension}`;
 
   const { error } = await supabase.storage.from('avatars').upload(path, prepared.blob, storageImageUploadOptions(prepared));
