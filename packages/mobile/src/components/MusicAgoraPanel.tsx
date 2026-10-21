@@ -65,6 +65,7 @@ import { buildPayoutCheckoutUrl, getMyPayoutMethods } from '../services/payoutLi
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
 import { markNotificationRead } from '../services/notificationService';
 import KeepModal from './KeepModal';
+import { setVisibleInterval } from '../utils/visibleInterval';
 
 const PAGE_SIZE = 24;
 const LOKI_REACTION_TOKEN = '[[LOKI_REACTION]]';
@@ -515,8 +516,8 @@ export default function MusicAgoraPanel({
       });
     };
     void load();
-    const timer = setInterval(() => { void load(); }, 30000);
-    return () => { live = false; clearInterval(timer); };
+    const stopTimer = setVisibleInterval(() => { void load(); }, 30000);
+    return () => { live = false; stopTimer(); };
   }, [enabled, presenceIdsKey]);
   const openThreadKey = activeGroup?.id && activeGroup.myStatus === 'ACTIVE'
     ? `g:${activeGroup.id}`
@@ -882,21 +883,21 @@ export default function MusicAgoraPanel({
     // Realtime donne l'instantané. Ce filet de sécurité ne tourne que lorsqu'une
     // conversation est réellement ouverte : si un mobile suspend le websocket,
     // la réponse arrive quand même sans fermer/réouvrir l'écran.
-    const liveSafetyTimer = setInterval(() => {
+    const stopLiveSafetyTimer = setVisibleInterval(() => {
       if (chatMode === 'MESSAGES' && (replyTarget?.profileId || activeGroup?.id)) {
         void refresh(roomSlug, true).then(() => {
           if (!browsingHistoryRef.current) followChatBottom(false);
         });
       }
-    }, 2500);
+    }, 2500, { catchUp: false });
 
     // Adel (02/10/2026) : « quand on ajoute des invités il faut fermer la
     // fenêtre ». Si le temps réel ne passe pas (réseau mobile, socket
     // suspendu), la liste des conversations / groupes / invitations et
     // l'en-tête du groupe ouvert se mettent à jour d'eux-mêmes toutes les 10 s
     // tant que le tchat est ouvert (avant : 60 s, et seulement sur la liste).
-    const inboxTimer = setInterval(() => { void refreshInbox(); }, 10000);
-    const timer = setInterval(() => {
+    const stopInboxTimer = setVisibleInterval(() => { void refreshInbox(); }, 10000, { catchUp: false });
+    const stopSettingsTimer = setVisibleInterval(() => {
       if (compact && enabled) {
         void loadMusicAgoraSettings().then((settings) => {
           setHomeEnabled(settings.homeEnabled);
@@ -904,14 +905,14 @@ export default function MusicAgoraPanel({
           setSettingsSurfaces(settings.surfaces);
         }).catch(() => {});
       }
-    }, 60000);
+    }, 60000, { catchUp: false });
     // Retour dans l'app : tout se remet à jour tout de suite.
     const appStateSub = AppState.addEventListener('change', (state) => {
       if (state !== 'active') return;
       void refreshInbox();
       if (chatMode === 'MESSAGES' && (replyTarget?.profileId || activeGroup?.id)) void refresh(roomSlug, true);
     });
-    return () => { unsubscribe(); clearInterval(liveSafetyTimer); clearInterval(inboxTimer); clearInterval(timer); appStateSub.remove(); };
+    return () => { unsubscribe(); stopLiveSafetyTimer(); stopInboxTimer(); stopSettingsTimer(); appStateSub.remove(); };
   }, [roomSlug, enabled, homeEnabled, notificationsEnabled, compact, chatMode, replyTarget?.profileId, activeGroup?.id, groupMembersOpen]);
 
   useEffect(() => {

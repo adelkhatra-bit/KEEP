@@ -8,6 +8,7 @@ import {
   postMusicAgoraMessage,
   saveMusicAgoraSettings,
 } from '../services/musicAgoraService';
+import { setVisibleInterval } from '../utils/visibleInterval';
 
 export default function CommunityChatHomeWidget({ onOpenProfile }: { onOpenProfile?: (username: string) => void }) {
   const [homeEnabled, setHomeEnabled] = useState(false);
@@ -39,8 +40,8 @@ export default function CommunityChatHomeWidget({ onOpenProfile }: { onOpenProfi
       await refresh();
     };
     void run();
-    const timer = setInterval(() => { if (live) void run(); }, 12_000);
-    return () => { live = false; clearInterval(timer); };
+    const stopTimer = setVisibleInterval(() => { if (live) void run(); }, 12_000);
+    return () => { live = false; stopTimer(); };
   }, []);
 
   if (!homeEnabled) return null;

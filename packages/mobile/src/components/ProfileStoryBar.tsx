@@ -55,6 +55,7 @@ import { navigationRef } from '../navigation/navigationRef';
 import KeepModal from './KeepModal';
 import { eventStoryStillVisible, loadEventStories, type EventStoryCard } from '../services/eventStoryService';
 import { setEventRsvp, type EventRsvpStatus } from '../services/creatorEventService';
+import { setVisibleInterval } from '../utils/visibleInterval';
 
 /**
  * Bulles de stories du PROFIL, à côté de la photo (Adel, 05/10/2026).
@@ -297,10 +298,11 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     try {
       if (supabase) channel = supabase.channel(`story-pins-${viewer.id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'story_pins' }, bump).subscribe();
     } catch { /* Realtime indisponible : l'intervalle et le retour dans l'app suffisent */ }
-    const interval = setInterval(bump, 90000);
+    // Onglet/app en arrière-plan : aucun rechargement (le retour au premier plan recharge déjà via AppState).
+    const stopInterval = setVisibleInterval(bump, 90000, { catchUp: false });
     const appState = AppState.addEventListener('change', (state) => { if (state === 'active') bump(); });
     return () => {
-      clearInterval(interval);
+      stopInterval();
       appState.remove();
       try { if (channel && supabase) void supabase.removeChannel(channel); } catch { /* déjà fermé */ }
     };
@@ -317,8 +319,8 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
       }).catch(() => { if (mounted) setEventStories((current) => current.filter((event) => eventStoryStillVisible(event))); });
     };
     refreshEvents();
-    const interval = setInterval(refreshEvents, 60000);
-    return () => { mounted = false; clearInterval(interval); };
+    const stopInterval = setVisibleInterval(refreshEvents, 60000);
+    return () => { mounted = false; stopInterval(); };
   }, [viewer.id, isFocused]);
 
   const respondToEventStory = async (event: EventStoryCard, choice: EventRsvpStatus) => {
@@ -341,8 +343,8 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   useEffect(() => {
     if (!viewersOpen) return;
     refreshViewers();
-    const timer = setInterval(refreshViewers, 8000);
-    return () => clearInterval(timer);
+    const stopTimer = setVisibleInterval(refreshViewers, 8000);
+    return stopTimer;
   }, [viewersOpen, refreshViewers]);
 
   // Les cœurs peuvent arriver pendant que le propriétaire consulte le détail sur un autre appareil.
@@ -356,8 +358,8 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         .catch(() => {}); // conserver le dernier état en cas de coupure
     };
     refreshHearts();
-    const timer = setInterval(refreshHearts, 8000);
-    return () => { live = false; clearInterval(timer); };
+    const stopTimer = setVisibleInterval(refreshHearts, 8000);
+    return () => { live = false; stopTimer(); };
   }, [viewersOpen, detailFor, openStory, viewer.id]);
 
   // Départ : fermeture de la story, app mise en arrière-plan ou écran quitté -> le propriétaire voit tout de suite « parti ».

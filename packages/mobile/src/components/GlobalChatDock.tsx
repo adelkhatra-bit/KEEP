@@ -25,6 +25,7 @@ import { supabase } from '../services/supabaseClient';
 import { buildChatUnreadMap, chatUnreadKey, isChatNotification } from '../services/chatUnread';
 import { useGameSessionStore } from '../store/useGameSessionStore';
 import KeepModal from './KeepModal';
+import { setVisibleInterval } from '../utils/visibleInterval';
 
 
 function chatNotificationSender(item: KeepNotification): string {
@@ -148,9 +149,10 @@ export default function GlobalChatDock() {
   // « Je suis là » : toutes les minutes et au passage en arrière-plan, pour ne saluer qu'après une vraie absence (Adel, 06/10/2026).
   useEffect(() => {
     if (!welcomeUserId) return undefined;
-    const interval = setInterval(() => { void markRobotActive(); }, 60000);
+    // « Je suis là » seulement quand l'app est réellement au premier plan.
+    const stopInterval = setVisibleInterval(() => { void markRobotActive(); }, 60000, { catchUp: false });
     const sub = AppState.addEventListener('change', (state) => { if (state !== 'active') void markRobotActive(); });
-    return () => { clearInterval(interval); sub.remove(); };
+    return () => { stopInterval(); sub.remove(); };
   }, [welcomeUserId]);
   useEffect(() => {
     if (!robotMessage) { robotBubble.setValue(0); robotShake.setValue(0); return undefined; }

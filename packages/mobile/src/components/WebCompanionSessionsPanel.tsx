@@ -16,6 +16,7 @@ import { pcShareHoursLeft } from '../services/pcShareService';
 import KeepModal from './KeepModal';
 import { buildAffiliatedPublicProfileLink, shareProfileByEmail } from '../services/sharingService';
 import { useUserStore } from '../store/useUserStore';
+import { setVisibleInterval } from '../utils/visibleInterval';
 
 function label(session: WebCompanionSession) {
   return session.device_label || 'Ordinateur Loki';
@@ -56,12 +57,12 @@ export default function WebCompanionSessionsPanel({ buttonOnly = false }: { butt
     void refresh();
     // Les sessions PC peuvent être approuvées ou révoquées sur un autre appareil.
     // Les actualiser aussi au retour de l'application évite un état périmé.
-    const interval = setInterval(() => { void refresh(); }, 30000);
+    const stopInterval = setVisibleInterval(() => { void refresh(); }, 30000, { catchUp: false });
     const listener = AppState.addEventListener('change', (state) => {
       if (state === 'active') void refresh();
     });
     return () => {
-      clearInterval(interval);
+      stopInterval();
       listener.remove();
     };
   }, [refresh, buttonOnly]);

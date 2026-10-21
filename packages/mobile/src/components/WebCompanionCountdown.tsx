@@ -5,6 +5,7 @@ import { useUserStore } from '../store/useUserStore';
 import { currentWebCompanionSessionId, listWebCompanionSessions } from '../services/webPairingService';
 
 import { formatWebCompanionRemaining, webCompanionRemainingMs } from '../services/webCompanionCountdown';
+import { setVisibleInterval } from '../utils/visibleInterval';
 
 /**
  * Visible sur l'accueil ordinateur et à côté du ☰ de la session.
@@ -53,13 +54,13 @@ export default function WebCompanionCountdown() {
 
     void refresh();
     // Un nouveau QR peut être approuvé après le rendu initial.
-    const refreshTimer = setInterval(() => { void refresh(); }, 30000);
+    const stopRefreshTimer = setVisibleInterval(() => { void refresh(); }, 30000);
     const clockTimer = setInterval(() => { if (alive) setNow(Date.now()); }, 1000);
     const onFocus = () => { void refresh(); };
     window.addEventListener('focus', onFocus);
     return () => {
       alive = false;
-      clearInterval(refreshTimer);
+      stopRefreshTimer();
       clearInterval(clockTimer);
       window.removeEventListener('focus', onFocus);
     };
