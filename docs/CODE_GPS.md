@@ -45,6 +45,7 @@ Toute IA / tout développeur doit lire, dans cet ordre :
 | Profil backend mobile | `services/profileService.ts`, `avatarService.ts` | Profil et avatar Storage | Pas d'état uniquement local |
 | Feature flags | `services/featureFlagService.ts` | Fonctions activables | Super Admin reste la source de vérité |
 | Rafraîchissements réseau périodiques | `utils/visibleInterval.ts` | `setVisibleInterval` : aucun appel quand l'app/l'onglet est en arrière-plan, rattrapage au retour | Tout nouveau sondage serveur passe par ce module (contrôlé par `verify-product-contract.cjs`) |
+| Mesure temps réel / filets de secours | `utils/syncDiagnostics.ts` | Compteurs sur l'appareil (synchro des sessions, filet du tchat) joints au contexte d'un « Signaler un problème » | Lecture seule ; ne change aucune fréquence, aucun appel réseau |
 | Stores | `packages/mobile/src/store/` | État client | Ne pas y recopier une source durable serveur |
 | Composants communs | `packages/mobile/src/components/` | UI réutilisable | Chercher ici avant de créer un composant |
 | Moteur musique | `packages/music/` | Logique provider-agnostic | Éviter la logique métier dupliquée dans les écrans |
