@@ -22,7 +22,7 @@ describe('Chat : présence verte/rouge + Vu / En attente (Adel 05/10/2026)', () 
     expect(panel).toContain("'✓✓ Vu' : '⏳ En attente'");
   });
   it('le sondage de présence reste >= 5 s (règle anti-saturation)', () => {
-    expect(panel).toMatch(/setInterval\(\(\) => \{ void load\(\); \}, 30000\)/);
+    expect(panel).toMatch(/setVisibleInterval\(\(\) => \{ void load\(\); \}, 30000\)/);
   });
   it('migration additive de l\'accusé de lecture', () => {
     const mig = fs.readFileSync(path.join(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261005250000_agora_direct_reads.sql'), 'utf8');

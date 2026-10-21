@@ -34,7 +34,8 @@ describe('Loki auth priority under backend load', () => {
   it('does not hammer Battle RPCs fast enough to starve auth', () => {
     expect(battle).toContain('setInterval(() => { void tick(); }, 5000)');
     expect(battle).not.toContain('setInterval(() => { void tick(); }, 650)');
-    expect(parties.match(/setInterval\(poll, 8000\)/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(parties.match(/setVisibleInterval\(poll, 8000\)/g)?.length).toBeGreaterThanOrEqual(2);
     expect(parties).not.toContain('setInterval(poll, 2000)');
+    expect(parties).not.toContain('setVisibleInterval(poll, 2000)');
   });
 });

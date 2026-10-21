@@ -152,7 +152,7 @@ describe('Créateur identifié + rafraîchissement des bulles (Adel 05/10/2026)'
   });
   it('la rangée se recharge en direct (Realtime), au retour dans l\'app et toutes les 90 s, au plus 1 fois / 5 s', () => {
     expect(bar).toContain("table: 'story_pins'");
-    expect(bar).toContain('setInterval(bump, 90000)');
+    expect(bar).toContain('setVisibleInterval(bump, 90000, { catchUp: false })');
     expect(bar).toContain('if (now - lastBumpRef.current < 5000) return;');
     expect(bar).toContain("state === 'active'");
   });

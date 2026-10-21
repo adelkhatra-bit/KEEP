@@ -84,12 +84,12 @@ describe('owner story viewer cross-device integration contract', () => {
     expect(service).toContain('...normalizeStoryViewerPlayback(row)');
     expect(component).toContain('loadMyLikesAmong(');
     expect(component).toContain('story-viewer-detail-');
-    expect(component).toContain('setInterval(refreshHearts, 8000)');
+    expect(component).toContain('setVisibleInterval(refreshHearts, 8000)');
   });
   it('does not misreport a failed viewer sync as zero views', () => {
     expect(component).toContain('setViewersError(true)');
     expect(component).not.toContain('catch(() => setViewers([]))');
     expect(component).toContain('story-viewers-retry');
-    expect(component).toContain('setInterval(refreshViewers, 8000)');
+    expect(component).toContain('setVisibleInterval(refreshViewers, 8000)');
   });
 });
