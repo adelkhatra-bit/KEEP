@@ -2,6 +2,7 @@ import type { KeepSession } from '../types';
 import { supabase } from './supabaseClient';
 import { isCloudProfileRecoverySession, useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useUserStore } from '../store/useUserStore';
+import { setVisibleInterval } from '../utils/visibleInterval';
 
 type CloudRow = {
   session_id: string;
@@ -244,14 +245,16 @@ export function startCrossDeviceSessionSync(userId: string): () => void {
     }).subscribe();
 
   const unsubscribe = useSessionHistoryStore.subscribe(scan);
-  const timer = setInterval(() => { void pull().then(flush); }, PULL_EVERY_MS);
+  // Filet de sécurité seulement app/onglet au premier plan (ERR-SUPABASE-API-POLLING-20261021) ;
+  // au retour, un rattrapage immédiat resynchronise.
+  const stopTimer = setVisibleInterval(() => { void pull().then(flush); }, PULL_EVERY_MS);
   void pull();
   return () => {
     stopped = true;
     unsubscribe();
     void client.removeChannel(channel);
     if (realtimePullTimer) clearTimeout(realtimePullTimer);
-    clearInterval(timer);
+    stopTimer();
     if (flushTimer) clearTimeout(flushTimer);
   };
 }

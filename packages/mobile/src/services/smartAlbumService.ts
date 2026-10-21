@@ -107,9 +107,59 @@ function smartExternalId(key: string) {
 // genre avec TOUT LE MONDE (base partagée), plus jamais recalculé/perdu à
 // chaque appel. Best-effort : une erreur ici ne doit jamais casser l'écran
 // qui a déclenché l'enrichissement (Vibes, profil, etc.).
+//
+// ERR-SUPABASE-API-POLLING-20261021 : journaux Supabase = 1 755 appels / 24 h
+// à keep_track_enrich_genres (tous « 204 », donc sans effet la plupart du
+// temps) : l'écran relançait l'envoi des MÊMES morceaux à chaque
+// rechargement de la liste. Chaque appareil retient désormais les morceaux
+// déjà envoyés (30 jours) et ne les renvoie plus.
+const GENRE_PERSIST_MEMORY_KEY = 'loki:genres-persisted:v1';
+const GENRE_PERSIST_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const GENRE_PERSIST_MEMORY_MAX = 2000;
+let genrePersistMemory: Promise<Map<string, number>> | null = null;
+
+function loadGenrePersistMemory(now: number): Promise<Map<string, number>> {
+  // Une seule lecture partagée : deux écrans ouverts en même temps utilisent la même mémoire.
+  if (genrePersistMemory) return genrePersistMemory;
+  genrePersistMemory = (async () => {
+    const memory = new Map<string, number>();
+    try {
+      const raw = await AsyncStorage.getItem(GENRE_PERSIST_MEMORY_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      for (const [id, at] of Object.entries(parsed && typeof parsed === 'object' ? parsed : {})) {
+        if (typeof at === 'number' && now - at < GENRE_PERSIST_TTL_MS) memory.set(id, at);
+      }
+    } catch {
+      // Mémoire illisible : on repart de zéro, sans bloquer l'écran.
+    }
+    return memory;
+  })();
+  return genrePersistMemory;
+}
+
+function saveGenrePersistMemory(memory: Map<string, number>): void {
+  const newest = Array.from(memory.entries()).sort((a, b) => b[1] - a[1]).slice(0, GENRE_PERSIST_MEMORY_MAX);
+  void AsyncStorage.setItem(GENRE_PERSIST_MEMORY_KEY, JSON.stringify(Object.fromEntries(newest))).catch(() => {});
+}
+
+/** Réservé aux tests : oublie la mémoire en cours. */
+export function __resetGenrePersistMemoryForTests(): void {
+  genrePersistMemory = null;
+}
+
 export async function persistEnrichedGenres(tracks: Array<{ id: string; genres: string[] }>): Promise<void> {
   if (!supabase) return;
-  const withGenres = tracks.filter((t) => t.id && Array.isArray(t.genres) && t.genres.length > 0);
+  const now = Date.now();
+  const memory = await loadGenrePersistMemory(now);
+  const withGenres = tracks.filter((t) => {
+    if (!t.id || !Array.isArray(t.genres) || t.genres.length === 0) return false;
+    const sentAt = memory.get(t.id);
+    return !(typeof sentAt === 'number' && now - sentAt < GENRE_PERSIST_TTL_MS);
+  });
+  if (!withGenres.length) return;
+  // Noté AVANT l'envoi : deux écrans qui s'ouvrent en même temps ne doublent pas l'appel.
+  for (const t of withGenres) memory.set(t.id, now);
+  saveGenrePersistMemory(memory);
   await Promise.all(withGenres.map(async (t) => {
     try { await supabase!.rpc('keep_track_enrich_genres', { p_track_id: t.id, p_genres: t.genres }); } catch {}
   }));
@@ -313,13 +363,17 @@ export async function refreshOwnSmartAlbums(): Promise<SmartAlbumRecord[]> {
   // Les anciens morceaux de la base n'avaient pas de genre. Loki les enrichit
   // lui-même, sans clé ni abonnement API, via le même catalogue public gratuit
   // déjà utilisé pour les jaquettes. Le résultat est mis en cache 30 jours.
+  // Seuls les morceaux SANS genre au départ sont à enregistrer : renvoyer tous
+  // les morceaux (déjà enrichis) à chaque rafraîchissement faisait des
+  // dizaines d'appels inutiles (ERR-SUPABASE-API-POLLING-20261021).
+  const missingGenreIds = new Set(Array.from(unique.values()).filter((track) => track.genres.length === 0).map((track) => track.id));
   const enrichedTracks = await enrichMissingGenres(Array.from(unique.values()));
   // Adel (14/09/2026, audit) : "est-ce que le système fait la différence du
   // style musical ?" -- BUG RÉEL trouvé : ce genre résolu ne servait avant
   // que le temps de calculer CES suggestions, jamais partagé -- perdu à
   // chaque appel, invisible pour "Parcourir par style" et pour les autres
   // utilisateurs. Persisté une fois pour toutes dans public.tracks.genres.
-  void persistEnrichedGenres(enrichedTracks);
+  void persistEnrichedGenres(enrichedTracks.filter((track) => missingGenreIds.has(track.id)));
   const suggestions = buildSmartAlbumSuggestions(enrichedTracks, {
     minTracks: config.minTracks,
     maxAlbums: config.maxAlbums,
