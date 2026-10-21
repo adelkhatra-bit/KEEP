@@ -73,6 +73,8 @@ async function openScreen(browser, viewport, fakeOptions = {}) {
     expires_at: exp,
   });
   const ctx = await browser.newContext({ viewport, isMobile: viewport.width < 500, hasTouch: viewport.width < 500 });
+  // Temps réel coupé (WebSocket non intercepté par page.route) : on mesure ici les appels de secours.
+  await fake.isolateRealtime(ctx);
   await ctx.addInitScript(([k, v]) => {
     try { localStorage.setItem(k, v); localStorage.setItem('keep_has_seen_onboarding_guide', 'true'); } catch { /* stockage indisponible */ }
   }, [fake.AUTH_STORAGE_KEY, JSON.stringify(sb.session)]);
@@ -186,6 +188,8 @@ async function measure(page, meter, minutes) {
   lines.push(`| Écran | Appareil | Visible (${MINUTES} min) | Passage en arrière-plan (1 min) | Caché (${MINUTES} min) | Retour au premier plan (1 min) | Principaux appels onglet caché |`);
   lines.push('|---|---|---|---|---|---|---|');
   for (const r of results) lines.push(`| ${r.titre} | ${r.appareil} | ${r.visible ? r.visible.total : '—'} | ${r.passage_arriere_plan ? r.passage_arriere_plan.total : '—'} | ${r.cache ? r.cache.total : '—'} | ${r.retour ? r.retour.total : '—'} | ${r.cache ? (r.cache.top.join(', ') || 'aucun') : r.etape} |`);
+  lines.push('');
+  lines.push(`- Temps réel : ${fake.realtimeStats.blocked} connexion(s) WebSocket vers supabase.co interceptée(s) et fermée(s) dans le navigateur du robot, jamais transmise(s) au serveur (ERR-ROBOT-REALTIME-WEBSOCKET-LEAK-20261021).`);
   lines.push('');
   lines.push('## Critères');
   for (const [label, ok] of checks) lines.push(`- ${ok ? '✅' : '❌'} ${label}`);
