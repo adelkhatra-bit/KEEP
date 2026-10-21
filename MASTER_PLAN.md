@@ -33,6 +33,13 @@ Chaque ligne doit contenir : fichier/règle corrigé, scénario reproduit, test 
 > Complète `STATE.md` (ce qui est fait). **Règle de travail : plan écrit → validation d'Adel → code.** Une étape à la fois. Aucune IA ne touche `main`, ni au design validé sans accord. Chaque étape finit par : tests + 7 gardes + preuve mobile 390 / ordinateur 1440 + ligne dans `STATE.md`. Audit **ciblé** (seulement le module touché).
 > Statuts : ✅ fait · 🟡 partiel · ⛔ pas fait · ❓ cause non établie. Tout ce qui n'est pas vérifié sur iPhone est marqué « non vérifié iPhone ».
 
+## Chantier appels API Supabase — 21/10/2026 (branche `fix/supabase-api-calls-20261021`, non livrée)
+1. FAIT sur branche (local) : `setVisibleInterval` sur les minuteurs réseau, Super Admin 5 min + onglet caché, genres envoyés une fois. Voir ERR-SUPABASE-API-POLLING-20261021.
+2. À valider par Adel : filet du tchat ouvert 2,5 s → 10 s (≈ 108 → 27 appels/min tchat ouvert ; le temps réel reste la voie normale).
+3. À valider : synchro des sessions 12 s → 60 s quand le temps réel est connecté (300 → 60 appels/h app ouverte).
+4. À étudier : rechargement des stories déclenché par TOUT changement de `story_pins` (temps réel sur toute la table) → filtrer par profils suivis.
+5. PR → CI → GO fusion → GO OTA, puis mesure de production avant/après (même méthode que pour les images).
+
 ## Audit transversal du 12/10/2026 — fusion ≠ publication ≠ affichage
 
 **Sources revérifiées le 12/10** : GitHub branche `reconcile/claude-main-20260825`, historique PR, workflow `web-preview-pages.yml`, `docs/RELEASE_REGISTER.json`, migrations Supabase réelles `rrhqsqzcplvmwxizqnla`, conversations de demandes récentes. Une PR ouverte, un commit fusionné, un workflow vert, une version servie et un iPhone mis à jour sont **cinq étapes différentes**.
