@@ -837,8 +837,8 @@
       },
       {
         "file": "packages/mobile/src/components/MusicAgoraPanel.tsx",
-        "snippet": "if (!browsingHistoryRef.current) followChatBottom(false); }); } }, 2500)",
-        "reason": "RÉSEAU : filet du temps réel, seulement conversation ouverte. À passer >= 5000 ms après le gel (point ouvert)."
+        "snippet": "if (!browsingHistoryRef.current) followChatBottom(false); }); } }, 2500, { catchUp: false })",
+        "reason": "RÉSEAU : filet du temps réel, seulement conversation ouverte et app/onglet au premier plan (setVisibleInterval). À passer >= 5000 ms après le gel (point ouvert)."
       }
     ]
   },
