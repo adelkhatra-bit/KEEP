@@ -5,8 +5,9 @@
 // jamais être copiée ici : le robot doit rester reproductible sans accès à la
 // production et sans exposer qui que ce soit.
 //
-// Le navigateur ne parle jamais au vrai projet Supabase : chaque requête vers
-// *.supabase.co est interceptée par page.route() et servie par respond().
+// Le navigateur ne parle jamais au vrai projet Supabase : chaque requête HTTP vers
+// *.supabase.co est interceptée par page.route() et servie par respond(), et le
+// WebSocket du temps réel est coupé par isolateRealtime() (voir plus bas).
 'use strict';
 
 const SUPABASE_REF = 'rrhqsqzcplvmwxizqnla';
@@ -353,8 +354,23 @@ function createFakeSupabase(options = {}) {
   return { respond, session, state, options: opts };
 }
 
+// Le temps réel Supabase passe par un WebSocket, que page.route() n'intercepte
+// PAS. Sans ce blocage, le navigateur du robot ouvrait une vraie connexion vers
+// la production avec le jeton factice (refusée : « JwtSignatureError » dans les
+// journaux Realtime, 6 768 lignes le 20-21/10/2026). Tout robot qui utilise ce
+// faux Supabase doit appeler isolateRealtime(contexte) avant d'ouvrir l'app.
+const realtimeStats = { blocked: 0 };
+async function isolateRealtime(context) {
+  await context.routeWebSocket(/supabase\.co/, (ws) => {
+    realtimeStats.blocked += 1;
+    ws.close({ code: 1000, reason: 'robot : temps réel coupé (faux Supabase)' });
+  });
+}
+
 module.exports = {
   createFakeSupabase,
+  isolateRealtime,
+  realtimeStats,
   AUTH_STORAGE_KEY,
   UID,
   SELLER,

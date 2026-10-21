@@ -177,6 +177,7 @@ function measuringRoute(sb, weights, meter) {
 async function openPage(browser, viewport, weights, fakeOptions = {}) {
   const sb = fake.createFakeSupabase({ origin: ORIGIN, groupMessages: true, ...fakeOptions });
   const ctx = await browser.newContext({ viewport, isMobile: viewport.width < 500, hasTouch: viewport.width < 500 });
+  await fake.isolateRealtime(ctx);
   await ctx.addInitScript(([k, v]) => {
     try { localStorage.setItem(k, v); localStorage.setItem('keep_has_seen_onboarding_guide', 'true'); } catch { /* stockage indisponible */ }
   }, [fake.AUTH_STORAGE_KEY, JSON.stringify(sb.session)]);
@@ -389,6 +390,8 @@ const ko = (b) => `${Math.round(b / 1024).toLocaleString('fr-FR')} Ko`;
   lines.push('## Envoi d’une photo de profil depuis le PC');
   if (up) lines.push(`- Photo choisie : ${ko(mesures.envoi.choisi_octets)} (2048×2048 px) → envoyée : ${ko(up.bodyBytes)} (corps complet), type ${up.fileType}, cache « ${up.cacheControl} », chemin ${up.path.replace(/[0-9a-f-]{36}/, '<id>')}`);
   else lines.push(`- Échec : ${mesures.envoi && mesures.envoi.erreur}`);
+  lines.push('');
+  lines.push(`- Temps réel : ${fake.realtimeStats.blocked} connexion(s) WebSocket vers supabase.co interceptée(s) et fermée(s) dans le navigateur du robot, jamais transmise(s) au serveur (ERR-ROBOT-REALTIME-WEBSOCKET-LEAK-20261021).`);
   lines.push('');
   lines.push('## Critères');
   for (const c of mesures.criteres) lines.push(`- ${c.ok ? '✅' : '❌'} ${c.libelle}`);

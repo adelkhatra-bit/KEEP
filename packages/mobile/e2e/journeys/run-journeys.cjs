@@ -58,6 +58,7 @@ async function openPage(browser, viewport, fakeOptions, { mobileFlags }) {
   const ctxOptions = { viewport };
   if (mobileFlags) Object.assign(ctxOptions, { isMobile: viewport.width < 500, hasTouch: viewport.width < 500 });
   const ctx = await browser.newContext(ctxOptions);
+  await fake.isolateRealtime(ctx);
   await ctx.addInitScript(([k, v]) => {
     try { localStorage.setItem(k, v); localStorage.setItem('keep_has_seen_onboarding_guide', 'true'); } catch { /* stockage indisponible */ }
   }, [fake.AUTH_STORAGE_KEY, JSON.stringify(sb.session)]);
@@ -774,6 +775,7 @@ const crossDeviceReadJourney = {
     const browser = page.context().browser();
     if (!browser) throw new Error('Navigateur Playwright absent');
     const mobileContext = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await fake.isolateRealtime(mobileContext);
     try {
       await mobileContext.addInitScript(([k, v]) => {
         try { localStorage.setItem(k, v); localStorage.setItem('keep_has_seen_onboarding_guide', 'true'); } catch {}
