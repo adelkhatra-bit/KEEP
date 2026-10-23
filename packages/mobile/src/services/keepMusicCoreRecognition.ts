@@ -399,7 +399,11 @@ async function recognitionAttempt(
     form.append('audio', blob, `keep-sample.${extension}`);
   }
   try {
-    const transportFetch: typeof fetch = Platform.OS === 'web' || nativeUri ? fetch : (expoFetch as unknown as typeof fetch);
+    // React Native's global fetch is the supported multipart transport for both
+    // file-URI parts and Blob parts. The Expo fetch wrapper can serialize a
+    // Blob-backed FormData without the "audio" file part, producing HTTP 400
+    // audio_required on iOS when samples originate as ArrayBuffer.
+    const transportFetch: typeof fetch = fetch;
     const response = await transportFetch(`${SUPABASE_URL!.replace(/\/$/, '')}/functions/v1/${functionName}`, {
       method: 'POST',
       headers: {
