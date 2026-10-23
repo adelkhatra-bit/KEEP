@@ -18,6 +18,12 @@ describe('Fast recognition contract', () => {
     expect(core).toContain('async recognizeAfterMemory');
   });
 
+  it('uses React Native global fetch for multipart audio so Blob samples reach Supabase as files', () => {
+    expect(core).toContain('const transportFetch: typeof fetch = fetch;');
+    expect(core).toContain("form.append('audio', blob, `keep-sample.${extension}`)");
+    expect(core).not.toContain("from 'expo/fetch'");
+  });
+
   it('routes paid server recognition through configured ACRCloud while AudD is disabled', () => {
     expect(core).toContain('const AUDD_PRIMARY_ENABLED = false;');
     expect(core).toContain("const acr = await recognitionAttempt('keep-music-fallback'");
