@@ -35,6 +35,12 @@ describe('Loki anti-doublon music contract', () => {
     expect(atomic).toContain("'trackId',v_existing.track_id");
   });
 
+  it('does not report a confirmed KEEP as failed when post-commit analytics or refresh fails', () => {
+    expect(keepAction).toContain('Router analytics');
+    expect(keepAction).toContain('profileSyncFailed = true;');
+    expect(keepAction).toContain('usePlaylistStore.getState().refresh().catch(() => { profileSyncFailed = true; })');
+  });
+
   it('blocks marketplace payment when equivalent music is already owned', () => {
     expect(migration).toContain('keep_playlist_sale_assert_no_owned_tracks');
     expect(migration).toContain('keep_tracks_same_content');
