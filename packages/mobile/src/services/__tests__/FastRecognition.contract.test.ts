@@ -18,6 +18,30 @@ describe('Fast recognition contract', () => {
     expect(core).toContain('async recognizeAfterMemory');
   });
 
+  it('uses React Native global fetch for multipart audio so Blob samples reach Supabase as files', () => {
+    expect(core).toContain('const transportFetch: typeof fetch = fetch;');
+    expect(core).toContain("form.append('audio', blob, `keep-sample.${extension}`)");
+    expect(core).not.toContain("from 'expo/fetch'");
+  });
+
+  it('preserves both React Native file-URI and Blob multipart branches without overriding the boundary', () => {
+    expect(core).toContain("const nativeUri = Platform.OS !== 'web' ? String((blob as any)?.uri || '') : '';");
+    expect(core).toContain("form.append('audio', { uri: nativeUri, name: `keep-sample.${extension}`, type: extension === 'wav' ? 'audio/wav' : 'audio/m4a' } as any);");
+    expect(core).toContain("form.append('audio', blob, `keep-sample.${extension}`);");
+    expect(core).toContain('body: form,');
+    // Let fetch generate the multipart boundary; a hard-coded Content-Type can
+    // cause the server to receive a form without a parseable audio file part.
+    const requestBlock = core.slice(core.indexOf('const transportFetch: typeof fetch = fetch;'), core.indexOf('const payload = await response.json()', core.indexOf('const transportFetch: typeof fetch = fetch;')));
+    expect(requestBlock).not.toMatch(/['"]Content-Type['"]\s*:/);
+  });
+
+  it('keeps server-side audio validation aligned with the uploaded file contract', () => {
+    expect(fallback).toContain('input?.get("audio")');
+    expect(fallback).toContain('audio instanceof File');
+    expect(fallback).toContain('audio.size < 1000');
+    expect(fallback).toContain('audio.size > 5 * 1024 * 1024');
+  });
+
   it('routes paid server recognition through configured ACRCloud while AudD is disabled', () => {
     expect(core).toContain('const AUDD_PRIMARY_ENABLED = false;');
     expect(core).toContain("const acr = await recognitionAttempt('keep-music-fallback'");
