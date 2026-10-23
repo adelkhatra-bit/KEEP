@@ -1,6 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
-import { fetch as expoFetch } from 'expo/fetch';
 import type { CanonicalTrack, MusicRecognitionProvider, RecognitionResult } from '@keep/music';
 import type { KeepVisibility } from '../types';
 import { getSupabaseAccessToken, supabase } from './supabaseClient';
