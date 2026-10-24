@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, KeyboardAvoidingView, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import UsernameAccountForm from './UsernameAccountForm';
 import WebPairingLifecycle from './WebPairingLifecycle';
+import WebDeveloperGate from './WebDeveloperGate';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import { colors } from '../theme/colors';
 import { radius, spacing } from '../theme/spacing';
@@ -59,7 +60,8 @@ function AccountGateModalInner() {
 
 export default function AccountGateModal() {
   // Instance UNIQUE du jumelage ordinateur (montée toujours, connecté ou non) : deux montages = deux popups et deux approbations.
-  return <><WebPairingLifecycle /><AccountGateModalInner /></>;
+  // Version ordinateur réservée aux développeurs (flag web_app) : voile monté une seule fois ici, App.tsx restant intact.
+  return <><WebPairingLifecycle /><AccountGateModalInner /><WebDeveloperGate /></>;
 }
 
 const s = StyleSheet.create({

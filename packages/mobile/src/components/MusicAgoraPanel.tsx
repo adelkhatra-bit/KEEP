@@ -65,6 +65,7 @@ import { buildPayoutCheckoutUrl, getMyPayoutMethods } from '../services/payoutLi
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
 import { markNotificationRead } from '../services/notificationService';
 import KeepModal from './KeepModal';
+import { LEGAL_URLS } from '../config/brand';
 
 const PAGE_SIZE = 24;
 const LOKI_REACTION_TOKEN = '[[LOKI_REACTION]]';
@@ -332,7 +333,7 @@ export default function MusicAgoraPanel({
       'Loki Music ne reçoit pas l’argent. Pour un paiement externe, l’acheteur paie directement le vendeur. La musique reste bloquée tant que le vendeur n’a pas confirmé avoir reçu le paiement.',
       [
         { text: 'ANNULER', style: 'cancel' },
-        { text: 'LIRE LES CONDITIONS', onPress: () => { void Linking.openURL('https://adelkhatra-bit.github.io/KEEP/terms/'); } },
+        { text: 'LIRE LES CONDITIONS', onPress: () => { void Linking.openURL(LEGAL_URLS.terms); } },
         {
           text: 'J’ACCEPTE',
           onPress: () => {

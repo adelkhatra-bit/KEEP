@@ -4,12 +4,13 @@ import { Alert } from '../utils/keepAlert';
 import { colors } from '../theme/colors';
 import SupportCenterPanel from './SupportCenterPanel';
 import { BlockedUserSummary, listBlockedUsers, unblockUser } from '../services/moderationService';
+import { LEGAL_URLS as PUBLIC_LEGAL_URLS } from '../config/brand';
 
 const LEGAL_URLS = {
-  privacy: 'https://adelkhatra-bit.github.io/KEEP/privacy/',
-  privacyChoices: 'https://adelkhatra-bit.github.io/KEEP/privacy-choices/',
-  terms: 'https://adelkhatra-bit.github.io/KEEP/terms/',
-  support: 'https://adelkhatra-bit.github.io/KEEP/support/',
+  privacy: PUBLIC_LEGAL_URLS.privacy,
+  privacyChoices: PUBLIC_LEGAL_URLS.privacyChoices,
+  terms: PUBLIC_LEGAL_URLS.terms,
+  support: PUBLIC_LEGAL_URLS.support,
 } as const;
 
 // Adel (16-17/09/2026) : "je clique sur une fonction, j'ai le résultat"
