@@ -16,7 +16,8 @@ on:
     paths:
       - 'packages/mobile/**'
   schedule:
-    - cron: '23 */6 * * *'
+    # 20/10/2026 : 1 passage par jour (au lieu de 4), décalé du Human Guardian (même verrou Supabase).
+    - cron: '53 4 * * *'
   workflow_dispatch:
 
 concurrency:

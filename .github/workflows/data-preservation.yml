@@ -3,8 +3,20 @@ name: KEEP — Data preservation contract
 on:
   push:
     branches: ['reconcile/claude-main-20260825']
+    paths-ignore:
+      # 20/10/2026 : le contrôle ne lit que du code/SQL ; la documentation seule ne le déclenche plus.
+      - '**/*.md'
+      - 'docs/**'
+      - 'AI/**'
+      - '.context/**'
   pull_request:
     branches: ['reconcile/claude-main-20260825']
+    paths-ignore:
+      # 20/10/2026 : le contrôle ne lit que du code/SQL ; la documentation seule ne le déclenche plus.
+      - '**/*.md'
+      - 'docs/**'
+      - 'AI/**'
+      - '.context/**'
 
 permissions:
   contents: read

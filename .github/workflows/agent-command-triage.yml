@@ -1,7 +1,8 @@
 name: KEEP — Agent command triage
 on:
   pull_request:
-    branches: [main]
+    # 20/10/2026 : visait main par erreur ; la branche canonique est reconcile.
+    branches: [reconcile/claude-main-20260825]
   push:
     branches: [reconcile/claude-main-20260825]
   workflow_dispatch:

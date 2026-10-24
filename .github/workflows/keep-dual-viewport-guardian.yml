@@ -23,7 +23,8 @@ on:
       - '.github/workflows/keep-dual-viewport-guardian.yml'
   workflow_dispatch:
   schedule:
-    - cron: '41 */6 * * *'
+    # 20/10/2026 : 1 passage par jour (au lieu de 4) — économie runners, contrôle complet conservé sur push/PR.
+    - cron: '41 5 * * *'
 
 # Never run this production-backed browser load in parallel with another
 # guardian. This prevents CI fan-out from starving GoTrue/Postgres.

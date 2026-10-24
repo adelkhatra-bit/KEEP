@@ -6,9 +6,8 @@ on:
     paths:
       - '.github/workflows/keep-battle-catalog-deep-expansion.yml'
       - 'supabase/functions/keep-battle-catalog-seed/**'
+  # 20/10/2026 : plus de passage planifié — lancement manuel uniquement.
   workflow_dispatch:
-  schedule:
-    - cron: '17 3 * * *'
 
 permissions:
   contents: read

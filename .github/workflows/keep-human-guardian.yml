@@ -17,7 +17,8 @@ on:
       - '.github/workflows/keep-human-guardian.yml'
   workflow_dispatch:
   schedule:
-    - cron: '23 */6 * * *'
+    # 20/10/2026 : 1 passage par jour (au lieu de 4), décalé des autres gardiens navigateur.
+    - cron: '23 4 * * *'
 
 # Mutual exclusion repository-wide for every browser job that talks to the
 # production Supabase project. Authentication always keeps priority.
