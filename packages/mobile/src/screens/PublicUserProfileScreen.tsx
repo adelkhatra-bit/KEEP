@@ -60,6 +60,7 @@ import CreatorToolsPanel from '../components/CreatorToolsPanel';
 import HelpLegalPanel from '../components/HelpLegalPanel';
 import NotificationSidePanel from '../components/NotificationSidePanel';
 import KeepModal from '../components/KeepModal';
+import { LEGAL_URLS } from '../config/brand';
 
 type PublicKeepTrack = {
   id: string;
@@ -1249,7 +1250,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       'Loki Music met en relation l’acheteur et le vendeur mais ne détient pas l’argent PayPal. Chacun doit vérifier les informations, conserver les preuves et respecter le règlement. Une fausse déclaration peut entraîner un retrait de Free, une suspension ou un bannissement.',
       [
         { text: 'ANNULER', style: 'cancel' },
-        { text: 'LIRE LES CONDITIONS', onPress: () => { void Linking.openURL('https://adelkhatra-bit.github.io/KEEP/terms/'); } },
+        { text: 'LIRE LES CONDITIONS', onPress: () => { void Linking.openURL(LEGAL_URLS.terms); } },
         {
           text: 'J’ACCEPTE',
           onPress: () => {
@@ -1480,7 +1481,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           'Conditions du paiement',
           'Le paiement est direct entre toi et le vendeur. Tu dois vérifier le montant, envoyer une preuve après paiement et attendre la validation réelle du vendeur. Les fausses déclarations ou abus peuvent entraîner retrait de Free, suspension ou bannissement.',
           [
-            { text: 'LIRE LES CONDITIONS', onPress: () => { void Linking.openURL('https://adelkhatra-bit.github.io/KEEP/terms/'); } },
+            { text: 'LIRE LES CONDITIONS', onPress: () => { void Linking.openURL(LEGAL_URLS.terms); } },
             { text: 'ANNULER', style: 'cancel' },
             {
               text: 'J’ACCEPTE',
