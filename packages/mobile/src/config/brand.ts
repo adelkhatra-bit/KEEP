@@ -13,3 +13,22 @@
  * distincts de la marque affichee, cf. discussion du 31/08/2026.
  */
 export const APP_NAME = 'Loki Music';
+
+/**
+ * Adresse publique UNIQUE du site Loki Music (24/10/2026, demande Adel :
+ * "KEEP et Adel Khatra ne doivent plus être visibles des utilisateurs").
+ * Tout lien partagé, lien légal ou texte d'aide passe par ici : le jour où un
+ * domaine neutre est branché, on change CETTE ligne (et EXPO_PUBLIC_WEB_URL
+ * des workflows web), et tous les liens de l'app suivent.
+ * Volontairement une constante (pas process.env) : le plugin d'env Expo
+ * injecte expo/virtual/env, non chargeable par Jest.
+ */
+export const PUBLIC_WEB_URL = 'https://adelkhatra-bit.github.io/KEEP';
+export const PUBLIC_WEB_BASE_URL = `${PUBLIC_WEB_URL}/`;
+export const publicWebUrl = (path = ''): string => `${PUBLIC_WEB_URL}/${String(path).replace(/^\//, '')}`;
+export const LEGAL_URLS = {
+  privacy: publicWebUrl('privacy/'),
+  privacyChoices: publicWebUrl('privacy-choices/'),
+  terms: publicWebUrl('terms/'),
+  support: publicWebUrl('support/'),
+} as const;
