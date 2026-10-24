@@ -16,6 +16,7 @@ import { getMyPayoutMethods, normalizePayoutLinkInput, setMyPayoutLink } from '.
 import { acceptMarketplacePaymentTerms, loadMarketplacePaymentTermsAccepted } from '../services/musicAgoraService';
 import type { CanonicalTrack } from '@keep/music';
 import PayPalQrPayoutControl from './PayPalQrPayoutControl';
+import { LEGAL_URLS } from '../config/brand';
 
 type PriceEditState = { offerId: string; playlistId: string; playlistName: string; paymentMode: PlaylistSalePaymentMode; priceCents: number; freePrice: number | null } | null;
 
@@ -360,7 +361,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
           'Pour recevoir un paiement PayPal via Loki Music, tu dois accepter les règles : vérifier les fonds avant tout déblocage, conserver les preuves et ne jamais valider un paiement non reçu. Un abus peut entraîner un retrait de Free, une suspension ou un bannissement.',
           [
             { text: 'ANNULER', style: 'cancel' },
-            { text: 'LIRE LES CONDITIONS', onPress: () => { void Linking.openURL('https://adelkhatra-bit.github.io/KEEP/terms/'); } },
+            { text: 'LIRE LES CONDITIONS', onPress: () => { void Linking.openURL(LEGAL_URLS.terms); } },
             {
               text: 'J’ACCEPTE',
               onPress: () => {
@@ -448,7 +449,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
           'Conditions des paiements entre utilisateurs',
           'Loki Music ne reçoit pas l’argent. Le paiement est direct entre les deux utilisateurs. Le propriétaire de la collection doit vérifier lui-même les fonds avant tout déblocage. Les abus peuvent entraîner retrait de Free, suspension ou bannissement.',
           [
-            { text: 'LIRE LES CONDITIONS', onPress: () => { void Linking.openURL('https://adelkhatra-bit.github.io/KEEP/terms/'); } },
+            { text: 'LIRE LES CONDITIONS', onPress: () => { void Linking.openURL(LEGAL_URLS.terms); } },
             { text: 'ANNULER', style: 'cancel' },
             {
               text: 'J’ACCEPTE',
