@@ -1,5 +1,6 @@
 /** Auth Loki réelle (Supabase Auth). Le pseudo reste public ; l'e-mail devient l'identifiant privé vérifié. */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { PUBLIC_WEB_BASE_URL } from '../config/brand';
 
 export interface KeepAuthSession {
   userId: string;
@@ -34,7 +35,7 @@ export interface AuthService {
   onSessionChange(callback: (session: KeepAuthSession | null) => void): () => void;
 }
 
-const KEEP_PUBLIC_URL = 'https://adelkhatra-bit.github.io/KEEP/';
+const KEEP_PUBLIC_URL = PUBLIC_WEB_BASE_URL;
 
 // Audit 08/09/2026 (Adel a reçu "Connexion Loki indisponible pour le
 // moment" sur un simple "mot de passe oublié" -- la vraie cause était une

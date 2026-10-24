@@ -72,3 +72,7 @@ export async function isPlaylistMarketplaceEnabled(): Promise<boolean> {
   if (Platform.OS !== 'web') return false;
   return isFeatureEnabled('playlist_marketplace');
 }
+
+
+/** Clé Super Admin du bouton « Connecter mon ordinateur » (fermé par défaut, ouvert aux comptes de test). */
+export const PC_CONNECT_FLAG_KEY = 'pc_connect';

@@ -1,5 +1,6 @@
+import { PUBLIC_WEB_BASE_URL } from '../config/brand';
 /** Lien de parrainage (Adel 05/10/2026) : « parraine un ami » depuis le badge verrouillé ; URL canonique + ?ref=CODE (déjà lue à l'inscription). */
-export const REFERRAL_BASE_URL = 'https://adelkhatra-bit.github.io/KEEP/';
+export const REFERRAL_BASE_URL = PUBLIC_WEB_BASE_URL;
 export function buildReferralLink(code: string): string {
   const clean = String(code || '').trim().toUpperCase();
   return clean ? `${REFERRAL_BASE_URL}?ref=${encodeURIComponent(clean)}` : REFERRAL_BASE_URL;

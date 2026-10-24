@@ -14,10 +14,10 @@ import { useUserStore } from '../store/useUserStore';
 import { loadCurrentPlanCode } from './planService';
 import { hasFeature } from './entitlementService';
 import { supabase } from './supabaseClient';
-import { APP_NAME } from '../config/brand';
+import { APP_NAME, PUBLIC_WEB_URL } from '../config/brand';
 import { appendReferralToLink, loadMyReferralCode } from './referralService';
 
-const WEB_URL = (process.env.EXPO_PUBLIC_WEB_URL || 'https://adelkhatra-bit.github.io/KEEP').replace(/\/$/, '');
+const WEB_URL = PUBLIC_WEB_URL;
 export const KEEP_SHARE_SLOGAN = `${APP_NAME} — Tes goûts te ressemblent.`;
 
 function isPlaceholder(value: string | undefined): boolean {
