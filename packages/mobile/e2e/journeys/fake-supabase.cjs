@@ -297,6 +297,13 @@ function createFakeSupabase(options = {}) {
           });
           return json(200, [mk(1, true), mk(2, true), mk(3, false), mk(4, false)]);
         }
+        // 24/10/2026 : le compte synthétique est un compte DÉVELOPPEUR — la version
+        // ordinateur (web_app) et le jumelage PC (pc_connect) lui sont ouverts.
+        case 'keep_feature_flag_enabled_for_me': {
+          let key = null; try { key = JSON.parse(req.postData() || '{}').p_key; } catch {}
+          if (key === 'web_app' || key === 'pc_connect') return json(200, true);
+          return json(200, obj ? null : []); // comportement historique inchangé pour les autres flags
+        }
         case 'keep_own_profile_snapshot': return json(200, obj ? snapshot[0] : snapshot);
         case 'keep_public_profile_snapshot': return json(200, obj ? pubsnap[0] : pubsnap);
         default:

@@ -278,7 +278,10 @@ const hasCanonicalProfileBuilder = sharing.includes('buildPublicProfileLink')
   && sharing.includes("buildShareLanding({ u: cleanUsername(username), share: 'profile' })")
   && sharing.includes('/share-profile/');
 if (!hasCanonicalProfileBuilder) failures.push('PUBLIC PROFILE LINK MISSING');
-if (!sharing.includes(expectedPublicRoot)) failures.push('SHARING PUBLIC ROOT IS NOT CANONICAL KEEP URL');
+// 24/10/2026 : l'adresse publique vit dans une source unique (config/brand.ts).
+const brandSource = fs.readFileSync(path.join(root, 'packages/mobile/src/config/brand.ts'), 'utf8');
+const sharingUsesBrandRoot = sharing.includes("from '../config/brand'") && sharing.includes('PUBLIC_WEB_URL') && brandSource.includes(expectedPublicRoot);
+if (!sharing.includes(expectedPublicRoot) && !sharingUsesBrandRoot) failures.push('SHARING PUBLIC ROOT IS NOT CANONICAL KEEP URL');
 if (/https?:\/\/localhost/i.test(sharing)) failures.push('LOCALHOST REINTRODUCED IN PUBLIC SHARING');
 
 const sharedProfileHtml = fs.readFileSync(path.join(root, 'packages/mobile/share-profile.html'), 'utf8');

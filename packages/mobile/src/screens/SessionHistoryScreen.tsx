@@ -2,7 +2,7 @@ import { PHONE_MAX_WIDTH } from '../layout/layoutMode';
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, FlatList, Pressable, useWindowDimensions } from 'react-native';
 import { Alert } from '../utils/keepAlert';
-import { stopTrackPreviewFast } from '../services/audioPreviewService';
+import { stopTrackPreviewFast, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { useTranslation } from 'react-i18next';
 import { isCloudProfileRecoverySession, useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useSessionStore } from '../store/useSessionStore';
@@ -90,7 +90,7 @@ export default function SessionHistoryScreen({ navigation }: any) {
 
     return (
       <View style={[styles.card, pendingCount > 0 && styles.cardNeedsSorting]}>
-        <TouchableOpacity style={styles.cardMain} onPress={() => !isLive && navigation.replace('SessionRecap', { sessionId: item.id, openSwipe: pendingCount > 0 })} disabled={isLive}>
+        <TouchableOpacity style={styles.cardMain} onPress={() => { if (!isLive) { unlockWebAudioForGesture(); navigation.replace('SessionRecap', { sessionId: item.id, openSwipe: true }); } }} disabled={isLive}>
           <View style={styles.cardTop}>
             <Text style={styles.cardTitle} numberOfLines={1}>{autoTitle(item)}</Text>
             <Text style={styles.cardTime}>{time}</Text>
@@ -112,7 +112,7 @@ export default function SessionHistoryScreen({ navigation }: any) {
                 stopContinuousTabMusic();
                 const current = useSessionStore.getState();
                 if (current.isActive && current.sessionId === item.id) current.requestEndSession();
-                navigation.replace('SessionRecap', { sessionId: item.id, openSwipe: pendingCount > 0 });
+                navigation.replace('SessionRecap', { sessionId: item.id, openSwipe: true });
               }}
             >
               <Text style={styles.sortText}>■ ARRÊTER ET {pendingCount > 0 ? 'SWIPER TOUTES' : 'OUVRIR'} · {pendingCount}</Text>

@@ -15,11 +15,11 @@ describe('YouTube manual recognition and tab capture', () => {
     const monitor = fs.readFileSync(path.resolve(__dirname, '..', 'continuousTabMusicSession.ts'), 'utf8');
     expect(monitor).toContain('submitCapturedAudioRecognition(recognition)');
     expect(monitor).toContain('startTabAudioMonitor(async (sample) => {');
-    expect(screen).toContain('Trouve ta musique en un clic');
+    expect(screen).toContain('Chercher un titre ou un lien');
     expect(screen).toContain("desktopHome && Platform.OS === 'web'");
     expect(screen).toContain('testID="home-tab-audio-option"');
     expect(screen).toContain('Colle un lien YouTube ou Spotify');
-    expect(screen).toContain('Trouve ta musique en un clic');
+    expect(screen).toContain('Chercher un titre ou un lien');
     expect(screen).not.toContain('ⓘ Comment ça marche ?');
   });
 });

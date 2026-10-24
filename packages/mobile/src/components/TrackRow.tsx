@@ -125,7 +125,8 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
         <View style={styles.info}>
           <Text style={styles.title} numberOfLines={1}>{track.title}</Text>
           <Text style={styles.artist} numberOfLines={1}>{track.artist}</Text>
-          {track.album && <Text style={styles.album} numberOfLines={1}>{track.album}</Text>}
+          {/* 24/10/2026 : pas de doublon de mots — l'album n'est affiché que s'il diffère du titre. */}
+          {track.album && track.album.trim().toLowerCase() !== String(track.title || '').trim().toLowerCase() ? <Text style={styles.album} numberOfLines={1}>{track.album}</Text> : null}
           {importedFromLabel ? <View style={styles.importedPill}><Text style={styles.importedPillText}>{importedFromLabel}</Text></View> : null}
           {availableLabel ? <Text style={styles.platforms} numberOfLines={1}>{availableLabel}</Text> : null}
           {status === 'kept' && visibility === 'PUBLIC' ? (

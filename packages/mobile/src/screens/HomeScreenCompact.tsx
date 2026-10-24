@@ -6,7 +6,7 @@ import { nextTickerBatch } from '../services/tickerMemory';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Image, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import TrackCover from '../components/TrackCover';
-import TemporaryMusicPreview, { type TemporaryMusicResult } from '../components/TemporaryMusicPreview';
+import TemporaryMusicPreview, { buildKeepReceipt, type KeepReceipt, type TemporaryMusicResult } from '../components/TemporaryMusicPreview';
 import type { CanonicalTrack } from '@keep/music';
 import { resolveEmbeddedMusicPlayer } from '../services/embeddedMusicPlayer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -456,6 +456,8 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [manualKeepPlaylistId, setManualKeepPlaylistId] = useState<string | undefined>(undefined);
   const [manualKeepTarget, setManualKeepTarget] = useState<{ sessionId: string; entryId: string } | null>(null);
   const [manualKeptVisibility, setManualKeptVisibility] = useState<'PUBLIC' | 'PRIVATE' | null>(null);
+  // 24/10/2026 (Adel) : après GARDER, toujours dire ce qui a été débité et le solde restant.
+  const [manualKeepReceipt, setManualKeepReceipt] = useState<KeepReceipt | null>(null);
   const [manualStoryPublished, setManualStoryPublished] = useState(false);
   const searchGeneration = useRef(0);
   const pausedForPreview = useRef(false);
@@ -469,6 +471,7 @@ export default function HomeScreenCompact({ navigation }: any) {
     setManualKeepPlaylistId(undefined);
     setManualKeepTarget(null);
     setManualKeptVisibility(null);
+    setManualKeepReceipt(null);
     setManualStoryPublished(false);
     setManualSearchQuery('');
     setManualSearchNotFound(false);
@@ -567,6 +570,8 @@ export default function HomeScreenCompact({ navigation }: any) {
       } catch { /* Preview still works offline; never charge FREE for an unconfirmed save. */ }
     } else {
       setManualKeptVisibility(null);
+      setManualKeepReceipt(null);
+    setManualKeepReceipt(null);
     }
     setManualKeepTarget(queued);
     setManualStoryPublished(false);
@@ -590,6 +595,7 @@ export default function HomeScreenCompact({ navigation }: any) {
     setManualKeepTarget(null);
     setManualKeepChoiceOpen(false);
     setManualKeptVisibility(null);
+    setManualKeepReceipt(null);
     setManualStoryPublished(false);
     setManualSaveBusy(false);
     setManualSearchNotFound(false);
@@ -621,6 +627,7 @@ export default function HomeScreenCompact({ navigation }: any) {
     // Même service et même transaction Supabase FREE que Swipe et Écouter.
     setManualSaveBusy(true);
     try {
+      const before = await getDownloadCreditStatus().catch(() => null);
       await useSessionHistoryStore.getState().keepTrackInSession(target.sessionId, target.entryId, manualKeepPlaylistId, visibility);
       const committed = useSessionHistoryStore.getState().getSession(target.sessionId)?.tracks.find((entry) => entry.id === target.entryId);
       if (committed?.status !== 'kept') {
@@ -630,6 +637,8 @@ export default function HomeScreenCompact({ navigation }: any) {
       const confirmedVisibility = committed.visibility ?? visibility;
       setManualKeptVisibility(confirmedVisibility);
       setManualKeepChoiceOpen(false);
+      const after = await getDownloadCreditStatus().catch(() => null);
+      setManualKeepReceipt(buildKeepReceipt(before, after));
       await refreshCreditBadge().catch(() => {});
       if (confirmedVisibility === 'PUBLIC') {
         // Same rule as microphone/Swipe: a confirmed PUBLIC keep decision is
@@ -1082,7 +1091,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   const manualSearchModal = (
       <KeepModal visible={manualSearchOpen || manualResultOpen} transparent animationType="fade" onRequestClose={closeManualSearchPreview}>
         {manualResultOpen ? (
-          <TemporaryMusicPreview visible={manualResultOpen} result={manualSearchResult} onClose={closeManualSearchPreview} onNext={nextManualSearch} onReplaceLink={(link) => { void runManualSearch(link); }} onKeep={requestManualKeep} keepChoiceOpen={manualKeepChoiceOpen} onChooseVisibility={(visibility) => { void confirmManualKeep(visibility); }} onCancelKeep={() => setManualKeepChoiceOpen(false)} keepCostFree={creditCostPerKeep} playlists={playlists.map((p) => ({ id: p.id, name: p.name }))} selectedPlaylistId={manualKeepPlaylistId} onSelectPlaylist={setManualKeepPlaylistId} keptVisibility={manualKeptVisibility} storyPublished={manualStoryPublished} onSeeSessions={viewSavedManualSessions} saved={manualResultSaved} saving={manualSaveBusy} />
+          <TemporaryMusicPreview visible={manualResultOpen} result={manualSearchResult} onClose={closeManualSearchPreview} onNext={nextManualSearch} onReplaceLink={(link) => { void runManualSearch(link); }} onKeep={requestManualKeep} keepChoiceOpen={manualKeepChoiceOpen} onChooseVisibility={(visibility) => { void confirmManualKeep(visibility); }} onCancelKeep={() => setManualKeepChoiceOpen(false)} keepCostFree={creditCostPerKeep} playlists={playlists.map((p) => ({ id: p.id, name: p.name }))} selectedPlaylistId={manualKeepPlaylistId} onSelectPlaylist={setManualKeepPlaylistId} keptVisibility={manualKeptVisibility} keepReceipt={manualKeepReceipt} storyPublished={manualStoryPublished} onSeeSessions={viewSavedManualSessions} saved={manualResultSaved} saving={manualSaveBusy} />
         ) : (
         <View style={s.manualSearchOverlay}><View style={s.modalCard}>
           <Text style={s.modalTitle}>♫ Trouver ta musique</Text>
@@ -1216,13 +1225,13 @@ export default function HomeScreenCompact({ navigation }: any) {
             {desktopHome && Platform.OS === 'web' && !musicEngine.isDemoMode ? (
               <TouchableOpacity testID="home-tab-audio-option" style={[s.tabTest, s.homeFindLinkButton]} onPress={tabMonitoring ? stopTabAudio : importCopiedMusicLink}
                 accessibilityRole="button" accessibilityLabel={tabMonitoring ? 'Arrêter le suivi audio' : 'Trouver le morceau avec le lien musical copié'}>
-                <Text style={s.tabTestText}>{tabMonitoring ? '■ ARRÊTER LE SUIVI AUDIO' : '♫ Trouve ta musique en un clic'}</Text>
+                <Text style={s.tabTestText}>{tabMonitoring ? '■ ARRÊTER LE SUIVI AUDIO' : '♫ Chercher un titre ou un lien'}</Text>
               </TouchableOpacity>
             ) : (
               <MotionActionButton variant="outline" size="medium" style={s.homeFindLinkButton} onPress={importCopiedMusicLink}
                 accessibilityLabel="Chercher un morceau par son titre ou son lien"
                 accessibilityHint="Ouvre la recherche par titre, artiste ou lien musical">
-                ♫  Trouve ta musique en un clic
+                ♫  Chercher un titre ou un lien
               </MotionActionButton>
             )}
             {isDemoMode || (musicEngine.isDemoMode && !listenEconomyStatus) ? (

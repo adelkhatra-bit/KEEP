@@ -16,6 +16,7 @@ import { KeepBattleSoloHistoryModal } from '../components/KeepBattleSoloHistoryM
 import ClampedText from '../components/ClampedText';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
+import { LEGAL_URLS } from '../config/brand';
 
 const DEFAULT_RULES: CommercialRules = {
   freeDiscoveryProfiles: 3,
@@ -566,8 +567,8 @@ export default function OffersScreen({ navigation, route }: any) {
               <Text style={s.restoreButtonText}>{restoring ? 'Restauration…' : 'Restaurer mes achats'}</Text>
             </TouchableOpacity>
             <View style={s.legalRow}>
-              <TouchableOpacity onPress={() => void Linking.openURL('https://adelkhatra-bit.github.io/KEEP/terms/')} accessibilityRole="link"><Text style={s.legalText}>Conditions</Text></TouchableOpacity>
-              <TouchableOpacity onPress={() => void Linking.openURL('https://adelkhatra-bit.github.io/KEEP/privacy/')} accessibilityRole="link"><Text style={s.legalText}>Confidentialité</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => void Linking.openURL(LEGAL_URLS.terms)} accessibilityRole="link"><Text style={s.legalText}>Conditions</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => void Linking.openURL(LEGAL_URLS.privacy)} accessibilityRole="link"><Text style={s.legalText}>Confidentialité</Text></TouchableOpacity>
               <TouchableOpacity onPress={() => void Linking.openURL('https://apps.apple.com/account/subscriptions')} accessibilityRole="link"><Text style={s.legalText}>Gérer</Text></TouchableOpacity>
             </View>
           </View>

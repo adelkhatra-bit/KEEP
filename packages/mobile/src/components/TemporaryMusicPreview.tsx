@@ -22,9 +22,29 @@ export type TemporaryMusicResult = {
  * PENDING without spending FREE. Explicit GARDER remains necessary for the
  * user's profile, credit debit and Story publication.
  */
+/** Reçu affiché après un GARDER confirmé (24/10/2026, Adel : « on ne sait pas si on a été débité »). */
+export type KeepReceipt = { debited: number | null; remaining: number | null; unlimited: boolean };
+
+type CreditSnapshot = { remaining: number | null; unlimited: boolean } | null;
+export function buildKeepReceipt(before: CreditSnapshot, after: CreditSnapshot): KeepReceipt {
+  const unlimited = Boolean(after?.unlimited);
+  const remaining = after && typeof after.remaining === 'number' && Number.isFinite(after.remaining) ? after.remaining : null;
+  const prev = before && typeof before.remaining === 'number' ? before.remaining : null;
+  const debited = !unlimited && prev != null && remaining != null ? Math.max(0, prev - remaining) : null;
+  return { debited, remaining, unlimited };
+}
+
+export function keepReceiptText(r: KeepReceipt): string {
+  if (r.unlimited) return 'Inclus dans ta formule · aucun FREE débité.';
+  const balance = r.remaining != null ? ` · solde : ${r.remaining} FREE` : '';
+  if (r.debited == null) return `FREE mis à jour${balance}.`;
+  if (r.debited === 0) return `Inclus dans ton quota · aucun FREE débité${balance}.`;
+  return `−${r.debited} FREE débités${balance}.`;
+}
+
 export default function TemporaryMusicPreview({
   visible, result, onClose, onNext, onReplaceLink, onSave, onSeeSessions, saved = false, saving = false,
-  onKeep, keepChoiceOpen = false, onChooseVisibility, onCancelKeep, keepCostFree = 3, keptVisibility = null, storyPublished = false,
+  onKeep, keepChoiceOpen = false, onChooseVisibility, onCancelKeep, keepCostFree = 3, keptVisibility = null, keepReceipt = null, storyPublished = false,
   playlists = [], selectedPlaylistId, onSelectPlaylist,
 }: {
   visible: boolean;
@@ -45,6 +65,7 @@ export default function TemporaryMusicPreview({
   selectedPlaylistId?: string;
   onSelectPlaylist?: (playlistId: string) => void;
   keptVisibility?: 'PUBLIC' | 'PRIVATE' | null;
+  keepReceipt?: KeepReceipt | null;
   storyPublished?: boolean;
 }) {
   const embed = resolveEmbeddedMusicPlayer(result?.sourceUrl);
@@ -203,8 +224,8 @@ export default function TemporaryMusicPreview({
             </Text>
           )}
           {embed ? (
-            <TouchableOpacity testID="temporary-music-restart-provider" onPress={restartProvider} accessibilityRole="button" accessibilityLabel="Lancer ou relancer la préécoute musicale" style={{ minHeight: 48, borderRadius: 13, borderWidth: 1.5, borderColor: '#68F2B1', backgroundColor: 'rgba(104,242,177,.12)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 }}>
-              <Text style={{ color: '#68F2B1', fontSize: 12, fontWeight: '900' }}>▶ LANCER / RELANCER L'ÉCOUTE</Text>
+            <TouchableOpacity testID="temporary-music-restart-provider" onPress={restartProvider} accessibilityRole="button" accessibilityLabel="Lancer ou relancer la préécoute musicale" style={{ minHeight: 48, borderRadius: 13, borderWidth: 1.5, borderColor: '#A78BFA', backgroundColor: 'rgba(167,139,250,.10)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 }}>
+              <Text style={{ color: '#E9E3FF', fontSize: 12, fontWeight: '900' }}>▶ LANCER / RELANCER L'ÉCOUTE</Text>
             </TouchableOpacity>
           ) : null}
           {embed && providerError ? <Text testID="temporary-music-provider-error" style={{ color: '#F5CE87', fontSize: 12, lineHeight: 18 }}>Le lecteur officiel a refusé ce chargement. Réessaie ou utilise l'extrait du catalogue disponible ci-dessous.</Text> : null}
@@ -226,6 +247,9 @@ export default function TemporaryMusicPreview({
                 : saved ? '✓ Dans Mes Sessions, en attente. La vidéo reste chez YouTube ; un débit FREE n’a lieu que si tu choisis GARDER.'
                   : 'Préécoute dans Loki : aucun FREE débité ni publication sans ton choix.'}
           </Text>
+          {keptVisibility && keepReceipt ? (
+            <Text testID="temporary-music-keep-receipt" style={{ color: '#2DE1C2', fontSize: 13, fontWeight: '800', marginTop: 6 }}>{keepReceiptText(keepReceipt)}</Text>
+          ) : null}
           {result.identified && onKeep && keptVisibility == null ? (
             <TouchableOpacity testID="temporary-music-keep" accessibilityRole="button" accessibilityLabel="Garder ce morceau sur mon profil avec les FREE" onPress={onKeep} disabled={saving} style={{ marginTop: 12, backgroundColor: '#2DE1C2', minHeight: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ color: '#10101A', fontWeight: '900', fontSize: 13 }}>{saving ? 'Vérification…' : `♡ GARDER · ${keepCostFree} FREE · PUBLIC OU PRIVÉ`}</Text>
@@ -239,8 +263,8 @@ export default function TemporaryMusicPreview({
             </TouchableOpacity>
           ) : null}
           {saved && onSeeSessions ? (
-            <TouchableOpacity testID="temporary-music-see-sessions" accessibilityRole="button" accessibilityLabel="Ouvrir Mes Sessions pour garder ce morceau avec mes FREE" onPress={onSeeSessions} style={{ marginTop: 8, minHeight: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#2DE1C2' }}>
-              <Text style={{ color: '#2DE1C2', fontWeight: '800', fontSize: 12 }}>MES SESSIONS · {saved ? 'EN ATTENTE' : 'REVOIR'}</Text>
+            <TouchableOpacity testID="temporary-music-see-sessions" accessibilityRole="button" accessibilityLabel="Ouvrir Mes Sessions pour garder ce morceau avec mes FREE" onPress={onSeeSessions} style={{ marginTop: 8, minHeight: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(209,203,229,.35)' }}>
+              <Text style={{ color: '#D1CBE5', fontWeight: '800', fontSize: 12 }}>MES SESSIONS · {saved ? 'EN ATTENTE' : 'REVOIR'}</Text>
             </TouchableOpacity>
           ) : null}
           {onNext ? (

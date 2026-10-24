@@ -3,7 +3,8 @@ import WebCompanionSessionsPanel from '../components/WebCompanionSessionsPanel';
 import { loadStoryAccess } from '../services/storyAccessService';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useIsFocused } from '@react-navigation/native';
-import { Animated, Image, Linking, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Image, Linking, Platform, SafeAreaView, Share, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { PUBLIC_WEB_BASE_URL } from '../config/brand';
 import { Alert } from '../utils/keepAlert';
 import { loadMyOfferedTrackIds } from '../services/playlistSaleService';
 import { persistOwnTrackVisibility } from '../services/keepVisibilityService';
@@ -29,7 +30,7 @@ import { loadEventStories, type EventStoryCard } from '../services/eventStorySer
 import { loadPulsePreferenceState } from '../services/pulsePreferenceService';
 import { loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadMyActiveKeepBattleArena, loadMyKeepBattleCreditStatus, loadMyKeepBattleStats, KeepBattleStats } from '../services/keepBattleService';
 import { getCommercialRules, getGrowthRewardStatus, getSmartSortAccess, GrowthRewardStatus, QuotaAccess } from '../services/growthAccessService';
-import { isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
+import { isFeatureEnabled, isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible, PC_CONNECT_FLAG_KEY } from '../services/featureFlagService';
 import { preloadTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { loadUnreadNotificationCount, subscribeToNotificationChanges } from '../services/notificationService';
@@ -610,6 +611,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // contenu numérique déverrouillé dans l'app. Code intact, juste masqué
   // tant que le flag Super Admin 'playlist_marketplace' reste désactivé.
   const [marketplaceEnabled, setMarketplaceEnabled] = useState(false);
+  // Super Admin → Feature flags → pc_connect : masque « Connecter mon ordinateur ».
+  const [pcConnectHidden, setPcConnectHidden] = useState(true);
   // (21/09/2026) BUG RÉEL corrigé : ce check ne tournait qu'au montage --
   // un changement de flag/bypass fait dans Super Admin pendant que l'écran
   // était déjà ouvert n'était jamais relu sans relancer l'app. Recalculé
@@ -619,6 +622,16 @@ export default function ProfilePublicScreen({ navigation }: any) {
     const check = () => { isPlaylistMarketplaceVisible().then((enabled) => live && setMarketplaceEnabled(enabled)); };
     check();
     const unsubscribe = navigation?.addListener?.('focus', check);
+    return () => { live = false; unsubscribe?.(); };
+  }, [navigation]);
+
+  // Super Admin : « Connecter mon ordinateur » réservé aux développeurs (flag
+  // pc_connect fermé par défaut, ouvert aux comptes de test). Relu à chaque focus.
+  useEffect(() => {
+    let live = true;
+    const checkPc = () => { isFeatureEnabled(PC_CONNECT_FLAG_KEY).then((enabled) => live && setPcConnectHidden(!enabled)); };
+    checkPc();
+    const unsubscribe = navigation?.addListener?.('focus', checkPc);
     return () => { live = false; unsubscribe?.(); };
   }, [navigation]);
 
@@ -1896,7 +1909,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
     if (key === 'pcConnect') return <>
       <Text style={s.shareTitle}>Loki Connect · Ordinateur</Text>
-      <Text style={s.shareSubtitle}>Ouvre adelkhatra-bit.github.io/KEEP sur ton PC : le QR temporaire s'affiche sur l'ordinateur. Scanne-le avec l'appareil photo de ton iPhone, puis confirme dans Loki Music. Ne partage jamais un QR de connexion personnel.</Text>
+      <Text style={s.shareSubtitle}>Sur ton ordinateur, ouvre le site Loki Music (bouton ci-dessous pour t'envoyer le lien) : un QR temporaire s'affiche.  Scanne-le avec l'appareil photo de ton iPhone, puis confirme dans Loki Music. Ne partage jamais un QR de connexion personnel.</Text>
+      <MotionActionButton variant="secondary" size="medium" onPress={() => { void Share.share({ message: `Ouvre Loki Music sur ton ordinateur : ${PUBLIC_WEB_BASE_URL}` }); }} accessibilityLabel="M'envoyer le lien pour l'ordinateur"><Text style={s.shareActionText}>M'ENVOYER LE LIEN</Text></MotionActionButton>
       <WebCompanionSessionsPanel />
     </>;
 
@@ -2717,7 +2731,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
             <Text style={s.menuIntro}>Choisis une rubrique. Un appui ouvre directement la fonction.</Text>
             <ScrollView ref={menuScrollRef} onContentSizeChange={() => { if (menuNeedsRestore.current && menuScrollY.current > 0) menuScrollRef.current?.scrollTo({ y: menuScrollY.current, animated: false }); }} onScroll={(e) => { if (menuOpenRef.current && Date.now() > menuFreezeUntil.current && e.nativeEvent.layoutMeasurement.height > 0 && Date.now() - menuOpenedAt.current > 700) menuScrollY.current = e.nativeEvent.contentOffset.y; }} scrollEventThrottle={32} style={{ flex: 1, marginTop: 8 }} contentContainerStyle={s.menuScrollContent}>
               {MENU_GROUPS.map((group) => {
-                const visibleItems = group.items.filter((item) => item.key !== 'sellPlaylists' || marketplaceEnabled);
+                const visibleItems = group.items.filter((item) => (item.key !== 'sellPlaylists' || marketplaceEnabled) && (item.key !== 'pcConnect' || !pcConnectHidden));
                 if (!visibleItems.length) return null;
                 return <View key={group.title} style={s.menuGroup}>
                   <Text style={s.menuGroupTitle}>{group.title}</Text>

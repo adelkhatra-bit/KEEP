@@ -18,7 +18,8 @@ describe('Mes Sessions compact header help contract', () => {
     expect(source).toContain('total + pendingTracks(item)');
     expect(source).toContain('SWIPER TOUTES · {pendingCount}');
     expect(source).toContain("stopContinuousTabMusic();");
-    expect(source).toContain("openSwipe: pendingCount > 0");
+    // PR #221 : une session déjà triée se rouvre aussi en Swipe (mode réécoute, choix inchangés).
+    expect(source).toContain("openSwipe: true");
   });
 
   it('keeps the recap pending count and swipe-all action across phone and computer', () => {

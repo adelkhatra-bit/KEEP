@@ -14,6 +14,7 @@ import {
 } from '../services/webPairingService';
 import { pcShareHoursLeft } from '../services/pcShareService';
 import KeepModal from './KeepModal';
+import { isFeatureEnabled, PC_CONNECT_FLAG_KEY } from '../services/featureFlagService';
 import { buildAffiliatedPublicProfileLink, shareProfileByEmail } from '../services/sharingService';
 import { useUserStore } from '../store/useUserStore';
 
@@ -21,7 +22,7 @@ function label(session: WebCompanionSession) {
   return session.device_label || 'Ordinateur Loki';
 }
 
-export default function WebCompanionSessionsPanel({ buttonOnly = false }: { buttonOnly?: boolean } = {}) {
+function WebCompanionSessionsPanelInner({ buttonOnly = false }: { buttonOnly?: boolean } = {}) {
   const [sessions, setSessions] = React.useState<WebCompanionSession[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [busyId, setBusyId] = React.useState<string | null>(null);
@@ -269,3 +270,23 @@ const s = StyleSheet.create({
   refresh: { minHeight: 48, marginTop: 10, alignItems: 'center', justifyContent: 'center' },
   refreshText: { color: colors.primaryLight, fontSize: 12, fontWeight: '800' },
 });
+
+/**
+ * 24/10/2026 (Adel) : tout ce qui concerne l'ordinateur (bouton « PC ↗
+ * Transférer ou partager » de l'accueil, panneau du profil, réglages du
+ * compte) est RÉSERVÉ AUX DÉVELOPPEURS tant que la version PC n'est pas
+ * lancée. Un seul verrou ici couvre les 3 entrées. Flag Super Admin
+ * `pc_connect` : fermé par défaut, ouvert aux comptes de test.
+ */
+export default function WebCompanionSessionsPanel(props: { buttonOnly?: boolean } = {}) {
+  const [allowed, setAllowed] = React.useState(false);
+  React.useEffect(() => {
+    let live = true;
+    const check = () => { isFeatureEnabled(PC_CONNECT_FLAG_KEY).then((enabled) => { if (live) setAllowed(enabled); }); };
+    check();
+    const sub = AppState.addEventListener('change', (st) => { if (st === 'active') check(); });
+    return () => { live = false; sub.remove(); };
+  }, []);
+  if (!allowed) return null;
+  return <WebCompanionSessionsPanelInner {...props} />;
+}

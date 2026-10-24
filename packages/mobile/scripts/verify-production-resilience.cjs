@@ -25,7 +25,9 @@ pass('Erreur ShazamKit retombe silencieusement sur les autres moteurs', contains
 pass('ShazamKit retente vite après une panne transitoire', contains(nativeShazam, 'const NATIVE_ERROR_BACKOFF_MS = 15 * 1000;'));
 pass('Pas de faux entitlement ShazamKit local', !contains(appConfig, 'com.apple.developer.shazamkit'));
 
-pass('Résolution gratuite du lien partagé avant API payante', contains(nativeFirst, 'recognizeSharedSourceKeyless()'));
+// PR #221 : un lien partagé (même < 5 min) ne doit jamais gagner la course contre l'empreinte du micro.
+// La résolution gratuite du lien reste assurée par le parcours de partage (SharedMusicHandoff, vérifié plus bas).
+pass('Écoute live : empreinte micro uniquement, aucun lien partagé dans la course', !contains(nativeFirst, 'recognizeSharedSourceKeyless()') && contains(nativeFirst, 'recognizeWithNativeShazam(audioSample)') && contains(nativeFirst, 'recognizeWithKeepMemoryFast(audioSample)'));
 pass('API serveur reste un fallback et non une dépendance unique', contains(nativeFirst, 'this.fallback.recognize(audioSample)'));
 pass('Client shared-source sans clé existe', exists('packages/mobile/src/services/keylessSharedSourceRecognition.ts'));
 pass('Resolver Supabase sans clé existe', exists('supabase/functions/keep-music-keyless-source/index.ts'));

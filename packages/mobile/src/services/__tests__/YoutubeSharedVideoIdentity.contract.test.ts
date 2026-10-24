@@ -19,7 +19,7 @@ describe('Copied YouTube link resolves exactly the shared video', () => {
     expect(client).toContain('payload.evidence?.videoIdentityVerified !== true');
     expect(client).toContain('originalId !== resolvedId');
     expect(home).toContain('openTemporaryMusicPreview(found, input)');
-    expect(home).toContain('Trouve ta musique en un clic');
+    expect(home).toContain('Chercher un titre ou un lien');
     expect(home).not.toContain('Comment ça marche ?');
   });
 });

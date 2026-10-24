@@ -1,3 +1,4 @@
+import { PUBLIC_WEB_BASE_URL, PUBLIC_WEB_URL } from '../config/brand';
 /**
  * Provider-owned embedded music player, shared by web and iOS/Android.
  * Accept the video's real ID, not a platform-specific desktop/mobile URL.
@@ -47,8 +48,8 @@ export function resolveEmbeddedMusicPlayer(raw: string | null | undefined): Embe
  * real public origin so WKWebView/Android WebView can send a valid referrer.
  * This is still YouTube's official player; Loki does not suppress its ads.
  */
-export const LOKI_PUBLIC_ORIGIN = 'https://adelkhatra-bit.github.io';
-export const LOKI_PUBLIC_BASE_URL = 'https://adelkhatra-bit.github.io/KEEP/';
+export const LOKI_PUBLIC_ORIGIN = (PUBLIC_WEB_URL.match(/^https?:\/\/[^/]+/)?.[0] ?? PUBLIC_WEB_URL);
+export const LOKI_PUBLIC_BASE_URL = PUBLIC_WEB_BASE_URL;
 
 // Adel (20/10/2026) : « quand je swipe avec le doigt vers le haut, le tactile ne la prend pas ». Cause : sur iPhone, le lecteur
 // YouTube (WebView native) avale le doigt ; le Swipe de Loki ne reçoit jamais le geste. Cette couche transparente posée sur le

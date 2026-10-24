@@ -12,6 +12,7 @@ import { loadPlaylistSaleOfferOverlap, loadPlaylistSaleOfferPreviewTracks, Playl
 import { playAntiShazamPreviewSegment, playTrackPreviewFromGesture, stopAntiShazamPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { acceptMarketplacePaymentTerms } from '../services/musicAgoraService';
 import KeepModal from './KeepModal';
+import { PUBLIC_WEB_URL } from '../config/brand';
 
 /**
  * Aperçu immersif d'une découverte musicale en vente (Adel, 21/09/2026,
@@ -37,7 +38,7 @@ import KeepModal from './KeepModal';
 const PAYPAL_FLOW_FULL = 'PAYPAL DIRECT · tu paies le créateur · il confirme la réception · Loki débloque la collection';
 const NO_REFUND_FULL = 'Après confirmation du paiement et déblocage du contenu, aucun remboursement possible sur cet accès numérique déjà fourni.';
 const MONEY_WAIVER_FULL = 'Je demande l’accès numérique dès confirmation du paiement par le créateur et je renonce à mon droit de rétractation une fois le contenu débloqué.';
-const MARKETPLACE_TERMS_URL = `${(process.env.EXPO_PUBLIC_WEB_URL || 'https://adelkhatra-bit.github.io/KEEP').replace(/\/$/, '')}/terms/`;
+const MARKETPLACE_TERMS_URL = `${PUBLIC_WEB_URL}/terms/`;
 
 function MoreToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   return (

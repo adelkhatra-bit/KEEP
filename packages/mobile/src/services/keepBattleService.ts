@@ -1,5 +1,6 @@
 import { coalesced } from './coalesce';
 import { supabase } from './supabaseClient';
+import { PUBLIC_WEB_URL } from '../config/brand';
 
 export type KeepBattleDecision = 'KEEP' | 'PASS';
 export type KeepBattleStatus = 'WAITING' | 'ACTIVE' | 'COMPLETED' | 'EXPIRED';
@@ -734,11 +735,11 @@ export function subscribeKeepBattleArena(arenaId: string, onChange: () => void) 
 }
 
 export function buildKeepBattleInviteLink(inviteCode: string): string {
-  const root = (process.env.EXPO_PUBLIC_WEB_URL || 'https://adelkhatra-bit.github.io/KEEP').replace(/\/$/, '');
+  const root = PUBLIC_WEB_URL;
   return `${root}/?battle=${encodeURIComponent(inviteCode.trim().toUpperCase())}`;
 }
 
 export function buildKeepBattleArenaInviteLink(arenaCode: string): string {
-  const root = (process.env.EXPO_PUBLIC_WEB_URL || 'https://adelkhatra-bit.github.io/KEEP').replace(/\/$/, '');
+  const root = PUBLIC_WEB_URL;
   return `${root}/?arena=${encodeURIComponent(arenaCode.trim().toUpperCase())}`;
 }
