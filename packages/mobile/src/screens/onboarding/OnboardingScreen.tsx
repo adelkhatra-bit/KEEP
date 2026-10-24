@@ -12,6 +12,7 @@ import { isWebShareVisit } from '../../services/webShareVisitor';
 import { useAccountGateStore } from '../../store/useAccountGateStore';
 import { colors } from '../../theme/colors';
 import { radius, spacing, typography } from '../../theme/spacing';
+import { LEGAL_URLS } from '../../config/brand';
 
 const LOCAL_GUEST_ID_KEY = '@keep/local-guest-id-v1';
 
@@ -43,8 +44,8 @@ function clearWebIntent() {
   window.history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
 }
 
-const TERMS_URL = 'https://adelkhatra-bit.github.io/KEEP/terms/';
-const PRIVACY_URL = 'https://adelkhatra-bit.github.io/KEEP/privacy/';
+const TERMS_URL = LEGAL_URLS.terms;
+const PRIVACY_URL = LEGAL_URLS.privacy;
 
 function LegalNotice({ style }: { style: any }) {
   const { t, i18n } = useTranslation();
