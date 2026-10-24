@@ -46,6 +46,7 @@ import { robotSay } from '../services/robotCoachService';
 import { ProfileCertificationTier } from '../services/publicProfileStateService';
 import { colors } from '../theme/colors';
 import KeepModal from './KeepModal';
+import { PUBLIC_WEB_BASE_URL } from '../config/brand';
 
 const ROUND_MS = 10000;
 const SOLO_SHOW_LIVE_PLAYERS = false;
@@ -1031,7 +1032,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
 
   const shareInvite = React.useCallback(async () => {
     const username = useUserStore.getState().user?.username;
-    const link = username ? buildPublicProfileLink(username) : 'https://adelkhatra-bit.github.io/KEEP/';
+    const link = username ? buildPublicProfileLink(username) : PUBLIC_WEB_BASE_URL;
     await shareBattleInvite('Viens me défier sur Loki Music Battle ⚡\n10 secondes · 4 choix · gagne des Free', link);
   }, []);
   const shareArenaInvite = React.useCallback(async (state: KeepBattleArenaState) => {
