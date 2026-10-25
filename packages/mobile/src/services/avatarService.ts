@@ -9,7 +9,7 @@ async function pickAvatarAsset() {
     mediaTypes: ['images'],
     allowsEditing: true,
     aspect: [1, 1],
-    quality: 0.82,
+    quality: 0.6, // photo de profil allégée (place + trafic Supabase gratuit)
   });
   if (result.canceled || !result.assets?.[0]?.uri) return null;
   return result.assets[0];
@@ -37,7 +37,7 @@ export async function pickAndUploadAvatar(profileId: string): Promise<string | n
   const { error } = await supabase.storage.from('avatars').upload(path, blob, {
     upsert: true,
     contentType: mime,
-    cacheControl: '3600',
+    cacheControl: '31536000', // 1 an : l'URL change à chaque envoi (?v=)
   });
   if (error) throw error;
 

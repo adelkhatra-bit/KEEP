@@ -562,7 +562,7 @@ async function pickEventImageAsset() {
     mediaTypes: ['images'],
     allowsEditing: true,
     aspect: [16, 9],
-    quality: 0.85,
+    quality: 0.65, // visuel d'événement allégé (place + trafic Supabase gratuit)
   });
   if (result.canceled || !result.assets?.[0]?.uri) return null;
   return result.assets[0];
@@ -582,7 +582,7 @@ export async function pickAndUploadEventImage(creatorId: string): Promise<string
   const { error } = await supabase.storage.from('event-images').upload(path, blob, {
     upsert: true,
     contentType: mime,
-    cacheControl: '3600',
+    cacheControl: '31536000', // 1 an : l'URL change à chaque envoi (?v=)
   });
   if (error) throw error;
 

@@ -204,7 +204,7 @@ async function persistLocalAvatar(client: SupabaseClient, profileId: string, ava
   const { error } = await client.storage.from('avatars').upload(path, blob, {
     upsert: true,
     contentType: mime,
-    cacheControl: '3600',
+    cacheControl: '31536000', // 1 an : l'URL change à chaque envoi (?v=)
   });
   if (error) throw error;
 
