@@ -1,5 +1,6 @@
 /** Auth Loki réelle (Supabase Auth). Le pseudo reste public ; l'e-mail devient l'identifiant privé vérifié. */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isValidNewPassword } from '../config/passwordPolicy';
 
 export interface KeepAuthSession {
   userId: string;
@@ -447,7 +448,7 @@ export function createAuthService(client: SupabaseClient): AuthService {
     },
 
     async updatePassword(password) {
-      if (password.length < 10) return { error: 'invalid_password' };
+      if (!isValidNewPassword(password)) return { error: 'invalid_password' };
       const { error } = await client.auth.updateUser({ password });
       return { error: error ? mapSignupError(error.message) : null };
     },

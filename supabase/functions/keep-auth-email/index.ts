@@ -46,7 +46,8 @@ async function handleSignup(body: any) {
   const rawReferral = String(body?.pendingReferralCode ?? "").trim().replace(/^@+/, "");
   const pendingReferral = /^[A-Za-z0-9_.-]{1,32}$/.test(rawReferral) ? rawReferral.toUpperCase() : null;
   if (!validEmail(email)) return json({ ok: false, error: "invalid_email" }, 400);
-  if (password.length < 6) return json({ ok: false, error: "invalid_password" }, 400);
+  // Règle unique Loki Music : 8 caractères minimum (miroir de packages/mobile/src/config/passwordPolicy.ts).
+  if (password.length < 8 || password.length > 128) return json({ ok: false, error: "invalid_password" }, 400);
   if (!username) return json({ ok: false, error: "invalid_username" }, 400);
 
   const { data, error } = await admin.auth.admin.generateLink({
