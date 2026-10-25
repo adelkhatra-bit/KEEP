@@ -22,7 +22,7 @@ describe('TikTok-style upward swipe contract', () => {
     expect(modal).toContain('.activeOffsetY(-12)');
     expect(modal).toContain('.failOffsetX([-8, 8])');
     expect(deck).toContain('const wantsHorizontal =');
-    expect(deck).toContain('Math.abs(gesture.dx) > SWIPE_THRESHOLD');
+    expect(deck).toContain("if (gesture.dx >= SWIPE_THRESHOLD) return commitSwipe('RIGHT')"); expect(deck).toContain("if (gesture.dx <= -SWIPE_THRESHOLD) return commitSwipe('LEFT')");
     expect(deck).toContain("return commitSwipe('LEFT')");
     expect(deck).toContain("return commitSwipe('RIGHT')");
   });
