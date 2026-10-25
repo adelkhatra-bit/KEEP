@@ -20,7 +20,7 @@ import { useUserStore } from '../store/useUserStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import { musicEngine } from '../services/musicEngine';
 import { searchTrackByText } from '../services/keepMusicCoreRecognition';
-import { isArtistOnlyQuery, searchArtistTracks, type ArtistTrackResult } from '../services/artistCatalogueSearch';
+import { isArtistOnlyQuery, searchArtistTracks, searchTrackCandidates, type ArtistTrackResult } from '../services/artistCatalogueSearch';
 import { getSharedMusicSource, supportedSharedMusicUrl } from '../services/sharedMusicSourceService';
 import SwipeDeck from '../components/SwipeDeck';
 import TrackListenControls from '../components/TrackListenControls';
@@ -446,7 +446,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [manualSearchBusy, setManualSearchBusy] = useState(false);
   const [manualSearchNotFound, setManualSearchNotFound] = useState(false);
   // Recherche par artiste : liste de toutes ses musiques (préécoute gratuite par titre).
-  const [artistSearch, setArtistSearch] = useState<{ name: string; tracks: ArtistTrackResult[] } | null>(null);
+  const [artistSearch, setArtistSearch] = useState<{ name: string; tracks: ArtistTrackResult[]; kind?: 'artist' | 'search' } | null>(null);
   // Éphémère : aucune recherche par lien n'est ajoutée aux sessions ou playlists.
   const [manualSearchResult, setManualSearchResult] = useState<(TemporaryMusicResult & { track: CanonicalTrack }) | null>(null);
   const [manualResultSaved, setManualResultSaved] = useState(false);
@@ -709,16 +709,30 @@ export default function HomeScreenCompact({ navigation }: any) {
       : Promise.resolve(null);
     const showArtist = (artist: Awaited<typeof artistLookup>): boolean => {
       if (!artist?.tracks.length) return false;
-      setArtistSearch({ name: artist.artistName, tracks: artist.tracks });
+      setArtistSearch({ name: artist.artistName, tracks: artist.tracks, kind: 'artist' });
       setManualSearchBusy(false);
       setManualSearchOpen(true);
       return true;
     };
+    // Barre de recherche musicale : une saisie libre (titre, artiste, les deux) renvoie une LISTE de
+    // résultats à préécouter, comme Deezer / Apple Music. Un lien garde son chemin exact (vérifié serveur).
+    const isLink = Boolean(supportedSharedMusicUrl(input)) || /https?:\/\//i.test(input);
+    const candidatesLookup = isLink ? Promise.resolve([] as ArtistTrackResult[]) : searchTrackCandidates(input).catch(() => [] as ArtistTrackResult[]);
     try {
       const textLookup = searchTrackByText(input);
       const artist = await artistLookup;
       if (generation !== searchGeneration.current) return;
       if (artist?.exactArtist && showArtist(artist)) return;
+      if (!isLink) {
+        const candidates = await candidatesLookup;
+        if (generation !== searchGeneration.current) return;
+        if (candidates.length) {
+          setArtistSearch({ name: input, tracks: candidates, kind: 'search' });
+          setManualSearchBusy(false);
+          setManualSearchOpen(true);
+          return;
+        }
+      }
       const found = await textLookup;
       if (generation !== searchGeneration.current) return;
       // Searching is NOT the user's GARDER action. No session, quota or DB write.
@@ -1120,7 +1134,7 @@ export default function HomeScreenCompact({ navigation }: any) {
           ) : null}
           {artistSearch ? (
             <View testID="home-artist-results" style={{ marginTop: 12 }}>
-              <Text style={{ color: C.text, fontSize: 13, fontWeight: '800', marginBottom: 6 }}>Toutes les musiques de {artistSearch.name} · {artistSearch.tracks.length}</Text>
+              <Text style={{ color: C.text, fontSize: 13, fontWeight: '800', marginBottom: 6 }}>{artistSearch.kind === 'search' ? `Résultats pour « ${artistSearch.name} » · ${artistSearch.tracks.length}` : `Toutes les musiques de ${artistSearch.name} · ${artistSearch.tracks.length}`}</Text>
               <ScrollView style={{ maxHeight: 260 }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
                 {artistSearch.tracks.map((track) => (
                   <TouchableOpacity key={track.deezerId} testID={`artist-track-${track.deezerId}`} accessibilityRole="button" accessibilityLabel={`Écouter ${track.title} de ${track.artist}`}
