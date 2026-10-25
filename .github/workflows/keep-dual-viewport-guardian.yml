@@ -268,7 +268,8 @@ jobs:
               // Cas exact utilisateur : Profil visible avec DevTools docké,
               // puis fermeture / retour plein écran SANS reload.
               await assertResponsiveSurface('profile-before-open-768x700',768,700);
-              await clickRobust(page,page.getByText('Profil',{exact:true}).last(),'Desktop Profil tab');
+              // Le menu latéral PC (#214) garde aussi une barre d'onglets mobile masquée (0x0) : viser la copie VISIBLE.
+              await clickRobust(page,page.getByText('Profil',{exact:true}).filter({visible:true}).last(),'Desktop Profil tab');
               await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
               await assertResponsiveSurface('profile-devtools-open-768x700',768,700);
               await assertResponsiveSurface('profile-devtools-closed-1440x900',1440,900);
