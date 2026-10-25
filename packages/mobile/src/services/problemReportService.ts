@@ -98,8 +98,8 @@ export function reportAutoDiagnostic(code: string, detail?: unknown): void {
     const { useUserStore } = require('../store/useUserStore');
     const user = useUserStore.getState().user;
     if (!user?.id || useUserStore.getState().isDemoMode || useUserStore.getState().isLocalGuest) return;
-    const raw = detail instanceof Error ? detail.message : typeof detail === 'string' ? detail : (detail as any)?.message ?? '';
-    void submitProblemReport(`[AUTO] ${code}${raw ? ` — ${String(raw).slice(0, 200)}` : ''}`, { userId: user.id, username: user.username }).catch(() => {});
+    const raw = detail instanceof Error ? detail.message : typeof detail === 'string' ? detail : (detail as any)?.message ?? ''; const detailKey = `${code}:${String(raw).slice(0, 80)}`; if (autoReportCounts.has(detailKey)) return; autoReportCounts.set(detailKey, 1); // même code + même détail : une seule ligne par session
+    void submitProblemReport(`[AUTO] ${code}${raw ? ` — ${String(raw).slice(0, 200)}` : ''}`, { userId: user.id, username: user.username }, 'AUTO').catch(() => {});
   } catch { /* le diagnostic ne doit jamais casser l'app */ }
 }
 
