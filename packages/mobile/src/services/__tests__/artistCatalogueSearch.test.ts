@@ -39,6 +39,18 @@ describe('artist-only search (Deezer catalogue, no key)', () => {
     expect(calls[1]).toContain('/artist/7/top?limit=50');
     expect(result.artistName).toBe('James Blunt');
     expect(result.tracks.map((t) => t.title)).toEqual(['1973', 'Goodbye My Lover']);
+    expect(result.exactArtist).toBe(true);
+  });
+
+  it('flags an approaching artist name so a typed TITLE is not hijacked (« Djadja » ≠ « Djadja & Dinaz »)', async () => {
+    jest.spyOn(global, 'fetch').mockImplementation(async (url: any) => {
+      const body = String(url).includes('/search/artist')
+        ? { data: [{ id: 3, name: 'Djadja & Dinaz' }] }
+        : { data: [{ id: 5, title: 'Autre morceau', artist: { name: 'Djadja & Dinaz' } }] };
+      return { ok: true, json: async () => body } as any;
+    });
+    const result = await searchArtistTracks('Djadja');
+    expect(result.exactArtist).toBe(false);
   });
 
   it('returns nothing for a link (never hijacks single-track lookup)', async () => {
