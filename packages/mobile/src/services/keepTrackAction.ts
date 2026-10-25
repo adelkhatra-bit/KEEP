@@ -226,17 +226,23 @@ export async function commitKeep(
   }
 
   const topRecommendation = recommendations[0]?.playlistId ?? null;
-  if (requestedId && requestedId === topRecommendation) {
-    await musicEngine.router.recordAccepted(session.userId, track, targetPlaylistId);
-  } else if (requestedId) {
-    await musicEngine.router.recordCorrection(session.userId, {
-      trackId: track.id,
-      artist: track.artist,
-      genres: track.genres ?? [],
-      recommendedPlaylistId: topRecommendation,
-      chosenPlaylistId: targetPlaylistId,
-      createdAt: new Date().toISOString(),
-    });
+  // KEEP and FREE debit are already confirmed by the server. Router analytics
+  // are best-effort and must not turn a successful KEEP into a false UI failure.
+  try {
+    if (requestedId && requestedId === topRecommendation) {
+      await musicEngine.router.recordAccepted(session.userId, track, targetPlaylistId);
+    } else if (requestedId) {
+      await musicEngine.router.recordCorrection(session.userId, {
+        trackId: track.id,
+        artist: track.artist,
+        genres: track.genres ?? [],
+        recommendedPlaylistId: topRecommendation,
+        chosenPlaylistId: targetPlaylistId,
+        createdAt: new Date().toISOString(),
+      });
+    }
+  } catch {
+    profileSyncFailed = true;
   }
 
   if (recordedTrackId) {
@@ -255,7 +261,8 @@ export async function commitKeep(
     }
   }
 
-  await usePlaylistStore.getState().refresh();
+  // Refresh is post-commit too: keep the confirmed result and show a sync warning.
+  await usePlaylistStore.getState().refresh().catch(() => { profileSyncFailed = true; });
 
   return {
     targetPlaylistId,
