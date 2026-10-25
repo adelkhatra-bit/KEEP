@@ -1,5 +1,14 @@
 [
   {
+    "commit": "73515d7c980ae428a1dce844f93200495c06d72e",
+    "web": "73515d7c980ae428a1dce844f93200495c06d72e",
+    "testflight": "iOS #244 failure (release 2edbdd0)",
+    "ota": "OTA #1035 failure (release 2edbdd0)",
+    "date": "2026-10-25 14:28",
+    "tests": "pass",
+    "changes": "perf(storage): images allégées (qualité 0.6 profil / 0.65 événement) + cache 1 an (URL déjà versionnée ?v=) pour rester dans le forfait Supabase gratuit (#226)"
+  },
+  {
     "commit": "138e82597c922a21c01a4e969fb93bb1441434ea",
     "web": "138e82597c922a21c01a4e969fb93bb1441434ea",
     "testflight": "iOS #244 failure (release 2edbdd0)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 22:07",
     "tests": "pass",
     "changes": "test(music): align 12 regression suites with unified link preview, confirmed FREE KEEP and automatic public Story"
-  },
-  {
-    "commit": "54d74a5e00eeaa8a6ef9970994d9acc41a60026b",
-    "web": "54d74a5e00eeaa8a6ef9970994d9acc41a60026b",
-    "testflight": "iOS #230 success (release 1f44ee1)",
-    "ota": "OTA #1021 success (release 1f44ee1)",
-    "date": "2026-10-12 22:00",
-    "tests": "pass",
-    "changes": "fix(music): let a second shared link supersede slow first search and honor confirmed visibility"
   }
 ]

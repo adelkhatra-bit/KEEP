@@ -143,6 +143,7 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
+| `73515d7` | `73515d7` | iOS #244 failure (release 2edbdd0) | OTA #1035 failure (release 2edbdd0) | 2026-10-25 14:28 | pass | perf(storage): images allégées (qualité 0.6 profil / 0.65 événement) + cache 1 an (URL déjà versionnée ?v=) pour rester dans le forfait Supabase gratuit (#226) |
 | `138e825` | `138e825` | iOS #244 failure (release 2edbdd0) | OTA #1035 failure (release 2edbdd0) | 2026-10-25 14:01 | pass | fix(ci): épingler ubuntu-24.04 — Playwright ne s'installe plus sur ubuntu-latest (26.04) (#225) |
 | `f95d036` | `f95d036` | iOS #243 success (release 82aae49) | OTA #1034 success (release 82aae49) | 2026-10-15 23:21 | pass | fix(story): native YouTube 153 fallback and compact attribution |
 | `bebb0a9` | `bebb0a9` | iOS #243 success (release 82aae49) | OTA #1034 success (release 82aae49) | 2026-10-15 21:02 | pass | docs(email): update live Brevo delivery readiness |
@@ -182,7 +183,6 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 | `c0c5a77` | `c0c5a77` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 22:22 | pass | test(story): verify real last viewed title after backward navigation |
 | `364b927` | `364b927` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 22:15 | pass | fix(stories): label unique viewers separately from tracks actually visited |
 | `7e6cce6` | `7e6cce6` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 22:07 | pass | test(music): align 12 regression suites with unified link preview, confirmed FREE KEEP and automatic public Story |
-| `54d74a5` | `54d74a5` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 22:00 | pass | fix(music): let a second shared link supersede slow first search and honor confirmed visibility |
 <!-- AUTO:RELEASE-REGISTER:END -->
 
 
