@@ -36,6 +36,7 @@ describe('artist-only search (Deezer catalogue, no key)', () => {
     });
     const result = await searchArtistTracks('James Blunt');
     expect(calls[0]).toContain('/search/artist?q=James%20Blunt');
+    expect(calls[0]).toContain('&limit=25');
     expect(calls[1]).toContain('/artist/7/top?limit=50');
     expect(result.artistName).toBe('James Blunt');
     expect(result.tracks.map((t) => t.title)).toEqual(['1973', 'Goodbye My Lover']);
@@ -57,6 +58,40 @@ describe('artist-only search (Deezer catalogue, no key)', () => {
     const spy = jest.spyOn(global, 'fetch');
     const result = await searchArtistTracks('https://youtu.be/abc');
     expect(result.tracks).toEqual([]);
+    expect(spy).not.toHaveBeenCalled();
+  });
+  it('choisit le vrai artiste parmi les homonymes (le plus suivi) — cas « Jul »', async () => {
+    const calls: string[] = [];
+    jest.spyOn(global, 'fetch').mockImplementation(async (url: any) => {
+      calls.push(String(url));
+      const body = String(url).includes('/search/artist')
+        ? { data: [{ id: 2, name: 'Jul!', nb_fan: 55 }, { id: 3, name: 'Jul', nb_fan: 390 }, { id: 1191615, name: 'Jul', nb_fan: 11365995 }] }
+        : { data: [{ id: 9, title: 'Tchikita', artist: { name: 'Jul' } }] };
+      return { ok: true, json: async () => body } as any;
+    });
+    const result = await searchArtistTracks('Jul');
+    expect(calls[1]).toContain('/artist/1191615/top');
+    expect(result.exactArtist).toBe(true);
+    expect(result.tracks[0].title).toBe('Tchikita');
+  });
+});
+
+describe('searchTrackCandidates — barre de recherche musicale', () => {
+  afterEach(() => jest.restoreAllMocks());
+  it('renvoie une liste sans doublon titre+artiste', async () => {
+    const { searchTrackCandidates } = require('../artistCatalogueSearch');
+    jest.spyOn(global, 'fetch').mockImplementation(async () => ({ ok: true, json: async () => ({ data: [
+      { id: 1, title: 'Djadja', artist: { name: 'Aya Nakamura' }, preview: 'p1' },
+      { id: 2, title: 'Djadja', artist: { name: 'Aya Nakamura' }, preview: 'p2' },
+      { id: 3, title: 'Djadja (Remix)', artist: { name: 'Aya Nakamura' }, preview: 'p3' },
+    ] }) }) as any);
+    const list = await searchTrackCandidates('Djadja');
+    expect(list.map((t: any) => t.title)).toEqual(['Djadja', 'Djadja (Remix)']);
+  });
+  it('ne traite jamais un lien', async () => {
+    const { searchTrackCandidates } = require('../artistCatalogueSearch');
+    const spy = jest.spyOn(global, 'fetch');
+    expect(await searchTrackCandidates('https://youtu.be/dQw4w9WgXcQ')).toEqual([]);
     expect(spy).not.toHaveBeenCalled();
   });
 });
