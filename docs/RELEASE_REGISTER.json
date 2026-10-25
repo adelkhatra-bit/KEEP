@@ -1,5 +1,14 @@
 [
   {
+    "commit": "138e82597c922a21c01a4e969fb93bb1441434ea",
+    "web": "138e82597c922a21c01a4e969fb93bb1441434ea",
+    "testflight": "iOS #244 failure (release 2edbdd0)",
+    "ota": "OTA #1035 failure (release 2edbdd0)",
+    "date": "2026-10-25 14:01",
+    "tests": "pass",
+    "changes": "fix(ci): épingler ubuntu-24.04 — Playwright ne s'installe plus sur ubuntu-latest (26.04) (#225)"
+  },
+  {
     "commit": "f95d036b290cf45860e23ad121f1ed077898c95f",
     "web": "f95d036b290cf45860e23ad121f1ed077898c95f",
     "testflight": "iOS #243 success (release 82aae49)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 22:00",
     "tests": "pass",
     "changes": "fix(music): let a second shared link supersede slow first search and honor confirmed visibility"
-  },
-  {
-    "commit": "204bc622bfe079be9981fb8926b46bf60515f472",
-    "web": "204bc622bfe079be9981fb8926b46bf60515f472",
-    "testflight": "iOS #230 success (release 1f44ee1)",
-    "ota": "OTA #1021 success (release 1f44ee1)",
-    "date": "2026-10-12 21:45",
-    "tests": "pass",
-    "changes": "fix(ci): safely guard absent saved entry in unified Keep confirmation"
   }
 ]
