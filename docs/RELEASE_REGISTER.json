@@ -1,5 +1,14 @@
 [
   {
+    "commit": "c9aed0c9fd7f39bbbe58a87e08de2a5435f2c93f",
+    "web": "c9aed0c9fd7f39bbbe58a87e08de2a5435f2c93f",
+    "testflight": "iOS #244 failure (release 2edbdd0)",
+    "ota": "OTA #1035 failure (release 2edbdd0)",
+    "date": "2026-10-25 14:34",
+    "tests": "pass",
+    "changes": "fix(report): diagnostics [AUTO] enregistrés avec kind AUTO + une seule ligne par code et détail par session (50 doublons STORY_PREVIEW_NO_AD_FREE_AUDIO) (#227)"
+  },
+  {
     "commit": "73515d7c980ae428a1dce844f93200495c06d72e",
     "web": "73515d7c980ae428a1dce844f93200495c06d72e",
     "testflight": "iOS #244 failure (release 2edbdd0)",
@@ -349,14 +358,5 @@
     "date": "2026-10-12 22:15",
     "tests": "pass",
     "changes": "fix(stories): label unique viewers separately from tracks actually visited"
-  },
-  {
-    "commit": "7e6cce68130b981b6b855ba1e9ef278903ce28ec",
-    "web": "7e6cce68130b981b6b855ba1e9ef278903ce28ec",
-    "testflight": "iOS #230 success (release 1f44ee1)",
-    "ota": "OTA #1021 success (release 1f44ee1)",
-    "date": "2026-10-12 22:07",
-    "tests": "pass",
-    "changes": "test(music): align 12 regression suites with unified link preview, confirmed FREE KEEP and automatic public Story"
   }
 ]

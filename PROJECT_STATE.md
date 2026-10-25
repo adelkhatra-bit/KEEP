@@ -143,6 +143,7 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 <!-- AUTO:RELEASE-REGISTER:START -->
 | Commit | SHA web en ligne | Build TestFlight | Groupe OTA | Date (UTC) | Tests | Changements visibles |
 |---|---|---|---|---|---|---|
+| `c9aed0c` | `c9aed0c` | iOS #244 failure (release 2edbdd0) | OTA #1035 failure (release 2edbdd0) | 2026-10-25 14:34 | pass | fix(report): diagnostics [AUTO] enregistrés avec kind AUTO + une seule ligne par code et détail par session (50 doublons STORY_PREVIEW_NO_AD_FREE_AUDIO) (#227) |
 | `73515d7` | `73515d7` | iOS #244 failure (release 2edbdd0) | OTA #1035 failure (release 2edbdd0) | 2026-10-25 14:28 | pass | perf(storage): images allégées (qualité 0.6 profil / 0.65 événement) + cache 1 an (URL déjà versionnée ?v=) pour rester dans le forfait Supabase gratuit (#226) |
 | `138e825` | `138e825` | iOS #244 failure (release 2edbdd0) | OTA #1035 failure (release 2edbdd0) | 2026-10-25 14:01 | pass | fix(ci): épingler ubuntu-24.04 — Playwright ne s'installe plus sur ubuntu-latest (26.04) (#225) |
 | `f95d036` | `f95d036` | iOS #243 success (release 82aae49) | OTA #1034 success (release 82aae49) | 2026-10-15 23:21 | pass | fix(story): native YouTube 153 fallback and compact attribution |
@@ -182,7 +183,6 @@ Une correction n'est « terminée » que lorsqu'elle figure ici : SHA réellemen
 | `9c59676` | `9c59676` | iOS #231 in_progress (release 5447724) | OTA #1022 in_progress (release 5447724) | 2026-10-12 22:28 | pass | fix(guard): compare newline escapes correctly in exact story SQL syntax exception |
 | `c0c5a77` | `c0c5a77` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 22:22 | pass | test(story): verify real last viewed title after backward navigation |
 | `364b927` | `364b927` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 22:15 | pass | fix(stories): label unique viewers separately from tracks actually visited |
-| `7e6cce6` | `7e6cce6` | iOS #230 success (release 1f44ee1) | OTA #1021 success (release 1f44ee1) | 2026-10-12 22:07 | pass | test(music): align 12 regression suites with unified link preview, confirmed FREE KEEP and automatic public Story |
 <!-- AUTO:RELEASE-REGISTER:END -->
 
 
