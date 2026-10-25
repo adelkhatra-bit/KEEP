@@ -15,6 +15,7 @@ import { useUserStore } from '../store/useUserStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import { colors } from '../theme/colors';
 import { radius, spacing } from '../theme/spacing';
+import { isValidNewPassword, PASSWORD_TOO_SHORT_MESSAGE } from '../config/passwordPolicy';
 
 // Source-of-truth auth Loki (Adel, 24/08/2026) : pseudo + mot de passe +
 // e-mail vérifié sont tous les trois obligatoires à la création, pour que
@@ -215,7 +216,8 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     if (mode === 'create' && !isValidUsername(normalizedUsername)) return setError(errorText('invalid_username'));
     if (mode === 'create' && !isValidEmail(email)) return setError(errorText('invalid_email'));
     if (mode === 'login' && !loginByEmail && !isValidUsername(normalizedUsername)) return setError(errorText('invalid_username'));
-    if (password.length < 6) return setError(errorText('invalid_password'));
+    if (mode === 'create' && !isValidNewPassword(password)) return setError(PASSWORD_TOO_SHORT_MESSAGE);
+    if (!password) return setError(errorText('invalid_password'));
     if (mode === 'create' && password !== password2) return setError('Les deux mots de passe ne correspondent pas.');
 
     setBusy(true);

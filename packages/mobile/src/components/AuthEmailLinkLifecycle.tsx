@@ -6,6 +6,7 @@ import { createAuthService } from '../services/authService';
 import { ensureAuthAutofillStyleInjected } from '../utils/webAutofillFix';
 import { colors } from '../theme/colors';
 import KeepModal from './KeepModal';
+import { isValidNewPassword, PASSWORD_TOO_SHORT_MESSAGE } from '../config/passwordPolicy';
 
 /**
  * Consomme les liens e-mail Supabase sans introduire une nouvelle navigation.
@@ -57,7 +58,7 @@ export default function AuthEmailLinkLifecycle() {
 
   const savePassword = async () => {
     if (!supabase) return;
-    if (password.length < 10) return setError('Utilise au moins 10 caractères.');
+    if (!isValidNewPassword(password)) return setError(PASSWORD_TOO_SHORT_MESSAGE);
     if (password !== confirmation) return setError('Les deux mots de passe ne correspondent pas.');
     setBusy(true);
     setError('');

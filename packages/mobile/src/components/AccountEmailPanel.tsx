@@ -11,6 +11,7 @@ import {
   requestAccountEmailVerification,
   AccountEmailStatus,
 } from '../services/accountEmailService';
+import { isValidNewPassword, PASSWORD_TOO_SHORT_MESSAGE } from '../config/passwordPolicy';
 
 export default function AccountEmailPanel({ enabled, username }: { enabled: boolean; username: string }) {
   const [status, setStatus] = React.useState<AccountEmailStatus | null>(null);
@@ -54,7 +55,7 @@ export default function AccountEmailPanel({ enabled, username }: { enabled: bool
 
   const changePassword = async () => {
     if (!supabase) return void Alert.alert('Mot de passe', 'Connexion Loki Music indisponible.');
-    if (password.length < 10) return void Alert.alert('Mot de passe', 'Choisis au moins 10 caractères.');
+    if (!isValidNewPassword(password)) return void Alert.alert('Mot de passe', PASSWORD_TOO_SHORT_MESSAGE);
     if (password !== passwordConfirm) return void Alert.alert('Mot de passe', 'Les deux mots de passe ne correspondent pas.');
     setPasswordBusy(true);
     try {
@@ -64,7 +65,7 @@ export default function AccountEmailPanel({ enabled, username }: { enabled: bool
       setPasswordConfirm('');
       Alert.alert('Mot de passe modifié', 'Ton nouveau mot de passe est actif immédiatement.');
     } catch (e: any) {
-      Alert.alert('Mot de passe', e?.message === 'invalid_password' ? 'Choisis au moins 10 caractères.' : (e?.message || 'Impossible de modifier le mot de passe.'));
+      Alert.alert('Mot de passe', e?.message === 'invalid_password' ? PASSWORD_TOO_SHORT_MESSAGE : (e?.message || 'Impossible de modifier le mot de passe.'));
     } finally {
       setPasswordBusy(false);
     }
