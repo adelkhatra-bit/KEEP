@@ -4,7 +4,7 @@ import { composeTickerBatch } from '../services/tickerMessageLibrary';
 import { robotSay } from '../services/robotCoachService';
 import { nextTickerBatch } from '../services/tickerMemory';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Image, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Animated, Easing, Image, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import TrackCover from '../components/TrackCover';
 import TemporaryMusicPreview, { type TemporaryMusicResult } from '../components/TemporaryMusicPreview';
 import type { CanonicalTrack } from '@keep/music';
@@ -20,7 +20,7 @@ import { useUserStore } from '../store/useUserStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import { musicEngine } from '../services/musicEngine';
 import { searchTrackByText } from '../services/keepMusicCoreRecognition';
-import { isArtistOnlyQuery, searchArtistTracks, type ArtistTrackResult } from '../services/artistCatalogueSearch';
+import { isArtistOnlyQuery, searchArtistTracks, searchTrackCandidates, type ArtistTrackResult } from '../services/artistCatalogueSearch';
 import { getSharedMusicSource, supportedSharedMusicUrl } from '../services/sharedMusicSourceService';
 import SwipeDeck from '../components/SwipeDeck';
 import TrackListenControls from '../components/TrackListenControls';
@@ -446,7 +446,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [manualSearchBusy, setManualSearchBusy] = useState(false);
   const [manualSearchNotFound, setManualSearchNotFound] = useState(false);
   // Recherche par artiste : liste de toutes ses musiques (préécoute gratuite par titre).
-  const [artistSearch, setArtistSearch] = useState<{ name: string; tracks: ArtistTrackResult[] } | null>(null);
+  const [artistSearch, setArtistSearch] = useState<{ name: string; tracks: ArtistTrackResult[]; kind?: 'artist' | 'search' } | null>(null);
   // Éphémère : aucune recherche par lien n'est ajoutée aux sessions ou playlists.
   const [manualSearchResult, setManualSearchResult] = useState<(TemporaryMusicResult & { track: CanonicalTrack }) | null>(null);
   const [manualResultSaved, setManualResultSaved] = useState(false);
@@ -699,26 +699,46 @@ export default function HomeScreenCompact({ navigation }: any) {
     setManualSearchBusy(true);
     setManualSearchNotFound(false);
     setArtistSearch(null);
-    if (isArtistOnlyQuery(input)) {
-      try {
-        const artist = await searchArtistTracks(input);
+    // Adel (25/10/2026) : « il ne trouve jamais de musique quand je tape ». Un titre tapé sans tiret
+    // (« Djadja », « alors on danse ») était pris pour un NOM D'ARTISTE et affichait les morceaux d'un
+    // autre artiste au nom proche. Règle : la liste d'un artiste n'est montrée d'office que si le nom
+    // correspond exactement ; sinon la recherche titre (serveur Apple + Deezer) passe en premier et
+    // l'artiste approchant ne sert qu'en dernier recours. Les deux recherches partent en parallèle.
+    const artistLookup = isArtistOnlyQuery(input)
+      ? searchArtistTracks(input).catch(() => null)
+      : Promise.resolve(null);
+    const showArtist = (artist: Awaited<typeof artistLookup>): boolean => {
+      if (!artist?.tracks.length) return false;
+      setArtistSearch({ name: artist.artistName, tracks: artist.tracks, kind: 'artist' });
+      setManualSearchBusy(false);
+      setManualSearchOpen(true);
+      return true;
+    };
+    // Barre de recherche musicale : une saisie libre (titre, artiste, les deux) renvoie une LISTE de
+    // résultats à préécouter, comme Deezer / Apple Music. Un lien garde son chemin exact (vérifié serveur).
+    const isLink = Boolean(supportedSharedMusicUrl(input)) || /https?:\/\//i.test(input);
+    const candidatesLookup = isLink ? Promise.resolve([] as ArtistTrackResult[]) : searchTrackCandidates(input).catch(() => [] as ArtistTrackResult[]);
+    try {
+      const textLookup = searchTrackByText(input);
+      const artist = await artistLookup;
+      if (generation !== searchGeneration.current) return;
+      if (artist?.exactArtist && showArtist(artist)) return;
+      if (!isLink) {
+        const candidates = await candidatesLookup;
         if (generation !== searchGeneration.current) return;
-        if (artist.tracks.length) {
-          setArtistSearch({ name: artist.artistName, tracks: artist.tracks });
+        if (candidates.length) {
+          setArtistSearch({ name: input, tracks: candidates, kind: 'search' });
           setManualSearchBusy(false);
           setManualSearchOpen(true);
           return;
         }
-      } catch {
-        // Catalogue artiste indisponible : on retombe sur la recherche texte classique.
       }
-      if (generation !== searchGeneration.current) return;
-    }
-    try {
-      const found = await searchTrackByText(input);
+      const found = await textLookup;
       if (generation !== searchGeneration.current) return;
       // Searching is NOT the user's GARDER action. No session, quota or DB write.
-      if (!openTemporaryMusicPreview(found, input)) setManualSearchNotFound(true);
+      if (openTemporaryMusicPreview(found, input)) return;
+      if (showArtist(artist)) return;
+      setManualSearchNotFound(true);
     } catch {
       if (generation === searchGeneration.current) {
         // If catalogue lookup fails, the original provider video can still
@@ -1084,7 +1104,11 @@ export default function HomeScreenCompact({ navigation }: any) {
         {manualResultOpen ? (
           <TemporaryMusicPreview visible={manualResultOpen} result={manualSearchResult} onClose={closeManualSearchPreview} onNext={nextManualSearch} onReplaceLink={(link) => { void runManualSearch(link); }} onKeep={requestManualKeep} keepChoiceOpen={manualKeepChoiceOpen} onChooseVisibility={(visibility) => { void confirmManualKeep(visibility); }} onCancelKeep={() => setManualKeepChoiceOpen(false)} keepCostFree={creditCostPerKeep} playlists={playlists.map((p) => ({ id: p.id, name: p.name }))} selectedPlaylistId={manualKeepPlaylistId} onSelectPlaylist={setManualKeepPlaylistId} keptVisibility={manualKeptVisibility} storyPublished={manualStoryPublished} onSeeSessions={viewSavedManualSessions} saved={manualResultSaved} saving={manualSaveBusy} />
         ) : (
-        <View style={s.manualSearchOverlay}><View style={s.modalCard}>
+        <KeyboardAvoidingView style={s.manualSearchOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        {/* Adel (25/10/2026) : fenêtre « Trouver ta musique » centrée, un peu au-dessus du milieu (plus collée en haut).
+            Le clavier la remonte au lieu de la cacher ; si le contenu dépasse, c'est la fenêtre qui défile, pas le fond. */}
+        <ScrollView style={{ width: '100%' }} contentContainerStyle={s.manualSearchScroll} keyboardShouldPersistTaps="handled" bounces={false}>
+        <View style={s.modalCard}>
           <Text style={s.modalTitle}>♫ Trouver ta musique</Text>
           <Text style={s.modalBody}>Colle un lien YouTube, Spotify ou Deezer, ou saisis Artiste – Titre. Préécoute gratuite, puis GARDER seulement si tu le décides.</Text>
           <TextInput
@@ -1110,7 +1134,7 @@ export default function HomeScreenCompact({ navigation }: any) {
           ) : null}
           {artistSearch ? (
             <View testID="home-artist-results" style={{ marginTop: 12 }}>
-              <Text style={{ color: C.text, fontSize: 13, fontWeight: '800', marginBottom: 6 }}>Toutes les musiques de {artistSearch.name} · {artistSearch.tracks.length}</Text>
+              <Text style={{ color: C.text, fontSize: 13, fontWeight: '800', marginBottom: 6 }}>{artistSearch.kind === 'search' ? `Résultats pour « ${artistSearch.name} » · ${artistSearch.tracks.length}` : `Toutes les musiques de ${artistSearch.name} · ${artistSearch.tracks.length}`}</Text>
               <ScrollView style={{ maxHeight: 260 }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
                 {artistSearch.tracks.map((track) => (
                   <TouchableOpacity key={track.deezerId} testID={`artist-track-${track.deezerId}`} accessibilityRole="button" accessibilityLabel={`Écouter ${track.title} de ${track.artist}`}
@@ -1134,7 +1158,9 @@ export default function HomeScreenCompact({ navigation }: any) {
               <Text style={s.manualSearchSubmitText}>{manualSearchBusy ? 'RECHERCHE…' : '▶ ÉCOUTER'}</Text>
             </TouchableOpacity>
           </View>
-        </View></View>
+        </View>
+        </ScrollView>
+        </KeyboardAvoidingView>
         )}
       </KeepModal>
   );
@@ -1917,7 +1943,9 @@ const s = StyleSheet.create({
   secondaryText: { color: C.text, fontSize: 12, fontWeight: '700' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,.72)', alignItems: 'center', justifyContent: 'center', padding: 24 },
   // Fenêtre de recherche : collée en haut pour rester au-dessus du clavier (boutons ANNULER / ÉCOUTER toujours visibles).
-  manualSearchOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,.72)', alignItems: 'center', justifyContent: 'flex-start', paddingTop: 36, paddingHorizontal: 24 },
+  manualSearchOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,.72)' },
+  // Centré verticalement, légèrement au-dessus du milieu (paddingBottom > paddingTop).
+  manualSearchScroll: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 24, paddingBottom: 96, paddingHorizontal: 24 },
   modalCard: { width: '100%', maxWidth: 400, borderRadius: 20, backgroundColor: '#171020', borderWidth: 1.5, borderColor: '#A78BFA', padding: 18 },
   keepChoiceCard: { width: '100%', maxWidth: 380, borderRadius: 18, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, padding: 18 },
   modalTitle: { color: C.text, fontSize: 19, fontWeight: '900' },
