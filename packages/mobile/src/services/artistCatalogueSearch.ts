@@ -54,16 +54,19 @@ export function deezerRowToArtistTrack(row: any): ArtistTrackResult | null {
  * exactement à la saisie (sinon le premier résultat), puis ses titres les plus
  * écoutés. Renvoie [] si aucun artiste ne correspond.
  */
-export async function searchArtistTracks(query: string): Promise<{ artistName: string; tracks: ArtistTrackResult[] }> {
+export async function searchArtistTracks(query: string): Promise<{ artistName: string; tracks: ArtistTrackResult[]; exactArtist: boolean }> {
   const wanted = normalizeName(query);
-  if (!isArtistOnlyQuery(query) || !wanted) return { artistName: '', tracks: [] };
+  if (!isArtistOnlyQuery(query) || !wanted) return { artistName: '', tracks: [], exactArtist: false };
   const search = await getJson(`${DEEZER}/search/artist?q=${encodeURIComponent(query.trim().slice(0, 120))}&limit=5`);
   const artists: any[] = Array.isArray(search?.data) ? search.data : [];
-  const artist = artists.find((a) => normalizeName(String(a?.name ?? '')) === wanted) ?? artists[0];
-  if (!artist?.id) return { artistName: '', tracks: [] };
+  const exact = artists.find((a) => normalizeName(String(a?.name ?? '')) === wanted);
+  const artist = exact ?? artists[0];
+  if (!artist?.id) return { artistName: '', tracks: [], exactArtist: false };
   const top = await getJson(`${DEEZER}/artist/${encodeURIComponent(String(artist.id))}/top?limit=${MAX_TRACKS}`);
   const tracks = (Array.isArray(top?.data) ? top.data : [])
     .map(deezerRowToArtistTrack)
     .filter((t: ArtistTrackResult | null): t is ArtistTrackResult => Boolean(t));
-  return { artistName: String(artist.name ?? query), tracks };
+  // exactArtist=false : nom seulement approchant (« Djadja » -> « Djadja & Dinaz »). L'écran ne doit
+  // alors l'utiliser qu'en dernier recours, si la recherche titre n'a rien trouvé (Adel, 25/10/2026).
+  return { artistName: String(artist.name ?? query), tracks, exactArtist: Boolean(exact) };
 }
