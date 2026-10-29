@@ -1803,11 +1803,17 @@ export default function ProfilePublicScreen({ navigation }: any) {
     returnToMenuAfterScreen.current = false;
     reopenMenu();
   }, [screenFocused]);
+  const chatSettingsOpen = useGlobalChatStore((state) => state.settingsOpen);
+  const menuModalWasOpen = useRef(false);
   useEffect(() => {
-    if (qrOpen || earOpen || pulseTasteOpen || !returnToMenuAfterModal.current) return;
+    // Une fenêtre ouverte depuis le menu doit d'abord s'être réellement ouverte : sur iPhone elle
+    // s'ouvre 450 ms après la fermeture du menu, et ce délai ne doit pas rouvrir le menu tout de suite.
+    if (qrOpen || earOpen || pulseTasteOpen || chatSettingsOpen) { menuModalWasOpen.current = true; return; }
+    if (!returnToMenuAfterModal.current || !menuModalWasOpen.current) return;
     returnToMenuAfterModal.current = false;
+    menuModalWasOpen.current = false;
     reopenMenu();
-  }, [qrOpen, earOpen, pulseTasteOpen]);
+  }, [qrOpen, earOpen, pulseTasteOpen, chatSettingsOpen]);
   useEffect(() => {
     if (!menuOpen || expandedMenuItem) return;
     menuOpenedAt.current = Date.now();
@@ -1816,6 +1822,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
     return () => clearTimeout(id);
   }, [menuOpen, expandedMenuItem]);
   const openFromMenu = (screen: string, params?: Record<string, unknown>) => { returnToMenuAfterScreen.current = true; setMenuOpen(false); setExpandedMenuItem(null); navigation.navigate(screen, params); };
+  // iPhone (ERR-HAMBURGER-IOS-MODAL-20261020) : Carte, Goûts, Défi et Messagerie ne s'ouvrent qu'après la
+  // fermeture du menu, sinon la fenêtre reste invisible et bloque les touches ; chacune ramène au menu (IDEA-119).
   const directMenuAction = (key: string) => {
     menuFreezeUntil.current = Date.now() + 2000;
     // Règle UX Loki : 1er appui = vraie fonction. Un écran intermédiaire
@@ -1827,15 +1835,13 @@ export default function ProfilePublicScreen({ navigation }: any) {
       returnToMenuAfterModal.current = true;
       setMenuOpen(false);
       setExpandedMenuItem(null);
-      setQrOpen(true);
+      if (Platform.OS === 'ios') setTimeout(() => setQrOpen(true), 450); else setQrOpen(true);
       return;
     }
     if (key === 'musicTaste') {
       returnToMenuAfterModal.current = true;
       setMenuOpen(false);
       setExpandedMenuItem(null);
-      // iPhone : ouvrir une fenêtre pendant que le menu se ferme la laisse
-      // invisible et bloque les touches. On attend la fin de la fermeture.
       if (Platform.OS === 'ios') setTimeout(() => setPulseTasteOpen(true), 450);
       else setPulseTasteOpen(true);
       return;
@@ -1849,9 +1855,10 @@ export default function ProfilePublicScreen({ navigation }: any) {
       return;
     }
     if (key === 'chatSettings') {
+      returnToMenuAfterModal.current = true;
       setMenuOpen(false);
       setExpandedMenuItem(null);
-      useGlobalChatStore.getState().openSettings();
+      if (Platform.OS === 'ios') setTimeout(() => useGlobalChatStore.getState().openSettings(), 450); else useGlobalChatStore.getState().openSettings();
       return;
     }
     if (key === 'music') { openFromMenu('MusicConnections'); return; }

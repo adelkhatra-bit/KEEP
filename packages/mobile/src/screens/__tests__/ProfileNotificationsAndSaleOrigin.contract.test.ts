@@ -50,7 +50,8 @@ describe('Profile notifications drawer + sale origin guard', () => {
 
   it('opens primary hamburger destinations in one tap', () => {
     const start = profile.indexOf('const directMenuAction');
-    const block = profile.slice(start, start + 1800);
+    // Fenêtre élargie (20/10/2026) : le passage de relais iOS des fenêtres du menu ajoute quelques lignes.
+    const block = profile.slice(start, start + 2400);
     expect(block).toContain("if (key === 'profile') { openFromMenu('ProfileSettings'); return; }");
     expect(block).toContain("if (key === 'music') { openFromMenu('MusicConnections'); return; }");
     expect(block).toContain("if (key === 'offers') { openFromMenu('Offers'); return; }");
